@@ -1,0 +1,65 @@
+Package: blindspot
+Title: Bayesian Spatiotemporal Surveillance Quality Monitoring
+Version: 0.0.0.9000
+Authors@R:
+    c(person(
+        given = "Mohamed",
+        family = "Yusuf",
+        role = c("aut", "cre"),
+        email = "truenomad@who.int",
+        comment = c(ORCID = "XXXX-XXXX-XXXX-XXXX")
+    ))
+Description: Estimates district-level expected case detection
+    rates using Bayesian spatiotemporal models (BYM2 via INLA),
+    adjusts for reporting delays, monitors temporal trends via
+    first-order random walk smoothing, detects acute surveillance
+    disruptions via Bayesian online changepoint detection, and
+    classifies surveillance quality into operational response
+    categories. The core output is a surveillance performance
+    index (SPI) defined as the ratio of delay-adjusted observed
+    counts to model-estimated expected counts, with full
+    posterior uncertainty quantification. The SPI adapts the
+    standardised morbidity ratio (SMR) framework from disease
+    mapping to surveillance process monitoring. Designed for
+    acute flaccid paralysis (AFP) surveillance in the polio
+    endgame but applicable to any case-based disease surveillance
+    system with spatially distributed reporting units and count
+    data, including measles discard surveillance, neonatal
+    tetanus reporting, and DHIS2 completeness monitoring.
+License: MIT + file LICENSE
+URL: https://github.com/truenomad/blindspot,
+    https://truenomad.r-universe.dev/blindspot
+BugReports: https://github.com/truenomad/blindspot/issues
+Depends:
+    R (>= 4.1.0)
+Imports:
+    INLA (>= 24.01.01),
+    sf (>= 1.0),
+    spdep (>= 1.2),
+    dplyr (>= 1.1.0),
+    tidyr (>= 1.3.0),
+    purrr (>= 1.0.0),
+    tibble (>= 3.2.0),
+    cli (>= 3.6.0),
+    rlang (>= 1.1.0),
+    glue (>= 1.6.0),
+    stats,
+    Matrix
+Suggests:
+    ggplot2 (>= 3.4.0),
+    quarto,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    exactextractr,
+    terra,
+    scales,
+    poliprep
+Additional_repositories:
+    https://inla.r-inla-download.org/R/stable/
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+VignetteBuilder: knitr
+Config/testthat/edition: 3
