@@ -43,7 +43,10 @@ Imports:
     cli (>= 3.6.0),
     rlang (>= 1.1.0),
     glue (>= 1.6.0),
+    lubridate (>= 1.9.0),
+    matrixStats (>= 1.0.0),
     stats,
+    utils,
     Matrix
 Suggests:
     ggplot2 (>= 3.4.0),
@@ -60,6 +63,6 @@ Additional_repositories:
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0
