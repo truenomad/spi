@@ -24,6 +24,13 @@
 #'   `adjacency` via [bs_adjacency()]. The function renames this column to
 #'   `district_id` internally and renames it back on output. Default:
 #'   "district_id".
+#' @param pop_col Character. Name of the denominator column in `population`.
+#'   For AFP surveillance the at-risk population is under-15, so the default
+#'   is `"pop_u15"`. Pass `"pop"` if your tibble carries total population,
+#'   `"pop_u16"` for under-16, or any other column name to switch
+#'   denominators without pre-renaming. The function renames this column to
+#'   `pop` internally and aborts with a helpful hint if it isn't present.
+#'   Default: "pop_u15".
 #' @param season Character. Seasonal specification: "harmonic" (1st + 2nd order
 #'   sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),
 #'   "monthly" (12 monthly fixed effects, January omitted), "none" (no seasonal
@@ -211,6 +218,7 @@ bs_expected <- function(
   n_draws = 1000L,
   log_transform = NULL,
   id_col = "district_id",
+  pop_col = "pop_u15",
   keep_draws = TRUE,
   verbose = TRUE,
   debug = FALSE,
@@ -284,6 +292,28 @@ bs_expected <- function(
     if (!is.null(covariates) && id_col %in% names(covariates)) {
       covariates <- dplyr::rename(covariates, district_id = !!id_col)
     }
+  }
+
+  # --- normalise pop column to internal name ------------
+  # the pipeline always works on a column called `pop`; the user picks
+  # which denominator (total, under-15, etc.) via pop_col. Validate
+  # that the chosen column actually exists before we do anything else.
+  stopifnot(is.character(pop_col), length(pop_col) == 1)
+  if (!pop_col %in% names(population)) {
+    avail <- setdiff(names(population), c("district_id", "month", "year"))
+    cli::cli_abort(c(
+      "{.arg pop_col} {.val {pop_col}} not found in {.arg population}.",
+      "i" = "Available numeric columns: {.val {avail}}.",
+      "i" = "Pass {.code pop_col = <name>} to pick the denominator."
+    ))
+  }
+  if (pop_col != "pop") {
+    # if a real `pop` column already exists, drop it so the rename
+    # doesn't collide
+    if ("pop" %in% names(population)) {
+      population <- dplyr::select(population, -"pop")
+    }
+    population <- dplyr::rename(population, pop = !!pop_col)
   }
 
   # --- validate inputs ----------------------------------
@@ -365,6 +395,9 @@ bs_expected <- function(
   }
 
   # --- build indices and offset -------------------------
+  offset_transform <- if (pop_monthly) "log(pop)" else "log(pop / 12)"
+  pop_granularity <- if (pop_monthly) "monthly" else "annual"
+
   model_data <- model_data |>
     dplyr::mutate(
       idx_space = match(district_id, district_ids),
@@ -708,8 +741,14 @@ bs_expected <- function(
       cov_params = cov_params,
       season = season,
       overdispersion = overdispersion,
+      offset = list(
+        pop_col = pop_col,
+        granularity = pop_granularity,
+        transform = offset_transform
+      ),
       data = model_data,
       id_col = id_col,
+      pop_col = pop_col,
       call = match.call()
     ),
     class = "blindspot_expected"
@@ -746,6 +785,24 @@ bs_expected <- function(
     return("NA")
   }
   format(round(x), big.mark = ",")
+}
+
+# Kolmogorov-Smirnov distance between PIT values and Uniform(0, 1).
+# Returns NA when there are too few valid PIT values for a meaningful
+# test (heuristic: < 100). NULL-safe via the caller.
+# @noRd
+.pit_ks <- function(cpo) {
+  if (is.null(cpo) || is.null(cpo$pit) || is.null(cpo$failure)) {
+    return(NA_real_)
+  }
+  pit_values <- cpo$pit[cpo$failure == 0]
+  pit_values <- pit_values[!is.na(pit_values)]
+  if (length(pit_values) < 100) {
+    return(NA_real_)
+  }
+  suppressWarnings(
+    stats::ks.test(pit_values, "punif")$statistic
+  )
 }
 
 # map verbose INLA hyperparameter names to short labels
@@ -880,82 +937,317 @@ bs_expected <- function(
 #' @export
 print.blindspot_expected <- function(x, ...) {
   id_col <- if (is.null(x$id_col)) "district_id" else x$id_col
-  n_dist <- dplyr::n_distinct(x$data[[id_col]])
-  n_mon <- dplyr::n_distinct(x$data$month)
-  n_obs <- nrow(x$data)
-
   fmt_int <- function(v) format(v, big.mark = ",")
 
-  n_dist_s <- fmt_int(n_dist)
-  n_mon_s <- fmt_int(n_mon)
-  n_obs_s <- fmt_int(n_obs)
+  cli::cli_h2("Blindspot expected model")
+
+  # --- fit metadata -------------------------------------
+  n_obs <- nrow(x$data)
+  n_dist <- dplyr::n_distinct(x$data[[id_col]])
+  n_mon <- dplyr::n_distinct(x$data$month)
+
+  cli::cli_alert_info(
+    "Fit: {fmt_int(n_dist)} districts x {fmt_int(n_mon)} months \\
+     | {fmt_int(n_obs)} observations."
+  )
+
+  season_str <- switch(
+    if (is.null(x$season)) "harmonic" else x$season,
+    none = "no seasonality",
+    harmonic = "harmonic seasonality",
+    rw2 = "rw2 seasonality",
+    monthly = "monthly seasonality"
+  )
+  od_str <- switch(
+    if (is.null(x$overdispersion)) "iid" else x$overdispersion,
+    none = "Poisson",
+    iid = "Poisson-lognormal",
+    nb = "negative binomial"
+  )
+  cli::cli_alert_info(
+    "Specification: BYM2 + {season_str} + {od_str}."
+  )
+
+  if (!is.null(x$offset)) {
+    cli::cli_alert_info(
+      "Offset: {.code {x$offset$transform}} from \\
+       {.field {x$offset$pop_col}} ({x$offset$granularity})."
+    )
+  }
+
+  if (!is.null(x$draws)) {
+    cli::cli_alert_info(
+      "Posterior draws: {fmt_int(nrow(x$draws))}."
+    )
+  }
+
+  # --- calibration --------------------------------------
+  cli::cli_h3("Calibration")
+
+  total_obs <- sum(x$data$count, na.rm = TRUE)
+  # draws are [n_draws x n_obs]; rowSums = total expected per draw
+  total_exp <- if (!is.null(x$draws)) {
+    stats::median(rowSums(x$draws))
+  } else {
+    sum(x$summary$expected_median, na.rm = TRUE)
+  }
+  ratio <- total_obs / total_exp
+  ratio_pass <- if (is.finite(ratio) && abs(ratio - 1) < 0.1) {
+    "pass"
+  } else {
+    "flag"
+  }
+
+  cli::cli_alert_info(
+    "Observed: {fmt_int(total_obs)} | \\
+     Expected (median): {fmt_int(round(total_exp))} | \\
+     Ratio: {round(ratio, 2)} ({ratio_pass})."
+  )
+
   dic_s <- .fmt_ic(x$model$dic$dic)
   waic_s <- .fmt_ic(x$model$waic$waic)
-  season_s <- if (is.null(x$season)) "?" else x$season
-  od_s <- if (is.null(x$overdispersion)) "?" else x$overdispersion
-
-  cli::cli_h2("Blindspot expected model")
+  p_eff <- x$model$dic$p.eff
+  p_eff_str <- if (is.null(p_eff) || !is.finite(p_eff)) {
+    "NA"
+  } else {
+    sprintf(
+      "%s (%.1f%%)",
+      fmt_int(round(p_eff)),
+      p_eff / n_obs * 100
+    )
+  }
   cli::cli_alert_info(
-    "{n_dist_s} districts x {n_mon_s} months = \\
-     {n_obs_s} district-months."
+    "DIC: {dic_s} | WAIC: {waic_s} | p_eff: {p_eff_str}."
   )
-  cli::cli_alert_info(
-    "Season: {season_s} | overdispersion: {od_s}."
-  )
-  cli::cli_alert_info("DIC: {dic_s} | WAIC: {waic_s}.")
 
-  cli::cli_h3("Hyperparameters")
-  print(
-    x$hyperparameters |>
-      dplyr::mutate(
-        dplyr::across(
-          dplyr::where(is.numeric),
-          \(v) round(v, 3)
+  if (!is.null(x$cpo)) {
+    cpo_pct <- round(mean(x$cpo$failure == 0, na.rm = TRUE) * 100, 1)
+    pit_ks <- .pit_ks(x$cpo)
+    pit_str <- if (is.na(pit_ks)) "NA" else sprintf("%.3f", pit_ks)
+    cli::cli_alert_info(
+      "CPO valid: {cpo_pct}% | PIT KS: {pit_str}."
+    )
+  }
+
+  # --- covariate effects --------------------------------
+  fixed <- x$model$summary.fixed
+  if (!is.null(fixed) && nrow(fixed) > 0) {
+    eff <- tibble::as_tibble(fixed, rownames = "covariate") |>
+      dplyr::filter(.data$covariate != "(Intercept)")
+
+    if (nrow(eff) > 0) {
+      cli::cli_h3("Covariate effects (rate ratios)")
+      effects_tbl <- eff |>
+        dplyr::transmute(
+          covariate = .data$covariate,
+          rr_median = round(exp(.data$`0.5quant`), 2),
+          rr_95cri = paste0(
+            round(exp(.data$`0.025quant`), 2),
+            "-",
+            round(exp(.data$`0.975quant`), 2)
+          ),
+          pct_change = round((exp(.data$`0.5quant`) - 1) * 100, 0),
+          signif = dplyr::if_else(
+            .data$`0.025quant` * .data$`0.975quant` > 0,
+            "*",
+            " "
+          )
         )
-      ),
-    n = 10
+      print(effects_tbl)
+    }
+  }
+
+  # --- variance components ------------------------------
+  cli::cli_h3("Variance components (SD on log scale)")
+
+  hyper <- x$hyperparameters
+  hyper_q500 <- function(name) {
+    row <- hyper[hyper$parameter == name, ]
+    if (nrow(row) == 0) NA_real_ else row$q500
+  }
+
+  tau_spatial <- hyper_q500("tau_spatial")
+  phi_spatial <- hyper_q500("phi_spatial")
+  tau_obs <- hyper_q500("tau_obs")
+  nb_size <- hyper_q500("nb_size")
+  tau_season <- hyper_q500("tau_season")
+
+  if (!is.na(tau_spatial)) {
+    cli::cli_alert_info(
+      "Spatial (BYM2):    {round(1 / sqrt(tau_spatial), 2)}"
+    )
+  }
+  if (!is.na(phi_spatial)) {
+    cli::cli_alert_info(
+      "Phi (proportion):  {round(phi_spatial, 2)}"
+    )
+  }
+  if (!is.na(tau_season)) {
+    cli::cli_alert_info(
+      "Seasonal (rw2):    {round(1 / sqrt(tau_season), 2)}"
+    )
+  }
+  if (!is.na(tau_obs)) {
+    cli::cli_alert_info(
+      "Overdispersion:    {round(1 / sqrt(tau_obs), 2)} (iid SD)"
+    )
+  }
+  if (!is.na(nb_size)) {
+    cli::cli_alert_info(
+      "Overdispersion:    NB size = {round(nb_size, 2)}"
+    )
+  }
+
+  cli::cli_alert_info(
+    "Use {.fn summary} for full posterior intervals and diagnostic detail."
   )
-
-  cli::cli_h3("Expected count summary")
-  med_expected <- round(stats::median(x$summary$expected_median), 2)
-  min_expected <- round(min(x$summary$expected_median), 3)
-  max_expected <- round(max(x$summary$expected_median), 1)
-  max_s <- fmt_int(max_expected)
-
-  cli::cli_alert_info("Median expected: {med_expected}.")
-  cli::cli_alert_info("Range: [{min_expected}, {max_s}].")
 
   invisible(x)
 }
 
-#' Compact summary of a fitted blindspot expected model
+#' Detailed summary of a fitted blindspot expected model
+#'
+#' @description
+#' Returns an analysis-ready summary with two structured tibbles: covariate
+#' effects on log and rate-ratio scale, and a calibration / fit diagnostics
+#' table with pass/flag indicators. Mirrors the `lm()` / `glm()` pattern
+#' where `print()` is a console-friendly headline and `summary()` is the
+#' pipe-friendly object for downstream reporting.
 #'
 #' @param object Object of class `blindspot_expected`.
 #' @param ... Ignored.
 #'
-#' @return A list of class `summary.blindspot_expected` with sample size,
-#'   model spec, information criteria, hyperparameter posterior summaries,
-#'   and expected-count range.
+#' @return A list of class `summary.blindspot_expected` containing:
+#' \describe{
+#'   \item{effects}{Tibble with one row per covariate: `log_median`,
+#'     `log_q025`, `log_q975`, `rr_median`, `rr_q025`, `rr_q975`,
+#'     `pct_change`, and a logical `signif` flag (TRUE when the 95\%
+#'     credible interval excludes the null on the rate-ratio scale).
+#'     NULL when the model has no covariates.}
+#'   \item{diagnostics}{Tibble of fit and calibration metrics
+#'     (`calibration_ratio`, `dic`, `waic`, `p_eff`, `p_eff_pct`,
+#'     `cpo_valid_pct`, `pit_ks`, `sd_spatial`) with a logical `pass`
+#'     column. `pass` is `NA` for metrics that have no pass/fail rule.}
+#'   \item{call}{Matched call from the original fit.}
+#' }
+#'
+#' @details
+#' Pass rules used in the `diagnostics` table:
+#' \itemize{
+#'   \item `calibration_ratio`: pass if total observed / total expected is
+#'     within 10\% of 1.
+#'   \item `p_eff` / `p_eff_pct`: pass if effective parameters are < 20\% of
+#'     the observation count (over-parameterisation flag).
+#'   \item `cpo_valid_pct`: pass if > 50\% of observations have valid CPO.
+#'   \item `pit_ks`: pass if Kolmogorov-Smirnov distance from uniform is
+#'     < 0.30.
+#' }
+#'
+#' CPO and PIT are structurally unreliable when `overdispersion = "iid"`
+#' (one iid effect per observation); in that case `cpo_valid_pct` and
+#' `pit_ks` will typically be `NA` or fail, and refitting with `"nb"` or
+#' `"none"` is the way to get meaningful calibration diagnostics.
 #'
 #' @export
 summary.blindspot_expected <- function(object, ...) {
-  id_col <- if (is.null(object$id_col)) "district_id" else object$id_col
+  # --- covariate effects --------------------------------
+  fixed <- object$model$summary.fixed
+  effects <- NULL
+  if (!is.null(fixed) && nrow(fixed) > 0) {
+    eff <- tibble::as_tibble(fixed, rownames = "covariate") |>
+      dplyr::filter(.data$covariate != "(Intercept)")
+    if (nrow(eff) > 0) {
+      effects <- eff |>
+        dplyr::transmute(
+          covariate = .data$covariate,
+          log_median = .data$`0.5quant`,
+          log_q025 = .data$`0.025quant`,
+          log_q975 = .data$`0.975quant`,
+          rr_median = exp(.data$`0.5quant`),
+          rr_q025 = exp(.data$`0.025quant`),
+          rr_q975 = exp(.data$`0.975quant`),
+          pct_change = round((exp(.data$`0.5quant`) - 1) * 100, 1),
+          signif = .data$`0.025quant` * .data$`0.975quant` > 0
+        )
+    }
+  }
+
+  # --- diagnostics --------------------------------------
+  n_obs <- nrow(object$data)
+  total_obs <- sum(object$data$count, na.rm = TRUE)
+  total_exp <- if (!is.null(object$draws)) {
+    stats::median(rowSums(object$draws))
+  } else {
+    sum(object$summary$expected_median, na.rm = TRUE)
+  }
+  calibration_ratio <- total_obs / total_exp
+
+  p_eff <- object$model$dic$p.eff
+  p_eff_pct <- if (is.null(p_eff) || !is.finite(p_eff)) {
+    NA_real_
+  } else {
+    p_eff / n_obs * 100
+  }
+
+  cpo_valid_pct <- if (!is.null(object$cpo)) {
+    mean(object$cpo$failure == 0, na.rm = TRUE) * 100
+  } else {
+    NA_real_
+  }
+  pit_ks <- .pit_ks(object$cpo)
+
+  hyper <- object$hyperparameters
+  hyper_q500 <- function(name) {
+    row <- hyper[hyper$parameter == name, ]
+    if (nrow(row) == 0) NA_real_ else row$q500
+  }
+  tau_spatial <- hyper_q500("tau_spatial")
+  sd_spatial <- if (is.na(tau_spatial)) NA_real_ else 1 / sqrt(tau_spatial)
+
+  safe_round <- function(v, digits = 0) {
+    if (is.null(v) || length(v) == 0 || !is.finite(v)) {
+      return(NA_real_)
+    }
+    round(v, digits)
+  }
+
+  diagnostics <- tibble::tibble(
+    metric = c(
+      "calibration_ratio",
+      "dic",
+      "waic",
+      "p_eff",
+      "p_eff_pct",
+      "cpo_valid_pct",
+      "pit_ks",
+      "sd_spatial"
+    ),
+    value = c(
+      safe_round(calibration_ratio, 3),
+      safe_round(object$model$dic$dic),
+      safe_round(object$model$waic$waic),
+      safe_round(p_eff),
+      safe_round(p_eff_pct, 2),
+      safe_round(cpo_valid_pct, 1),
+      safe_round(pit_ks, 3),
+      safe_round(sd_spatial, 2)
+    ),
+    pass = c(
+      is.finite(calibration_ratio) && abs(calibration_ratio - 1) < 0.1,
+      NA,
+      NA,
+      if (is.na(p_eff_pct)) NA else p_eff_pct < 20,
+      if (is.na(p_eff_pct)) NA else p_eff_pct < 20,
+      if (is.na(cpo_valid_pct)) NA else cpo_valid_pct > 50,
+      if (is.na(pit_ks)) NA else pit_ks < 0.30,
+      NA
+    )
+  )
 
   out <- list(
-    n_districts = dplyr::n_distinct(object$data[[id_col]]),
-    n_months = dplyr::n_distinct(object$data$month),
-    n_obs = nrow(object$data),
-    season = object$season,
-    overdispersion = object$overdispersion,
-    dic = object$model$dic$dic,
-    waic = object$model$waic$waic,
-    hyperparameters = object$hyperparameters,
-    expected_range = range(object$summary$expected_median, na.rm = TRUE),
-    n_cpo_failures = if (is.null(object$cpo)) {
-      NA_integer_
-    } else {
-      sum(object$cpo$failure > 0, na.rm = TRUE)
-    }
+    effects = effects,
+    diagnostics = diagnostics,
+    call = object$call
   )
   class(out) <- "summary.blindspot_expected"
   out
@@ -963,36 +1255,15 @@ summary.blindspot_expected <- function(object, ...) {
 
 #' @export
 print.summary.blindspot_expected <- function(x, ...) {
-  fmt_int <- function(v) format(v, big.mark = ",")
-  dic_s <- .fmt_ic(x$dic)
-  waic_s <- .fmt_ic(x$waic)
-
-  cli::cli_h2("Blindspot expected model (summary)")
-  cli::cli_alert_info(
-    "{fmt_int(x$n_districts)} districts x {fmt_int(x$n_months)} months = \\
-     {fmt_int(x$n_obs)} district-months."
-  )
-  cli::cli_alert_info(
-    "Season: {x$season} | overdispersion: {x$overdispersion}."
-  )
-  cli::cli_alert_info("DIC: {dic_s} | WAIC: {waic_s}.")
-  if (!is.na(x$n_cpo_failures)) {
-    cli::cli_alert_info(
-      "CPO failures: {fmt_int(x$n_cpo_failures)}."
-    )
+  cli::cli_h2("Covariate effects")
+  if (is.null(x$effects)) {
+    cli::cli_alert_info("No covariates in this fit (bare model).")
+  } else {
+    print(x$effects)
   }
 
-  cli::cli_h3("Hyperparameters")
-  print(
-    x$hyperparameters |>
-      dplyr::mutate(
-        dplyr::across(
-          dplyr::where(is.numeric),
-          \(v) round(v, 3)
-        )
-      ),
-    n = 10
-  )
+  cli::cli_h2("Diagnostics")
+  print(x$diagnostics)
 
   invisible(x)
 }
@@ -1195,18 +1466,7 @@ bs_compare_overdispersion <- function(
     NA_real_
   }
 
-  pit_values <- if (!is.null(fit$cpo)) {
-    fit$cpo$pit[fit$cpo$failure == 0]
-  } else {
-    numeric(0)
-  }
-  pit_ks <- if (length(pit_values) > 100) {
-    suppressWarnings(
-      stats::ks.test(pit_values, "punif")$statistic
-    )
-  } else {
-    NA_real_
-  }
+  pit_ks <- .pit_ks(fit$cpo)
 
   tibble::tibble(
     spec = spec,
