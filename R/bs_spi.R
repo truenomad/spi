@@ -14,7 +14,8 @@
 #'   the observed counts already in the expected model fit. Supply this to
 #'   compute SPI on delay-adjusted counts from [bs_adjust()].
 #' @param level Character. Aggregation level: "district_month" (raw, highest
-#'   temporal resolution), "district_year" (annual SPI per district, default),
+#'   temporal resolution), "district_quarter" (calendar-quarter SPI per
+#'   district), "district_year" (annual SPI per district, default),
 #'   "district_total" (single SPI per district over the full study period).
 #' @param min_expected Numeric. Districts or district-periods with total
 #'   expected count below this threshold are flagged as low-information. SPI
@@ -61,7 +62,12 @@
 bs_spi <- function(
   expected,
   cases = NULL,
-  level = c("district_year", "district_month", "district_total"),
+  level = c(
+    "district_year",
+    "district_month",
+    "district_quarter",
+    "district_total"
+  ),
   min_expected = 1,
   verbose = TRUE
 ) {
@@ -135,6 +141,9 @@ bs_spi <- function(
   spi_obj <- switch(
     level,
     district_month = .spi_district_month(draws, observed, fit_data, id_col),
+    district_quarter = .spi_district_quarter(
+      draws, observed, fit_data, id_col
+    ),
     district_year = .spi_district_year(draws, observed, fit_data, id_col),
     district_total = .spi_district_total(draws, observed, fit_data, id_col)
   )
@@ -224,6 +233,35 @@ bs_spi <- function(
   summary_tbl <- dplyr::bind_cols(
     tibble::as_tibble(base),
     .spi_summarise(draws, spi_draws)
+  )
+
+  list(draws = spi_draws, summary = summary_tbl)
+}
+
+# SPI at district-quarter level
+# quarter is the first day of the calendar quarter (e.g. 2016-01-01,
+# 2016-04-01) so it sorts and groups correctly as a Date.
+# @noRd
+.spi_district_quarter <- function(draws, observed, fit_data, id_col) {
+  fit_data$quarter <- lubridate::floor_date(fit_data$month, "quarter")
+
+  groups <- fit_data |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(c(id_col, "quarter")))) |>
+    dplyr::summarise(
+      cols = list(.data$col_idx),
+      obs_sum = sum(.env$observed[.data$col_idx]),
+      .groups = "drop"
+    )
+
+  exp_sum_draws <- .sum_draws_by_group(draws, groups$cols)
+  spi_draws <- sweep(1 / exp_sum_draws, 2, groups$obs_sum, FUN = "*")
+
+  base <- groups[, c(id_col, "quarter")]
+  base$observed <- groups$obs_sum
+
+  summary_tbl <- dplyr::bind_cols(
+    tibble::as_tibble(base),
+    .spi_summarise(exp_sum_draws, spi_draws)
   )
 
   list(draws = spi_draws, summary = summary_tbl)
