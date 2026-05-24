@@ -77,8 +77,14 @@ print(spi_dy)
 \code{\link[=bs_expected]{bs_expected()}}, \code{\link[=bs_adjust]{bs_adjust()}}, \code{\link[=bs_classify]{bs_classify()}}
 
 Other blindspot core functions:
+\code{\link[=as_tibble.blindspot_classify]{as_tibble.blindspot_classify()}},
+\code{\link[=as_tibble.blindspot_classify_sweep]{as_tibble.blindspot_classify_sweep()}},
 \code{\link[=as_tibble.blindspot_spi]{as_tibble.blindspot_spi()}},
+\code{\link[=bs_classify]{bs_classify()}},
+\code{\link[=plot.blindspot_classify]{plot.blindspot_classify()}},
+\code{\link[=plot.blindspot_classify_sweep]{plot.blindspot_classify_sweep()}},
 \code{\link[=plot.blindspot_spi]{plot.blindspot_spi()}},
+\code{\link[=summary.blindspot_classify]{summary.blindspot_classify()}},
 \code{\link[=summary.blindspot_spi]{summary.blindspot_spi()}}
 }
 \concept{blindspot core functions}
