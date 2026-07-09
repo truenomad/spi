@@ -1,0 +1,408 @@
+#' Cross-classify SPI against the conventional NPAFP-rate threshold
+#'
+#' @description
+#' Compares the model-based Surveillance Performance Index against the
+#' WHO conventional NPAFP-rate threshold on the same district-year units
+#' and summarises the four-cell concordance table. The four cells match
+#' the paper's terminology:
+#' \itemize{
+#'   \item **Both adequate** -- NPAFP >= target AND SPI >= threshold. The
+#'     surveillance system is doing what conventional monitoring expects
+#'     and what the model expects.
+#'   \item **True shortfall** -- NPAFP < target AND SPI < threshold. Both
+#'     indicators agree the district is under-detecting; act on it.
+#'   \item **False reassurance** -- NPAFP >= target BUT SPI < threshold.
+#'     The conventional rate says OK, the model says failing. These are
+#'     silent-failure districts the raw threshold misses. In the paper
+#'     this is the headline refinement: SPI catches under-detection that
+#'     NPAFP alone does not.
+#'   \item **False alarm** -- NPAFP < target BUT SPI >= threshold. The
+#'     conventional rate flags the district but the model, accounting
+#'     for its size / rurality / neighbour profile, does not.
+#' }
+#'
+#' Concordance is quantified as raw percent agreement and Cohen's kappa,
+#' plus a McNemar chi-square testing marginal-shift.
+#'
+#' @param spi Object of class `blindspot_spi` at `district_year` level.
+#' @param cases Optional tibble with the district id column and `count`
+#'   (integer). Pass to override the counts stored in `spi$data`. Default:
+#'   NULL (use `spi$data`).
+#' @param population Tibble with the district id column, `year` (integer),
+#'   and the population denominator column (see `pop_col`). Required.
+#' @param spi_threshold Numeric. SPI median below this = "fail". Paper
+#'   uses 0.80. Default: 0.80.
+#' @param npafp_target Numeric. NPAFP rate below this per `npafp_multiplier`
+#'   person-years = "fail". WHO's target for polio surveillance is
+#'   traditionally 2 per 100,000 under-15; the paper uses 3 per 100,000.
+#'   Default: 3.
+#' @param npafp_multiplier Numeric. Denominator scaling for the NPAFP rate.
+#'   Default: 100000 (per 100,000 under-15 person-years).
+#' @param strata Character vector of column names to stratify concordance
+#'   by. Any column present in the district-year summary is valid:
+#'   `"year"`, `"adm1_name"`, `"adm0_name"`, or any joined covariate.
+#'   Set NULL for pooled analysis. Default: NULL.
+#' @param id_col Character. Name of the district id column. Inferred from
+#'   `spi$id_col` if NULL. Default: NULL.
+#' @param pop_col Character. Population denominator column name. Default:
+#'   `"pop_u15"`.
+#' @param boundaries Optional `sf` object with the district id column and
+#'   any adm1/adm0 name columns. When supplied its non-geometry columns
+#'   are joined onto the district-year table so `strata` can reference
+#'   region/country labels. Default: NULL.
+#' @param verbose Logical. Progress messages via cli. Default: TRUE.
+#'
+#' @return An object of class `blindspot_concordance`. A list with:
+#' \describe{
+#'   \item{district_year}{Tibble with per-district-year classification:
+#'     `{id_col}`, `year`, `count_annual`, `pop_u15`, `npafp_rate`,
+#'     `npafp_adequate` (logical), `spi_median`, `spi_q05`, `spi_q95`,
+#'     `spi_pass` (logical), `concordance` (factor: Both adequate /
+#'     True shortfall / False reassurance / False alarm).}
+#'   \item{crosstab}{2x2 table of counts and row/column percentages.}
+#'   \item{metrics}{Pooled scalar metrics: `n`, `pct_agreement`,
+#'     `cohens_kappa`, `mcnemar_p`, plus per-cell counts.}
+#'   \item{by_stratum}{Tibble of per-stratum metrics when `strata` is
+#'     non-NULL; else NULL.}
+#'   \item{thresholds}{Named list echoing the SPI + NPAFP cuts used.}
+#'   \item{id_col}{The id column name.}
+#'   \item{call}{Matched call.}
+#' }
+#'
+#' @seealso [bs_spi()], [bs_expected()]
+#'
+#' @importFrom rlang %||%
+#' @export
+#' @examples
+#' \dontrun{
+#' spi_dy <- bs_spi(fit_bare, level = "district_year")
+#'
+#' conc <- bs_concordance(
+#'   spi             = spi_dy,
+#'   population      = synth_surveillance$population,
+#'   spi_threshold   = 0.80,
+#'   npafp_target    = 3,
+#'   strata          = c("year", "adm1_name"),
+#'   boundaries      = synth_surveillance$boundaries
+#' )
+#'
+#' print(conc)
+#' summary(conc)
+#' plot(conc)
+#' }
+bs_concordance <- function(
+  spi,
+  cases            = NULL,
+  population,
+  spi_threshold    = 0.80,
+  npafp_target     = 3,
+  npafp_multiplier = 100000L,
+  strata           = NULL,
+  id_col           = NULL,
+  pop_col          = "pop_u15",
+  boundaries       = NULL,
+  verbose          = TRUE
+) {
+  .check_pkg(c("dplyr", "tibble", "cli"),
+             reason = "to run the SPI x NPAFP concordance analysis")
+
+  stopifnot(inherits(spi, "blindspot_spi"))
+
+  id_col <- id_col %||% spi$id_col %||% "district_id"
+  if (!id_col %in% names(spi$summary)) {
+    cli::cli_abort(
+      "{.arg spi$summary} lacks id column {.val {id_col}}; set {.arg id_col}."
+    )
+  }
+  if (!"year" %in% names(spi$summary)) {
+    cli::cli_abort(
+      "{.fn bs_concordance} expects a district-year SPI; got level \\
+       {.val {spi$level}}. Re-run {.fn bs_spi} with \\
+       {.code level = \"district_year\"}."
+    )
+  }
+  stopifnot(is.data.frame(population),
+            id_col %in% names(population),
+            "year" %in% names(population),
+            pop_col %in% names(population))
+
+  # ---- 1. Build the district-year skeleton from spi + population ----
+  spi_sum <- spi$summary |>
+    dplyr::select(
+      dplyr::all_of(c(id_col, "year")),
+      dplyr::any_of(c("observed", "expected_total",
+                      "spi_median", "spi_q05", "spi_q95"))
+    )
+
+  pop <- population |>
+    dplyr::select(
+      dplyr::all_of(c(id_col, "year")),
+      pop_u15 = dplyr::all_of(pop_col)
+    )
+
+  # ---- 2. Annual NPAFP count from cases (spi$data if not supplied) ----
+  cases_src <- cases %||% spi$data
+  if (is.null(cases_src)) {
+    cli::cli_abort(
+      "no {.arg cases} supplied and {.code spi$data} is empty; \\
+       pass an annual-summable case table."
+    )
+  }
+  if (!"count" %in% names(cases_src) || !id_col %in% names(cases_src)) {
+    cli::cli_abort(
+      "{.arg cases} must have columns {.val {id_col}} and {.val count}."
+    )
+  }
+  cases_annual <- cases_src |>
+    dplyr::mutate(
+      year = if ("year" %in% names(cases_src)) {
+        as.integer(cases_src$year)
+      } else {
+        as.integer(format(cases_src$month, "%Y"))
+      }
+    ) |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(c(id_col, "year")))) |>
+    dplyr::summarise(count_annual = sum(.data$count, na.rm = TRUE),
+                     .groups = "drop")
+
+  # ---- 3. Assemble and classify ----
+  dy <- spi_sum |>
+    dplyr::inner_join(cases_annual, by = c(id_col, "year")) |>
+    dplyr::inner_join(pop, by = c(id_col, "year")) |>
+    dplyr::mutate(
+      npafp_rate     = .data$count_annual / .data$pop_u15 * npafp_multiplier,
+      npafp_adequate = .data$npafp_rate >= npafp_target,
+      spi_pass       = .data$spi_median  >= spi_threshold,
+      concordance    = dplyr::case_when(
+         .data$npafp_adequate &  .data$spi_pass ~ "Both adequate",
+        !.data$npafp_adequate & !.data$spi_pass ~ "True shortfall",
+         .data$npafp_adequate & !.data$spi_pass ~ "False reassurance",
+        !.data$npafp_adequate &  .data$spi_pass ~ "False alarm"
+      ),
+      concordance = factor(
+        .data$concordance,
+        levels = c("Both adequate", "True shortfall",
+                   "False reassurance", "False alarm")
+      )
+    )
+
+  # optional join with boundaries so `strata` can reference adm1/adm0 labels
+  if (!is.null(boundaries)) {
+    bnd_flat <- boundaries
+    if (inherits(bnd_flat, "sf")) bnd_flat <- sf::st_drop_geometry(bnd_flat)
+    if (id_col %in% names(bnd_flat)) {
+      # avoid duplicating columns already present in dy
+      keep_cols <- setdiff(names(bnd_flat), setdiff(names(dy), id_col))
+      dy <- dplyr::left_join(dy, bnd_flat[, keep_cols], by = id_col)
+    }
+  }
+
+  # ---- 4. Pooled metrics + crosstab ----
+  crosstab <- .concordance_crosstab(dy)
+  metrics  <- .concordance_metrics(dy)
+
+  # ---- 5. Optional stratified metrics ----
+  by_stratum <- NULL
+  if (!is.null(strata)) {
+    strata <- as.character(strata)
+    missing_cols <- setdiff(strata, names(dy))
+    if (length(missing_cols) > 0) {
+      cli::cli_abort(
+        "{.arg strata} column(s) {.val {missing_cols}} not in the \\
+         district-year table."
+      )
+    }
+    by_stratum <- dy |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(strata))) |>
+      dplyr::group_modify(~ .concordance_metrics(.x)) |>
+      dplyr::ungroup()
+  }
+
+  if (verbose) {
+    cli::cli_alert_info(
+      "{format(metrics$n, big.mark = ',')} district-years | \\
+       agreement {sprintf('%.1f%%', metrics$pct_agreement)} | \\
+       kappa {sprintf('%.2f', metrics$cohens_kappa)}"
+    )
+  }
+
+  structure(
+    list(
+      district_year = tibble::as_tibble(dy),
+      crosstab      = crosstab,
+      metrics       = metrics,
+      by_stratum    = by_stratum,
+      thresholds    = list(spi = spi_threshold, npafp = npafp_target,
+                           multiplier = npafp_multiplier),
+      id_col        = id_col,
+      call          = match.call()
+    ),
+    class = "blindspot_concordance"
+  )
+}
+
+# ---------------------------------------------------------------------------
+# internal helpers
+# ---------------------------------------------------------------------------
+
+# 2x2 crosstab with row/column percentages
+.concordance_crosstab <- function(dy) {
+  tab <- table(
+    NPAFP = factor(
+      ifelse(dy$npafp_adequate, "adequate", "inadequate"),
+      levels = c("adequate", "inadequate")
+    ),
+    SPI = factor(
+      ifelse(dy$spi_pass, "pass", "fail"),
+      levels = c("pass", "fail")
+    )
+  )
+  n <- sum(tab)
+  list(
+    counts   = tab,
+    row_pct  = round(100 * prop.table(tab, margin = 1), 1),
+    col_pct  = round(100 * prop.table(tab, margin = 2), 1),
+    total_pct = round(100 * tab / n, 1)
+  )
+}
+
+# pooled metrics; also used inside group_modify for stratified splits
+.concordance_metrics <- function(dy) {
+  n <- nrow(dy)
+  cells <- c("Both adequate", "True shortfall",
+             "False reassurance", "False alarm")
+  counts <- vapply(cells, function(c) sum(dy$concordance == c), integer(1))
+
+  # kappa on 0/1 verdict vectors
+  who <- as.integer(dy$npafp_adequate)
+  spi <- as.integer(dy$spi_pass)
+  kappa <- .cohens_kappa(who, spi)
+
+  # McNemar's chi-square: does one metric systematically shift verdicts
+  # relative to the other? Uses the two off-diagonal cells.
+  mcn <- .mcnemar_p(dy)
+
+  agreement <- 100 * mean(who == spi)
+
+  tibble::tibble(
+    n                   = n,
+    pct_agreement       = agreement,
+    cohens_kappa        = kappa,
+    mcnemar_p           = mcn,
+    n_both_adequate     = counts[["Both adequate"]],
+    n_true_shortfall    = counts[["True shortfall"]],
+    n_false_reassurance = counts[["False reassurance"]],
+    n_false_alarm       = counts[["False alarm"]]
+  )
+}
+
+.cohens_kappa <- function(who_vec, spi_vec) {
+  n <- length(who_vec)
+  if (n == 0L) return(NA_real_)
+  ct <- table(
+    who = factor(who_vec, levels = c(0L, 1L)),
+    spi = factor(spi_vec, levels = c(0L, 1L))
+  )
+  p_obs <- (ct[1L, 1L] + ct[2L, 2L]) / n
+  row_marginals <- rowSums(ct) / n
+  col_marginals <- colSums(ct) / n
+  p_exp <- sum(row_marginals * col_marginals)
+  if (isTRUE(all.equal(p_exp, 1))) return(NA_real_)
+  (p_obs - p_exp) / (1 - p_exp)
+}
+
+.mcnemar_p <- function(dy) {
+  # off-diagonals of the concordance table
+  b <- sum(dy$concordance == "False reassurance")  # NPAFP-yes, SPI-no
+  c <- sum(dy$concordance == "False alarm")        # NPAFP-no,  SPI-yes
+  if (b + c < 1L) return(NA_real_)
+  # exact binomial test on off-diagonals (McNemar exact)
+  stats::binom.test(b, b + c, p = 0.5)$p.value
+}
+
+# ---------------------------------------------------------------------------
+# S3 methods
+# ---------------------------------------------------------------------------
+
+#' @export
+print.blindspot_concordance <- function(x, ...) {
+  cli::cli_h1("SPI x NPAFP concordance")
+  cli::cli_inform(c(
+    "SPI cut: {.val {x$thresholds$spi}} \\
+     | NPAFP target: {.val {x$thresholds$npafp}} per \\
+     {format(x$thresholds$multiplier, big.mark = ',')} person-years"
+  ))
+  cli::cli_inform(c(
+    "{format(x$metrics$n, big.mark = ',')} district-years | \\
+     agreement {sprintf('%.1f%%', x$metrics$pct_agreement)} | \\
+     kappa {sprintf('%.2f', x$metrics$cohens_kappa)} | \\
+     McNemar p {ifelse(is.na(x$metrics$mcnemar_p), 'NA',
+                        sprintf('%.4f', x$metrics$mcnemar_p))}"
+  ))
+  cli::cli_h2("Four-cell counts")
+  cell_tbl <- tibble::tibble(
+    cell = c("Both adequate", "True shortfall",
+             "False reassurance", "False alarm"),
+    n    = c(x$metrics$n_both_adequate, x$metrics$n_true_shortfall,
+             x$metrics$n_false_reassurance, x$metrics$n_false_alarm),
+    pct  = round(100 * c(x$metrics$n_both_adequate,
+                         x$metrics$n_true_shortfall,
+                         x$metrics$n_false_reassurance,
+                         x$metrics$n_false_alarm) / x$metrics$n, 1)
+  )
+  print(cell_tbl)
+  if (!is.null(x$by_stratum)) {
+    cli::cli_h2("By stratum")
+    print(x$by_stratum, n = Inf)
+  }
+  invisible(x)
+}
+
+#' @export
+summary.blindspot_concordance <- function(object, ...) {
+  print(object, ...)
+  cli::cli_h2("2x2 crosstab (counts)")
+  print(object$crosstab$counts)
+  cli::cli_h2("Row percentages (within NPAFP class)")
+  print(object$crosstab$row_pct)
+  invisible(object)
+}
+
+#' @export
+#' @importFrom tibble as_tibble
+as_tibble.blindspot_concordance <- function(x, ...) {
+  x$district_year
+}
+
+#' @export
+plot.blindspot_concordance <- function(x, ...) {
+  .check_pkg(c("ggplot2"), reason = "to plot concordance")
+  dy <- x$district_year
+  spi_cut  <- x$thresholds$spi
+  npafp_target <- x$thresholds$npafp
+  pal <- c(
+    "Both adequate"     = "#2E7D32",
+    "True shortfall"    = "#C62828",
+    "False reassurance" = "#F9A825",
+    "False alarm"       = "#1565C0"
+  )
+  ggplot2::ggplot(
+    dy,
+    ggplot2::aes(x = .data$npafp_rate, y = .data$spi_median,
+                 colour = .data$concordance)
+  ) +
+    ggplot2::geom_vline(xintercept = npafp_target,
+                        linetype = 2, colour = "grey40") +
+    ggplot2::geom_hline(yintercept = spi_cut,
+                        linetype = 2, colour = "grey40") +
+    ggplot2::geom_point(alpha = 0.7) +
+    ggplot2::scale_colour_manual(values = pal, drop = FALSE) +
+    ggplot2::scale_x_continuous(trans = "log1p") +
+    ggplot2::labs(
+      x = sprintf("NPAFP rate (per %s person-years, log1p)",
+                  format(x$thresholds$multiplier, big.mark = ",")),
+      y = "SPI (posterior median)",
+      colour = "Concordance"
+    ) +
+    ggplot2::theme_minimal()
+}
