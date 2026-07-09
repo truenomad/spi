@@ -1,0 +1,89 @@
+# Compute test coverage with covr and upload the report to Codecov.
+# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE*'
+      - '_pkgdown.yml'
+      - 'pkgdown/**'
+      - 'man/figures/**'
+  pull_request:
+    branches: [main, master]
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE*'
+      - '_pkgdown.yml'
+      - 'pkgdown/**'
+      - 'man/figures/**'
+
+name: test-coverage.yaml
+
+permissions: read-all
+
+# Cancel a superseded run when a newer commit lands on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      # Quarto is needed because the vignettes use the quarto engine.
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+          extra-repositories: https://inla.r-inla-download.org/R/stable/
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::covr, any::xml2
+          needs: coverage
+
+      - name: Test coverage
+        run: |
+          cov <- covr::package_coverage(
+            quiet = FALSE,
+            clean = FALSE,
+            install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
+          )
+          covr::to_cobertura(cov)
+        shell: Rscript {0}
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: truenomad/blindspot
+          files: ./cobertura.xml
+          plugins: noop
+          disable_search: true
+          # Codecov no longer allows tokenless uploads, so only treat an upload
+          # error as a CI failure when a CODECOV_TOKEN is configured. Without the
+          # token the upload is skipped rather than failing the whole job.
+          fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
+
+      - name: Show testthat output
+        if: always()
+        run: |
+          ## --------------------------------------------------------------------
+          find '${{ runner.temp }}/package' -name 'testthat.Rout*' -exec cat '{}' \; || true
+        shell: bash
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-test-failures
+          path: ${{ runner.temp }}/package

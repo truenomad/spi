@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use blindspot in your work, please cite it as below."
+type: software
+title: "blindspot: Bayesian Spatiotemporal Surveillance Quality Monitoring"
+version: 0.0.0.9000
+abstract: >-
+  Estimates district-level expected case detection rates using Bayesian
+  spatiotemporal models (BYM2 via INLA) and classifies surveillance quality
+  into operational response categories. The core output is a surveillance
+  performance index (SPI) defined as the ratio of observed to model-estimated
+  expected counts, with full posterior uncertainty quantification.
+authors:
+  - family-names: Yusuf
+    given-names: "Mohamed A."
+    email: mohamedayusuf87@gmail.com
+    orcid: "https://orcid.org/0000-0002-9339-4613"
+license: MIT
+repository-code: "https://github.com/truenomad/blindspot"
+url: "https://truenomad.github.io/blindspot/"
+date-released: "2026-07-02"
+keywords:
+  - polio
+  - AFP
+  - surveillance
+  - epidemiology
+  - BYM2
+  - INLA
+  - "r-package"

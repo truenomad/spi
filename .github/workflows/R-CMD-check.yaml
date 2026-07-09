@@ -1,0 +1,87 @@
+# Run R CMD check across the major platforms on every push and PR.
+# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE*'
+      - '_pkgdown.yml'
+      - 'pkgdown/**'
+      - 'man/figures/**'
+  pull_request:
+    branches: [main, master]
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE*'
+      - '_pkgdown.yml'
+      - 'pkgdown/**'
+      - 'man/figures/**'
+
+name: R-CMD-check.yaml
+
+permissions: read-all
+
+# Cancel an in-progress run when a newer commit lands on the same ref, so only
+# the latest push is ever checked.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  R-CMD-check:
+    runs-on: ${{ matrix.config.os }}
+
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: macos-latest,   r: 'release'}
+          - {os: windows-latest, r: 'release'}
+          - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
+          - {os: ubuntu-latest,  r: 'release'}
+          - {os: ubuntu-latest,  r: 'oldrel-1'}
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      # INLA is not on CRAN; the setup-r-dependencies action reads
+      # Additional_repositories from DESCRIPTION, but export the URL here too so
+      # any downstream install helper (pak, remotes) sees the same feed.
+      R_INLA_REPOS: https://inla.r-inla-download.org/R/stable/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+          # Add the INLA repo so setup-r-dependencies can resolve INLA from source
+          # on all platforms (INLA ships pre-built binaries for macOS + Windows).
+          extra-repositories: https://inla.r-inla-download.org/R/stable/
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      # Vignettes use the quarto engine, whose external CLI spawns its own R
+      # session that cannot see the temporary check library (so library(blindspot)
+      # fails during a vignette rebuild). The vignettes are built and validated
+      # by the pkgdown workflow with the package installed, so R CMD check skips
+      # rebuilding them here -- which also removes the quarto setup from every
+      # (incl. 10x macOS) matrix leg.
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          # No --as-cran: this is a private, non-CRAN package, and --as-cran's
+          # CRAN-incoming-feasibility checks raise false-positive WARNINGs here
+          # (INLA is a non-CRAN dependency; --as-cran would flag it).
+          args: 'c("--no-manual", "--ignore-vignettes")'
+          build_args: 'c("--no-manual", "--no-build-vignettes")'
