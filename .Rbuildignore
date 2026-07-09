@@ -4,6 +4,8 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^docs$
+^archive$
+^data-raw$
 ^blindspot_logo_v13\.svg$
 ^README\.Rmd$
 ^\.github$

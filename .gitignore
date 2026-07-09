@@ -4,6 +4,7 @@
 .Ruserdata
 .DS_Store
 .claude/
+archive/
 
 /.quarto/
 **/*.quarto_ipynb
