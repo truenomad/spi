@@ -31,6 +31,13 @@
 #'   denominators without pre-renaming. The function renames this column to
 #'   `pop` internally and aborts with a helpful hint if it isn't present.
 #'   Default: "pop_u15".
+#' @param year_effect Character. Optional between-year random effect to
+#'   absorb regime shifts in baseline detection that no within-year term
+#'   can capture (e.g. surveillance disruption from insecurity, transition,
+#'   or pandemic). "none" (default) preserves the original specification;
+#'   "iid" lets each year find its own level independently (recommended
+#'   when the between-year pattern is non-monotonic, such as a U shape);
+#'   "rw1" borrows strength smoothly across adjacent years.
 #' @param season Character. Seasonal specification: "harmonic" (1st + 2nd order
 #'   sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),
 #'   "monthly" (12 monthly fixed effects, January omitted), "none" (no seasonal
@@ -42,6 +49,11 @@
 #' @param prior_phi Named list with elements `U` and `alpha` giving the BYM2
 #'   mixing parameter PC prior `P(phi < U) = alpha`. Default:
 #'   `list(U = 0.5, alpha = 0.5)` (agnostic, 50% chance phi below 0.5).
+#' @param prior_precision_year Named list with elements `U` and `alpha`
+#'   giving the PC prior for the year random effect precision. Default
+#'   `list(U = 1, alpha = 0.01)` matches the BYM2 spatial-precision prior:
+#'   weak shrinkage that lets the data dominate. Ignored when
+#'   `year_effect = "none"`.
 #' @param prior_precision Named list with elements `U` and `alpha` giving the
 #'   marginal SD PC prior `P(1/sqrt(tau) > U) = alpha`. Default:
 #'   `list(U = 1, alpha = 0.01)` (1% chance SD exceeds 1 on log scale).
@@ -212,9 +224,11 @@ bs_expected <- function(
   adjacency,
   covariates = NULL,
   season = c("harmonic", "rw2", "monthly", "none"),
+  year_effect = c("none", "iid", "rw1"),
   overdispersion = c("iid", "nb", "none"),
   prior_phi = list(U = 0.5, alpha = 0.5),
   prior_precision = list(U = 1, alpha = 0.01),
+  prior_precision_year = list(U = 1, alpha = 0.01),
   n_draws = 1000L,
   log_transform = NULL,
   id_col = "district_id",
@@ -235,6 +249,7 @@ bs_expected <- function(
 
   # --- argument validation ------------------------------
   season <- match.arg(season)
+  year_effect <- match.arg(year_effect)
   overdispersion <- match.arg(overdispersion)
 
   .check_prior <- function(p, name, U_max = Inf) {
@@ -262,6 +277,11 @@ bs_expected <- function(
   }
   .check_prior(prior_phi, "prior_phi", U_max = 1)
   .check_prior(prior_precision, "prior_precision", U_max = Inf)
+  if (year_effect != "none") {
+    .check_prior(
+      prior_precision_year, "prior_precision_year", U_max = Inf
+    )
+  }
 
   stopifnot(
     is.character(id_col),
@@ -405,6 +425,13 @@ bs_expected <- function(
       log_offset = if (pop_monthly) log(pop) else log(pop / 12)
     )
 
+  # year index for the optional year random effect; integer 1..n_years
+  # in calendar order so a rw1 spec sees consecutive years as neighbours
+  if (year_effect != "none") {
+    unique_years <- sort(unique(model_data$year))
+    model_data$idx_year <- match(model_data$year, unique_years)
+  }
+
   # --- seasonal terms -----------------------------------
   if (season == "harmonic") {
     model_data <- model_data |>
@@ -544,6 +571,44 @@ bs_expected <- function(
           cyclic = TRUE,
           hyper = list(
             prec = list(prior = "pc.prec", param = c(0.5, 0.01))
+          )
+        )
+    )
+  }
+
+  # optional year random effect to absorb between-year regime shifts in
+  # baseline detection that no within-year term can capture (e.g. a U-shaped
+  # dip during 2018-2021 insecurity / COVID, recovery thereafter). iid lets
+  # each year find its own level independently; rw1 borrows smoothly across
+  # adjacent years for outcomes whose between-year structure is gradual.
+  if (year_effect == "iid") {
+    form <- stats::update(
+      form,
+      . ~ . +
+        f(
+          idx_year,
+          model = "iid",
+          hyper = list(
+            prec = list(
+              prior = "pc.prec",
+              param = c(prior_precision_year$U, prior_precision_year$alpha)
+            )
+          )
+        )
+    )
+  } else if (year_effect == "rw1") {
+    form <- stats::update(
+      form,
+      . ~ . +
+        f(
+          idx_year,
+          model = "rw1",
+          scale.model = TRUE,
+          hyper = list(
+            prec = list(
+              prior = "pc.prec",
+              param = c(prior_precision_year$U, prior_precision_year$alpha)
+            )
           )
         )
     )

@@ -10,12 +10,15 @@ bs_expected(
   adjacency,
   covariates = NULL,
   season = c("harmonic", "rw2", "monthly", "none"),
+  year_effect = c("none", "iid", "rw1"),
   overdispersion = c("iid", "nb", "none"),
   prior_phi = list(U = 0.5, alpha = 0.5),
   prior_precision = list(U = 1, alpha = 0.01),
+  prior_precision_year = list(U = 1, alpha = 0.01),
   n_draws = 1000L,
   log_transform = NULL,
   id_col = "district_id",
+  pop_col = "pop_u15",
   keep_draws = TRUE,
   verbose = TRUE,
   debug = FALSE,
@@ -47,6 +50,14 @@ sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),
 "monthly" (12 monthly fixed effects, January omitted), "none" (no seasonal
 component). Default: "harmonic".}
 
+\item{year_effect}{Character. Optional between-year random effect to
+absorb regime shifts in baseline detection that no within-year term
+can capture (e.g. surveillance disruption from insecurity, transition,
+or pandemic). "none" (default) preserves the original specification;
+"iid" lets each year find its own level independently (recommended
+when the between-year pattern is non-monotonic, such as a U shape);
+"rw1" borrows strength smoothly across adjacent years.}
+
 \item{overdispersion}{Character. Overdispersion mechanism: "iid"
 (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month,
 recommended), "nb" (negative binomial likelihood), "none" (plain Poisson,
@@ -59,6 +70,12 @@ mixing parameter PC prior \code{P(phi < U) = alpha}. Default:
 \item{prior_precision}{Named list with elements \code{U} and \code{alpha} giving the
 marginal SD PC prior \code{P(1/sqrt(tau) > U) = alpha}. Default:
 \code{list(U = 1, alpha = 0.01)} (1\% chance SD exceeds 1 on log scale).}
+
+\item{prior_precision_year}{Named list with elements \code{U} and \code{alpha}
+giving the PC prior for the year random effect precision. Default
+\code{list(U = 1, alpha = 0.01)} matches the BYM2 spatial-precision prior:
+weak shrinkage that lets the data dominate. Ignored when
+\code{year_effect = "none"}.}
 
 \item{n_draws}{Integer. Posterior draws from joint latent field, used for
 SPI uncertainty propagation downstream. Use 1000 for analysis, 100 for
@@ -73,6 +90,14 @@ Default: NULL.}
 \code{adjacency} via \code{\link[=bs_adjacency]{bs_adjacency()}}. The function renames this column to
 \code{district_id} internally and renames it back on output. Default:
 "district_id".}
+
+\item{pop_col}{Character. Name of the denominator column in \code{population}.
+For AFP surveillance the at-risk population is under-15, so the default
+is \code{"pop_u15"}. Pass \code{"pop"} if your tibble carries total population,
+\code{"pop_u16"} for under-16, or any other column name to switch
+denominators without pre-renaming. The function renames this column to
+\code{pop} internally and aborts with a helpful hint if it isn't present.
+Default: "pop_u15".}
 
 \item{keep_draws}{Logical. If TRUE (default), the full
 \verb{n_draws x n_district_months} draws matrix is returned in
@@ -246,5 +271,5 @@ mapping that accounts for scaling. Statistical Methods in Medical Research,
 25(4), 1145-1165.
 }
 \seealso{
-\code{\link[=bs_spi]{bs_spi()}}, \code{\link[=bs_adjacency]{bs_adjacency()}}, \code{\link[=bs_pipeline]{bs_pipeline()}}
+\code{\link[=bs_spi]{bs_spi()}}, \code{\link[=bs_adjacency]{bs_adjacency()}}
 }
