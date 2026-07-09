@@ -41,9 +41,9 @@ multi-modal, or extreme-heavy distributions suggest model
 misspecification.
 }
 \seealso{
-Other blindspot core functions:
-\code{\link[=as_tibble.blindspot_spi]{as_tibble.blindspot_spi()}},
-\code{\link[=bs_spi]{bs_spi()}},
-\code{\link[=summary.blindspot_spi]{summary.blindspot_spi()}}
+Other blindspot core functions: 
+\code{\link{as_tibble.blindspot_spi}()},
+\code{\link{bs_spi}()},
+\code{\link{summary.blindspot_spi}()}
 }
 \concept{blindspot core functions}

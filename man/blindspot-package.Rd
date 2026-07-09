@@ -5,41 +5,23 @@
 \alias{blindspot-package}
 \title{blindspot: Bayesian Spatiotemporal Surveillance Quality Monitoring}
 \description{
-\if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
 Estimates district-level expected case detection rates using Bayesian spatiotemporal models (BYM2 via INLA), adjusts for reporting delays, monitors temporal trends via first-order random walk smoothing, detects acute surveillance disruptions via Bayesian online changepoint detection, and classifies surveillance quality into operational response categories. The core output is a surveillance performance index (SPI) defined as the ratio of delay-adjusted observed counts to model-estimated expected counts, with full posterior uncertainty quantification. The SPI adapts the standardised morbidity ratio (SMR) framework from disease mapping to surveillance process monitoring. Designed for acute flaccid paralysis (AFP) surveillance in the polio endgame but applicable to any case-based disease surveillance system with spatially distributed reporting units and count data, including measles discard surveillance, neonatal tetanus reporting, and DHIS2 completeness monitoring.
 
 blindspot estimates district-level expected case detection rates using
-Bayesian spatiotemporal models (BYM2 via INLA), adjusts for reporting
-delays, monitors temporal trends via first-order random walk smoothing,
-detects acute surveillance disruptions via Bayesian online changepoint
-detection, and classifies surveillance quality into operational response
-categories.
+Bayesian spatiotemporal models (BYM2 via INLA) and classifies surveillance
+quality into operational response categories.
 }
 \section{Core framework}{
 
-The package implements a three-layer analytical framework:
 
-\strong{Layer 1: Expected rate model}
+\strong{Expected rate model}
 \itemize{
 \item Poisson regression with BYM2 spatial random effects (INLA)
 \item Log person-time offset
 \item Estimates background detection rate from data rather than fixed thresholds
 \item Posterior draws of expected counts become SPI denominator
-}
-
-\strong{Layer 2: Delay adjustment and trend estimation}
-\itemize{
-\item Truncation correction using empirical delay distributions
-\item First-order random walk (RW1) on monthly SPI
-\item Flags sustained decline before annual thresholds
-}
-
-\strong{Layer 3: Changepoint detection}
-\itemize{
-\item Bayesian online changepoint detection (BOCPD)
-\item Detects acute disruptions within 1-2 months
-\item Complements gradual trend detection
 }
 }
 
@@ -48,7 +30,7 @@ The package implements a three-layer analytical framework:
 
 \strong{Surveillance Performance Index (SPI)}
 \itemize{
-\item Ratio of delay-adjusted observed counts to expected counts
+\item Ratio of observed counts to expected counts
 \item Full posterior uncertainty quantification
 \item Adapts standardised morbidity ratio (SMR) framework to surveillance monitoring
 }
@@ -56,43 +38,20 @@ The package implements a three-layer analytical framework:
 \strong{Operational classification}
 \itemize{
 \item Green: adequate, no action required
-\item Amber-trend: declining, schedule supervision
 \item Amber-SPI: uncertain, investigate
-\item Red: degraded or acute disruption, immediate field investigation
+\item Red: degraded, immediate field investigation
 \item Structural: persistent zero with high expected count, expand network
 }
 }
 
 \section{Main functions}{
 
-
-\strong{Core analysis functions:}
 \itemize{
-\item \code{\link[=bs_expected]{bs_expected()}}: Fit BYM2 expected rate model
-\item \code{\link[=bs_spi]{bs_spi()}}: Compute surveillance performance index
-\item \code{\link[=bs_trend]{bs_trend()}}: Detect temporal trends
-\item \code{\link[=bs_changepoint]{bs_changepoint()}}: Detect acute disruptions
-\item \code{\link[=bs_classify]{bs_classify()}}: Composite operational classification
-}
-
-\strong{Data preparation:}
-\itemize{
-\item \code{\link[=bs_fit_delay]{bs_fit_delay()}}: Estimate delay distribution
-\item \code{\link[=bs_adjust]{bs_adjust()}}: Delay-adjust recent counts
 \item \code{\link[=bs_adjacency]{bs_adjacency()}}: Build spatial neighbour matrix
-}
-
-\strong{Workflow functions:}
-\itemize{
-\item \code{\link[=bs_pipeline]{bs_pipeline()}}: End-to-end analysis wrapper
-\item \code{\link[=bs_report]{bs_report()}}: Generate Quarto desk review report
-}
-
-\strong{Utilities:}
-\itemize{
-\item \code{\link[=bs_simulate]{bs_simulate()}}: Generate synthetic surveillance data
-\item \code{\link[=bs_validate]{bs_validate()}}: Simulated degradation experiment
-\item \code{\link[=bs_diagnose]{bs_diagnose()}}: Model fit diagnostics
+\item \code{\link[=bs_expected]{bs_expected()}}: Fit BYM2 expected rate model
+\item \code{\link[=bs_compare_overdispersion]{bs_compare_overdispersion()}}: Compare Poisson vs negative-binomial fits
+\item \code{\link[=bs_spi]{bs_spi()}}: Compute surveillance performance index
+\item \code{\link[=bs_concordance]{bs_concordance()}}: Cross-classify SPI against the NPAFP-rate threshold
 }
 }
 
@@ -162,14 +121,17 @@ Useful links:
   \item Report bugs at \url{https://github.com/truenomad/blindspot/issues}
 }
 
+
+Useful links:
+\itemize{
+  \item \url{https://github.com/truenomad/blindspot}
+  \item \url{https://truenomad.r-universe.dev/blindspot}
+  \item Report bugs at \url{https://github.com/truenomad/blindspot/issues}
+}
+
 }
 \author{
 \strong{Maintainer}: Mohamed Yusuf \email{truenomad@who.int} (\href{https://orcid.org/XXXX-XXXX-XXXX-XXXX}{ORCID})
-
-Authors:
-\itemize{
-  \item Mohamed Yusuf \email{truenomad@who.int} (\href{https://orcid.org/XXXX-XXXX-XXXX-XXXX}{ORCID})
-}
 
 }
 \keyword{internal}
