@@ -1,5 +1,16 @@
 # blindspot <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
+<!-- badges: start -->
+
+[![R-CMD-check](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg)](https://app.codecov.io/gh/truenomad/blindspot)
+[![lint](https://github.com/truenomad/blindspot/actions/workflows/lint.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/lint.yaml)
+[![pkgdown](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![R >= 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
+
+<!-- badges: end -->
+
 > **Find the districts where the surveillance system can't see**
 
 _In the districts that report no cases, is the silence real?_
@@ -25,121 +36,66 @@ install.packages(
 pak::pak("truenomad/blindspot")
 ```
 
-## Minimal example
+## Example
 
 ```r
-# one function call: raw data in, classified output out
-result <- blindspot::bs_pipeline(
-  cases = afp_cases,
-  population = pop_u15,
+library(blindspot)
+
+# 1. spatial adjacency from district boundaries
+adj <- bs_adjacency(
   boundaries = district_sf,
+  id_col     = "district_id"
+)
+
+# 2. fit BYM2 expected-count model (INLA)
+fit <- bs_expected(
+  cases      = afp_cases,
+  population = pop_u15,
+  adjacency  = adj,
   covariates = covariate_df,
-  period = c("2015-01-01", "2025-12-31")
+  id_col     = "district_id"
 )
 
-# query outputs
-result$spi          # SPI posterior summaries
-result$trend        # trend direction + alerts
-result$changepoints # acute disruption alerts
-result$classified   # composite: green/amber/red
+# 3. sanity-check: is a negative-binomial fit warranted?
+bs_compare_overdispersion(fit)
 
-# generate desk review report
-blindspot::bs_report(
-  result,
-  country = "Nigeria",
-  output_dir = here::here("outputs")
-)
+# 4. surveillance performance index at any aggregation level
+spi_dy <- bs_spi(fit, level = "district_year")   # annual per district
+spi_dm <- bs_spi(fit, level = "district_month")  # monthly per district
+
+# 5. classify districts into operational response categories
+cls <- bs_classify(spi_dy)
+plot(cls)
 ```
 
-## Step-by-step example
+## Framework
+
+**Expected rate model.** Poisson regression with BYM2 spatial random effects (INLA). Log person-time offset. The intercept and covariates estimate the background detection rate from the data rather than imposing a fixed threshold. The model learns what each district should be seeing. Posterior draws of the expected count become the SPI denominator.
+
+**Surveillance Performance Index.** SPI is the ratio of observed to expected counts, computed per posterior draw so the joint uncertainty in the denominator is preserved. SPI ~= 1 means detection matches expectation; SPI < 1 flags underdetection (a blindspot); SPI > 1 flags over-detection or genuine excess.
+
+**Operational classification.** Each district maps to a category with a specific field response: green (adequate, no action), amber-SPI (uncertain, investigate), red (degraded, immediate field investigation), structural (persistent zero with high expected count, expand surveillance network).
+
+## Exported functions
 
 ```r
-# for users who want control over each layer
-
-# step 1: build adjacency matrix from boundaries
-adj <- blindspot::bs_adjacency(
-  boundaries = district_sf,
-  id_col = "district_id"
-)
-
-# step 2: fit the expected rate model
-fit <- blindspot::bs_expected(
-  cases = afp_cases,
-  population = pop_u15,
-  adjacency = adj,
-  covariates = covariate_df
-)
-
-# step 3: estimate delay distribution
-delay <- blindspot::bs_fit_delay(
-  linelist = afp_linelist,
-  strata = c("country_id", "year")
-)
-
-# step 4: adjust recent counts for reporting delays
-adjusted <- blindspot::bs_adjust(
-  cases = afp_cases,
-  delay = delay,
-  extraction_date = as.Date("2025-12-15")
-)
-
-# step 5: compute SPI
-spi <- blindspot::bs_spi(
-  expected = fit,
-  adjusted = adjusted
-)
-
-# step 6: temporal monitoring
-trend <- blindspot::bs_trend(spi = spi)
-cp <- blindspot::bs_changepoint(cases = afp_cases)
-
-# step 7: classify
-classified <- blindspot::bs_classify(
-  spi = spi,
-  trend = trend,
-  changepoints = cp
-)
-
-# step 8: diagnostics
-diag <- blindspot::bs_diagnose(expected = fit)
-plot(diag)
+bs_adjacency()              # spatial neighbour matrix from sf
+bs_expected()               # fit BYM2 expected-count model (INLA)
+bs_compare_overdispersion() # Poisson vs negative-binomial diagnostic
+bs_spi()                    # surveillance performance index + posterior
+bs_classify()               # operational classification of SPI
 ```
 
-## Framework overview
-
-**Layer 1: expected rate model.** Poisson regression with BYM2 spatial random effects (INLA). Log person-time offset. The intercept and covariates estimate the background detection rate from the data rather than imposing a fixed threshold. The model learns what each district should be seeing. Posterior draws of the expected count become the SPI denominator.
-
-**Layer 2: delay adjustment + trend estimation.** Truncation correction using empirically estimated onset-to-notification delay distributions inflates recent counts to compensate for reporting incompleteness. A first-order random walk (RW1) in INLA on monthly SPI estimates the temporal trend, flagging sustained decline before the annual threshold would notice.
-
-**Layer 3: changepoint detection.** Bayesian online changepoint detection (BOCPD) on the raw count series catches acute disruptions (officer transfers, conflict events, specimen transport failures) within 1-2 months. Complements the gradual-trend detector in Layer 2.
-
-**Output:** A composite classification for each district-month: green (adequate, no action), amber-trend (declining, schedule supervision), amber-SPI (uncertain, investigate), red (degraded or acute disruption, immediate field investigation), structural (persistent zero with high expected count, expand surveillance network). Each category maps to a specific operational response.
-
-## All exported functions
-
-```r
-bs_expected()      # fit BYM2 expected rate model
-bs_adjust()        # delay-adjust recent counts
-bs_spi()           # compute SPI + posterior intervals
-bs_trend()         # RW1 trend + decline alerts
-bs_changepoint()   # BOCPD acute disruption detection
-bs_classify()      # composite classification
-bs_pipeline()      # end-to-end wrapper
-bs_report()        # Quarto desk review template
-bs_validate()      # simulated degradation experiment
-bs_fit_delay()     # estimate delay distribution
-bs_adjacency()     # build neighbour matrix from sf
-bs_simulate()      # synthetic example data generator
-bs_diagnose()      # model fit diagnostics
-```
+Each returns a typed object with `print`, `summary`, `plot`, and
+`as_tibble` methods.
 
 ## Applications
 
-The framework is disease-agnostic. The core engine operates on case counts, population denominators, and spatial boundaries. Vignettes demonstrate: AFP/polio surveillance (primary), measles discard surveillance, DHIS2 reporting completeness monitoring, and AEFI pharmacovigilance. Changing the application requires changing the data and covariates, not the methodology.
+The framework is disease-agnostic. The core engine operates on case counts, population denominators, and spatial boundaries. Designed for AFP/polio surveillance in the polio endgame; applicable to measles discard surveillance, DHIS2 reporting completeness monitoring, and other case-based VPD surveillance systems. Changing the application requires changing the data and covariates, not the methodology.
 
 ## The name
 
-A blindspot is a district where the surveillance system cannot see. The package finds them, quantifies the uncertainty, tracks whether they're getting better or worse, and tells you what to do about them.
+A blindspot is a district where the surveillance system cannot see. The package finds them, quantifies the uncertainty, and tells you what to do about them.
 
 ## Citation
 
@@ -155,8 +111,6 @@ Yusuf MA (2026). blindspot: Bayesian spatiotemporal
 
 **AgePopDenom:** DHS-anchored age-structured population estimates. Provides the denominator input.
 
-**EpiNow2:** Real-time Rt estimation. blindspot's delay adjustment was inspired by the truncation correction literature but does not use EpiNow2 directly.
-
 ## License
 
-MIT © 2026 Mohamed A. Yusuf
+MIT &copy; 2026 Mohamed A. Yusuf
