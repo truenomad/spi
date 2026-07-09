@@ -11,8 +11,7 @@
 #'   [bs_expected()].
 #' @param cases Optional tibble with the district identifier column (matching
 #'   `expected$id_col`), `month` (Date), and `count`. If NULL (default), uses
-#'   the observed counts already in the expected model fit. Supply this to
-#'   compute SPI on delay-adjusted counts from [bs_adjust()].
+#'   the observed counts already in the expected model fit.
 #' @param level Character. Aggregation level: "district_month" (raw, highest
 #'   temporal resolution), "district_quarter" (calendar-quarter SPI per
 #'   district), "district_year" (annual SPI per district, default),
@@ -41,7 +40,7 @@
 #' the ratio is computed per draw. This preserves the joint uncertainty in
 #' the expected denominator.
 #'
-#' @seealso [bs_expected()], [bs_adjust()], [bs_classify()]
+#' @seealso [bs_expected()], [bs_concordance()]
 #' @family blindspot core functions
 #'
 #' @export

@@ -7,7 +7,7 @@
 bs_spi(
   expected,
   cases = NULL,
-  level = c("district_year", "district_month", "district_total"),
+  level = c("district_year", "district_month", "district_quarter", "district_total"),
   min_expected = 1,
   verbose = TRUE
 )
@@ -18,11 +18,11 @@ bs_spi(
 
 \item{cases}{Optional tibble with the district identifier column (matching
 \code{expected$id_col}), \code{month} (Date), and \code{count}. If NULL (default), uses
-the observed counts already in the expected model fit. Supply this to
-compute SPI on delay-adjusted counts from \code{\link[=bs_adjust]{bs_adjust()}}.}
+the observed counts already in the expected model fit.}
 
 \item{level}{Character. Aggregation level: "district_month" (raw, highest
-temporal resolution), "district_year" (annual SPI per district, default),
+temporal resolution), "district_quarter" (calendar-quarter SPI per
+district), "district_year" (annual SPI per district, default),
 "district_total" (single SPI per district over the full study period).}
 
 \item{min_expected}{Numeric. Districts or district-periods with total
@@ -74,17 +74,11 @@ print(spi_dy)
 }
 }
 \seealso{
-\code{\link[=bs_expected]{bs_expected()}}, \code{\link[=bs_adjust]{bs_adjust()}}, \code{\link[=bs_classify]{bs_classify()}}
+\code{\link[=bs_expected]{bs_expected()}}, \code{\link[=bs_concordance]{bs_concordance()}}
 
-Other blindspot core functions:
-\code{\link[=as_tibble.blindspot_classify]{as_tibble.blindspot_classify()}},
-\code{\link[=as_tibble.blindspot_classify_sweep]{as_tibble.blindspot_classify_sweep()}},
-\code{\link[=as_tibble.blindspot_spi]{as_tibble.blindspot_spi()}},
-\code{\link[=bs_classify]{bs_classify()}},
-\code{\link[=plot.blindspot_classify]{plot.blindspot_classify()}},
-\code{\link[=plot.blindspot_classify_sweep]{plot.blindspot_classify_sweep()}},
-\code{\link[=plot.blindspot_spi]{plot.blindspot_spi()}},
-\code{\link[=summary.blindspot_classify]{summary.blindspot_classify()}},
-\code{\link[=summary.blindspot_spi]{summary.blindspot_spi()}}
+Other blindspot core functions: 
+\code{\link{as_tibble.blindspot_spi}()},
+\code{\link{plot.blindspot_spi}()},
+\code{\link{summary.blindspot_spi}()}
 }
 \concept{blindspot core functions}

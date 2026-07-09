@@ -189,7 +189,7 @@
 #' mapping that accounts for scaling. Statistical Methods in Medical Research,
 #' 25(4), 1145-1165.
 #'
-#' @seealso [bs_spi()], [bs_adjacency()], [bs_pipeline()]
+#' @seealso [bs_spi()], [bs_adjacency()]
 #'
 #' @export
 #' @examples
