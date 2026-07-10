@@ -6,8 +6,9 @@
 ^docs$
 ^archive$
 ^data-raw$
-^blindspot_logo_v13\.svg$
+^logo$
 ^README\.Rmd$
+^README_cache$
 ^\.github$
 ^CITATION\.cff$
 ^codecov\.yml$

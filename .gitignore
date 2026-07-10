@@ -9,6 +9,9 @@ archive/
 /.quarto/
 **/*.quarto_ipynb
 
+# knitr cache from README.Rmd
+README_cache/
+
 # renv
 renv/library/
 renv/local/
