@@ -2,6 +2,8 @@ test_that("synth_surveillance has the expected structure", {
   skip_if_not_installed("sf")
 
   data("synth_surveillance", package = "blindspot")
+  n_dist <- nrow(synth_surveillance$boundaries)
+  n_es <- nrow(synth_surveillance$es_sites)
 
   expect_named(
     synth_surveillance,
@@ -14,7 +16,7 @@ test_that("synth_surveillance has the expected structure", {
     synth_surveillance$covariates,
     c("adm2_guid", "year", "dtp3", "urban_prop", "travel_time_min")
   )
-  expect_equal(nrow(synth_surveillance$covariates), 100 * 10)
+  expect_equal(nrow(synth_surveillance$covariates), n_dist * 10)
   expect_false(anyNA(synth_surveillance$covariates))
   # planted blindspots carry lower DTP3 coverage than resilient districts,
   # so the adjusted model has real signal to attribute
@@ -34,29 +36,30 @@ test_that("synth_surveillance has the expected structure", {
   )$adm2_guid)
   expect_true(all(n_wards_per_adm2 >= 5L & n_wards_per_adm2 <= 8L))
 
-  # ES: 30 sites, monthly samples across the whole window
-  expect_equal(nrow(synth_surveillance$es_sites), 30L)
-  expect_equal(nrow(synth_surveillance$es_data), 30L * 120L)
+  # ES: sentinel sites, monthly samples across the whole window
+  expect_gt(n_es, 0L)
+  expect_equal(nrow(synth_surveillance$es_data), n_es * 120L)
 
-  # cases: 100 districts x 120 months, zero-filled grid
-  expect_equal(nrow(synth_surveillance$cases), 100 * 120)
+  # cases: full district x 120-month grid, zero-filled
+  expect_equal(nrow(synth_surveillance$cases), n_dist * 120)
   expect_named(synth_surveillance$cases, c("adm2_guid", "month", "count"))
   expect_type(synth_surveillance$cases$count, "integer")
   expect_true(all(synth_surveillance$cases$count >= 0))
   expect_s3_class(synth_surveillance$cases$month, "Date")
 
   # population: annual, under-15
-  expect_equal(nrow(synth_surveillance$population), 100 * 10)
+  expect_equal(nrow(synth_surveillance$population), n_dist * 10)
   expect_named(synth_surveillance$population, c("adm2_guid", "year", "pop_u15"))
   expect_true(all(synth_surveillance$population$pop_u15 > 0))
 
-  # boundaries: sf with 100 polygons at EPSG:4326
+  # boundaries: sf on a local grid (CRS deliberately dropped), 36 provinces
   expect_s3_class(synth_surveillance$boundaries, "sf")
-  expect_equal(nrow(synth_surveillance$boundaries), 100)
-  expect_equal(sf::st_crs(synth_surveillance$boundaries)$epsg, 4326L)
+  expect_equal(length(unique(synth_surveillance$cases$adm2_guid)), n_dist)
+  expect_equal(length(unique(synth_surveillance$boundaries$adm1_name)), 36L)
+  expect_true(is.na(sf::st_crs(synth_surveillance$boundaries)$epsg))
 
-  # virus_outcome: 100 x 10 district-years
-  expect_equal(nrow(synth_surveillance$virus_outcome), 100 * 10)
+  # virus_outcome: district x 10-year grid
+  expect_equal(nrow(synth_surveillance$virus_outcome), n_dist * 10)
   expect_named(
     synth_surveillance$virus_outcome,
     c("adm2_guid", "year", "any_wpv1", "any_cvdpv2", "any_virus")
@@ -68,7 +71,7 @@ test_that("synth_surveillance has the expected structure", {
     c("adm2_guid", "surveillance_profile", "is_blindspot",
       "is_low_incidence", "covid_nadir", "recovered_2024")
   )
-  expect_equal(sum(synth_surveillance$truth$is_low_incidence), 12L)
+  expect_gt(sum(synth_surveillance$truth$is_low_incidence), 0L)
   expect_true(all(c("resilient", "early_improver", "covid_transient",
                     "persistent_laggard") %in%
                     synth_surveillance$truth$surveillance_profile))
@@ -86,8 +89,8 @@ test_that("bs_adjacency runs on the synthetic boundaries", {
   adj <- bs_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
 
   expect_s3_class(adj, "blindspot_nb")
-  expect_equal(length(adj), 100L)
-  # Voronoi tessellation should give a connected graph with no islands
+  expect_equal(length(adj), nrow(synth_surveillance$boundaries))
+  # the welded boundary layer should give a connected graph with no islands
   expect_equal(sum(spdep::card(adj) == 0), 0L)
 })
 

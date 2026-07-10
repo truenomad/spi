@@ -1,0 +1,17 @@
+synth_admin_polygons.gpkg -- synthetic adm2 boundaries for blindspot
+
+FICTIONAL. Country, province, and district names are invented; they do
+not correspond to any real place. Geometry is DERIVED from real adm2
+boundaries under a permissive licence:
+
+  Source: geoBoundaries gbOpen ADM2 (CC-BY 4.0)
+  Runfola, D. et al. (2020). geoBoundaries: A global database of political
+  administrative boundaries. PLoS ONE 15(4): e0231866.
+  https://www.geoboundaries.org
+
+  Source countries (merged): NGA, NER, TCD, CMR
+  Cropped to an organic region around the Lake Chad basin, projected to
+  EPSG:32633, dissolved across international borders, partitioned into 36
+  contiguous provinces, and relabelled as the fictional country 'Harad'.
+  Finally rotated 90 degrees onto a local grid with the CRS dropped, so
+  the layer cannot be reprojected back to the source location.

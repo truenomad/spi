@@ -1,6 +1,9 @@
 # Generate blindspot::synth_surveillance -- a self-contained toy AFP
 # surveillance dataset for examples and tests. Run:
-#   Rscript data-raw/synth_surveillance.R
+#   Rscript data-raw/synth_admin_polygons.R   # first: builds the boundaries
+#   Rscript data-raw/synth_surveillance.R     # then: simulates on them
+# Boundaries are the fictional country "Harad" read from
+# inst/extdata/synth_admin_polygons.gpkg (36 provinces, ~236 districts).
 # Writes data/synth_surveillance.rda. See ?synth_surveillance for the schema
 # and the data-generating process.
 
@@ -17,28 +20,28 @@ set.seed(20260702)
 
 STUDY_YEAR_START <- 2015L
 STUDY_YEAR_END   <- 2024L
-N_DISTRICTS      <- 100L
+# District / ward / profile counts are tuned for the ~236-district Harad
+# boundary layer (data-raw/synth_admin_polygons.R); N_DISTRICTS is read from it
+# in section 1. If you rebuild the layer at a very different size, rescale these.
 # Low-incidence "False alarm" / "True shortfall" seeds: contiguous clusters
 # below the NPAFP target, with a population boost for a stable SPI.
-N_LOW_CLUSTERS   <- 2L
-LOW_CLUSTER_SIZE <- 6L      # districts per contiguous cluster
+N_LOW_CLUSTERS   <- 4L
+LOW_CLUSTER_SIZE <- 7L      # districts per contiguous cluster
 LOW_BASELINE     <- -4.7    # log-scale baseline -> ~1.6 per 100k u15/yr (< 3)
 LOW_POP_BOOST    <- 12      # denser population -> non-trivial absolute counts
-N_LOW_LAGGARD    <- 7L      # low districts that never recover -> True shortfall
+N_LOW_LAGGARD    <- 16L     # low districts that never recover -> True shortfall
 
 # Detection completeness = G_YEAR[t] * rel (profile-specific). G_YEAR improves
 # to a pre-COVID peak, crashes ~30% in 2020, recovers by 2024.
 G_YEAR <- c(0.78, 0.85, 0.90, 0.94, 0.97,   # 2015-2019: improving to a peak
             0.68, 0.72, 0.86, 0.93, 0.97)   # 2020 crash -> recovery by 2024
 # Surveillance-profile counts (of N_DISTRICTS); "resilient" is the remainder.
-N_EARLY_IMPROVER  <- 8L     # poor 2015-17, matured away by 2019
-N_COVID_TRANSIENT <- 12L    # extra hit 2020-21, recovered by 2023
-N_PERSIST_NORMAL  <- 6L     # normal-baseline laggards, degraded through 2024
+N_EARLY_IMPROVER  <- 19L    # poor 2015-17, matured away by 2019
+N_COVID_TRANSIENT <- 28L    # extra hit 2020-21, recovered by 2023
+N_PERSIST_NORMAL  <- 14L    # normal-baseline laggards, degraded through 2024
 WARDS_MIN        <- 5L      # each adm2 gets 5-8 wards
 WARDS_MAX        <- 8L
-N_ES_SITES       <- 30L     # ~30% of districts host an ES site
-DHS_SHAPE_PATH   <- "data-raw/dhs_zz/subregional.shp"
-COUNTRY_NAME     <- "Gondor"
+N_ES_SITES       <- 158L    # ~67% of districts host an ES site
 
 # Ward-suffix pool, combined with the parent adm2 name (e.g. "Osgiliath Ford").
 WARD_SUFFIXES <- c(
@@ -49,110 +52,25 @@ WARD_SUFFIXES <- c(
   "Fields", "Woods", "Harbor", "Bend", "Foothills"
 )
 
-# 5 provinces of Gondor, ordered west -> east to match the longitude cut below.
-PROVINCES <- c("Belfalas", "Lossarnach", "Lebennin", "Anorien", "Ithilien")
-
-# Per-province district-name pools (canonical Tolkien toponyms + Sindarin-
-# flavoured compounds); 25+ each so no province exhausts its pool.
-DISTRICT_POOLS <- list(
-  Belfalas = c(
-    "Dol Amroth", "Edhellond", "Ras Morthil", "Andrast", "Cape Andrast",
-    "Tolfalas", "Bay of Cobas", "Ost Amroth", "Cair Amroth", "Naith Belfalas",
-    "Lond Amroth", "Amon Ereg", "Falas Ereg", "Emyn Belfalas", "Nen Amroth",
-    "Lond Ereg", "Fen Amroth", "Rath Belfalas", "Emyn Amroth", "Amon Belfalas",
-    "Cair Belfalas", "Nen Belfalas", "Naith Amroth", "Fen Belfalas",
-    "Rath Amroth", "Lond Belfalas", "Falas Amroth", "Imlad Amroth"
-  ),
-  Lossarnach = c(
-    "Imloth Melui", "Lossarnach Vale", "Nen Loss", "Amon Loss", "Ered Loss",
-    "Rath Loss", "Ost Loss", "Fen Loss", "Vale of Snowbrook", "Cair Loss",
-    "Emyn Loss", "Naith Loss", "Elensar", "Snowfoot", "Rath Elen",
-    "Amon Elen", "Fen Elen", "Nen Elen", "Cair Elen", "Ost Elen",
-    "Emyn Elen", "Naith Elen", "Falas Loss", "Lond Loss", "Imloth Baran",
-    "Rath Baran", "Nen Baran", "Amon Baran"
-  ),
-  Lebennin = c(
-    "Pelargir", "Linhir", "Ethring", "Erech", "Serni Fen",
-    "Gilrain Ford", "Sirith Vale", "Ciril Estuary", "Ethir Anduin",
-    "Naith Serni", "Lond Serni", "Cair Sirith", "Rath Ciril", "Ost Lebennin",
-    "Nen Serni", "Fen Gilrain", "Erui Ford", "Emyn Gilrain", "Falas Sirith",
-    "Amon Serni", "Fen Ciril", "Rath Serni", "Naith Ciril", "Ost Serni",
-    "Amon Ciril", "Cair Ciril", "Lond Ciril", "Nen Ciril", "Emyn Serni",
-    "Rath Gilrain"
-  ),
-  Anorien = c(
-    "Amon Din", "Eilenach", "Nardol", "Erelas", "Min-Rimmon",
-    "Calenhad", "Halifirien", "Amon Anwar", "Firien Wood", "Druadan Forest",
-    "Mering Stream", "Cair Andros", "Anorien Field", "Ost Anor", "Fanuil Vale",
-    "Amon Meth", "Naith Anduin", "Silvertine Vale", "Rath Celeb",
-    "Ethir Sirith", "Fen Anor", "Nen Anor", "Amon Anor", "Rath Anor",
-    "Naith Anor", "Cair Anor", "Lond Anor", "Emyn Anor", "Falas Anor",
-    "Amon Fanuil"
-  ),
-  Ithilien = c(
-    "Osgiliath", "Minas Ithil", "Emyn Arnen", "Henneth Annun", "Cormallen",
-    "Ithilien Marches", "Poros", "Sarn Falath", "Cair Ithil", "Fen Hollen",
-    "Imlad Morgul", "Rhun Ford", "Amon Ithil", "Nen Ithil", "Ephel Anwar",
-    "Emyn Rhun", "Ithil Wood", "Naith Poros", "Ost Ithil", "Cair Andros South",
-    "Amon Rhun", "Rath Ithil", "Fen Ithil", "Naith Ithil", "Emyn Ithil",
-    "Lond Ithil", "Falas Ithil", "Ephel Rhun", "Amon Cormallen", "Nen Cormallen"
-  )
-)
-
 # ---------------------------------------------------------------------------
-# 1. Country outline -- REAL shape from sf::nc (100 counties of North Carolina)
+# 1. Boundaries -- the synthetic country "Harad" (see synth_admin_polygons.R)
 # ---------------------------------------------------------------------------
-# sf ships nc.shp as example data (Cressie's classic Bayesian-spatial teaching
-# dataset). 100 polygons matches our target adm2 count exactly, licensing is
-# permissive (MIT, redistributable), and no external fetch is needed. We keep
-# the real shape (so the map looks convincing) but overlay Gondor labels (so
-# the *data* is unambiguously fictional and no one confuses synthetic AFP
-# counts with real North Carolina surveillance).
-nc_path <- system.file("shape/nc.shp", package = "sf")
-if (!nzchar(nc_path)) {
-  stop("sf::nc not found (expected sf package to ship shape/nc.shp)")
+# 36 provinces (adm1) nesting ~236 districts (adm2), derived from real Lake
+# Chad adm2 geometry across four countries, merged, relabelled, welded into a
+# gap-free coverage, and rotated onto a local grid (CRS dropped). The layer is
+# a single connected component, so poly2nb() needs no snap. Build/refresh with:
+#   Rscript data-raw/synth_admin_polygons.R
+boundaries_path <- "inst/extdata/synth_admin_polygons.gpkg"
+if (!file.exists(boundaries_path)) {
+  stop("run data-raw/synth_admin_polygons.R first to build ", boundaries_path)
 }
-nc <- sf::st_read(nc_path, quiet = TRUE)
-nc <- sf::st_transform(nc, 4326)
-if (nrow(nc) != N_DISTRICTS) {
-  stop(sprintf("sf::nc has %d counties; expected %d", nrow(nc), N_DISTRICTS))
-}
-
-# Order counties west -> east by centroid longitude so the Gondor-province
-# stripe cut (Belfalas westernmost, Ithilien easternmost) lands sensibly.
-centroids_x <- sf::st_coordinates(sf::st_centroid(sf::st_geometry(nc)))[, 1]
-ord <- order(centroids_x)
-nc_ordered <- nc[ord, ]
-geom_final <- sf::st_geometry(nc_ordered)
-
-# Assign each ordered polygon to a Gondor province by west-to-east longitude
-# quantile. Cell 1 (westernmost) -> Belfalas; cell 100 (easternmost) -> Ithilien.
-centroids_x_ord <- centroids_x[ord]
-province_idx <- cut(centroids_x_ord, breaks = 5, labels = FALSE)
-adm1_name <- PROVINCES[province_idx]
-
-# Sample district names from each province's pool without replacement, so
-# every polygon gets a canonical or plausible Gondor toponym.
-adm2_name <- character(N_DISTRICTS)
-for (p in PROVINCES) {
-  in_p <- which(adm1_name == p)
-  pool <- DISTRICT_POOLS[[p]]
-  if (length(in_p) > length(pool)) {
-    stop(sprintf(
-      "province %s has %d cells but only %d pool names; enlarge the pool",
-      p, length(in_p), length(pool)
-    ))
-  }
-  adm2_name[in_p] <- sample(pool, length(in_p))
-}
-
-boundaries <- st_sf(
-  adm2_guid = sprintf("GDR-%03d", seq_len(N_DISTRICTS)),
-  adm2_name = adm2_name,
-  adm1_name = adm1_name,
-  adm0_name = COUNTRY_NAME,
-  geometry = geom_final
-)
+boundaries <- sf::st_read(boundaries_path, quiet = TRUE)
+# GeoPackage cannot store an absent CRS, so it round-trips as an "engineering"
+# CRS that GDAL refuses to transform -- which breaks coord_sf() inside
+# bs_concordance_maps(). Reset to a true NA so downstream sf / ggplot treat the
+# local grid as planar and skip datum transformation.
+sf::st_crs(boundaries) <- NA
+N_DISTRICTS <- nrow(boundaries)
 
 # ---------------------------------------------------------------------------
 # 2b. Ward geometry -- subdivide each adm2 into 5-8 Voronoi wards
@@ -181,7 +99,7 @@ build_wards <- function(adm2_row, ward_count) {
     hits <- st_intersects(clipped, seed_geom[i], sparse = FALSE)[, 1]
     idx[i] <- which(hits)[1]
   }
-  st_set_crs(clipped[idx], 4326)
+  st_set_crs(clipped[idx], sf::st_crs(adm2_row))
 }
 
 ward_rows <- vector("list", N_DISTRICTS)
@@ -211,7 +129,7 @@ message("wards built: ", nrow(ward_boundaries), " total (", WARDS_MIN, "-",
 
 adj_nb <- spdep::poly2nb(boundaries, queen = TRUE)
 if (any(spdep::card(adj_nb) == 0)) {
-  stop("Voronoi tessellation produced isolated cells -- reseed and retry")
+  stop("boundary layer has isolated cells -- rebuild synth_admin_polygons.gpkg")
 }
 
 # ICAR precision matrix Q = D - W, plus a small ridge so it's invertible.
@@ -404,7 +322,8 @@ for (i in seq_len(nrow(sites_per_province))) {
   candidate_adm2 <- boundaries$adm2_guid[boundaries$adm1_name == p]
   es_hosts[[i]] <- sample(candidate_adm2, min(k, length(candidate_adm2)))
 }
-es_host_adm2 <- unlist(es_hosts)[seq_len(N_ES_SITES)]
+es_host_adm2 <- unlist(es_hosts)
+N_ES_SITES <- length(es_host_adm2) # actual host count after per-province rounding
 
 # Pick a ward per host district; site geometry = centroid of that ward.
 es_site_rows <- vector("list", N_ES_SITES)

@@ -22,7 +22,10 @@ test_that("synth_field_guide has the expected structure", {
   # all seven signals active in the shipped object
   expect_true(all(synth_field_guide$signals_active))
   # focal is the read-year slice, one row per district
-  expect_equal(nrow(synth_field_guide$focal), 100L)
+  expect_equal(
+    nrow(synth_field_guide$focal),
+    dplyr::n_distinct(synth_field_guide$district_year$adm2_guid)
+  )
   expect_true(all(synth_field_guide$focal$year == synth_field_guide$read_year))
 })
 

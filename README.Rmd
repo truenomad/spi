@@ -77,7 +77,7 @@ library(blindspot)
 
 ### The data
 
-`synth_surveillance` is a made-up country (Gondor): 100 districts, monthly counts from 2015 to 2024, an under-15 population denominator, district polygons, a genomic outcome, and a ground-truth sheet recording where the blindspots were planted.
+`synth_surveillance` is a made-up country (Harad): 236 districts across 36 provinces, monthly counts from 2015 to 2024, an under-15 population denominator, district polygons, a genomic outcome, and a ground-truth sheet recording where the blindspots were planted.
 
 ```{r data}
 synth <- synth_surveillance

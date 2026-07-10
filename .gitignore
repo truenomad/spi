@@ -22,3 +22,6 @@ renv/staging/
 
 # stray non-interactive plot device output
 Rplots.pdf
+
+# cached geoBoundaries source geometry (fetched by data-raw/synth_admin_polygons.R)
+data-raw/geoboundaries_cache/

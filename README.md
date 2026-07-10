@@ -65,10 +65,10 @@ library(blindspot)
 
 ### The data
 
-`synth_surveillance` is a made-up country (Gondor): 100 districts,
-monthly counts from 2015 to 2024, an under-15 population denominator,
-district polygons, a genomic outcome, and a ground-truth sheet recording
-where the blindspots were planted.
+`synth_surveillance` is a made-up country (Harad): 236 districts across
+36 provinces, monthly counts from 2015 to 2024, an under-15 population
+denominator, district polygons, a genomic outcome, and a ground-truth
+sheet recording where the blindspots were planted.
 
 ``` r
 synth <- synth_surveillance
@@ -81,12 +81,12 @@ head(synth$cases)
 #> # A tibble: 6 x 3
 #>   adm2_guid month      count
 #>   <chr>     <date>     <int>
-#> 1 GDR-001   2015-01-01     2
-#> 2 GDR-001   2015-02-01     8
-#> 3 GDR-001   2015-03-01     3
-#> 4 GDR-001   2015-04-01     3
-#> 5 GDR-001   2015-05-01     3
-#> 6 GDR-001   2015-06-01     2
+#> 1 HAR-001   2015-01-01    11
+#> 2 HAR-001   2015-02-01    11
+#> 3 HAR-001   2015-03-01     5
+#> 4 HAR-001   2015-04-01     8
+#> 5 HAR-001   2015-05-01     6
+#> 6 HAR-001   2015-06-01    11
 ```
 
 ### 1. Spatial neighbours
@@ -98,10 +98,10 @@ first step turns the polygons into a neighbour graph.
 adj <- bs_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
 #> Neighbour list object:
-#> Number of regions: 100 
-#> Number of nonzero links: 490 
-#> Percentage nonzero weights: 4.9000 
-#> Average number of links: 4.9000
+#> Number of regions: 236 
+#> Number of nonzero links: 1,300 
+#> Percentage nonzero weights: 2.3341 
+#> Average number of links: 5.5085
 ```
 
 ### 2. Expected counts
@@ -138,12 +138,12 @@ head(as_tibble(fit_bare)[, c(
 #> # A tibble: 6 x 6
 #>   adm2_guid month      count expected_median expected_q05 expected_q95
 #>   <chr>     <date>     <int>           <dbl>        <dbl>        <dbl>
-#> 1 GDR-001   2015-01-01     2            2.38         1.52         3.71
-#> 2 GDR-001   2015-02-01     8            3.50         2.33         5.09
-#> 3 GDR-001   2015-03-01     3            2.50         1.63         3.78
-#> 4 GDR-001   2015-04-01     3            2.32         1.58         3.82
-#> 5 GDR-001   2015-05-01     3            2.22         1.49         3.35
-#> 6 GDR-001   2015-06-01     2            1.91         1.20         3.00
+#> 1 HAR-001   2015-01-01    11            8.27         5.97        12.4 
+#> 2 HAR-001   2015-02-01    11            8.32         6.07        12.3 
+#> 3 HAR-001   2015-03-01     5            5.88         4.12         8.61
+#> 4 HAR-001   2015-04-01     8            6.61         4.53        10.0 
+#> 5 HAR-001   2015-05-01     6            5.72         3.79         8.52
+#> 6 HAR-001   2015-06-01    11            7.09         4.84        10.4
 ```
 
 ### Adjusting for covariates
@@ -158,12 +158,12 @@ head(synth$covariates)
 #> # A tibble: 6 x 5
 #>   adm2_guid  year  dtp3 urban_prop travel_time_min
 #>   <chr>     <int> <dbl>      <dbl>           <dbl>
-#> 1 GDR-001    2015  81.6      0.204            26.7
-#> 2 GDR-001    2016  84        0.204            30.8
-#> 3 GDR-001    2017  82.4      0.204            25.7
-#> 4 GDR-001    2018  83.8      0.204            27.1
-#> 5 GDR-001    2019  90.7      0.204            25  
-#> 6 GDR-001    2020  79.1      0.204            37.3
+#> 1 HAR-001    2015  70        0.353            46.7
+#> 2 HAR-001    2016  71.4      0.353            40.9
+#> 3 HAR-001    2017  68.7      0.353            34.5
+#> 4 HAR-001    2018  73.9      0.353            34.4
+#> 5 HAR-001    2019  75.4      0.353            35.3
+#> 6 HAR-001    2020  70.5      0.353            82.9
 ```
 
 Pass them in, log-transforming the skewed travel-time column:
@@ -196,9 +196,9 @@ eff[eff$covariate %in% c("dtp3", "urban_prop", "travel_time_min"),
 #> # A tibble: 3 x 5
 #>   covariate       rr_median rr_q025 rr_q975 signif
 #>   <chr>               <dbl>   <dbl>   <dbl> <lgl> 
-#> 1 dtp3                1.00    0.963   1.04  FALSE 
-#> 2 urban_prop          0.552   0.439   0.688 TRUE  
-#> 3 travel_time_min     1.00    0.986   1.02  FALSE
+#> 1 dtp3                1.04    1.01    1.06  TRUE  
+#> 2 urban_prop          0.582   0.487   0.692 TRUE  
+#> 3 travel_time_min     1.00    0.992   1.01  FALSE
 ```
 
 One caveat, and the table shows it: most of these effects are muted,
@@ -229,11 +229,11 @@ od <- bs_compare_overdispersion(
 ``` r
 od$summary
 #> # A tibble: 3 x 11
-#>   spec  n_obs    dic   waic p_eff sd_spatial phi_spatial phi_pegged sd_extra
-#>   <chr> <int>  <dbl>  <dbl> <dbl>      <dbl>       <dbl> <lgl>         <dbl>
-#> 1 none  12000 59785. 59860.  104.       1.68       0.931 FALSE        NA    
-#> 2 iid   12000 56238. 56190. 4343.       1.68       0.930 FALSE         0.317
-#> 3 nb    12000 57550. 57552.  105.       1.68       0.931 FALSE        NA    
+#>   spec  n_obs     dic    waic  p_eff sd_spatial phi_spatial phi_pegged sd_extra
+#>   <chr> <int>   <dbl>   <dbl>  <dbl>      <dbl>       <dbl> <lgl>         <dbl>
+#> 1 none  28320 177312. 177584.   240.       1.70       0.899 FALSE        NA    
+#> 2 iid   28320 153382. 152707. 13997.       1.72       0.882 FALSE         0.322
+#> 3 nb    28320 160609. 160611.   240.       1.70       0.898 FALSE        NA    
 #> # i 2 more variables: cpo_valid <dbl>, pit_ks <dbl>
 ```
 
@@ -255,12 +255,12 @@ head(as_tibble(spi_dy)[, c(
 #> # A tibble: 6 x 6
 #>   adm2_guid  year observed spi_median spi_q05 spi_q95
 #>   <chr>     <dbl>    <int>      <dbl>   <dbl>   <dbl>
-#> 1 GDR-001    2015       38      1.35    1.16    1.57 
-#> 2 GDR-001    2016       30      1.01    0.876   1.19 
-#> 3 GDR-001    2017       31      0.962   0.834   1.13 
-#> 4 GDR-001    2018       29      0.851   0.729   0.981
-#> 5 GDR-001    2019       31      0.869   0.751   1.01 
-#> 6 GDR-001    2020       22      0.962   0.815   1.12
+#> 1 HAR-001    2015       97      1.21    1.07    1.37 
+#> 2 HAR-001    2016       71      0.931   0.833   1.06 
+#> 3 HAR-001    2017       88      1.02    0.912   1.15 
+#> 4 HAR-001    2018      100      1.05    0.932   1.18 
+#> 5 HAR-001    2019      100      1.00    0.892   1.11 
+#> 6 HAR-001    2020       34      0.627   0.551   0.712
 ```
 
 **Why the yearly SPI is the one we act on.** The index is defined at any
@@ -317,7 +317,7 @@ Every district-year lands in one of the four cells:
 table(conc$district_year$concordance)
 #> 
 #>     Both adequate    True shortfall False reassurance       False alarm 
-#>               790                47                91                72
+#>              1955                97               158               150
 ```
 
 `plot()` shows the four cells as a scatter of NPAFP rate against SPI,
@@ -363,17 +363,23 @@ fg
 #> # A tibble: 3 x 3
 #>   verdict       n   pct
 #>   <chr>     <int> <dbl>
-#> 1 FLAG          4     4
-#> 2 WATCH         0     0
-#> 3 No action    96    96
-#> # A tibble: 100 x 8
-#>   district     spi cri       npafp   run traj    corrob verdict
-#>   <chr>      <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>  
-#> 1 Fen Elen    0.62 0.54-0.71  51.8     5 falling      3 FLAG   
-#> 2 Fen Ithil   0.68 0.56-0.84   0.9     5 falling      3 FLAG   
-#> 3 Ithil Wood  0.71 0.58-0.86   1.2     3 rising       2 FLAG   
-#> 4 Serni Fen   0.8  0.69-0.92   1.4     1 falling      2 FLAG   
-#> # i 96 more rows
+#> 1 FLAG         13   5.5
+#> 2 WATCH         1   0.4
+#> 3 No action   222  94.1
+#> # A tibble: 236 x 8
+#>    district   spi cri       npafp   run traj    corrob verdict
+#>    <chr>    <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>  
+#>  1 Raenwen   0.18 0.14-0.23   0.2     1 rising       2 FLAG   
+#>  2 Garun     0.25 0.19-0.34   0.3     2 falling      3 FLAG   
+#>  3 Belmar    0.31 0.24-0.39   0.4     4 rising       3 FLAG   
+#>  4 Nurmar    0.52 0.42-0.66   0.6     5 rising       2 FLAG   
+#>  5 Beltha    0.53 0.38-0.74   0.5     3 falling      3 FLAG   
+#>  6 Sarnesh   0.63 0.48-0.82   0.9     2 falling      2 FLAG   
+#>  7 Khandora  0.66 0.58-0.76 146       1 falling      2 FLAG   
+#>  8 Tirdor    0.69 0.54-0.87   1.1     3 rising       2 FLAG   
+#>  9 Munesh    0.69 0.60-0.80   0.8     5 rising       2 FLAG   
+#> 10 Vashwen   0.71 0.62-0.81 182.      1 falling      2 FLAG   
+#> # i 226 more rows
 ```
 
 `summary(fg)` adds the signal fire-counts and a reference for the seven
