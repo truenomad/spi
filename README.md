@@ -1,27 +1,41 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file, then run
+     `devtools::build_readme()` (or knit) to regenerate README.md. -->
+
 # blindspot <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg)](https://app.codecov.io/gh/truenomad/blindspot)
-[![lint](https://github.com/truenomad/blindspot/actions/workflows/lint.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/lint.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg)](https://app.codecov.io/gh/truenomad/blindspot)
 [![pkgdown](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![R >= 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
+[![License:
+MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![R \>=
+4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
 
 <!-- badges: end -->
 
 > **Find the districts where the surveillance system can't see**
 
-_In the districts that report no cases, is the silence real?_
+*In the districts that report no cases, is the silence real?*
 
-blindspot estimates, for each district in each month, how many cases a surveillance system should be detecting given its health facilities, population, care-seeking patterns, conflict exposure, and the detection history of its neighbours. The ratio of what is detected to what is expected defines a surveillance performance index (SPI) that replaces binary pass/fail threshold classifications with a continuous, uncertainty-quantified measure of detection capacity.
+blindspot estimates, for each district in each month, how many cases a
+surveillance system should be detecting given its health facilities,
+population, care-seeking patterns, conflict exposure, and the detection
+history of its neighbours. The ratio of what is detected to what is
+expected defines a surveillance performance index (SPI): a continuous,
+uncertainty-quantified measure of detection capacity that refines and
+corroborates the conventional NPAFP-rate indicator rather than throwing
+it out.
 
-**Designed for polio AFP surveillance. Applicable to any case-based VPD surveillance system.**
+**Designed for polio AFP surveillance. Applicable to any case-based VPD
+surveillance system.**
 
 ## Installation
 
-```r
+``` r
 # from r-universe (recommended)
 install.packages(
   "blindspot",
@@ -36,75 +50,352 @@ install.packages(
 pak::pak("truenomad/blindspot")
 ```
 
-## Example
+## Walkthrough
 
-```r
+This runs the whole chain on the bundled synthetic data, so you can
+reproduce every step without POLIS access. It is the short version of
+`inst/examples/paper_analysis.R`, which you can open with
+`file.edit(system.file("examples/paper_analysis.R", package = "blindspot"))`.
+
+``` r
 library(blindspot)
+```
 
-# bundled synthetic surveillance system -- runs without restricted POLIS data
+### The data
+
+`synth_surveillance` is a made-up country (Gondor): 100 districts,
+monthly counts from 2015 to 2024, an under-15 population denominator,
+district polygons, a genomic outcome, and a ground-truth sheet recording
+where the blindspots were planted.
+
+``` r
 synth <- synth_surveillance
+names(synth)
+#>  [1] "cases"            "population"       "covariates"       "boundaries"      
+#>  [5] "ward_boundaries"  "virus_outcome"    "es_sites"         "es_data"         
+#>  [9] "es_district_year" "truth"
 
-# 1. spatial adjacency from district boundaries
-adj <- bs_adjacency(
-  boundaries = synth$boundaries,
-  id_col     = "adm2_guid"
-)
+head(synth$cases)
+#> # A tibble: 6 x 3
+#>   adm2_guid month      count
+#>   <chr>     <date>     <int>
+#> 1 GDR-001   2015-01-01     2
+#> 2 GDR-001   2015-02-01     8
+#> 3 GDR-001   2015-03-01     3
+#> 4 GDR-001   2015-04-01     3
+#> 5 GDR-001   2015-05-01     3
+#> 6 GDR-001   2015-06-01     2
+```
 
-# 2. fit BYM2 expected-count model (INLA):
-#    BYM2 space + IID year + harmonic season + IID overdispersion
-fit <- bs_expected(
+### 1. Spatial neighbours
+
+The model shares information between neighbouring districts, so the
+first step turns the polygons into a neighbour graph.
+
+``` r
+adj <- bs_adjacency(synth$boundaries, id_col = "adm2_guid")
+adj
+#> Neighbour list object:
+#> Number of regions: 100 
+#> Number of nonzero links: 490 
+#> Percentage nonzero weights: 4.9000 
+#> Average number of links: 4.9000
+```
+
+### 2. Expected counts
+
+`bs_expected()` is the core model. It estimates how many cases each
+district should report each month, given its population, its neighbours,
+and the season. The bare spec is a BYM2 spatial term, an IID year effect
+(which soaks up system-wide shifts such as the COVID drop), a harmonic
+season, and IID overdispersion, all on a log person-time offset.
+
+``` r
+fit_bare <- bs_expected(
   cases          = synth$cases,
   population     = synth$population,
   adjacency      = adj,
   id_col         = "adm2_guid",
   season         = "harmonic",
   year_effect    = "iid",
-  overdispersion = "iid"
+  overdispersion = "iid",
+  n_draws        = 500,
+  seed           = 42,
+  verbose        = FALSE
 )
+```
 
-# 3. sanity-check: does the overdispersion term earn its keep?
-bs_compare_overdispersion(
+The model output is the expected case count for every district-month,
+with a full posterior. Displayed next to the observed count:
+
+``` r
+head(as_tibble(fit_bare)[, c(
+  "adm2_guid", "month", "count",
+  "expected_median", "expected_q05", "expected_q95"
+)])
+#> # A tibble: 6 x 6
+#>   adm2_guid month      count expected_median expected_q05 expected_q95
+#>   <chr>     <date>     <int>           <dbl>        <dbl>        <dbl>
+#> 1 GDR-001   2015-01-01     2            2.37         1.58         3.61
+#> 2 GDR-001   2015-02-01     8            3.50         2.28         5.26
+#> 3 GDR-001   2015-03-01     3            2.49         1.64         3.83
+#> 4 GDR-001   2015-04-01     3            2.37         1.57         3.65
+#> 5 GDR-001   2015-05-01     3            2.21         1.45         3.44
+#> 6 GDR-001   2015-06-01     2            1.91         1.23         2.99
+```
+
+### Adjusting for covariates
+
+For those who want to use their own covariates, such as health-system
+reach, urbanicity, or access to care, `bs_expected()` takes them as a
+district-year tibble through the `covariates` argument. The toy ships
+three you can use straight away:
+
+``` r
+head(synth$covariates)
+#> # A tibble: 6 x 5
+#>   adm2_guid  year  dtp3 urban_prop travel_time_min
+#>   <chr>     <int> <dbl>      <dbl>           <dbl>
+#> 1 GDR-001    2015  81.6      0.204            26.7
+#> 2 GDR-001    2016  84        0.204            30.8
+#> 3 GDR-001    2017  82.4      0.204            25.7
+#> 4 GDR-001    2018  83.8      0.204            27.1
+#> 5 GDR-001    2019  90.7      0.204            25  
+#> 6 GDR-001    2020  79.1      0.204            37.3
+```
+
+Pass them in, log-transforming the skewed travel-time column:
+
+``` r
+fit_adj <- bs_expected(
+  cases          = synth$cases,
+  population     = synth$population,
+  adjacency      = adj,
+  covariates     = synth$covariates,
+  log_transform  = "travel_time_min",
+  id_col         = "adm2_guid",
+  season         = "harmonic",
+  year_effect    = "iid",
+  overdispersion = "iid",
+  n_draws        = 500,
+  seed           = 42,
+  verbose        = FALSE
+)
+```
+
+Each effect comes back as a rate ratio per standard deviation (the
+covariates are standardised inside the model). Here are the three
+covariates, dropping the seasonal harmonic terms:
+
+``` r
+eff <- summary(fit_adj)$effects
+eff[eff$covariate %in% c("dtp3", "urban_prop", "travel_time_min"),
+    c("covariate", "rr_median", "rr_q025", "rr_q975", "signif")]
+#> # A tibble: 3 x 5
+#>   covariate       rr_median rr_q025 rr_q975 signif
+#>   <chr>               <dbl>   <dbl>   <dbl> <lgl> 
+#> 1 dtp3                1.00    0.963   1.04  FALSE 
+#> 2 urban_prop          0.552   0.439   0.688 TRUE  
+#> 3 travel_time_min     1.00    0.986   1.02  FALSE
+```
+
+One caveat, and the table shows it: most of these effects are muted,
+because the spatial, seasonal, and year terms already absorb the
+structure the covariates would otherwise carry. These covariates also
+track surveillance access, which is itself partly a function of
+detection, so leaning on them can mask the shortfall the SPI is built to
+catch. Treat the adjusted fit as a sensitivity check and keep the bare
+model as the main one. The rest of this walk uses `fit_bare`.
+
+### 3. Does the overdispersion term pay for itself?
+
+A quick likelihood check across none, IID, and negative-binomial, so the
+choice is justified rather than assumed.
+
+``` r
+od <- bs_compare_overdispersion(
   cases      = synth$cases,
   population = synth$population,
   adjacency  = adj,
   id_col     = "adm2_guid",
-  specs      = c("none", "iid", "nb")
+  specs      = c("none", "iid", "nb"),
+  n_draws    = 100,
+  verbose    = FALSE
 )
+```
 
-# 4. surveillance performance index at any aggregation level
-spi_dy <- bs_spi(fit, level = "district_year")   # annual per district
-spi_dm <- bs_spi(fit, level = "district_month")  # monthly per district
+``` r
+od$summary
+#> # A tibble: 3 x 11
+#>   spec  n_obs    dic   waic p_eff sd_spatial phi_spatial phi_pegged sd_extra
+#>   <chr> <int>  <dbl>  <dbl> <dbl>      <dbl>       <dbl> <lgl>         <dbl>
+#> 1 none  12000 59785. 59860.  104.       1.68       0.931 FALSE        NA    
+#> 2 iid   12000 56238. 56190. 4343.       1.68       0.930 FALSE         0.317
+#> 3 nb    12000 57550. 57552.  105.       1.68       0.931 FALSE        NA    
+#> # i 2 more variables: cpo_valid <dbl>, pit_ks <dbl>
+```
 
-# 5. cross-classify SPI against the conventional NPAFP-rate threshold
+### 4. Surveillance Performance Index
+
+The SPI is observed over expected, computed for every posterior draw so
+the uncertainty in the denominator carries through. It can be summarised
+at any grain:
+
+``` r
+spi_dy <- bs_spi(fit_bare, level = "district_year")   # annual per district
+spi_dm <- bs_spi(fit_bare, level = "district_month")  # monthly per district
+```
+
+``` r
+head(as_tibble(spi_dy)[, c(
+  "adm2_guid", "year", "observed", "spi_median", "spi_q05", "spi_q95"
+)])
+#> # A tibble: 6 x 6
+#>   adm2_guid  year observed spi_median spi_q05 spi_q95
+#>   <chr>     <dbl>    <int>      <dbl>   <dbl>   <dbl>
+#> 1 GDR-001    2015       38      1.36    1.17    1.57 
+#> 2 GDR-001    2016       30      1.02    0.871   1.17 
+#> 3 GDR-001    2017       31      0.962   0.818   1.13 
+#> 4 GDR-001    2018       29      0.848   0.732   0.983
+#> 5 GDR-001    2019       31      0.864   0.739   1.01 
+#> 6 GDR-001    2020       22      0.970   0.829   1.12
+```
+
+**Why the yearly SPI is the one we act on.** The index is defined at any
+grain, but the verdict is annual. In most districts the monthly AFP
+count is 0 or 1, so the monthly SPI is mostly structural zeros with
+credible intervals too wide to act on, and reacting to it spends trust
+on noise. The sample size only settles over a full year, so the year is
+the unit we classify. We keep the monthly series to read the trend, and
+to feed the seasonal signal in the field guide.
+
+### 5. Concordance against the conventional threshold
+
+Instead of a hard pass/fail, each district-year's SPI is crossed with
+the WHO NPAFP-rate target (at least 3 non-polio AFP per 100,000 under-15
+person-years) into a 2x2. The cell that matters is false reassurance:
+the NPAFP rate looks fine, but the SPI still flags under-detection. That
+is the blindspot a plain threshold walks past.
+
+``` r
 conc <- bs_concordance(
   spi        = spi_dy,
   cases      = synth$cases,
   population = synth$population,
-  boundaries = synth$boundaries
+  boundaries = synth$boundaries,
+  verbose    = FALSE
 )
-summary(conc)
+```
 
-# 6. three-panel concordance map: NPAFP rate | SPI | where they disagree
+Every district-year lands in one of the four cells:
+
+``` r
+table(conc$district_year$concordance)
+#> 
+#>     Both adequate    True shortfall False reassurance       False alarm 
+#>               789                47                92                72
+```
+
+### 6. The three-panel map
+
+Three panels for one year: the conventional NPAFP rate, the posterior
+median SPI, and where the two disagree.
+
+``` r
 bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 ```
 
-The full paper reproduction ships as a script:
+<img src="man/figures/README-maps-1.png" alt="" width="100%" />
 
-```r
-file.edit(system.file("examples/paper_analysis.R", package = "blindspot"))
+### 7. The seven-signal field guide
+
+`bs_field_guide()` reads each district-year through seven signals (S1 to
+S7) and lands on a FLAG, WATCH, or No-action verdict. S6 uses the
+neighbour graph; S7 uses the monthly SPI for seasonality and a table of
+orphan-virus detections.
+
+``` r
+genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
+
+fg <- bs_field_guide(
+  concordance = conc,
+  adjacency   = adj,
+  spi_month   = spi_dm,
+  genomic     = genomic[, c("adm2_guid", "year")],
+  verbose     = FALSE
+)
+
+fg
+#> # A tibble: 3 x 3
+#>   verdict       n   pct
+#>   <chr>     <int> <dbl>
+#> 1 FLAG          3     3
+#> 2 WATCH         0     0
+#> 3 No action    97    97
+#> # A tibble: 100 x 8
+#>   district     spi cri       npafp   run traj    corrob verdict
+#>   <chr>      <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>  
+#> 1 Fen Elen    0.62 0.54-0.70  51.8     5 falling      3 FLAG   
+#> 2 Fen Ithil   0.69 0.56-0.86   0.9     5 falling      3 FLAG   
+#> 3 Ithil Wood  0.71 0.58-0.88   1.2     3 rising       2 FLAG   
+#> # i 97 more rows
 ```
 
-## Framework
+`summary(fg)` adds the signal fire-counts and a reference for the seven
+signals, `bs_field_guide_help()` walks a worked example, and
+`bs_field_guide_table()` renders a `gt` or `flextable` for publication.
 
-**Expected rate model.** Poisson regression with BYM2 spatial random effects (INLA). Log person-time offset. The intercept and covariates estimate the background detection rate from the data rather than imposing a fixed threshold. The model learns what each district should be seeing. Posterior draws of the expected count become the SPI denominator.
+**Why a Bayesian spatial model.** AFP counts at the district-month level
+are small and noisy. Many districts report zero cases in a given month
+even when surveillance is working, so a raw rate is unstable at that
+grain and a single bad month can look like a collapse. A BYM2 model (the
+Besag-York-Mollie reparameterisation of Riebler et al. 2016) handles
+this by borrowing strength across space: each district's estimate is
+pulled toward its neighbours in proportion to how little its own data
+can say on its own, and the model separates smooth spatial structure
+from unstructured local noise. A quiet district ringed by active ones is
+therefore read differently from a quiet district in a genuinely quiet
+region. Because the fit is Bayesian, every district-month comes with a
+full posterior, so the SPI carries a credible interval rather than a
+bare point estimate, and the uncertainty is itself part of the verdict.
 
-**Surveillance Performance Index.** SPI is the ratio of observed to expected counts, computed per posterior draw so the joint uncertainty in the denominator is preserved. SPI ~= 1 means detection matches expectation; SPI < 1 flags underdetection (a blindspot); SPI > 1 flags over-detection or genuine excess.
+**Why INLA.** Fitting this by MCMC over tens of thousands of
+district-months, once per country and per year, would be slow. INLA
+(integrated nested Laplace approximation) gives fast, accurate
+approximate-Bayesian inference for exactly this class of latent Gaussian
+spatial models, so the whole chain runs in seconds to minutes instead of
+hours while still returning the joint posterior the SPI needs.
 
-**Concordance against the conventional threshold.** Rather than a fixed pass/fail rule, each district-year's SPI is cross-classified against the conventional NPAFP-rate target (>= 3 non-polio AFP cases per 100,000 under-15 person-years) into a 2x2: _both adequate_, _true shortfall_ (both metrics flag failure), _false alarm_ (NPAFP fails but SPI is fine), and _false reassurance_ (NPAFP looks adequate but SPI flags under-detection). The false-reassurance cell is the blindspot a raw threshold misses.
+**Expected rate model.** Poisson regression with BYM2 spatial random
+effects (INLA). Log person-time offset. The intercept and covariates
+estimate the background detection rate from the data rather than
+imposing a fixed threshold. The model learns what each district should
+be seeing. Posterior draws of the expected count become the SPI
+denominator.
+
+**What the SPI is for.** The SPI does not replace the conventional NPAFP
+rate; it refines and corroborates it. The NPAFP rate asks whether a
+district clears a fixed target. The SPI asks whether a district detects
+as much as a model of its own context expects, with the uncertainty
+attached. Read together (the concordance step in the walkthrough), the
+two agree in most district-years, which is reassuring, and where they
+disagree they point to the districts a single threshold would misread.
+SPI is the ratio of observed to expected counts, computed per posterior
+draw so the joint uncertainty in the denominator is preserved. An SPI of
+1 means detection matches expectation; below 1 flags underdetection (a
+blindspot); above 1 flags over-detection or genuine excess.
+
+**Concordance against the conventional threshold.** Each district-year's
+SPI is cross-classified against the conventional NPAFP-rate target into
+a 2x2: *both adequate*, *true shortfall* (both metrics flag failure),
+*false alarm* (NPAFP fails but SPI is fine), and *false reassurance*
+(NPAFP looks adequate but SPI flags under-detection). The
+false-reassurance cell is the blindspot a raw threshold misses, and the
+one the example surfaces.
 
 ## Exported functions
 
-```r
+``` r
 bs_adjacency()              # spatial neighbour graph from sf boundaries
 bs_expected()               # fit BYM2 expected-count model (INLA)
 bs_compare_overdispersion() # none vs IID vs negative-binomial diagnostic
@@ -116,21 +407,29 @@ bs_field_guide_table()      # render the field guide (gt / flextable)
 bs_field_guide_help()       # learn to read the field guide (worked example)
 ```
 
-`bs_expected()`, `bs_spi()`, `bs_concordance()`, and `bs_field_guide()` each
-return a typed object with `print`, `summary`, and `as_tibble` methods; the
-`bs_spi()` and `bs_concordance()` objects also have a `plot()` method.
+`bs_expected()`, `bs_spi()`, `bs_concordance()`, and `bs_field_guide()`
+each return a typed object with `print`, `summary`, and `as_tibble`
+methods; the `bs_spi()` and `bs_concordance()` objects also have a
+`plot()` method.
 
 ## Applications
 
-The framework is disease-agnostic. The core engine operates on case counts, population denominators, and spatial boundaries. Designed for AFP/polio surveillance in the polio endgame; applicable to measles discard surveillance, DHIS2 reporting completeness monitoring, and other case-based VPD surveillance systems. Changing the application requires changing the data and covariates, not the methodology.
+The framework is disease-agnostic. The core engine operates on case
+counts, population denominators, and spatial boundaries. Designed for
+AFP/polio surveillance in the polio endgame; applicable to measles
+discard surveillance, DHIS2 reporting completeness monitoring, and other
+case-based VPD surveillance systems. Changing the application requires
+changing the data and covariates, not the methodology.
 
 ## The name
 
-A blindspot is a district where the surveillance system cannot see. The package finds them, quantifies the uncertainty, and tells you what to do about them.
+A blindspot is a district where the surveillance system cannot see. The
+package finds them, quantifies the uncertainty, and tells you what to do
+about them.
 
 ## Citation
 
-```r
+``` r
 Yusuf MA (2026). blindspot: Bayesian spatiotemporal
   surveillance quality monitoring. R package version 0.1.0.
   https://github.com/truenomad/blindspot
@@ -138,10 +437,12 @@ Yusuf MA (2026). blindspot: Bayesian spatiotemporal
 
 ## Related packages
 
-**poliprep:** POLIS data cleaning and preparation. Upstream of blindspot.
+**poliprep:** POLIS data cleaning and preparation. Upstream of
+blindspot.
 
-**AgePopDenom:** DHS-anchored age-structured population estimates. Provides the denominator input.
+**AgePopDenom:** DHS-anchored age-structured population estimates.
+Provides the denominator input.
 
 ## License
 
-MIT &copy; 2026 Mohamed A. Yusuf
+MIT (c) 2026 Mohamed A. Yusuf
