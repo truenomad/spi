@@ -1,9 +1,17 @@
 #' @keywords internal
+#' @importFrom rlang .data .env :=
 "_PACKAGE"
 
 ## usethis namespace: start
 ## usethis namespace: end
 NULL
+
+# Column names referenced inside data-masked dplyr verbs. Declaring them here
+# keeps R CMD check's "no visible binding for global variable" note quiet
+# without threading `.data$` through every call.
+utils::globalVariables(c(
+  "count", "district_id", "log_offset", "month", "month_num", "pop", "year"
+))
 
 #' blindspot: Bayesian Spatiotemporal Surveillance Quality Monitoring
 #'

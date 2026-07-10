@@ -6,8 +6,8 @@ Authors@R:
         given = "Mohamed",
         family = "Yusuf",
         role = c("aut", "cre"),
-        email = "truenomad@who.int",
-        comment = c(ORCID = "XXXX-XXXX-XXXX-XXXX")
+        email = "moyusuf@who.int",
+        comment = c(ORCID = "0000-0002-9339-4613")
     ))
 Description: Estimates district-level expected case detection
     rates using Bayesian spatiotemporal models (BYM2 via INLA),
@@ -36,7 +36,6 @@ Imports:
     sf (>= 1.0),
     spdep (>= 1.2),
     dplyr (>= 1.1.0),
-    tidyr (>= 1.3.0),
     purrr (>= 1.0.0),
     tibble (>= 3.2.0),
     cli (>= 3.6.0),
@@ -45,8 +44,7 @@ Imports:
     lubridate (>= 1.9.0),
     matrixStats (>= 1.0.0),
     stats,
-    utils,
-    Matrix
+    utils
 Suggests:
     INLA (>= 24.01.01),
     ggplot2 (>= 3.4.0),
@@ -57,6 +55,7 @@ Suggests:
     webshot2,
     quarto,
     testthat (>= 3.0.0),
+    withr (>= 2.5.0),
     knitr,
     rmarkdown,
     exactextractr,
@@ -67,7 +66,6 @@ Additional_repositories:
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
-RoxygenNote: 7.3.3
+RoxygenNote: 8.0.0

@@ -9,7 +9,10 @@
 ^blindspot_logo_v13\.svg$
 ^README\.Rmd$
 ^\.github$
-^\.lintr$
 ^CITATION\.cff$
 ^codecov\.yml$
 ^_pkgdown\.yml$
+^vignettes$
+^\.claude$
+\.gitkeep$
+\.DS_Store$
