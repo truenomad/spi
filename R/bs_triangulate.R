@@ -573,6 +573,20 @@ bs_triangulate_map <- function(
                       by = id_col)
   bnd_slice$fill_cat <- bnd_slice[[by]]
 
+  # adm1 (province) outline dissolved from the adm2 layer, drawn on top of the
+  # district choropleth (matches the sntutils facetted-map convention and the
+  # three-panel concordance map).
+  adm1_layer <- NULL
+  if ("adm1_name" %in% names(boundaries)) {
+    adm1_outline <- boundaries |>
+      dplyr::group_by(.data$adm1_name) |>
+      dplyr::summarise(.groups = "drop")
+    adm1_layer <- ggplot2::geom_sf(
+      data = adm1_outline, fill = NA, colour = "grey20", linewidth = 0.3,
+      inherit.aes = FALSE
+    )
+  }
+
   title <- title %||%
     sprintf("Triangulation of the field-guide verdict, %d", yr)
   subtitle <- sprintf(
@@ -583,15 +597,25 @@ bs_triangulate_map <- function(
   ggplot2::ggplot(bnd_slice) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$fill_cat), colour = "white",
                      linewidth = 0.1) +
-    ggplot2::scale_fill_manual(values = pal, drop = FALSE, na.value = "grey85",
+    adm1_layer +
+    ggplot2::scale_fill_manual(values = pal, drop = TRUE, na.value = "grey85",
                                name = fill_lab) +
+    ggplot2::guides(fill = ggplot2::guide_legend(
+      ncol = 4, byrow = TRUE, title.position = "top", title.hjust = 0
+    )) +
     ggplot2::labs(title = title, subtitle = subtitle) +
     ggplot2::theme_void(base_size = 11) +
     ggplot2::theme(
-      plot.title = ggplot2::element_text(face = "bold", size = 12),
-      plot.subtitle = ggplot2::element_text(size = 9, colour = "grey30"),
+      plot.title = ggplot2::element_text(face = "bold", size = 12,
+                                         margin = ggplot2::margin(b = 4)),
+      plot.subtitle = ggplot2::element_text(size = 9, colour = "grey30",
+                                            margin = ggplot2::margin(t = 0,
+                                                                     b = 10)),
+      plot.margin = ggplot2::margin(6, 18, 6, 8),
       legend.position = "bottom",
       legend.title = ggplot2::element_text(size = 8, face = "bold"),
-      legend.text = ggplot2::element_text(size = 8)
+      legend.text = ggplot2::element_text(size = 8),
+      legend.key.width = grid::unit(1.1, "lines"),
+      legend.key.height = grid::unit(0.5, "lines")
     )
 }

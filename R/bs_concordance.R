@@ -545,6 +545,20 @@ bs_concordance_maps <- function(
       by = id_col
     )
 
+  # adm1 (province) outline dissolved from the adm2 layer, drawn on top of each
+  # panel so the provincial structure reads through the district choropleth
+  # (matches the sntutils facetted-map convention).
+  adm1_layer <- NULL
+  if ("adm1_name" %in% names(boundaries)) {
+    adm1_outline <- boundaries |>
+      dplyr::group_by(.data$adm1_name) |>
+      dplyr::summarise(.groups = "drop")
+    adm1_layer <- ggplot2::geom_sf(
+      data = adm1_outline, fill = NA, colour = "grey20", linewidth = 0.3,
+      inherit.aes = FALSE
+    )
+  }
+
   # ---- Panel titles + subtitles (paper wording) ----
   yr_lbl <- year_label %||% sprintf("year T-1: %d", yr)
   ttl_a <- (titles %||% NULL)[1] %||%
@@ -576,11 +590,13 @@ bs_concordance_maps <- function(
 
   base_theme <- ggplot2::theme_void(base_size = 11) +
     ggplot2::theme(
-      plot.title        = ggplot2::element_text(face = "bold", size = 12),
+      plot.title        = ggplot2::element_text(face = "bold", size = 12,
+                                                margin = ggplot2::margin(b = 4)),
       plot.subtitle     = ggplot2::element_text(size = 9,
                                                 colour = "grey30",
-                                                margin = ggplot2::margin(b = 6)),
-      plot.margin       = ggplot2::margin(6, 8, 6, 8),
+                                                margin = ggplot2::margin(t = 0,
+                                                                         b = 10)),
+      plot.margin       = ggplot2::margin(6, 10, 6, 10),
       legend.position   = "bottom",
       legend.box        = "vertical",
       legend.title      = ggplot2::element_text(size = 8, face = "bold"),
@@ -594,6 +610,7 @@ bs_concordance_maps <- function(
   p_a <- ggplot2::ggplot(bnd_slice) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$npafp_cat), colour = "white",
                      linewidth = 0.1) +
+    adm1_layer +
     ggplot2::scale_fill_manual(
       values = pal_a, drop = FALSE, na.value = "grey85",
       name = sprintf(
@@ -616,6 +633,7 @@ bs_concordance_maps <- function(
   p_b <- ggplot2::ggplot(bnd_slice) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$spi_cat), colour = "white",
                      linewidth = 0.1) +
+    adm1_layer +
     ggplot2::scale_fill_manual(
       values = pal_b, drop = FALSE, na.value = "grey85",
       name = sprintf(
@@ -639,8 +657,9 @@ bs_concordance_maps <- function(
   p_c <- ggplot2::ggplot(bnd_slice) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$concordance_legend),
                      colour = "white", linewidth = 0.1) +
+    adm1_layer +
     ggplot2::scale_fill_manual(
-      values = pal_c, drop = FALSE, na.value = "grey85",
+      values = pal_c, drop = TRUE, na.value = "grey85",
       name = "Per-LGA agreement (conventional NPAFP x SPI)"
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(
@@ -649,8 +668,13 @@ bs_concordance_maps <- function(
     ggplot2::labs(title = ttl_c, subtitle = sub_c) +
     base_theme
 
+  # extra right margin gives the composed figure -- and panel C's legend --
+  # breathing space at the right edge.
   patchwork::wrap_plots(p_a, p_b, p_c, ncol = 3) +
-    patchwork::plot_layout(widths = c(1, 1, 1))
+    patchwork::plot_layout(widths = c(1, 1, 1)) +
+    patchwork::plot_annotation(
+      theme = ggplot2::theme(plot.margin = ggplot2::margin(6, 22, 6, 6))
+    )
 }
 
 # nicely-named intervals for use as factor levels + palette keys

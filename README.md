@@ -35,6 +35,79 @@ does not forecast where poliovirus is circulating.
 **Designed for polio AFP surveillance. Applicable to any case-based VPD
 surveillance system.**
 
+<details>
+
+<summary>
+
+<b>Method notes — why a Bayesian spatial model, why INLA, and what the
+SPI is for</b> (click to expand)
+</summary>
+
+<br>
+
+**Why a Bayesian spatial model.** AFP counts at the district-month level
+are small and noisy. Many districts report zero cases in a given month
+even when surveillance is working, so a raw rate is unstable at that
+grain and a single bad month can look like a collapse. A BYM2 model (the
+Besag-York-Mollie reparameterisation of Riebler et al. 2016) handles
+this by borrowing strength across space: each district's estimate is
+pulled toward its neighbours in proportion to how little its own data
+can say on its own, and the model separates smooth spatial structure
+from unstructured local noise. A quiet district ringed by active ones is
+therefore read differently from a quiet district in a genuinely quiet
+region. Because the fit is Bayesian, every district-month comes with a
+full posterior, so the SPI carries a credible interval rather than a
+bare point estimate, and the uncertainty is itself part of the verdict.
+
+**Why INLA.** Fitting this by MCMC over tens of thousands of
+district-months, once per country and per year, would be slow. INLA
+(integrated nested Laplace approximation) gives fast, accurate
+approximate-Bayesian inference for exactly this class of latent Gaussian
+spatial models, so the whole chain runs in seconds to minutes instead of
+hours while still returning the joint posterior the SPI needs.
+
+**Expected rate model.** A Bayesian count regression with BYM2 spatial
+random effects, fit by INLA over a log under-15 person-time offset, with
+year, harmonic-seasonal, and contextual terms. The paper uses a negative
+binomial likelihood (Poisson distorted the spatial variance partition);
+the package can compare Poisson, Poisson-lognormal, and negative
+binomial and choose by DIC and WAIC. The intercept and covariates
+estimate the background detection rate from the data rather than
+imposing a fixed threshold, so the model learns what each district
+should be seeing. Posterior draws of the expected count become the SPI
+denominator.
+
+**What the SPI is for.** The SPI does not replace the conventional NPAFP
+rate; it refines it. The NPAFP rate asks whether a district clears a
+fixed target. The SPI asks whether a district detects as much as a model
+of its own context expects, with the uncertainty attached. Read together
+(the concordance step in the walkthrough) the two agree in most
+district-years; where they disagree, the disagreement runs one way, with
+the SPI flagging shortfall among districts the flat threshold had
+already certified as adequate far more often than the reverse. NPAFP is
+the polio example of a conventional flat threshold, and the one this
+package is built around; the same expected-versus-observed logic refines
+any case-based surveillance indicator, measles discard rates or
+reporting completeness among them.
+
+An SPI of 1 means detection matches expectation; below 1 flags
+under-detection (a blindspot); above 1 means detection runs ahead of
+expectation, for instance where an outbreak response has intensified
+case-finding. Crucially it is diagnostic, not predictive: a low SPI says
+the system is detecting less than it should, not that poliovirus is
+present. It measures whether the system could see, not whether there was
+anything to see.
+
+**Concordance against the conventional threshold.** Each district-year's
+SPI is cross-classified against the conventional NPAFP-rate target into
+a 2x2: *both adequate*, *true shortfall* (both metrics flag failure),
+*false alarm* (NPAFP fails but SPI is fine), and *false reassurance*
+(NPAFP looks adequate but SPI flags under-detection). The
+false-reassurance cell is the blindspot a raw threshold misses, and the
+one the example surfaces.
+
+</details>
+
 ## Installation
 
 ``` r
@@ -416,28 +489,29 @@ tri <- bs_triangulate(
   verbose = FALSE
 )
 
-dplyr::count(tri$district_year, triangulation)
-#> # A tibble: 9 x 2
-#>   triangulation             n
-#>   <fct>                 <int>
-#> 1 confirmed blindspot      30
-#> 2 blind, unverified        63
-#> 3 adequate, ES positive   153
-#> 4 flagged, ES clear        62
-#> 5 watch, ES clear           1
-#> 6 watch, unverified         4
-#> 7 corroborated clear     1125
-#> 8 uncorroborated clear    825
-#> 9 detected                 97
+# the ten classes are a verdict x ES-status grid (AFP-detected sits off-grid)
+grid <- subset(tri$district_year, !afp_hit)
+grid$verdict <- factor(grid$verdict_chr, c("FLAG", "WATCH", "No action"))
+grid$ES <- factor(grid$es_status, c("positive", "clear", "no site"))
+table(verdict = grid$verdict, ES = grid$ES)
+#>            ES
+#> verdict     positive clear no site
+#>   FLAG            21   102      52
+#>   WATCH            0     3       3
+#>   No action      172  1087     834
 ```
 
-`detection_lag = 1L` tests the verdict in year *t* against detections in
-year *t + 1*, so the capacity read is taken before the detection's own
-active case-finding could inflate it. Three classes carry the evidential
-weight: **confirmed blindspot** (flagged, and ES caught what AFP
-missed), **adequate, ES positive** (a possible false-adequate the guide
-waved through), and **blind, unverified** (flagged with no ES site to
-check it, the highest-value place to deploy ES or an active search).
+Read as a grid, the field-guide verdict runs down the rows and the
+independent ES read across the columns, so every cell is one triage
+class. `detection_lag = 1L` tests the year-*t* verdict against year *t +
+1* detections, so the capacity read is taken before the detection's own
+case-finding could inflate it. The cells that carry the weight sit off
+the reassuring bottom-right: **FLAG × positive** (confirmed blindspots,
+where ES caught what AFP missed), **No action × positive** (possible
+false-adequates the guide waved through), and **FLAG × no site**
+(flagged with no ES site to check, the highest-value place to deploy ES
+or an active search). The district-years where AFP itself already
+detected virus sit outside the grid.
 
 ``` r
 bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2020)
@@ -449,66 +523,6 @@ The 2020 verdicts (the COVID-crash trough, tested against 2021
 detections) map the triage: reds and magenta are the districts to act on
 or instrument, greens the trustworthy silences. `bs_triangulate_table()`
 renders the same panel as a `gt` / `flextable` for a report.
-
-**Why a Bayesian spatial model.** AFP counts at the district-month level
-are small and noisy. Many districts report zero cases in a given month
-even when surveillance is working, so a raw rate is unstable at that
-grain and a single bad month can look like a collapse. A BYM2 model (the
-Besag-York-Mollie reparameterisation of Riebler et al. 2016) handles
-this by borrowing strength across space: each district's estimate is
-pulled toward its neighbours in proportion to how little its own data
-can say on its own, and the model separates smooth spatial structure
-from unstructured local noise. A quiet district ringed by active ones is
-therefore read differently from a quiet district in a genuinely quiet
-region. Because the fit is Bayesian, every district-month comes with a
-full posterior, so the SPI carries a credible interval rather than a
-bare point estimate, and the uncertainty is itself part of the verdict.
-
-**Why INLA.** Fitting this by MCMC over tens of thousands of
-district-months, once per country and per year, would be slow. INLA
-(integrated nested Laplace approximation) gives fast, accurate
-approximate-Bayesian inference for exactly this class of latent Gaussian
-spatial models, so the whole chain runs in seconds to minutes instead of
-hours while still returning the joint posterior the SPI needs.
-
-**Expected rate model.** A Bayesian count regression with BYM2 spatial
-random effects, fit by INLA over a log under-15 person-time offset, with
-year, harmonic-seasonal, and contextual terms. The paper uses a negative
-binomial likelihood (Poisson distorted the spatial variance partition);
-the package can compare Poisson, Poisson-lognormal, and negative
-binomial and choose by DIC and WAIC. The intercept and covariates
-estimate the background detection rate from the data rather than
-imposing a fixed threshold, so the model learns what each district
-should be seeing. Posterior draws of the expected count become the SPI
-denominator.
-
-**What the SPI is for.** The SPI does not replace the conventional NPAFP
-rate; it refines it. The NPAFP rate asks whether a district clears a
-fixed target. The SPI asks whether a district detects as much as a model
-of its own context expects, with the uncertainty attached. Read together
-(the concordance step in the walkthrough) the two agree in most
-district-years; where they disagree, the disagreement runs one way, with
-the SPI flagging shortfall among districts the flat threshold had
-already certified as adequate far more often than the reverse. NPAFP is
-only the polio example of a conventional flat threshold: the same
-expected-versus-observed logic refines any case-based surveillance
-indicator, measles discard rates or reporting completeness among them.
-
-An SPI of 1 means detection matches expectation; below 1 flags
-under-detection (a blindspot); above 1 means detection runs ahead of
-expectation, for instance where an outbreak response has intensified
-case-finding. Crucially it is diagnostic, not predictive: a low SPI says
-the system is detecting less than it should, not that poliovirus is
-present. It measures whether the system could see, not whether there was
-anything to see.
-
-**Concordance against the conventional threshold.** Each district-year's
-SPI is cross-classified against the conventional NPAFP-rate target into
-a 2x2: *both adequate*, *true shortfall* (both metrics flag failure),
-*false alarm* (NPAFP fails but SPI is fine), and *false reassurance*
-(NPAFP looks adequate but SPI flags under-detection). The
-false-reassurance cell is the blindspot a raw threshold misses, and the
-one the example surfaces.
 
 ## Exported functions
 
@@ -534,12 +548,14 @@ useful, `summary` / `as_tibble`) methods; the `bs_spi()` and
 
 ## Applications
 
-The framework is disease-agnostic. The core engine operates on case
-counts, population denominators, and spatial boundaries. Designed for
-AFP/polio surveillance in the polio endgame; applicable to measles
-discard surveillance, DHIS2 reporting completeness monitoring, and other
-case-based VPD surveillance systems. Changing the application requires
-changing the data and covariates, not the methodology.
+The core engine is disease-agnostic: it operates on case counts,
+population denominators, and spatial boundaries. But polio AFP/NPAFP is
+the key example throughout this package and its paper — the method was
+built around the polio endgame's surveillance-quality problem, and the
+NPAFP rate is the flat threshold every worked example refines. Other
+case-based VPD indicators (measles discard surveillance, DHIS2 reporting
+completeness, and the like) are supported by analogy: changing the
+application changes the data and covariates, not the methodology.
 
 ## The name
 
