@@ -87,14 +87,26 @@ adj <- blindspot::bs_adjacency(
 print(adj)
 
 ## ---------------------------------------------------------------------------##
-# Fit BYM2 expected-count model -- primary "bare" spec -------------------------
+# Fit the expected-count model: bare vs adjusted ------------------------------
 ## ---------------------------------------------------------------------------##
 
-# The paper's PRIMARY_SPEC (see 00_config.R): intercept + BYM2 spatial +
-# IID year + harmonic season + log person-time offset. No covariates, so the
-# SPI reads detection performance directly rather than net-of-covariates.
+# bs_expected() is the core engine, and covariates are OPTIONAL -- so there are
+# two specs. We fit BOTH so you can see the difference and choose deliberately:
+#
+#   * BARE (Option A) -- intercept + BYM2 spatial + IID year + harmonic season
+#     + log person-time offset. No covariates, so the SPI reads detection
+#     performance directly. The paper's PRIMARY_SPEC and the fit every
+#     downstream step below uses.
+#   * ADJUSTED (Option B) -- the same model plus the three district-year
+#     covariates shipped in synth$covariates (fit in the next block).
+#
+# CAVEAT (the teaching point): those covariates proxy surveillance *access*,
+# which is partly downstream of detection itself. Adjusting for them can
+# attenuate the very gap the SPI is built to surface -- which is why the paper
+# keeps the BARE model primary and treats the adjusted fit as a sensitivity
+# analysis. Pick the spec deliberately; do not just "add covariates".
 
-cli::cli_h2("Fit BYM2 expected-count model (bare)")
+cli::cli_h2("Option A -- bare spec (primary)")
 
 fit_bare <- blindspot::bs_expected(
   cases = cases,
@@ -120,79 +132,30 @@ cli::cli_alert_info(
 )
 
 ## ---------------------------------------------------------------------------##
-# Adjusted spec: district-level covariates (paper: bare vs adjusted) -----------
+# Option B -- adjusted spec (adds district-level covariates) -------------------
 ## ---------------------------------------------------------------------------##
 
-# The paper fits a bare spec and an "adjusted" spec that adds covariates. The
-# toy bundle ships none, so we synthesise three district-year layers a real
-# analysis would pull from DHS / HMIS / travel-time surfaces:
-#
-#   dtp3            DTP3 immunisation coverage (%)     - health-system reach
-#   urban_prop      share of district that is urban    - structural, per district
-#   travel_time_min median minutes to nearest facility - access to care
-#
-# They are correlated with the planted profiles and population so the adjusted
+# The toy bundle ships three district-year covariate layers (see
+# ?synth_surveillance): dtp3 (DTP3 coverage %), urban_prop (urban share), and
+# travel_time_min (minutes to the nearest facility). They are correlated with
+# the planted blindspots -- lower coverage, worse access -- so the adjusted
 # model has real signal. travel_time_min is right-skewed, so we log-transform
 # it. Covariates are standardised internally, so each effect reads as the rate
 # ratio per one standard deviation.
-#
-# CAVEAT (and the teaching point): these proxy surveillance *access*, which is
-# partly downstream of detection itself. Adjusting for them can attenuate the
-# very gap the SPI is built to surface -- which is why the paper keeps the bare
-# model PRIMARY and treats the adjusted fit as a sensitivity analysis.
 
-cli::cli_h2("Adjusted spec: simulate + fit district-level covariates")
+cli::cli_h2("Option B -- adjusted spec (covariates)")
 
-set.seed(seed)
+covariates <- synth$covariates
+print(utils::head(covariates))
 
-ids <- boundaries$adm2_guid
-# planted blindspots run lower coverage / worse access than resilient districts
-lagging <- stats::setNames(truth$is_blindspot[match(ids, truth$adm2_guid)], ids)
-
-# structural urbanicity: bigger districts skew urban, blindspots slightly rural
-pop0 <- population |>
-  dplyr::filter(year == min(year)) |>
-  dplyr::arrange(match(adm2_guid, ids))
-urban <- stats::setNames(
-  plogis(
-    0.9 * as.numeric(scale(log(pop0$pop_u15))) -
-      0.7 * lagging[pop0$adm2_guid] +
-      rnorm(length(ids), 0, 0.5)
-  ),
-  pop0$adm2_guid
-)
-
-# expand to district-year, add a secular trend and a 2020-21 COVID dip
-covariates <- population |>
-  dplyr::transmute(adm2_guid, year) |>
-  dplyr::mutate(
-    yrs = year - min(year),
-    lag_i = as.numeric(lagging[adm2_guid]),
-    urb = urban[adm2_guid],
-    covid = as.numeric(year %in% c(2020L, 2021L)),
-    dtp3 = round(pmin(99, pmax(40,
-      86 + 0.8 * yrs - 14 * lag_i + 10 * (urb - 0.5) -
-        6 * covid + rnorm(dplyr::n(), 0, 2)
-    )), 1),
-    travel_time_min = round(pmax(8, exp(
-      3.6 - 1.1 * urb + 0.5 * lag_i + 0.3 * covid + rnorm(dplyr::n(), 0, 0.25)
-    )), 1),
-    urban_prop = round(urb, 3)
-  ) |>
-  dplyr::select(adm2_guid, year, dtp3, urban_prop, travel_time_min)
-
-cli::cli_alert_info(
-  "covariates: {format(nrow(covariates), big.mark = ',')} district-years x 3 \\
-   layers (dtp3, urban_prop, travel_time_min)"
-)
-
+# The ONLY change from the bare call is the covariates + log_transform args:
 fit_adj <- blindspot::bs_expected(
   cases = cases,
   population = population,
   adjacency = adj,
-  covariates = covariates,
+  covariates = covariates, # <- district-year covariate layers
+  log_transform = "travel_time_min", # <- right-skewed, so log(1 + x)
   id_col = "adm2_guid",
-  log_transform = "travel_time_min",
   season = "harmonic",
   year_effect = "iid",
   overdispersion = "iid",
@@ -215,6 +178,8 @@ print(tibble::tibble(
   dic = round(c(fit_bare$model$dic$dic, fit_adj$model$dic$dic)),
   waic = round(c(fit_bare$model$waic$waic, fit_adj$model$waic$waic))
 ))
+
+cli::cli_alert_info("Downstream steps use the bare (primary) fit.")
 
 ## ---------------------------------------------------------------------------##
 # Overdispersion sanity check (paper: bs_compare_overdispersion in 2e) ---------

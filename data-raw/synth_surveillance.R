@@ -455,12 +455,58 @@ es_district_year <- es_data |>
   )
 
 # ---------------------------------------------------------------------------
+# 9b. District-level covariates for the adjusted bs_expected() spec
+# ---------------------------------------------------------------------------
+# Three district-year layers a real analysis would pull from DHS / HMIS /
+# travel-time surfaces:
+#   dtp3            DTP3 immunisation coverage (%)     - health-system reach
+#   urban_prop      share of district that is urban    - structural, per district
+#   travel_time_min median minutes to nearest facility - access to care
+# Correlated with the planted blindspots (lower coverage, worse access) and
+# population (bigger -> more urban) so the adjusted spec has real signal.
+# travel_time_min is right-skewed (a log_transform candidate). Generated last so
+# the RNG stream feeding the other elements is untouched.
+
+lagging <- setNames(truth$is_blindspot, boundaries$adm2_guid)
+
+pop0 <- population |>
+  filter(year == STUDY_YEAR_START) |>
+  arrange(match(adm2_guid, boundaries$adm2_guid))
+urban <- setNames(
+  plogis(
+    0.9 * as.numeric(scale(log(pop0$pop_u15))) -
+      0.7 * lagging[pop0$adm2_guid] +
+      rnorm(N_DISTRICTS, 0, 0.5)
+  ),
+  pop0$adm2_guid
+)
+
+covariates <- population |>
+  transmute(adm2_guid, year) |>
+  mutate(
+    yrs   = year - STUDY_YEAR_START,
+    lag_i = as.numeric(lagging[adm2_guid]),
+    urb   = urban[adm2_guid],
+    covid = as.numeric(year %in% c(2020L, 2021L)),
+    dtp3  = round(pmin(99, pmax(40,
+      86 + 0.8 * yrs - 14 * lag_i + 10 * (urb - 0.5) -
+        6 * covid + rnorm(dplyr::n(), 0, 2)
+    )), 1),
+    travel_time_min = round(pmax(8, exp(
+      3.6 - 1.1 * urb + 0.5 * lag_i + 0.3 * covid + rnorm(dplyr::n(), 0, 0.25)
+    )), 1),
+    urban_prop = round(urb, 3)
+  ) |>
+  select(adm2_guid, year, dtp3, urban_prop, travel_time_min)
+
+# ---------------------------------------------------------------------------
 # 10. Assemble + save
 # ---------------------------------------------------------------------------
 
 synth_surveillance <- list(
   cases            = cases,
   population       = population,
+  covariates       = covariates,
   boundaries       = boundaries,
   ward_boundaries  = ward_boundaries,
   virus_outcome    = virus_outcome,
@@ -475,6 +521,8 @@ cat("cases:            ", nrow(cases), "rows,",
 cat("population:       ", nrow(population), "rows,",
     "pop_u15 range [", round(min(population$pop_u15)), ",",
     round(max(population$pop_u15)), "]\n")
+cat("covariates:       ", nrow(covariates), "district-years x 3 layers",
+    "(dtp3, urban_prop, travel_time_min)\n")
 cat("boundaries:       ", nrow(boundaries), "adm2 polygons\n")
 cat("ward_boundaries:  ", nrow(ward_boundaries), "adm3 polygons\n")
 cat("virus_outcome:    ", nrow(virus_outcome), "district-years,",

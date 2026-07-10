@@ -5,7 +5,7 @@
 \alias{synth_surveillance}
 \title{Synthetic AFP surveillance toy dataset}
 \format{
-A named list with nine elements:
+A named list with ten elements:
 \describe{
 \item{cases}{Tibble, 12000 x 3. Columns: \code{adm2_guid} (character district
 id, \code{"GDR-001"}..\code{"GDR-100"}), \code{month} (Date, first-of-month), \code{count}
@@ -14,6 +14,14 @@ explicit.}
 \item{population}{Tibble, 1000 x 3. Columns: \code{adm2_guid}, \code{year}
 (integer, 2015-2024), \code{pop_u15} (numeric, under-15 population).
 Annual, grown at 2\% per year from a lognormal baseline.}
+\item{covariates}{Tibble, 1000 x 5. District-year covariate layers for the
+adjusted \code{bs_expected()} spec. Columns: \code{adm2_guid}, \code{year} (integer,
+2015-2024), \code{dtp3} (numeric, DTP3 immunisation coverage \%, a
+health-system-reach proxy), \code{urban_prop} (numeric, 0-1 urban share,
+structural per district), \code{travel_time_min} (numeric, median minutes to
+the nearest health facility, an access-to-care proxy; right-skewed, a
+\code{log_transform} candidate). Correlated with the planted blindspots (lower
+coverage, worse access) and population (denser is more urban).}
 \item{boundaries}{\code{sf} object, 100 x 5 (+ geometry). Columns: \code{adm2_guid},
 \code{adm2_name} (canonical or Sindarin-flavoured Gondor toponyms), \code{adm1_name}
 (one of \code{"Belfalas"}, \code{"Lossarnach"}, \code{"Lebennin"}, \code{"Anorien"},

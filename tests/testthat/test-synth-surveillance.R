@@ -5,8 +5,27 @@ test_that("synth_surveillance has the expected structure", {
 
   expect_named(
     synth_surveillance,
-    c("cases", "population", "boundaries", "ward_boundaries",
+    c("cases", "population", "covariates", "boundaries", "ward_boundaries",
       "virus_outcome", "es_sites", "es_data", "es_district_year", "truth")
+  )
+
+  # covariates: district-year layers for the adjusted spec
+  expect_named(
+    synth_surveillance$covariates,
+    c("adm2_guid", "year", "dtp3", "urban_prop", "travel_time_min")
+  )
+  expect_equal(nrow(synth_surveillance$covariates), 100 * 10)
+  expect_false(anyNA(synth_surveillance$covariates))
+  # planted blindspots carry lower DTP3 coverage than resilient districts,
+  # so the adjusted model has real signal to attribute
+  cov_truth <- merge(
+    synth_surveillance$covariates,
+    synth_surveillance$truth[, c("adm2_guid", "is_blindspot")],
+    by = "adm2_guid"
+  )
+  expect_lt(
+    mean(cov_truth$dtp3[cov_truth$is_blindspot]),
+    mean(cov_truth$dtp3[!cov_truth$is_blindspot])
   )
 
   # wards: 5-8 per district

@@ -6,7 +6,7 @@
 #' simulated; no personally identifying or operationally sensitive information
 #' is present.
 #'
-#' @format A named list with nine elements:
+#' @format A named list with ten elements:
 #' \describe{
 #'   \item{cases}{Tibble, 12000 x 3. Columns: `adm2_guid` (character district
 #'     id, `"GDR-001"`..`"GDR-100"`), `month` (Date, first-of-month), `count`
@@ -15,6 +15,14 @@
 #'   \item{population}{Tibble, 1000 x 3. Columns: `adm2_guid`, `year`
 #'     (integer, 2015-2024), `pop_u15` (numeric, under-15 population).
 #'     Annual, grown at 2% per year from a lognormal baseline.}
+#'   \item{covariates}{Tibble, 1000 x 5. District-year covariate layers for the
+#'     adjusted `bs_expected()` spec. Columns: `adm2_guid`, `year` (integer,
+#'     2015-2024), `dtp3` (numeric, DTP3 immunisation coverage %, a
+#'     health-system-reach proxy), `urban_prop` (numeric, 0-1 urban share,
+#'     structural per district), `travel_time_min` (numeric, median minutes to
+#'     the nearest health facility, an access-to-care proxy; right-skewed, a
+#'     `log_transform` candidate). Correlated with the planted blindspots (lower
+#'     coverage, worse access) and population (denser is more urban).}
 #'   \item{boundaries}{`sf` object, 100 x 5 (+ geometry). Columns: `adm2_guid`,
 #'     `adm2_name` (canonical or Sindarin-flavoured Gondor toponyms), `adm1_name`
 #'     (one of `"Belfalas"`, `"Lossarnach"`, `"Lebennin"`, `"Anorien"`,
