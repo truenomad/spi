@@ -175,12 +175,12 @@ with:
 
 \strong{Interpreting INLA's diagnostic chatter (\code{debug = TRUE}).}
 \itemize{
-\item \verb{vb.correction aborted} / \verb{iterative process seems to diverge} —
+\item \verb{vb.correction aborted} / \verb{iterative process seems to diverge} --
 INLA's variational Bayes correction is an \emph{optional} refinement on
 top of the Laplace approximation. When it fails to converge, INLA
 returns the Laplace result, which is a valid (slightly less
 accurate) posterior. This message is informational, not an error.
-\item \verb{Matrix is not positive definite} \emph{during fitting} — usually means
+\item \verb{Matrix is not positive definite} \emph{during fitting} -- usually means
 the BYM2 precision matrix is singular; check that the adjacency
 graph is symmetric and that disconnected components are handled
 (see \code{\link[=bs_adjacency]{bs_adjacency()}}).
@@ -189,7 +189,7 @@ graph is symmetric and that disconnected components are handled
 \strong{CPO / PIT and \code{overdispersion = "iid"}.} When the model has an iid
 effect per observation (the default), conditional predictive ordinate
 (CPO) and the probability integral transform (PIT) are structurally
-unreliable — INLA flags most observations as \code{failure = 1}. This is
+unreliable -- INLA flags most observations as \code{failure = 1}. This is
 an artifact of the model spec, not a sign of poor fit. For CPO-based
 diagnostics, refit with \code{overdispersion = "nb"} or
 \code{overdispersion = "none"}.
@@ -215,17 +215,17 @@ cases |>
 
 \strong{How to choose:}
 \itemize{
-\item \emph{"none"} — no visible cycle, or counts look flat across months.
+\item \emph{"none"} -- no visible cycle, or counts look flat across months.
 Use for aseasonal outcomes (e.g. neonatal tetanus, DHIS2 reporting
 completeness when administratively driven).
 \item \emph{"harmonic"} (default, 4 terms: sin/cos at 12 and 6 month periods)
-— one or two smooth peaks per year. Good for most VPDs. Most
+-- one or two smooth peaks per year. Good for most VPDs. Most
 parsimonious option that still captures seasonality.
-\item \emph{"rw2"} — cyclic 2nd-order random walk over 12 months. Smooth but
+\item \emph{"rw2"} -- cyclic 2nd-order random walk over 12 months. Smooth but
 arbitrary shape; lets the prior do the smoothing rather than imposing a
 sinusoid. Use when seasonality is real but asymmetric or multi-modal
 (e.g. cholera in some settings).
-\item \emph{"monthly"} — 11 free monthly fixed effects (January as reference).
+\item \emph{"monthly"} -- 11 free monthly fixed effects (January as reference).
 Most flexible, no smoothing. Use only with plentiful data (~3+ years
 across most districts); otherwise monthly effects absorb noise.
 }
@@ -245,7 +245,7 @@ Neonatal tetanus             \tab none            \cr
 DHIS2 reporting completeness \tab none or rw2     \cr
 }
 
-These are starting points, not prescriptions — always verify against the
+These are starting points, not prescriptions -- always verify against the
 monthly-average plot for your data and country, since seasonality varies by
 climate zone and surveillance system.
 }

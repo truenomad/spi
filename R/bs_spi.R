@@ -392,30 +392,6 @@ print.blindspot_spi <- function(x, ...) {
   invisible(x)
 }
 
-#' Summary diagnostics for a `blindspot_spi` object
-#'
-#' @description
-#' Produces a tibble of diagnostic statistics that flag model calibration,
-#' distribution shape, and operational classification yield. Use after
-#' [bs_spi()] to verify the metric is behaving sensibly before downstream
-#' interpretation.
-#'
-#' Pass / flag checks:
-#' \itemize{
-#'   \item Median SPI within 0.9-1.1 (no systematic bias)
-#'   \item Aggregate observed / expected ratio within 0.9-1.1
-#'   \item Log-SPI skewness within -0.5 to 0.5 (symmetric)
-#'   \item Share of credible intervals excluding 1 between 5% and 50%
-#'     (model neither over- nor under-smoothing)
-#' }
-#'
-#' @param object Object of class `blindspot_spi`.
-#' @param ... Unused.
-#'
-#' @return A tibble of named diagnostics with pass / flag indicators,
-#'   returned invisibly. Printing happens as a side effect.
-#'
-#' @family blindspot core functions
 #' @export
 summary.blindspot_spi <- function(object, ...) {
   rlang::check_dots_empty()
@@ -601,13 +577,6 @@ summary.blindspot_spi <- function(object, ...) {
   if (x >= lo && x <= hi) "pass" else "flag"
 }
 
-#' Coerce a `blindspot_spi` object to a tibble
-#'
-#' @param x Object of class `blindspot_spi`.
-#' @param ... Unused.
-#' @return The `summary` tibble (one row per group with observed counts and
-#'   posterior SPI quantiles).
-#' @family blindspot core functions
 #' @export
 as_tibble.blindspot_spi <- function(x, ...) {
   rlang::check_dots_empty()
@@ -620,29 +589,6 @@ as.data.frame.blindspot_spi <- function(x, ...) {
   as.data.frame(x$summary)
 }
 
-#' Plot diagnostics for a `blindspot_spi` object
-#'
-#' @description
-#' Produces diagnostic plots for SPI output. The default `distribution`
-#' plot is the headline calibration check: a well-fit SPI should look
-#' roughly log-normal, centred near 1, with smooth tails. Skewed,
-#' multi-modal, or extreme-heavy distributions suggest model
-#' misspecification.
-#'
-#' @param x Object of class `blindspot_spi`.
-#' @param type Character. Plot type: "distribution" (default), "funnel",
-#'   "caterpillar", "calibration".
-#' @param thresholds Numeric. SPI cut-points to mark with reference
-#'   lines. Default: `c(0.5, 1, 1.5)`.
-#' @param year Optional integer. Filter to a specific year
-#'   (district_year level only).
-#' @param n_show Integer. Districts shown on each end of the caterpillar
-#'   plot. Default: 50L.
-#' @param ... Unused.
-#'
-#' @return A ggplot object.
-#'
-#' @family blindspot core functions
 #' @export
 plot.blindspot_spi <- function(
   x,
