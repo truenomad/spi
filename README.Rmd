@@ -197,6 +197,18 @@ head(as_tibble(spi_dy)[, c(
 
 **Why the yearly SPI is the one we act on.** The index is defined at any grain, but the verdict is annual. In most districts the monthly AFP count is 0 or 1, so the monthly SPI is mostly structural zeros with credible intervals too wide to act on, and reacting to it spends trust on noise. The sample size only settles over a full year, so the year is the unit we classify. We keep the monthly series to read the trend, and to feed the seasonal signal in the field guide.
 
+The `plot()` method gives four diagnostic views (`distribution`, `funnel`, `caterpillar`, `calibration`). The funnel plots each district-year against its expected count (the paper's Figure 3): detection scatters around 1, and the spread narrows as the expected count grows, so a low SPI at a high expected count is a genuine shortfall rather than small-number noise.
+
+```{r spi-funnel, fig.width = 8, fig.height = 4.5}
+plot(spi_dy, type = "funnel")
+```
+
+The default `distribution` view is the headline calibration check: a well-fit SPI is roughly log-normal and centred near 1.
+
+```{r spi-distribution, fig.width = 8, fig.height = 4.5}
+plot(spi_dy)
+```
+
 ### 5. Concordance against the conventional threshold
 
 Instead of a hard pass/fail, each district-year's SPI is crossed with the WHO NPAFP-rate target (at least 3 non-polio AFP per 100,000 under-15 person-years) into a 2x2. The cell that matters is false reassurance: the NPAFP rate looks fine, but the SPI still flags under-detection. That is the blindspot a plain threshold walks past.
@@ -215,6 +227,12 @@ Every district-year lands in one of the four cells:
 
 ```{r concordance-show}
 table(conc$district_year$concordance)
+```
+
+`plot()` shows the four cells as a scatter of NPAFP rate against SPI, split by the two thresholds (dashed). The false-reassurance points sit bottom-right: adequate NPAFP rate, low SPI.
+
+```{r concordance-scatter, fig.width = 8, fig.height = 5}
+plot(conc)
 ```
 
 ### 6. The three-panel map

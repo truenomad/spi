@@ -271,6 +271,28 @@ on noise. The sample size only settles over a full year, so the year is
 the unit we classify. We keep the monthly series to read the trend, and
 to feed the seasonal signal in the field guide.
 
+The `plot()` method gives four diagnostic views (`distribution`,
+`funnel`, `caterpillar`, `calibration`). The funnel plots each
+district-year against its expected count (the paper's Figure 3):
+detection scatters around 1, and the spread narrows as the expected
+count grows, so a low SPI at a high expected count is a genuine
+shortfall rather than small-number noise.
+
+``` r
+plot(spi_dy, type = "funnel")
+```
+
+<img src="man/figures/README-spi-funnel-1.png" alt="" width="100%" />
+
+The default `distribution` view is the headline calibration check: a
+well-fit SPI is roughly log-normal and centred near 1.
+
+``` r
+plot(spi_dy)
+```
+
+<img src="man/figures/README-spi-distribution-1.png" alt="" width="100%" />
+
 ### 5. Concordance against the conventional threshold
 
 Instead of a hard pass/fail, each district-year's SPI is crossed with
@@ -297,6 +319,16 @@ table(conc$district_year$concordance)
 #>     Both adequate    True shortfall False reassurance       False alarm 
 #>               790                47                91                72
 ```
+
+`plot()` shows the four cells as a scatter of NPAFP rate against SPI,
+split by the two thresholds (dashed). The false-reassurance points sit
+bottom-right: adequate NPAFP rate, low SPI.
+
+``` r
+plot(conc)
+```
+
+<img src="man/figures/README-concordance-scatter-1.png" alt="" width="100%" />
 
 ### 6. The three-panel map
 
