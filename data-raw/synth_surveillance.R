@@ -151,7 +151,7 @@ boundaries <- st_sf(
   adm2_name = adm2_name,
   adm1_name = adm1_name,
   adm0_name = COUNTRY_NAME,
-  geometry  = geom_final
+  geometry = geom_final
 )
 
 # ---------------------------------------------------------------------------
@@ -197,7 +197,7 @@ for (i in seq_len(N_DISTRICTS)) {
     adm2_name = parent$adm2_name,
     adm1_name = parent$adm1_name,
     adm0_name = parent$adm0_name,
-    geometry  = ward_geoms
+    geometry = ward_geoms
   )
 }
 ward_boundaries <- do.call(rbind, ward_rows)
@@ -283,7 +283,7 @@ pop_baseline[low_idx] <- pop_baseline[low_idx] * LOW_POP_BOOST
 years <- STUDY_YEAR_START:STUDY_YEAR_END
 population <- tidyr::expand_grid(
   adm2_guid = boundaries$adm2_guid,
-  year      = years
+  year = years
 ) |>
   arrange(adm2_guid, year) |>
   mutate(
@@ -311,9 +311,9 @@ alpha <- log(15)                              # rate per 100k person-months (hot
 
 # rel-completeness per profile, one value per study year (1 = tracks G_YEAR).
 REL_TRAJECTORY <- list(
-  resilient          = c(1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00),
-  early_improver     = c(0.48, 0.60, 0.76, 0.90, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00),
-  covid_transient    = c(1.00, 1.00, 1.00, 1.00, 1.00, 0.44, 0.52, 0.78, 1.00, 1.00),
+  resilient = c(1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00),
+  early_improver = c(0.48, 0.60, 0.76, 0.90, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00),
+  covid_transient = c(1.00, 1.00, 1.00, 1.00, 1.00, 0.44, 0.52, 0.78, 1.00, 1.00),
   persistent_laggard = c(1.00, 1.00, 1.00, 1.00, 1.00, 0.40, 0.42, 0.48, 0.55, 0.62)
 )
 
@@ -333,25 +333,25 @@ profile[picks[N_PERSIST_NORMAL + N_COVID_TRANSIENT + seq_len(N_EARLY_IMPROVER)]]
 rel_mat <- t(vapply(profile, function(p) REL_TRAJECTORY[[p]], numeric(length(years))))
 rel_mat <- pmin(rel_mat * exp(matrix(rnorm(length(rel_mat), 0, 0.05), nrow(rel_mat))), 1.05)
 completeness_long <- tibble(
-  adm2_guid    = rep(boundaries$adm2_guid, times = length(years)),
-  year         = rep(years, each = N_DISTRICTS),
-  rel          = as.numeric(rel_mat),
+  adm2_guid = rep(boundaries$adm2_guid, times = length(years)),
+  year = rep(years, each = N_DISTRICTS),
+  rel = as.numeric(rel_mat),
   completeness = pmin(pmax(as.numeric(sweep(rel_mat, 2, G_YEAR, `*`)), 0.05), 1.10)
 )
 
 grid <- tidyr::expand_grid(adm2_guid = boundaries$adm2_guid, month = months) |>
   mutate(
-    year     = as.integer(format(month, "%Y")),
+    year = as.integer(format(month, "%Y")),
     month_no = as.integer(format(month, "%m"))
   ) |>
   left_join(population, by = c("adm2_guid", "year")) |>
   left_join(completeness_long, by = c("adm2_guid", "year")) |>
   mutate(
-    b_i    = b_i[match(adm2_guid, boundaries$adm2_guid)],
-    s_m    = 0.15 * sin(2 * pi * month_no / 12) + 0.10 * cos(2 * pi * month_no / 12),
-    mu     = exp(alpha + b_i + s_m + log(pop_u15 / 1e5)),   # true burden
+    b_i = b_i[match(adm2_guid, boundaries$adm2_guid)],
+    s_m = 0.15 * sin(2 * pi * month_no / 12) + 0.10 * cos(2 * pi * month_no / 12),
+    mu = exp(alpha + b_i + s_m + log(pop_u15 / 1e5)),   # true burden
     mu_obs = mu * completeness,                             # what is detected
-    count  = as.integer(rnbinom(dplyr::n(), size = 15, mu = mu_obs))
+    count = as.integer(rnbinom(dplyr::n(), size = 15, mu = mu_obs))
   )
 
 cases <- grid |> select(adm2_guid, month, count)
@@ -361,12 +361,12 @@ cases <- grid |> select(adm2_guid, month, count)
 # ---------------------------------------------------------------------------
 yr <- function(y) match(y, years)
 truth <- tibble(
-  adm2_guid            = boundaries$adm2_guid,
+  adm2_guid = boundaries$adm2_guid,
   surveillance_profile = unname(profile),
-  is_blindspot         = unname(profile) != "resilient",
-  is_low_incidence     = boundaries$adm2_guid %in% low_ids,
-  covid_nadir          = round(rel_mat[, yr(2020L)], 3),
-  recovered_2024       = rel_mat[, yr(2024L)] >= 0.8
+  is_blindspot = unname(profile) != "resilient",
+  is_low_incidence = boundaries$adm2_guid %in% low_ids,
+  covid_nadir = round(rel_mat[, yr(2020L)], 3),
+  recovered_2024 = rel_mat[, yr(2024L)] >= 0.8
 )
 
 # ---------------------------------------------------------------------------
@@ -380,8 +380,8 @@ virus_outcome <- completeness_long |>
   ungroup() |>
   mutate(
     any_cvdpv2 = as.integer(rbinom(dplyr::n(), 1, ifelse(gap_prev, plogis(-0.6), plogis(-4)))),
-    any_wpv1   = 0L,
-    any_virus  = pmax(any_cvdpv2, any_wpv1)
+    any_wpv1 = 0L,
+    any_virus = pmax(any_cvdpv2, any_wpv1)
   ) |>
   select(adm2_guid, year, any_wpv1, any_cvdpv2, any_virus)
 
@@ -415,11 +415,11 @@ for (i in seq_len(N_ES_SITES)) {
   pt <- st_centroid(st_geometry(wards_in[pick, ]))
   es_site_rows[[i]] <- st_sf(
     es_site_id = sprintf("ES-%03d", i),
-    site_name  = paste(wards_in$adm3_name[pick], "ES Site"),
-    adm3_guid  = wards_in$adm3_guid[pick],
-    adm2_guid  = guid,
-    adm1_name  = wards_in$adm1_name[pick],
-    geometry   = pt
+    site_name = paste(wards_in$adm3_name[pick], "ES Site"),
+    adm3_guid = wards_in$adm3_guid[pick],
+    adm2_guid = guid,
+    adm1_name = wards_in$adm1_name[pick],
+    geometry = pt
   )
 }
 es_sites <- do.call(rbind, es_site_rows)
@@ -429,17 +429,17 @@ row.names(es_sites) <- NULL
 # detection completeness is failing that year (rel < 0.6), shared signal with
 # virus_outcome.
 es_data <- tidyr::expand_grid(
-  es_site_id  = es_sites$es_site_id,
+  es_site_id = es_sites$es_site_id,
   sample_date = months
 ) |>
   mutate(
     adm2_guid = es_sites$adm2_guid[match(es_site_id, es_sites$es_site_id)],
-    year      = as.integer(format(sample_date, "%Y"))
+    year = as.integer(format(sample_date, "%Y"))
   ) |>
   left_join(completeness_long |> select(adm2_guid, year, rel),
             by = c("adm2_guid", "year")) |>
   mutate(
-    p_positive      = ifelse(rel < 0.6, plogis(-2), plogis(-5)),
+    p_positive = ifelse(rel < 0.6, plogis(-2), plogis(-5)),
     positive_cvdpv2 = as.integer(rbinom(dplyr::n(), 1, p_positive))
   ) |>
   select(es_site_id, adm2_guid, sample_date, positive_cvdpv2)
@@ -449,9 +449,9 @@ es_district_year <- es_data |>
   mutate(year = as.integer(format(sample_date, "%Y"))) |>
   group_by(adm2_guid, year) |>
   summarise(
-    n_samples  = dplyr::n(),
+    n_samples = dplyr::n(),
     n_positive = sum(positive_cvdpv2),
-    .groups    = "drop"
+    .groups = "drop"
   )
 
 # ---------------------------------------------------------------------------
@@ -484,11 +484,11 @@ urban <- setNames(
 covariates <- population |>
   transmute(adm2_guid, year) |>
   mutate(
-    yrs   = year - STUDY_YEAR_START,
+    yrs = year - STUDY_YEAR_START,
     lag_i = as.numeric(lagging[adm2_guid]),
-    urb   = urban[adm2_guid],
+    urb = urban[adm2_guid],
     covid = as.numeric(year %in% c(2020L, 2021L)),
-    dtp3  = round(pmin(99, pmax(40,
+    dtp3 = round(pmin(99, pmax(40,
       86 + 0.8 * yrs - 14 * lag_i + 10 * (urb - 0.5) -
         6 * covid + rnorm(dplyr::n(), 0, 2)
     )), 1),
@@ -504,16 +504,16 @@ covariates <- population |>
 # ---------------------------------------------------------------------------
 
 synth_surveillance <- list(
-  cases            = cases,
-  population       = population,
-  covariates       = covariates,
-  boundaries       = boundaries,
-  ward_boundaries  = ward_boundaries,
-  virus_outcome    = virus_outcome,
-  es_sites         = es_sites,
-  es_data          = es_data,
+  cases = cases,
+  population = population,
+  covariates = covariates,
+  boundaries = boundaries,
+  ward_boundaries = ward_boundaries,
+  virus_outcome = virus_outcome,
+  es_sites = es_sites,
+  es_data = es_data,
   es_district_year = es_district_year,
-  truth            = truth
+  truth = truth
 )
 
 cat("cases:            ", nrow(cases), "rows,",

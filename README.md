@@ -112,16 +112,16 @@ season, and IID overdispersion, all on a log person-time offset.
 
 ``` r
 fit_bare <- bs_expected(
-  cases          = synth$cases,
-  population     = synth$population,
-  adjacency      = adj,
-  id_col         = "adm2_guid",
-  season         = "harmonic",
-  year_effect    = "iid",
+  cases = synth$cases,
+  population = synth$population,
+  adjacency = adj,
+  id_col = "adm2_guid",
+  season = "harmonic",
+  year_effect = "iid",
   overdispersion = "iid",
-  n_draws        = 500,
-  seed           = 42,
-  verbose        = FALSE
+  n_draws = 500,
+  seed = 42,
+  verbose = FALSE
 )
 ```
 
@@ -136,12 +136,12 @@ head(as_tibble(fit_bare)[, c(
 #> # A tibble: 6 x 6
 #>   adm2_guid month      count expected_median expected_q05 expected_q95
 #>   <chr>     <date>     <int>           <dbl>        <dbl>        <dbl>
-#> 1 GDR-001   2015-01-01     2            2.37         1.58         3.61
-#> 2 GDR-001   2015-02-01     8            3.50         2.28         5.26
-#> 3 GDR-001   2015-03-01     3            2.49         1.64         3.83
-#> 4 GDR-001   2015-04-01     3            2.37         1.57         3.65
-#> 5 GDR-001   2015-05-01     3            2.21         1.45         3.44
-#> 6 GDR-001   2015-06-01     2            1.91         1.23         2.99
+#> 1 GDR-001   2015-01-01     2            2.38         1.52         3.71
+#> 2 GDR-001   2015-02-01     8            3.50         2.33         5.09
+#> 3 GDR-001   2015-03-01     3            2.50         1.63         3.78
+#> 4 GDR-001   2015-04-01     3            2.32         1.58         3.82
+#> 5 GDR-001   2015-05-01     3            2.22         1.49         3.35
+#> 6 GDR-001   2015-06-01     2            1.91         1.20         3.00
 ```
 
 ### Adjusting for covariates
@@ -168,18 +168,18 @@ Pass them in, log-transforming the skewed travel-time column:
 
 ``` r
 fit_adj <- bs_expected(
-  cases          = synth$cases,
-  population     = synth$population,
-  adjacency      = adj,
-  covariates     = synth$covariates,
-  log_transform  = "travel_time_min",
-  id_col         = "adm2_guid",
-  season         = "harmonic",
-  year_effect    = "iid",
+  cases = synth$cases,
+  population = synth$population,
+  adjacency = adj,
+  covariates = synth$covariates,
+  log_transform = "travel_time_min",
+  id_col = "adm2_guid",
+  season = "harmonic",
+  year_effect = "iid",
   overdispersion = "iid",
-  n_draws        = 500,
-  seed           = 42,
-  verbose        = FALSE
+  n_draws = 500,
+  seed = 42,
+  verbose = FALSE
 )
 ```
 
@@ -214,13 +214,13 @@ choice is justified rather than assumed.
 
 ``` r
 od <- bs_compare_overdispersion(
-  cases      = synth$cases,
+  cases = synth$cases,
   population = synth$population,
-  adjacency  = adj,
-  id_col     = "adm2_guid",
-  specs      = c("none", "iid", "nb"),
-  n_draws    = 100,
-  verbose    = FALSE
+  adjacency = adj,
+  id_col = "adm2_guid",
+  specs = c("none", "iid", "nb"),
+  n_draws = 100,
+  verbose = FALSE
 )
 ```
 
@@ -242,7 +242,7 @@ the uncertainty in the denominator carries through. It can be summarised
 at any grain:
 
 ``` r
-spi_dy <- bs_spi(fit_bare, level = "district_year")   # annual per district
+spi_dy <- bs_spi(fit_bare, level = "district_year")  # annual per district
 spi_dm <- bs_spi(fit_bare, level = "district_month")  # monthly per district
 ```
 
@@ -253,12 +253,12 @@ head(as_tibble(spi_dy)[, c(
 #> # A tibble: 6 x 6
 #>   adm2_guid  year observed spi_median spi_q05 spi_q95
 #>   <chr>     <dbl>    <int>      <dbl>   <dbl>   <dbl>
-#> 1 GDR-001    2015       38      1.36    1.17    1.57 
-#> 2 GDR-001    2016       30      1.02    0.871   1.17 
-#> 3 GDR-001    2017       31      0.962   0.818   1.13 
-#> 4 GDR-001    2018       29      0.848   0.732   0.983
-#> 5 GDR-001    2019       31      0.864   0.739   1.01 
-#> 6 GDR-001    2020       22      0.970   0.829   1.12
+#> 1 GDR-001    2015       38      1.35    1.16    1.57 
+#> 2 GDR-001    2016       30      1.01    0.876   1.19 
+#> 3 GDR-001    2017       31      0.962   0.834   1.13 
+#> 4 GDR-001    2018       29      0.851   0.729   0.981
+#> 5 GDR-001    2019       31      0.869   0.751   1.01 
+#> 6 GDR-001    2020       22      0.962   0.815   1.12
 ```
 
 **Why the yearly SPI is the one we act on.** The index is defined at any
@@ -279,11 +279,11 @@ is the blindspot a plain threshold walks past.
 
 ``` r
 conc <- bs_concordance(
-  spi        = spi_dy,
-  cases      = synth$cases,
+  spi = spi_dy,
+  cases = synth$cases,
   population = synth$population,
   boundaries = synth$boundaries,
-  verbose    = FALSE
+  verbose = FALSE
 )
 ```
 
@@ -293,7 +293,7 @@ Every district-year lands in one of the four cells:
 table(conc$district_year$concordance)
 #> 
 #>     Both adequate    True shortfall False reassurance       False alarm 
-#>               789                47                92                72
+#>               790                47                91                72
 ```
 
 ### 6. The three-panel map
@@ -319,26 +319,27 @@ genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
 
 fg <- bs_field_guide(
   concordance = conc,
-  adjacency   = adj,
-  spi_month   = spi_dm,
-  genomic     = genomic[, c("adm2_guid", "year")],
-  verbose     = FALSE
+  adjacency = adj,
+  spi_month = spi_dm,
+  genomic = genomic[, c("adm2_guid", "year")],
+  verbose = FALSE
 )
 
 fg
 #> # A tibble: 3 x 3
 #>   verdict       n   pct
 #>   <chr>     <int> <dbl>
-#> 1 FLAG          3     3
+#> 1 FLAG          4     4
 #> 2 WATCH         0     0
-#> 3 No action    97    97
+#> 3 No action    96    96
 #> # A tibble: 100 x 8
 #>   district     spi cri       npafp   run traj    corrob verdict
 #>   <chr>      <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>  
-#> 1 Fen Elen    0.62 0.54-0.70  51.8     5 falling      3 FLAG   
-#> 2 Fen Ithil   0.69 0.56-0.86   0.9     5 falling      3 FLAG   
-#> 3 Ithil Wood  0.71 0.58-0.88   1.2     3 rising       2 FLAG   
-#> # i 97 more rows
+#> 1 Fen Elen    0.62 0.54-0.71  51.8     5 falling      3 FLAG   
+#> 2 Fen Ithil   0.68 0.56-0.84   0.9     5 falling      3 FLAG   
+#> 3 Ithil Wood  0.71 0.58-0.86   1.2     3 rising       2 FLAG   
+#> 4 Serni Fen   0.8  0.69-0.92   1.4     1 falling      2 FLAG   
+#> # i 96 more rows
 ```
 
 `summary(fg)` adds the signal fire-counts and a reference for the seven
