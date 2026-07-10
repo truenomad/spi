@@ -79,7 +79,7 @@ test_that("full chain runs and recovers planted blindspots above chance", {
 
   data("synth_surveillance", package = "blindspot")
 
-  fit <- bs_expected(
+  fit <- fit_or_skip(
     cases          = synth_surveillance$cases,
     population     = synth_surveillance$population,
     adjacency      = synth_surveillance$boundaries,

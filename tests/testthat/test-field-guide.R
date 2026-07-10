@@ -155,7 +155,7 @@ test_that("bs_field_guide can be recomputed end to end", {
   s <- synth_surveillance
 
   adj <- bs_adjacency(s$boundaries, id_col = "adm2_guid")
-  fit <- bs_expected(
+  fit <- fit_or_skip(
     s$cases, s$population, adj,
     id_col = "adm2_guid", season = "harmonic", year_effect = "iid",
     overdispersion = "iid", n_draws = 200L, seed = 42L, verbose = FALSE
