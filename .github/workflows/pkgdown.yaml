@@ -27,12 +27,19 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # Don't let the project's renv autoloader run in CI (see the strip step).
+      RENV_CONFIG_AUTO_LOAD: FALSE
     permissions:
       contents: read
       pages: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
+
+      # Strip the renv autoloader so it can't interfere with the CI library.
+      - name: Disable renv in CI
+        run: rm -f renv/activate.R .Rprofile
+        shell: bash
 
       # Enable Pages in "GitHub Actions" mode on the first run, migrating the
       # repo off the legacy branch build without a manual settings change.
@@ -50,11 +57,20 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
-          extra-repositories: https://inla.r-inla-download.org/R/stable/
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgdown, local::.
+          # Hard deps + non-INLA suggests. INLA is omitted so CI never contacts
+          # its flaky repo; the reference examples that use it are \dontrun.
+          dependencies: '"hard"'
+          extra-packages: |
+            any::pkgdown
+            local::.
+            any::ggplot2
+            any::patchwork
+            any::scales
+            any::terra
+            any::exactextractr
           needs: website
 
       - name: Build site
