@@ -19,3 +19,6 @@ renv/cellar/
 renv/lock/
 renv/python/
 renv/staging/
+
+# stray non-interactive plot device output
+Rplots.pdf
