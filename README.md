@@ -377,8 +377,20 @@ fg
 ```
 
 `summary(fg)` adds the signal fire-counts and a reference for the seven
-signals, `bs_field_guide_help()` walks a worked example, and
-`bs_field_guide_table()` renders a `gt` or `flextable` for publication.
+signals, and `bs_field_guide_help()` walks a worked example in the
+console.
+
+For a report, `bs_field_guide_table()` renders the worked example as a
+publication-ready `gt` or `flextable`: the rule-picked archetype
+districts (by name) read down the seven signals, each cell shaded by
+concern.
+
+``` r
+ft <- bs_field_guide_table(fg, engine = "flextable", layout = "worked")
+grid::grid.draw(flextable::gen_grob(ft, fit = "width", just = "center"))
+```
+
+<img src="man/figures/README-fg-table-1.png" alt="" width="100%" />
 
 **Why a Bayesian spatial model.** AFP counts at the district-month level
 are small and noisy. Many districts report zero cases in a given month
