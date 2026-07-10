@@ -8,12 +8,14 @@
 A named list with eleven elements:
 \describe{
 \item{cases}{Tibble, 28,320 x 3. Columns: \code{adm2_guid} (character district
-id, \code{"HAR-001"}..\code{"HAR-236"}), \code{month} (Date, first-of-month), \code{count}
-(integer). Full 236 x 120 district-month grid with zero counts
-explicit.}
+id, a POLIS-style GUID such as
+\code{"{54CD979C-CF9D-6A65-567F-8976C9546137}"}), \code{month} (Date,
+first-of-month), \code{count} (integer). Full 236 x 120 district-month grid
+with zero counts explicit.}
 \item{population}{Tibble, 2,360 x 3. Columns: \code{adm2_guid}, \code{year}
-(integer, 2015-2024), \code{pop_u15} (numeric, under-15 population).
-Annual, grown at 2\% per year from a lognormal baseline.}
+(integer, 2015-2024), \code{pop_u15} (numeric, under-15 population). Real
+annual under-15 counts extracted from the WorldPop 0-14 rasters over the
+source geometry (range ~19k-900k), so the NPAFP denominators are genuine.}
 \item{covariates}{Tibble, 2,360 x 5. District-year covariate layers for the
 adjusted \code{bs_expected()} spec. Columns: \code{adm2_guid}, \code{year} (integer,
 2015-2024), \code{dtp3} (numeric, DTP3 immunisation coverage \%, a
@@ -32,7 +34,8 @@ provinces, relabelled, and rotated onto a local grid with the CRS
 dropped -- so the shape is unambiguously fictional and cannot be traced
 back to a real place.}
 \item{ward_boundaries}{\code{sf} object, ~1,548 x 6 (+ geometry). Columns:
-\code{adm3_guid} (\code{"HAR-001-W01"}..), \code{adm3_name} (parent adm2 name plus a
+\code{adm3_guid} (the parent \code{adm2_guid} GUID suffixed \code{-W01}, \code{-W02}, ...),
+\code{adm3_name} (parent adm2 name plus a
 suffix from a pool of directional or geographic descriptors --
 e.g. \code{"Khandoth North Ward"}, \code{"Nenad Ford"}), \code{adm2_guid},
 \code{adm2_name}, \code{adm1_name}, \code{adm0_name}, \code{geometry}. Each adm2 is
@@ -110,9 +113,9 @@ pre-COVID low, spike in 2020-21, and recede as districts recover, leaving a
 residue of persistent laggards. \code{virus_outcome} marks the year after a
 completeness gap as cVDPV2-positive at elevated rate.
 
-Four spatially-contiguous clusters (25 districts, \code{is_low_incidence}) are
-given a low baseline (\code{b_i} overridden to about -4.7) and a denser
-population, so their genuine per-capita NPAFP rate sits below the
+Four spatially-contiguous clusters (25 districts, \code{is_low_incidence}) get a
+low baseline (\code{b_i} overridden so their true rate sits around 1.5 per 100,000
+under-15 per year), so their genuine per-capita NPAFP rate sits below the
 conventional target while the context-conditional SPI scores the resilient
 ones adequate -- the "False alarm" cell. Sixteen of the twenty-five are also
 persistent laggards, so their completeness stays low from 2020 on and SPI
@@ -142,6 +145,11 @@ units are merged, cropped to an organic region around the basin, welded into
 a gap-free coverage, relabelled, and rotated (see
 \code{data-raw/synth_admin_polygons.R} and the shipped
 \code{inst/extdata/synth_admin_polygons.provenance.txt}).
+
+Population (\code{pop_u15}) is real under-15 counts zonal-summed from
+\strong{WorldPop} unconstrained global age-structured rasters (0-14), keyed to
+the source geometry and shipped as \code{inst/extdata/synth_admin_pop_u15.csv}.
+WorldPop is released under CC-BY 4.0 (\url{https://www.worldpop.org}).
 }
 
 \section{Reproducibility}{

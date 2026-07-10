@@ -50,6 +50,19 @@ prov_path <- "inst/extdata/synth_admin_polygons.provenance.txt"
 set.seed(seed)
 sf::sf_use_s2(FALSE) # planar ops on projected coords; silences s2 warnings
 
+# Deterministic POLIS-style place GUID: md5 of the district name, upper case,
+# formatted 8-4-4-4-12 and wrapped in braces, e.g.
+# {E747913C-A787-BF03-56E3-76919A1220D5}. Reproducible (no RNG) so the ids are
+# byte-stable across runs.
+make_guid <- function(keys) {
+  s <- toupper(vapply(keys, function(k) as.character(openssl::md5(k)),
+                      character(1)))
+  sprintf(
+    "{%s-%s-%s-%s-%s}", substr(s, 1, 8), substr(s, 9, 12), substr(s, 13, 16),
+    substr(s, 17, 20), substr(s, 21, 32)
+  )
+}
+
 ## ---------------------------------------------------------------------------##
 # Fetch source adm2 (geoBoundaries, cached) ------------------------------------
 ## ---------------------------------------------------------------------------##
@@ -230,8 +243,8 @@ boundaries <- patch |>
   dplyr::mutate(
     adm0_name = country,
     adm1_name = prov_names[prov_id],
-    adm2_guid = sprintf("HAR-%03d", dplyr::row_number()),
-    adm2_name = dist_names[dplyr::row_number()]
+    adm2_name = dist_names[dplyr::row_number()],
+    adm2_guid = make_guid(.data$adm2_name)
   ) |>
   dplyr::select(adm2_guid, adm2_name, adm1_name, adm0_name)
 

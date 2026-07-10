@@ -24,11 +24,16 @@ STUDY_YEAR_END   <- 2024L
 # boundary layer (data-raw/synth_admin_polygons.R); N_DISTRICTS is read from it
 # in section 1. If you rebuild the layer at a very different size, rescale these.
 # Low-incidence "False alarm" / "True shortfall" seeds: contiguous clusters
-# below the NPAFP target, with a population boost for a stable SPI.
+# genuinely below the NPAFP target. Real WorldPop denominators are large, so a
+# low per-capita rate still yields stable counts (no population boost needed).
 N_LOW_CLUSTERS   <- 4L
 LOW_CLUSTER_SIZE <- 7L      # districts per contiguous cluster
-LOW_BASELINE     <- -4.7    # log-scale baseline -> ~1.6 per 100k u15/yr (< 3)
-LOW_POP_BOOST    <- 12      # denser population -> non-trivial absolute counts
+# NPAFP rate targets, per 100k under-15 per YEAR. alpha (section 6) is the
+# per-person-MONTH log rate, so the annual rate is 12 * exp(alpha). LOW_BASELINE
+# is the b_i override for the low-incidence patch, relative to the base rate.
+BASE_RATE_ANNUAL <- 6       # median true NPAFP/100k/yr; straddles the target of 3
+LOW_RATE_ANNUAL  <- 1.5     # low-incidence clusters sit genuinely below target
+LOW_BASELINE     <- log(LOW_RATE_ANNUAL / BASE_RATE_ANNUAL)
 N_LOW_LAGGARD    <- 16L     # low districts that never recover -> True shortfall
 
 # Detection completeness = G_YEAR[t] * rel (profile-specific). G_YEAR improves
@@ -191,25 +196,27 @@ b_i <- (sqrt(lambda) * phi_struct + sqrt(1 - lambda) * phi_iid) / sqrt(tau_margi
 b_i[low_idx] <- LOW_BASELINE + rnorm(length(low_idx), 0, 0.1)
 
 # ---------------------------------------------------------------------------
-# 5. Population (annual, 100 x 10)
+# 5. Population (annual) -- REAL under-15 population from WorldPop
 # ---------------------------------------------------------------------------
-
-pop_baseline <- rlnorm(N_DISTRICTS, meanlog = log(50000), sdlog = 0.6)
-# Denser population in the low-incidence patch so a below-target per-capita
-# rate still yields enough absolute counts for a stable (non-noisy) SPI.
-pop_baseline[low_idx] <- pop_baseline[low_idx] * LOW_POP_BOOST
+# Per-district annual under-15 counts, extracted once from the WorldPop 0-14
+# rasters over the real Lake Chad geometry and keyed by adm2_guid (shipped in
+# inst/extdata/synth_admin_pop_u15.csv; the extraction script is not committed).
+# Real magnitudes (~25k-900k) and their spread give realistic NPAFP denominators,
+# so counts stay stable at a realistic rate -- no lognormal draw or low-cluster
+# population boost.
 years <- STUDY_YEAR_START:STUDY_YEAR_END
-population <- tidyr::expand_grid(
-  adm2_guid = boundaries$adm2_guid,
-  year = years
-) |>
-  arrange(adm2_guid, year) |>
-  mutate(
-    yrs_since_start = year - STUDY_YEAR_START,
-    pop_u15 = pop_baseline[match(adm2_guid, boundaries$adm2_guid)] *
-      (1.02 ^ yrs_since_start)
-  ) |>
-  select(adm2_guid, year, pop_u15)
+pop_path <- "inst/extdata/synth_admin_pop_u15.csv"
+if (!file.exists(pop_path)) {
+  stop("missing ", pop_path, " (WorldPop under-15 population bake)")
+}
+population <- utils::read.csv(pop_path, stringsAsFactors = FALSE) |>
+  filter(year %in% years) |>
+  transmute(adm2_guid, year = as.integer(year), pop_u15 = as.numeric(pop_u15)) |>
+  arrange(adm2_guid, year)
+stopifnot(
+  setequal(population$adm2_guid, boundaries$adm2_guid),
+  nrow(population) == N_DISTRICTS * length(years)
+)
 
 # ---------------------------------------------------------------------------
 # 6. Surveillance-completeness surface + observed counts
@@ -224,8 +231,7 @@ months <- seq(
   as.Date(sprintf("%d-12-01", STUDY_YEAR_END)),
   by = "1 month"
 )
-alpha <- log(15)                              # rate per 100k person-months (hot,
-                                              #   so district-year SPI is stable)
+alpha <- log(BASE_RATE_ANNUAL / 12)           # per person-MONTH; annual = 12*e^a
 
 # rel-completeness per profile, one value per study year (1 = tracks G_YEAR).
 REL_TRAJECTORY <- list(
@@ -249,12 +255,12 @@ profile[picks[N_PERSIST_NORMAL + N_COVID_TRANSIENT + seq_len(N_EARLY_IMPROVER)]]
 
 # district x year completeness matrix (jittered so severity varies), then long.
 rel_mat <- t(vapply(profile, function(p) REL_TRAJECTORY[[p]], numeric(length(years))))
-rel_mat <- pmin(rel_mat * exp(matrix(rnorm(length(rel_mat), 0, 0.05), nrow(rel_mat))), 1.05)
+rel_mat <- pmin(rel_mat * exp(matrix(rnorm(length(rel_mat), 0, 0.17), nrow(rel_mat))), 1.35)
 completeness_long <- tibble(
   adm2_guid = rep(boundaries$adm2_guid, times = length(years)),
   year = rep(years, each = N_DISTRICTS),
   rel = as.numeric(rel_mat),
-  completeness = pmin(pmax(as.numeric(sweep(rel_mat, 2, G_YEAR, `*`)), 0.05), 1.10)
+  completeness = pmin(pmax(as.numeric(sweep(rel_mat, 2, G_YEAR, `*`)), 0.05), 1.30)
 )
 
 grid <- tidyr::expand_grid(adm2_guid = boundaries$adm2_guid, month = months) |>
@@ -419,6 +425,32 @@ covariates <- population |>
   select(adm2_guid, year, dtp3, urban_prop, travel_time_min)
 
 # ---------------------------------------------------------------------------
+# 9c. Detection channels for bs_triangulate() -- afp vs es, district-year
+# ---------------------------------------------------------------------------
+# Independent read on whether virus was *found* (not whether it could be seen).
+# afp_detected reuses virus_outcome (the AFP/genomic isolation channel that the
+# field guide also consumes as its S7 orphan signal, so it is not independent of
+# the guide here); es_detected / es_covered come from the ES rollup and sites,
+# the genuinely separate corroborator. Pure joins on already-drawn columns -- no
+# RNG -- so the rest of the bundle is byte-stable.
+detections <- population |>
+  distinct(adm2_guid, year) |>
+  left_join(
+    virus_outcome |> transmute(adm2_guid, year, afp_detected = any_virus == 1L),
+    by = c("adm2_guid", "year")
+  ) |>
+  mutate(es_covered = adm2_guid %in% es_sites$adm2_guid) |>
+  left_join(
+    es_district_year |> transmute(adm2_guid, year, es_detected = n_positive > 0L),
+    by = c("adm2_guid", "year")
+  ) |>
+  mutate(
+    afp_detected = tidyr::replace_na(afp_detected, FALSE),
+    es_detected = es_covered & tidyr::replace_na(es_detected, FALSE)
+  ) |>
+  select(adm2_guid, year, afp_detected, es_detected, es_covered)
+
+# ---------------------------------------------------------------------------
 # 10. Assemble + save
 # ---------------------------------------------------------------------------
 
@@ -432,6 +464,7 @@ synth_surveillance <- list(
   es_sites = es_sites,
   es_data = es_data,
   es_district_year = es_district_year,
+  detections = detections,
   truth = truth
 )
 
@@ -450,6 +483,10 @@ cat("es_sites:         ", nrow(es_sites), "sites\n")
 cat("es_data:          ", nrow(es_data), "samples,",
     sum(es_data$positive_cvdpv2), "cVDPV2-positive\n")
 cat("es_district_year: ", nrow(es_district_year), "district-years\n")
+cat("detections:       ", nrow(detections), "district-years,",
+    sum(detections$afp_detected), "afp-positive,",
+    sum(detections$es_detected), "es-positive,",
+    sum(detections$es_covered), "es-covered\n")
 cat("truth:            ", sum(truth$is_blindspot), "blindspots,",
     sum(truth$is_low_incidence), "low-incidence; profiles:",
     paste(names(table(truth$surveillance_profile)),

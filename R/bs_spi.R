@@ -658,6 +658,7 @@ plot.blindspot_spi <- function(
 # @noRd
 .plot_distribution <- function(sm, thresholds) {
   n_total <- nrow(sm)
+  n_fmt <- format(n_total, big.mark = ",")
   med <- round(stats::median(sm$spi_median, na.rm = TRUE), 2)
   pct_below_05 <- round(
     mean(sm$spi_median < 0.5, na.rm = TRUE) * 100, 1
@@ -703,7 +704,7 @@ plot.blindspot_spi <- function(
     ggplot2::labs(
       title = "SPI distribution",
       subtitle = glue::glue(
-        "n = {n_total} | median = {med} | ",
+        "n = {n_fmt} | median = {med} | ",
         "<0.5: {pct_below_05}% | ",
         ">1.5: {pct_above_15}%{dropped_note}"
       ),

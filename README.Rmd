@@ -284,9 +284,9 @@ fg
 
 For a report, `bs_field_guide_table()` renders the worked example as a publication-ready `gt` or `flextable`: the rule-picked archetype districts (by name) read down the seven signals, each cell shaded by concern.
 
-```{r fg-table, fig.width = 11, fig.height = 3.4, dev = "ragg_png"}
-ft <- bs_field_guide_table(fg, engine = "flextable", layout = "worked")
-grid::grid.draw(flextable::gen_grob(ft, fit = "width", just = "center"))
+```{r fg-table, results = "asis"}
+bs_field_guide_table(fg, engine = "gt", layout = "worked") |>
+  gt::as_raw_html()
 ```
 
 ### 8. Triangulating the verdict against independent detection
@@ -315,6 +315,11 @@ bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2020)
 ```
 
 The 2020 verdicts (the COVID-crash trough, tested against 2021 detections) map the triage: reds and magenta are the districts to act on or instrument, greens the trustworthy silences. `bs_triangulate_table()` renders the same panel as a `gt` / `flextable` for a report.
+
+```{r tri-table, results = "asis"}
+bs_triangulate_table(tri, engine = "gt", year = 2020) |>
+  gt::as_raw_html()
+```
 
 ## Exported functions
 

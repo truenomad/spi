@@ -14,7 +14,8 @@ bs_concordance_maps(
   spi_breaks = c(-Inf, 0.4, 0.6, 0.8, 1, 1.5, 2, Inf),
   id_col = NULL,
   titles = NULL,
-  year_label = NULL
+  year_label = NULL,
+  provinces = FALSE
 )
 }
 \arguments{
@@ -43,6 +44,11 @@ default panel titles.}
 \item{year_label}{Character. What to call the displayed year in the
 panel titles. Defaults to \code{sprintf("year T-1: \%d", year)} -- the
 paper's convention.}
+
+\item{provinces}{Logical. Overlay dissolved adm1 (province) outlines on the
+district choropleths? Default \code{FALSE}. Dissolving an imperfectly
+edge-matched adm2 layer can leave sliver artefacts, so the overlay is
+opt-in.}
 }
 \value{
 A \code{patchwork} object plotting the three panels side by side.

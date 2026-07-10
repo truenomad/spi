@@ -386,25 +386,98 @@ plot.blindspot_concordance <- function(x, ...) {
     "False reassurance" = "#F9A825",
     "False alarm"       = "#1565C0"
   )
+  # Legend labels carry each cell's share of all district-years (from x$metrics).
+  m <- x$metrics
+  pct <- c(
+    "Both adequate"     = m$n_both_adequate,
+    "True shortfall"    = m$n_true_shortfall,
+    "False reassurance" = m$n_false_reassurance,
+    "False alarm"       = m$n_false_alarm
+  ) / m$n * 100
+  cell_labels <- stats::setNames(
+    sprintf("%s (%.1f%%)", names(pct), pct), names(pct)
+  )
+  # Darker shades for the in-plot corner labels so each quadrant name reads
+  # clearly (a deep tone of its cell colour) over the faint quadrant tint.
+  label_pal <- c(
+    "Both adequate"     = "#1B5E20",
+    "True shortfall"    = "#8E1616",
+    "False reassurance" = "#B36A00",
+    "False alarm"       = "#0D47A1"
+  )
+  # Quadrant backdrop: a faint tint and a corner label per cell of the 2x2, so
+  # the scatter reads as the crosstab the reader has already seen without them
+  # hunting the legend. Rows split on the SPI cut, columns on the NPAFP target.
+  # 0 (not -Inf) is the left x-bound: the axis is log1p, and log1p(-Inf) is NaN,
+  # so an -Inf edge would drop the left column. 0 is the natural rate floor.
+  quad <- data.frame(
+    xmin = c(0, npafp_target, 0, npafp_target),
+    xmax = c(npafp_target, Inf, npafp_target, Inf),
+    ymin = c(-Inf, -Inf, spi_cut, spi_cut),
+    ymax = c(spi_cut, spi_cut, Inf, Inf),
+    cell = factor(
+      c("True shortfall", "False reassurance", "False alarm", "Both adequate"),
+      levels = names(pal)
+    )
+  )
   ggplot2::ggplot(
     dy,
-    ggplot2::aes(x = .data$npafp_rate, y = .data$spi_median,
-                 colour = .data$concordance)
+    ggplot2::aes(x = .data$npafp_rate, y = .data$spi_median)
   ) +
+    ggplot2::geom_rect(
+      data = quad, inherit.aes = FALSE, alpha = 0.10,
+      ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax,
+                   ymin = .data$ymin, ymax = .data$ymax, fill = .data$cell)
+    ) +
     ggplot2::geom_vline(xintercept = npafp_target,
                         linetype = 2, colour = "grey40") +
     ggplot2::geom_hline(yintercept = spi_cut,
                         linetype = 2, colour = "grey40") +
-    ggplot2::geom_point(alpha = 0.7) +
-    ggplot2::scale_colour_manual(values = pal, drop = TRUE) +
-    ggplot2::scale_x_continuous(trans = "log1p") +
+    ggplot2::geom_point(ggplot2::aes(colour = .data$concordance),
+                        alpha = 0.7) +
+    # corner labels in a deep tone of each quadrant's colour
+    ggplot2::annotate("text", x = 0, y = -Inf, label = "True shortfall",
+                      hjust = -0.08, vjust = -1, size = 3.2, fontface = "bold",
+                      colour = label_pal[["True shortfall"]], alpha = 0.9) +
+    ggplot2::annotate("text", x = Inf, y = -Inf, label = "False reassurance",
+                      hjust = 1.08, vjust = -1, size = 3.2, fontface = "bold",
+                      colour = label_pal[["False reassurance"]], alpha = 0.9) +
+    ggplot2::annotate("text", x = 0, y = Inf, label = "False alarm",
+                      hjust = -0.08, vjust = 1.9, size = 3.2, fontface = "bold",
+                      colour = label_pal[["False alarm"]], alpha = 0.9) +
+    ggplot2::annotate("text", x = Inf, y = Inf, label = "Both adequate",
+                      hjust = 1.08, vjust = 1.9, size = 3.2, fontface = "bold",
+                      colour = label_pal[["Both adequate"]], alpha = 0.9) +
+    ggplot2::scale_colour_manual(
+      values = pal, drop = TRUE, labels = cell_labels,
+      name = "Concordance (% of total)"
+    ) +
+    ggplot2::scale_fill_manual(values = pal, guide = "none") +
+    ggplot2::scale_x_continuous(
+      transform = "log1p",
+      breaks = c(0, 1, 3, 10, 30, 100, 300, 1000, 3000),
+      labels = c("0", "1", "3", "10", "30", "100", "300", "1,000", "3,000")
+    ) +
     ggplot2::labs(
       x = sprintf("NPAFP rate (per %s person-years, log1p)",
                   format(x$thresholds$multiplier, big.mark = ",")),
-      y = "SPI (posterior median)",
-      colour = "Concordance"
+      y = "SPI (posterior median)"
     ) +
-    ggplot2::theme_minimal()
+    ggplot2::guides(
+      colour = ggplot2::guide_legend(
+        title.position = "top", title.hjust = 0.5, nrow = 2, byrow = TRUE,
+        override.aes = list(size = 2.25, alpha = 1)
+      )
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      legend.position    = "bottom",
+      legend.box.spacing = grid::unit(16, "pt"),
+      legend.title       = ggplot2::element_text(face = "bold"),
+      axis.title.y = ggplot2::element_text(margin = ggplot2::margin(r = 12)),
+      axis.title.x = ggplot2::element_text(margin = ggplot2::margin(t = 8)),
+      plot.subtitle = ggplot2::element_text(margin = ggplot2::margin(b = 10))
+    )
 }
 
 
@@ -452,6 +525,10 @@ plot.blindspot_concordance <- function(x, ...) {
 #' @param year_label Character. What to call the displayed year in the
 #'   panel titles. Defaults to `sprintf("year T-1: %d", year)` -- the
 #'   paper's convention.
+#' @param provinces Logical. Overlay dissolved adm1 (province) outlines on the
+#'   district choropleths? Default `FALSE`. Dissolving an imperfectly
+#'   edge-matched adm2 layer can leave sliver artefacts, so the overlay is
+#'   opt-in.
 #'
 #' @return A `patchwork` object plotting the three panels side by side.
 #'
@@ -479,7 +556,8 @@ bs_concordance_maps <- function(
   spi_breaks    = c(-Inf, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, Inf),
   id_col        = NULL,
   titles        = NULL,
-  year_label    = NULL
+  year_label    = NULL,
+  provinces     = FALSE
 ) {
   .check_pkg(c("ggplot2", "patchwork", "sf", "dplyr"),
              reason = "to draw the three-panel concordance map")
@@ -549,7 +627,7 @@ bs_concordance_maps <- function(
   # panel so the provincial structure reads through the district choropleth
   # (matches the sntutils facetted-map convention).
   adm1_layer <- NULL
-  if ("adm1_name" %in% names(boundaries)) {
+  if (isTRUE(provinces) && "adm1_name" %in% names(boundaries)) {
     adm1_outline <- boundaries |>
       dplyr::group_by(.data$adm1_name) |>
       dplyr::summarise(.groups = "drop")
@@ -595,7 +673,7 @@ bs_concordance_maps <- function(
       plot.subtitle     = ggplot2::element_text(size = 9,
                                                 colour = "grey30",
                                                 margin = ggplot2::margin(t = 0,
-                                                                         b = 10)),
+                                                                         b = 18)),
       plot.margin       = ggplot2::margin(6, 10, 6, 10),
       legend.position   = "bottom",
       legend.box        = "vertical",
