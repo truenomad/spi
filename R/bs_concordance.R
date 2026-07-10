@@ -396,7 +396,7 @@ plot.blindspot_concordance <- function(x, ...) {
     ggplot2::geom_hline(yintercept = spi_cut,
                         linetype = 2, colour = "grey40") +
     ggplot2::geom_point(alpha = 0.7) +
-    ggplot2::scale_colour_manual(values = pal, drop = FALSE) +
+    ggplot2::scale_colour_manual(values = pal, drop = TRUE) +
     ggplot2::scale_x_continuous(trans = "log1p") +
     ggplot2::labs(
       x = sprintf("NPAFP rate (per %s person-years, log1p)",

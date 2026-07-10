@@ -76,9 +76,9 @@ print(spi_dy)
 \seealso{
 \code{\link[=bs_expected]{bs_expected()}}, \code{\link[=bs_concordance]{bs_concordance()}}
 
-Other blindspot core functions: 
-\code{\link{as_tibble.blindspot_spi}()},
-\code{\link{plot.blindspot_spi}()},
-\code{\link{summary.blindspot_spi}()}
+Other blindspot core functions:
+\code{\link[=as_tibble.blindspot_spi]{as_tibble.blindspot_spi()}},
+\code{\link[=plot.blindspot_spi]{plot.blindspot_spi()}},
+\code{\link[=summary.blindspot_spi]{summary.blindspot_spi()}}
 }
 \concept{blindspot core functions}

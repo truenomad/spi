@@ -43,8 +43,21 @@ test_that("synth_surveillance has the expected structure", {
     c("adm2_guid", "year", "any_wpv1", "any_cvdpv2", "any_virus")
   )
 
-  # truth: 10 planted blindspots
-  expect_equal(sum(synth_surveillance$truth$is_blindspot), 10L)
+  # truth: surveillance profiles + low-incidence seeds
+  expect_setequal(
+    names(synth_surveillance$truth),
+    c("adm2_guid", "surveillance_profile", "is_blindspot",
+      "is_low_incidence", "covid_nadir", "recovered_2024")
+  )
+  expect_equal(sum(synth_surveillance$truth$is_low_incidence), 12L)
+  expect_true(all(c("resilient", "early_improver", "covid_transient",
+                    "persistent_laggard") %in%
+                    synth_surveillance$truth$surveillance_profile))
+  # is_blindspot is exactly the non-resilient set
+  expect_true(all(
+    synth_surveillance$truth$is_blindspot ==
+      (synth_surveillance$truth$surveillance_profile != "resilient")
+  ))
 })
 
 test_that("bs_adjacency runs on the synthetic boundaries", {
@@ -94,16 +107,28 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   )
   expect_s3_class(conc, "blindspot_concordance")
 
-  # planted blindspots should show up in SPI-flagged cells (True shortfall
-  # or False reassurance) at above-chance rates. Rough check: at least half
-  # the planted districts must appear in an SPI-flagged cell in some year.
+  dy <- conc$district_year
   spi_flagged_cells <- c("True shortfall", "False reassurance")
-  called <- unique(conc$district_year$adm2_guid[
-    conc$district_year$concordance %in% spi_flagged_cells
-  ])
+
+  # Planted blindspots (non-resilient) should surface in an SPI-flagged cell in
+  # some year at above-chance rates.
+  called <- unique(dy$adm2_guid[dy$concordance %in% spi_flagged_cells])
   planted <- synth_surveillance$truth$adm2_guid[
     synth_surveillance$truth$is_blindspot
   ]
-  recovered <- mean(planted %in% called)
-  expect_gt(recovered, 0.5)
+  expect_gt(mean(planted %in% called), 0.5)
+
+  # Temporal narrative: SPI-flagged share peaks during the COVID window
+  # (2020-21) and is lower both before (pre-COVID improvement) and after
+  # (recovery). This is the whole point of the multi-year fixture.
+  flagged <- tapply(
+    dy$concordance %in% spi_flagged_cells, dy$year, sum
+  )
+  covid <- mean(flagged[c("2020", "2021")])
+  expect_gt(covid, mean(flagged[c("2018", "2019")]))   # crash vs pre-COVID best
+  expect_gt(covid, flagged[["2024"]])                  # crash vs recovered tail
+
+  # Persistent laggards never fully recover: True shortfall / False reassurance
+  # cells remain populated in the final year.
+  expect_gt(flagged[["2024"]], 0)
 })
