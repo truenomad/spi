@@ -45,13 +45,22 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      # INLA is not on CRAN; the setup-r-dependencies action reads
-      # Additional_repositories from DESCRIPTION, but export the URL here too so
-      # any downstream install helper (pak, remotes) sees the same feed.
-      R_INLA_REPOS: https://inla.r-inla-download.org/R/stable/
+      # Don't let the project's renv autoloader run in CI (see the strip step).
+      RENV_CONFIG_AUTO_LOAD: FALSE
+      # INLA is a Suggests-level, non-CRAN dependency that is deliberately not
+      # installed in CI -- its download server intermittently 415s and stalls
+      # dependency resolution. INLA-dependent tests and examples skip; this flag
+      # stops R CMD check erroring on the missing suggested package.
+      _R_CHECK_FORCE_SUGGESTS_: false
 
     steps:
       - uses: actions/checkout@v4
+
+      # Strip the renv autoloader so it can't shadow the check library with the
+      # project's renv cache (it otherwise fires on every Rscript invocation).
+      - name: Disable renv in CI
+        run: rm -f renv/activate.R .Rprofile
+        shell: bash
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -60,21 +69,22 @@ jobs:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
-          # Add the INLA repo so setup-r-dependencies can resolve INLA (not on
-          # CRAN/RSPM) from source on the Linux runners.
-          extra-repositories: https://inla.r-inla-download.org/R/stable/
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          # Hard deps + the non-INLA suggests only. INLA is omitted on purpose so
+          # CI never contacts the flaky INLA repo; its code paths skip instead.
+          dependencies: '"hard"'
+          extra-packages: |
+            any::rcmdcheck
+            any::testthat
+            any::ggplot2
+            any::patchwork
+            any::scales
+            any::terra
+            any::exactextractr
           needs: check
 
-      # Vignettes use the quarto engine, whose external CLI spawns its own R
-      # session that cannot see the temporary check library (so library(blindspot)
-      # fails during a vignette rebuild). The vignettes are built and validated
-      # by the pkgdown workflow with the package installed, so R CMD check skips
-      # rebuilding them here -- which also removes the quarto setup from the
-      # matrix legs.
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
