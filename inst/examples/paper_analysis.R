@@ -277,6 +277,47 @@ if (interactive()) {
 #   maps, width = 18, height = 8, dpi = 300, bg = "white"
 # )
 
+## ---------------------------------------------------------------------------##
+# SPI field guide -- seven-signal reading + verdict (paper: 2t) ----------------
+## ---------------------------------------------------------------------------##
+
+# Reads every district-year through the seven signals (S1-S7) and assigns a
+# FLAG / WATCH / No-action verdict. S6 needs the adjacency graph, S7 needs the
+# monthly SPI (seasonal) and an orphan-poliovirus table (genomic).
+
+cli::cli_h2("SPI field guide")
+
+genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
+
+fg <- blindspot::bs_field_guide(
+  concordance = conc,
+  adjacency = adj,
+  spi_month = spi_dm,
+  genomic = genomic[, c("adm2_guid", "year")],
+  verbose = TRUE
+)
+
+print(fg)
+summary(fg) # adds signal fire-counts + the seven-signal reference
+
+# Learn to read the verdict, narrated on this run's worked example:
+if (interactive()) {
+  blindspot::bs_field_guide_help("all", guide = fg)
+}
+
+# Paper's teaching table (Table S15/S16 style): the seven signals for four
+# rule-selected districts, cells shaded by concern.
+worked <- blindspot::bs_field_guide_table(fg, engine = "gt", layout = "worked")
+if (interactive()) {
+  print(worked)
+}
+
+# Save for the manuscript / desk-review folder:
+# blindspot::bs_field_guide_table(
+#   fg, engine = "flextable", layout = "worked",
+#   file = "03_output/main/tables/spi_field_guide_2023.docx"
+# )
+
 # Finished ---------------------------------------------------------------------
 
 cli::cli_rule(

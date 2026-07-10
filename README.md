@@ -41,31 +41,57 @@ pak::pak("truenomad/blindspot")
 ```r
 library(blindspot)
 
+# bundled synthetic surveillance system -- runs without restricted POLIS data
+synth <- synth_surveillance
+
 # 1. spatial adjacency from district boundaries
 adj <- bs_adjacency(
-  boundaries = district_sf,
-  id_col     = "district_id"
+  boundaries = synth$boundaries,
+  id_col     = "adm2_guid"
 )
 
-# 2. fit BYM2 expected-count model (INLA)
+# 2. fit BYM2 expected-count model (INLA):
+#    BYM2 space + IID year + harmonic season + IID overdispersion
 fit <- bs_expected(
-  cases      = afp_cases,
-  population = pop_u15,
-  adjacency  = adj,
-  covariates = covariate_df,
-  id_col     = "district_id"
+  cases          = synth$cases,
+  population     = synth$population,
+  adjacency      = adj,
+  id_col         = "adm2_guid",
+  season         = "harmonic",
+  year_effect    = "iid",
+  overdispersion = "iid"
 )
 
-# 3. sanity-check: is a negative-binomial fit warranted?
-bs_compare_overdispersion(fit)
+# 3. sanity-check: does the overdispersion term earn its keep?
+bs_compare_overdispersion(
+  cases      = synth$cases,
+  population = synth$population,
+  adjacency  = adj,
+  id_col     = "adm2_guid",
+  specs      = c("none", "iid", "nb")
+)
 
 # 4. surveillance performance index at any aggregation level
 spi_dy <- bs_spi(fit, level = "district_year")   # annual per district
 spi_dm <- bs_spi(fit, level = "district_month")  # monthly per district
 
-# 5. classify districts into operational response categories
-cls <- bs_classify(spi_dy)
-plot(cls)
+# 5. cross-classify SPI against the conventional NPAFP-rate threshold
+conc <- bs_concordance(
+  spi        = spi_dy,
+  cases      = synth$cases,
+  population = synth$population,
+  boundaries = synth$boundaries
+)
+summary(conc)
+
+# 6. three-panel concordance map: NPAFP rate | SPI | where they disagree
+bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
+```
+
+The full paper reproduction ships as a script:
+
+```r
+file.edit(system.file("examples/paper_analysis.R", package = "blindspot"))
 ```
 
 ## Framework
@@ -74,20 +100,25 @@ plot(cls)
 
 **Surveillance Performance Index.** SPI is the ratio of observed to expected counts, computed per posterior draw so the joint uncertainty in the denominator is preserved. SPI ~= 1 means detection matches expectation; SPI < 1 flags underdetection (a blindspot); SPI > 1 flags over-detection or genuine excess.
 
-**Operational classification.** Each district maps to a category with a specific field response: green (adequate, no action), amber-SPI (uncertain, investigate), red (degraded, immediate field investigation), structural (persistent zero with high expected count, expand surveillance network).
+**Concordance against the conventional threshold.** Rather than a fixed pass/fail rule, each district-year's SPI is cross-classified against the conventional NPAFP-rate target (>= 3 non-polio AFP cases per 100,000 under-15 person-years) into a 2x2: _both adequate_, _true shortfall_ (both metrics flag failure), _false alarm_ (NPAFP fails but SPI is fine), and _false reassurance_ (NPAFP looks adequate but SPI flags under-detection). The false-reassurance cell is the blindspot a raw threshold misses.
 
 ## Exported functions
 
 ```r
-bs_adjacency()              # spatial neighbour matrix from sf
+bs_adjacency()              # spatial neighbour graph from sf boundaries
 bs_expected()               # fit BYM2 expected-count model (INLA)
-bs_compare_overdispersion() # Poisson vs negative-binomial diagnostic
-bs_spi()                    # surveillance performance index + posterior
-bs_classify()               # operational classification of SPI
+bs_compare_overdispersion() # none vs IID vs negative-binomial diagnostic
+bs_spi()                    # surveillance performance index + posterior draws
+bs_concordance()            # cross-classify SPI vs the NPAFP-rate threshold
+bs_concordance_maps()       # three-panel concordance map (ggplot2/patchwork)
+bs_field_guide()            # read SPI to FLAG / WATCH / No-action verdicts
+bs_field_guide_table()      # render the field guide (gt / flextable)
+bs_field_guide_help()       # learn to read the field guide (worked example)
 ```
 
-Each returns a typed object with `print`, `summary`, `plot`, and
-`as_tibble` methods.
+`bs_expected()`, `bs_spi()`, `bs_concordance()`, and `bs_field_guide()` each
+return a typed object with `print`, `summary`, and `as_tibble` methods; the
+`bs_spi()` and `bs_concordance()` objects also have a `plot()` method.
 
 ## Applications
 

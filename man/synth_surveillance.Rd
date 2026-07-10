@@ -30,9 +30,10 @@ e.g. \code{"Osgiliath North Ward"}, \code{"Dol Amroth Ford"}), \code{adm2_guid},
 subdivided into 5-8 wards by nested Voronoi tessellation.}
 \item{virus_outcome}{Tibble, 1000 x 5. Columns: \code{adm2_guid}, \code{year},
 \code{any_wpv1} (integer, 0/1; always 0 in this toy), \code{any_cvdpv2}
-(integer, 0/1), \code{any_virus} (integer, 0/1). Positive district-years
-are drawn one year after a planted blindspot activates, at rate
-\code{plogis(1)}; background rate \code{plogis(-4)}. Retained as an ad-hoc
+(integer, 0/1), \code{any_virus} (integer, 0/1). cVDPV2 detections surface
+the year after a district's detection completeness falls well below the
+contemporaneous norm (relative completeness < 0.6), at rate
+\code{plogis(-0.6)}; background rate \code{plogis(-4)}. Retained as an ad-hoc
 validation anchor even though the framework is descriptive, not
 predictive.}
 \item{es_sites}{\code{sf} object, 30 x 5 (+ geometry). Environmental
@@ -46,10 +47,15 @@ same true-vs-observed gap signal as \code{virus_outcome}, so the two ES
 proxies are internally consistent.}
 \item{es_district_year}{Tibble, 300 x 4. District-year ES rollup.
 Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
-\item{truth}{Tibble, 100 x 4. Ground-truth cheat sheet. Columns:
-\code{adm2_guid}, \code{is_blindspot} (logical), \code{planted_onset} (Date, NA
-when not a blindspot), \code{detection_ratio} (numeric, 1.0 for healthy
-districts, 0.2-0.4 for planted blindspots after their onset month).}
+\item{truth}{Tibble, 100 x 6. Ground-truth cheat sheet. Columns:
+\code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
+\code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),
+\code{is_blindspot} (logical, TRUE for every non-resilient profile),
+\code{is_low_incidence} (logical, TRUE for the low-baseline clusters that
+seed the False alarm / True shortfall cells), \code{covid_nadir} (numeric,
+the district's relative detection completeness at the 2020 trough), and
+\code{recovered_2024} (logical, TRUE if completeness is back to adequate by
+2024).}
 }
 }
 \usage{
@@ -64,16 +70,35 @@ is present.
 }
 \section{Data-generating process}{
 
-Cases are drawn from a negative-binomial likelihood with mean
-\deqn{\log \mu_{it} = \alpha + b_i + u_t + s(m_t) + \log(\mathrm{pop}_{u15,it} / 10^5),}
-where \code{b_i} is a BYM2 spatial random effect (mixing parameter 0.6,
-marginal precision 4), \code{u_t} is an iid annual random effect, and
-\code{s(m_t)} is a 1st-order harmonic seasonal term. Ten districts are
-planted as blindspots, each with a multiplicative detection ratio in
-\verb{\{0.2, 0.3, 0.4\}} activated at a random month in the second half of the
-study window. \code{virus_outcome} marks the year after each blindspot
-activates as cVDPV2-positive at elevated rate; kept as an optional
-ground-truth anchor for validation-style diagnostics.
+True AFP burden is stable over time; observed counts are that burden thinned
+by \emph{detection completeness}. Counts are drawn from a negative-binomial
+likelihood with mean
+\deqn{\mu^{obs}_{it} = c_{it}\,\exp\!\big(\alpha + b_i + s(m_t) + \log(\mathrm{pop}_{u15,it} / 10^5)\big),}
+where \code{b_i} is a BYM2 spatial random effect (mixing parameter 0.6, marginal
+precision 4), \code{s(m_t)} is a 1st-order harmonic seasonal term, and
+\eqn{c_{it} = g_t \cdot r_{it}} is detection completeness. The global factor
+\code{g_t} improves through 2015-2019 to a pre-COVID peak, crashes ~30\% in 2020
+(COVID-19 disruption), and recovers by 2023-24. The relative factor \code{r_it}
+is 1 for \emph{resilient} districts (which track \code{g_t}) and dips below 1 for the
+other profiles in specific windows: \emph{early_improver} (poor 2015-17,
+maturing away by 2019), \emph{covid_transient} (extra hit 2020-21, recovered by
+2023), and \emph{persistent_laggard} (hit in 2020 and still degraded in 2024).
+Because the SPI model absorbs \code{g_t} into its year effect, SPI tracks \code{r_it}
+-- so the SPI-flagged cells wax with the early-2010s immaturity, ebb to a
+pre-COVID low, spike in 2020-21, and recede as districts recover, leaving a
+residue of persistent laggards. \code{virus_outcome} marks the year after a
+completeness gap as cVDPV2-positive at elevated rate.
+
+Two spatially-contiguous clusters (12 districts, \code{is_low_incidence}) are
+given a low baseline (\code{b_i} overridden to about -4.7) and a denser
+population, so their genuine per-capita NPAFP rate sits below the
+conventional target while the context-conditional SPI scores the resilient
+ones adequate -- the "False alarm" cell. Seven of the twelve are also
+persistent laggards, so their completeness stays low from 2020 on and SPI
+flags them -- the "True shortfall" cell. Normal-baseline laggards and
+transients (raw rate above target, SPI flagged) supply the "False
+reassurance" cell, so all four cells of the SPI x NPAFP crosstab are
+populated and evolve realistically across the ten study years.
 }
 
 \section{Fictional geography}{
