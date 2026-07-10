@@ -8,7 +8,8 @@ test_that("synth_surveillance has the expected structure", {
   expect_named(
     synth_surveillance,
     c("cases", "population", "covariates", "boundaries", "ward_boundaries",
-      "virus_outcome", "es_sites", "es_data", "es_district_year", "truth")
+      "virus_outcome", "es_sites", "es_data", "es_district_year", "detections",
+      "truth")
   )
 
   # covariates: district-year layers for the adjusted spec
@@ -64,6 +65,21 @@ test_that("synth_surveillance has the expected structure", {
     synth_surveillance$virus_outcome,
     c("adm2_guid", "year", "any_wpv1", "any_cvdpv2", "any_virus")
   )
+
+  # detections: district-year channels for bs_triangulate()
+  det <- synth_surveillance$detections
+  expect_equal(nrow(det), n_dist * 10)
+  expect_named(
+    det, c("adm2_guid", "year", "afp_detected", "es_detected", "es_covered")
+  )
+  expect_type(det$afp_detected, "logical")
+  expect_type(det$es_detected, "logical")
+  expect_type(det$es_covered, "logical")
+  expect_false(anyNA(det))
+  # a positive ES read only where a site drains the district
+  expect_true(all(det$es_covered[det$es_detected]))
+  # coverage tracks the ES sites, all ten years
+  expect_equal(sum(det$es_covered), n_es * 10L)
 
   # truth: surveillance profiles + low-incidence seeds
   expect_setequal(

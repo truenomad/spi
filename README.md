@@ -398,6 +398,58 @@ grid::grid.draw(flextable::gen_grob(ft, fit = "width", just = "center"))
 
 <img src="man/figures/README-fg-table-1.png" alt="" width="100%" />
 
+### 8. Triangulating the verdict against independent detection
+
+The field guide judges the *net*, not the *fish*: a FLAG says a silence
+is untrustworthy, not that the silence hid virus. Every signal it uses
+comes from the AFP stream itself, so it cannot corroborate its own
+verdict without arguing in a circle. `bs_triangulate()` crosses the
+verdict against the one largely-independent channel, environmental
+surveillance (ES), and against AFP detections, and sorts each
+district-year into a ten-class triage grid with a three-level priority.
+
+``` r
+tri <- bs_triangulate(
+  fg,
+  detections = synth_surveillance$detections,
+  detection_lag = 1L,
+  verbose = FALSE
+)
+
+dplyr::count(tri$district_year, triangulation)
+#> # A tibble: 9 x 2
+#>   triangulation             n
+#>   <fct>                 <int>
+#> 1 confirmed blindspot      30
+#> 2 blind, unverified        63
+#> 3 adequate, ES positive   153
+#> 4 flagged, ES clear        62
+#> 5 watch, ES clear           1
+#> 6 watch, unverified         4
+#> 7 corroborated clear     1125
+#> 8 uncorroborated clear    825
+#> 9 detected                 97
+```
+
+`detection_lag = 1L` tests the verdict in year *t* against detections in
+year *t + 1*, so the capacity read is taken before the detection's own
+active case-finding could inflate it. Three classes carry the evidential
+weight: **confirmed blindspot** (flagged, and ES caught what AFP
+missed), **adequate, ES positive** (a possible false-adequate the guide
+waved through), and **blind, unverified** (flagged with no ES site to
+check it, the highest-value place to deploy ES or an active search).
+
+``` r
+bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2020)
+```
+
+<img src="man/figures/README-tri-map-1.png" alt="" width="100%" />
+
+The 2020 verdicts (the COVID-crash trough, tested against 2021
+detections) map the triage: reds and magenta are the districts to act on
+or instrument, greens the trustworthy silences. `bs_triangulate_table()`
+renders the same panel as a `gt` / `flextable` for a report.
+
 **Why a Bayesian spatial model.** AFP counts at the district-month level
 are small and noisy. Many districts report zero cases in a given month
 even when surveillance is working, so a raw rate is unstable at that
@@ -470,12 +522,15 @@ bs_concordance_maps()       # three-panel concordance map (ggplot2/patchwork)
 bs_field_guide()            # read SPI to FLAG / WATCH / No-action verdicts
 bs_field_guide_table()      # render the field guide (gt / flextable)
 bs_field_guide_help()       # learn to read the field guide (worked example)
+bs_triangulate()            # cross the verdict with ES / AFP detection channels
+bs_triangulate_table()      # render the triangulation panel (gt / flextable)
+bs_triangulate_map()        # map the triage classes over districts (ggplot2)
 ```
 
-`bs_expected()`, `bs_spi()`, `bs_concordance()`, and `bs_field_guide()`
-each return a typed object with `print`, `summary`, and `as_tibble`
-methods; the `bs_spi()` and `bs_concordance()` objects also have a
-`plot()` method.
+`bs_expected()`, `bs_spi()`, `bs_concordance()`, `bs_field_guide()`, and
+`bs_triangulate()` each return a typed object with `print` (and, where
+useful, `summary` / `as_tibble`) methods; the `bs_spi()` and
+`bs_concordance()` objects also have a `plot()` method.
 
 ## Applications
 

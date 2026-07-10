@@ -6,7 +6,7 @@
 #' simulated; no personally identifying or operationally sensitive information
 #' is present.
 #'
-#' @format A named list with ten elements:
+#' @format A named list with eleven elements:
 #' \describe{
 #'   \item{cases}{Tibble, 28,320 x 3. Columns: `adm2_guid` (character district
 #'     id, `"HAR-001"`..`"HAR-236"`), `month` (Date, first-of-month), `count`
@@ -58,6 +58,17 @@
 #'     proxies are internally consistent.}
 #'   \item{es_district_year}{Tibble, 1,600 x 4. District-year ES rollup.
 #'     Columns: `adm2_guid`, `year`, `n_samples`, `n_positive`.}
+#'   \item{detections}{Tibble, 2,360 x 5. District-year detection channels for
+#'     [bs_triangulate()]. Columns: `adm2_guid`, `year`, `afp_detected`
+#'     (logical, poliovirus found through AFP surveillance), `es_detected`
+#'     (logical, found through environmental surveillance), `es_covered`
+#'     (logical, an ES site drains the district). Derived from `virus_outcome`,
+#'     `es_district_year`, and `es_sites`. Note: in this toy `afp_detected`
+#'     reuses `virus_outcome`, which the field guide also consumes as its S7
+#'     orphan signal, so the AFP channel is *not* independent of the guide
+#'     here; the ES channel (`es_detected` / `es_covered`) is the genuinely
+#'     separate corroborator. A real analysis would supply channel-separated
+#'     detections.}
 #'   \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 #'     `adm2_guid`, `surveillance_profile` (character: `"resilient"`,
 #'     `"early_improver"`, `"covid_transient"`, or `"persistent_laggard"`),

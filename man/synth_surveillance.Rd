@@ -5,7 +5,7 @@
 \alias{synth_surveillance}
 \title{Synthetic AFP surveillance toy dataset}
 \format{
-A named list with ten elements:
+A named list with eleven elements:
 \describe{
 \item{cases}{Tibble, 28,320 x 3. Columns: \code{adm2_guid} (character district
 id, \code{"HAR-001"}..\code{"HAR-236"}), \code{month} (Date, first-of-month), \code{count}
@@ -57,6 +57,17 @@ same true-vs-observed gap signal as \code{virus_outcome}, so the two ES
 proxies are internally consistent.}
 \item{es_district_year}{Tibble, 1,600 x 4. District-year ES rollup.
 Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
+\item{detections}{Tibble, 2,360 x 5. District-year detection channels for
+\code{\link[=bs_triangulate]{bs_triangulate()}}. Columns: \code{adm2_guid}, \code{year}, \code{afp_detected}
+(logical, poliovirus found through AFP surveillance), \code{es_detected}
+(logical, found through environmental surveillance), \code{es_covered}
+(logical, an ES site drains the district). Derived from \code{virus_outcome},
+\code{es_district_year}, and \code{es_sites}. Note: in this toy \code{afp_detected}
+reuses \code{virus_outcome}, which the field guide also consumes as its S7
+orphan signal, so the AFP channel is \emph{not} independent of the guide
+here; the ES channel (\code{es_detected} / \code{es_covered}) is the genuinely
+separate corroborator. A real analysis would supply channel-separated
+detections.}
 \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 \code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
 \code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),
