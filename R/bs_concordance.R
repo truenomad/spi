@@ -401,8 +401,8 @@ plot.blindspot_concordance <- function(x, ...) {
   # clearly (a deep tone of its cell colour) over the faint quadrant tint.
   label_pal <- c(
     "Both adequate"     = "#1B5E20",
-    "True shortfall"    = "#8E1616",
-    "False reassurance" = "#B36A00",
+    "True shortfall"    = "#8E1B1B",
+    "False reassurance" = "#B8860B",
     "False alarm"       = "#0D47A1"
   )
   # Quadrant backdrop: a faint tint and a corner label per cell of the 2x2, so
@@ -437,17 +437,17 @@ plot.blindspot_concordance <- function(x, ...) {
                         alpha = 0.7) +
     # corner labels in a deep tone of each quadrant's colour
     ggplot2::annotate("text", x = 0, y = -Inf, label = "True shortfall",
-                      hjust = -0.08, vjust = -1, size = 3.2, fontface = "bold",
-                      colour = label_pal[["True shortfall"]], alpha = 0.9) +
+                      hjust = -0.08, vjust = -1, size = 3.2, fontface = "bold", alpha = 0.85,
+                      colour = label_pal[["True shortfall"]]) +
     ggplot2::annotate("text", x = Inf, y = -Inf, label = "False reassurance",
-                      hjust = 1.08, vjust = -1, size = 3.2, fontface = "bold",
-                      colour = label_pal[["False reassurance"]], alpha = 0.9) +
+                      hjust = 1.08, vjust = -1, size = 3.2, fontface = "bold", alpha = 0.85,
+                      colour = label_pal[["False reassurance"]]) +
     ggplot2::annotate("text", x = 0, y = Inf, label = "False alarm",
-                      hjust = -0.08, vjust = 1.9, size = 3.2, fontface = "bold",
-                      colour = label_pal[["False alarm"]], alpha = 0.9) +
+                      hjust = -0.08, vjust = 1.9, size = 3.2, fontface = "bold", alpha = 0.85,
+                      colour = label_pal[["False alarm"]]) +
     ggplot2::annotate("text", x = Inf, y = Inf, label = "Both adequate",
-                      hjust = 1.08, vjust = 1.9, size = 3.2, fontface = "bold",
-                      colour = label_pal[["Both adequate"]], alpha = 0.9) +
+                      hjust = 1.08, vjust = 1.9, size = 3.2, fontface = "bold", alpha = 0.85,
+                      colour = label_pal[["Both adequate"]]) +
     ggplot2::scale_colour_manual(
       values = pal, drop = TRUE, labels = cell_labels,
       name = "Concordance (% of total)"
@@ -465,15 +465,15 @@ plot.blindspot_concordance <- function(x, ...) {
     ) +
     ggplot2::guides(
       colour = ggplot2::guide_legend(
-        title.position = "top", title.hjust = 0.5, nrow = 2, byrow = TRUE,
+        title.position = "top", title.hjust = 0.5, nrow = 1,
         override.aes = list(size = 2.25, alpha = 1)
       )
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       legend.position    = "bottom",
-      legend.box.spacing = grid::unit(16, "pt"),
-      legend.title       = ggplot2::element_text(face = "bold"),
+      legend.box.spacing = grid::unit(14, "pt"),
+      legend.title       = ggplot2::element_text(face = "bold", hjust = 0.5),
       axis.title.y = ggplot2::element_text(margin = ggplot2::margin(r = 12)),
       axis.title.x = ggplot2::element_text(margin = ggplot2::margin(t = 8)),
       plot.subtitle = ggplot2::element_text(margin = ggplot2::margin(b = 10))
