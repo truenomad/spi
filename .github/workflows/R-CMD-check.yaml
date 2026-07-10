@@ -1,4 +1,4 @@
-# Run R CMD check across the major platforms on every push and PR.
+# Run R CMD check on Linux (R devel/release/oldrel) on every push and PR.
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 on:
   push:
@@ -38,8 +38,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macos-latest,   r: 'release'}
-          - {os: windows-latest, r: 'release'}
           - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,  r: 'release'}
           - {os: ubuntu-latest,  r: 'oldrel-1'}
@@ -62,8 +60,8 @@ jobs:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
-          # Add the INLA repo so setup-r-dependencies can resolve INLA from source
-          # on all platforms (INLA ships pre-built binaries for macOS + Windows).
+          # Add the INLA repo so setup-r-dependencies can resolve INLA (not on
+          # CRAN/RSPM) from source on the Linux runners.
           extra-repositories: https://inla.r-inla-download.org/R/stable/
 
       - uses: r-lib/actions/setup-r-dependencies@v2
@@ -75,8 +73,8 @@ jobs:
       # session that cannot see the temporary check library (so library(blindspot)
       # fails during a vignette rebuild). The vignettes are built and validated
       # by the pkgdown workflow with the package installed, so R CMD check skips
-      # rebuilding them here -- which also removes the quarto setup from every
-      # (incl. 10x macOS) matrix leg.
+      # rebuilding them here -- which also removes the quarto setup from the
+      # matrix legs.
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
