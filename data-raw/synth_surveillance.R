@@ -31,7 +31,10 @@ LOW_CLUSTER_SIZE <- 7L      # districts per contiguous cluster
 # NPAFP rate targets, per 100k under-15 per YEAR. alpha (section 6) is the
 # per-person-MONTH log rate, so the annual rate is 12 * exp(alpha). LOW_BASELINE
 # is the b_i override for the low-incidence patch, relative to the base rate.
-BASE_RATE_ANNUAL <- 6       # median true NPAFP/100k/yr; straddles the target of 3
+BASE_RATE_ANNUAL <- 24      # median true NPAFP/100k/yr -- gives a good spread of
+                            # expected counts (~3-150, funnel mouth at the low
+                            # end) while flagged degraders stay adequate (False
+                            # reassurance) rather than dipping below (True short)
 LOW_RATE_ANNUAL  <- 1.5     # low-incidence clusters sit genuinely below target
 LOW_BASELINE     <- log(LOW_RATE_ANNUAL / BASE_RATE_ANNUAL)
 N_LOW_LAGGARD    <- 16L     # low districts that never recover -> True shortfall
@@ -41,9 +44,9 @@ N_LOW_LAGGARD    <- 16L     # low districts that never recover -> True shortfall
 G_YEAR <- c(0.78, 0.85, 0.90, 0.94, 0.97,   # 2015-2019: improving to a peak
             0.68, 0.72, 0.86, 0.93, 0.97)   # 2020 crash -> recovery by 2024
 # Surveillance-profile counts (of N_DISTRICTS); "resilient" is the remainder.
-N_EARLY_IMPROVER  <- 19L    # poor 2015-17, matured away by 2019
-N_COVID_TRANSIENT <- 28L    # extra hit 2020-21, recovered by 2023
-N_PERSIST_NORMAL  <- 14L    # normal-baseline laggards, degraded through 2024
+N_EARLY_IMPROVER  <- 30L    # poor 2015-17, matured away by 2019
+N_COVID_TRANSIENT <- 44L    # extra hit 2020-21, recovered by 2023
+N_PERSIST_NORMAL  <- 26L    # normal-baseline laggards, degraded through 2024
 WARDS_MIN        <- 5L      # each adm2 gets 5-8 wards
 WARDS_MAX        <- 8L
 N_ES_SITES       <- 158L    # ~67% of districts host an ES site
@@ -255,12 +258,12 @@ profile[picks[N_PERSIST_NORMAL + N_COVID_TRANSIENT + seq_len(N_EARLY_IMPROVER)]]
 
 # district x year completeness matrix (jittered so severity varies), then long.
 rel_mat <- t(vapply(profile, function(p) REL_TRAJECTORY[[p]], numeric(length(years))))
-rel_mat <- pmin(rel_mat * exp(matrix(rnorm(length(rel_mat), 0, 0.17), nrow(rel_mat))), 1.35)
+rel_mat <- pmin(rel_mat * exp(matrix(rnorm(length(rel_mat), 0, 0.42), nrow(rel_mat))), 1.70)
 completeness_long <- tibble(
   adm2_guid = rep(boundaries$adm2_guid, times = length(years)),
   year = rep(years, each = N_DISTRICTS),
   rel = as.numeric(rel_mat),
-  completeness = pmin(pmax(as.numeric(sweep(rel_mat, 2, G_YEAR, `*`)), 0.05), 1.30)
+  completeness = pmin(pmax(as.numeric(sweep(rel_mat, 2, G_YEAR, `*`)), 0.05), 1.55)
 )
 
 grid <- tidyr::expand_grid(adm2_guid = boundaries$adm2_guid, month = months) |>

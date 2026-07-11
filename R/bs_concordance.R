@@ -525,10 +525,10 @@ plot.blindspot_concordance <- function(x, ...) {
 #' @param year_label Character. What to call the displayed year in the
 #'   panel titles. Defaults to `sprintf("year T-1: %d", year)` -- the
 #'   paper's convention.
-#' @param provinces Logical. Overlay dissolved adm1 (province) outlines on the
-#'   district choropleths? Default `FALSE`. Dissolving an imperfectly
-#'   edge-matched adm2 layer can leave sliver artefacts, so the overlay is
-#'   opt-in.
+#' @param provinces Logical. Overlay dissolved adm1 (province) outlines (dark
+#'   grey) on the light-grey district choropleths? Default `TRUE`. Assumes the
+#'   adm2 layer is a clean coverage (shared edges); on an imperfectly
+#'   edge-matched layer the dissolve can leave sliver artefacts, so set `FALSE`.
 #'
 #' @return A `patchwork` object plotting the three panels side by side.
 #'
@@ -557,7 +557,7 @@ bs_concordance_maps <- function(
   id_col        = NULL,
   titles        = NULL,
   year_label    = NULL,
-  provinces     = FALSE
+  provinces     = TRUE
 ) {
   .check_pkg(c("ggplot2", "patchwork", "sf", "dplyr"),
              reason = "to draw the three-panel concordance map")
@@ -686,7 +686,7 @@ bs_concordance_maps <- function(
     )
 
   p_a <- ggplot2::ggplot(bnd_slice) +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$npafp_cat), colour = "white",
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$npafp_cat), colour = "grey82",
                      linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
@@ -709,7 +709,7 @@ bs_concordance_maps <- function(
     levels = spi_labels
   )
   p_b <- ggplot2::ggplot(bnd_slice) +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$spi_cat), colour = "white",
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$spi_cat), colour = "grey82",
                      linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
@@ -734,7 +734,7 @@ bs_concordance_maps <- function(
   )
   p_c <- ggplot2::ggplot(bnd_slice) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$concordance_legend),
-                     colour = "white", linewidth = 0.1) +
+                     colour = "grey82", linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
       values = pal_c, drop = TRUE, na.value = "grey85",

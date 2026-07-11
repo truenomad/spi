@@ -15,7 +15,7 @@ bs_concordance_maps(
   id_col = NULL,
   titles = NULL,
   year_label = NULL,
-  provinces = FALSE
+  provinces = TRUE
 )
 }
 \arguments{
@@ -45,10 +45,10 @@ default panel titles.}
 panel titles. Defaults to \code{sprintf("year T-1: \%d", year)} -- the
 paper's convention.}
 
-\item{provinces}{Logical. Overlay dissolved adm1 (province) outlines on the
-district choropleths? Default \code{FALSE}. Dissolving an imperfectly
-edge-matched adm2 layer can leave sliver artefacts, so the overlay is
-opt-in.}
+\item{provinces}{Logical. Overlay dissolved adm1 (province) outlines (dark
+grey) on the light-grey district choropleths? Default \code{TRUE}. Assumes the
+adm2 layer is a clean coverage (shared edges); on an imperfectly
+edge-matched layer the dissolve can leave sliver artefacts, so set \code{FALSE}.}
 }
 \value{
 A \code{patchwork} object plotting the three panels side by side.

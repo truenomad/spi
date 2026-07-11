@@ -243,11 +243,16 @@ bs_triangulate <- function(
       priority = dplyr::case_when(
         .data$triangulation == "detected" ~ "resolved",
         .data$triangulation %in% c(
-          "confirmed blindspot", "blind, unverified",
-          "watch, ES positive", "adequate, ES positive"
+          "confirmed blindspot", "blind, unverified", "watch, ES positive"
         ) ~ "high",
+        # "adequate, ES positive" is the expected subclinical floor, not a
+        # false-adequate: AFP only sees the paralytic fraction (~1/200
+        # infections), so an adequate system misses most circulation by design
+        # and ES picking it up is normal. Medium, not high, so it does not
+        # outweigh confirmed blind spots in the triage.
         .data$triangulation %in% c(
-          "flagged, ES clear", "watch, ES clear", "watch, unverified"
+          "flagged, ES clear", "watch, ES clear", "watch, unverified",
+          "adequate, ES positive"
         ) ~ "medium",
         .data$triangulation %in% c(
           "corroborated clear", "uncorroborated clear"
@@ -545,7 +550,7 @@ bs_triangulate_map <- function(
   x,
   boundaries,
   year = NULL,
-  by = c("triangulation", "priority"),
+  by = c("priority", "triangulation"),
   id_col = NULL,
   title = NULL,
   ...
@@ -565,52 +570,38 @@ bs_triangulate_map <- function(
     cli::cli_abort("no district-year rows for {.arg year} = {.val {yr}}")
   }
 
-  pal <- if (by == "triangulation") TRI_CLASS_FILL else TRI_PRIORITY_FILL
-  fill_lab <- if (by == "triangulation") "Triangulation class" else "Priority"
-
   bnd_slice <- boundaries |>
-    dplyr::inner_join(slice[, c(id_col, "triangulation", "priority")],
-                      by = id_col)
-  bnd_slice$fill_cat <- bnd_slice[[by]]
+    dplyr::inner_join(
+      slice[, c(id_col, "triangulation", "priority", "es_status",
+                "afp_hit", "verdict_chr")],
+      by = id_col
+    )
 
-  # adm1 (province) outline dissolved from the adm2 layer, drawn on top of the
-  # district choropleth (matches the sntutils facetted-map convention and the
-  # three-panel concordance map).
+  # adm1 (province) outline over the district choropleth. The adm2 layer is a
+  # clean coverage, so the dissolve leaves no sliver artefacts.
   adm1_layer <- NULL
   if ("adm1_name" %in% names(boundaries)) {
     adm1_outline <- boundaries |>
       dplyr::group_by(.data$adm1_name) |>
       dplyr::summarise(.groups = "drop")
     adm1_layer <- ggplot2::geom_sf(
-      data = adm1_outline, fill = NA, colour = "grey20", linewidth = 0.3,
+      data = adm1_outline, fill = NA, colour = "grey25", linewidth = 0.3,
       inherit.aes = FALSE
     )
   }
 
-  title <- title %||%
-    sprintf("Triangulation of the field-guide verdict, %d", yr)
+  det_year <- yr + x$params$detection_lag
   subtitle <- sprintf(
-    "Verdict crossed against ES and AFP detection (lag %d)",
-    x$params$detection_lag
+    "Field-guide verdict (%d) crossed with ES and AFP detection (%d)",
+    yr, det_year
   )
-
-  ggplot2::ggplot(bnd_slice) +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$fill_cat), colour = "white",
-                     linewidth = 0.1) +
-    adm1_layer +
-    ggplot2::scale_fill_manual(values = pal, drop = TRUE, na.value = "grey85",
-                               name = fill_lab) +
-    ggplot2::guides(fill = ggplot2::guide_legend(
-      ncol = 4, byrow = TRUE, title.position = "top", title.hjust = 0
-    )) +
-    ggplot2::labs(title = title, subtitle = subtitle) +
-    ggplot2::theme_void(base_size = 11) +
+  map_theme <- ggplot2::theme_void(base_size = 11) +
     ggplot2::theme(
       plot.title = ggplot2::element_text(face = "bold", size = 12,
                                          margin = ggplot2::margin(b = 4)),
       plot.subtitle = ggplot2::element_text(size = 9, colour = "grey30",
                                             margin = ggplot2::margin(t = 0,
-                                                                     b = 10)),
+                                                                     b = 12)),
       plot.margin = ggplot2::margin(6, 18, 6, 8),
       legend.position = "bottom",
       legend.title = ggplot2::element_text(size = 8, face = "bold"),
@@ -618,4 +609,66 @@ bs_triangulate_map <- function(
       legend.key.width = grid::unit(1.1, "lines"),
       legend.key.height = grid::unit(0.5, "lines")
     )
+
+  if (by == "triangulation") {
+    # Full ten-class detail (the labels survive in bs_triangulate_table()).
+    bnd_slice$fill_cat <- bnd_slice$triangulation
+    title <- title %||%
+      sprintf("Triangulation classes, verdict %d vs detection %d", yr, det_year)
+    return(
+      ggplot2::ggplot(bnd_slice) +
+        ggplot2::geom_sf(ggplot2::aes(fill = .data$fill_cat),
+                         colour = "grey82", linewidth = 0.1) +
+        adm1_layer +
+        ggplot2::scale_fill_manual(values = TRI_CLASS_FILL, drop = TRUE,
+                                   na.value = "grey85",
+                                   name = "Triangulation class") +
+        ggplot2::guides(fill = ggplot2::guide_legend(
+          ncol = 4, byrow = TRUE, title.position = "top", title.hjust = 0)) +
+        ggplot2::labs(title = title, subtitle = subtitle) +
+        map_theme
+    )
+  }
+
+  # Default: triage by priority. Ten categorical fills on hundreds of small
+  # polygons collide, so map the three-level priority instead. Coverage is a
+  # separate variable, so grey means one thing only -- no independent ES read --
+  # and the "act here" signal rides a red ring on the flagged districts. A
+  # flagged-but-unsited district (blind, unverified) then shows grey fill (no
+  # read) under a red ring ("instrument here") instead of hiding in the grey.
+  # AFP-detected sits off-grid in a neutral grey.
+  bnd_slice <- bnd_slice |>
+    dplyr::mutate(
+      map_fill = dplyr::case_when(
+        .data$afp_hit ~ "detected",
+        .data$es_status == "no site" ~ "no ES read",
+        .default = as.character(.data$priority)
+      ),
+      map_fill = factor(
+        .data$map_fill,
+        levels = c("high", "medium", "low", "detected", "no ES read")
+      ),
+      flagged = .data$verdict_chr == "FLAG"
+    )
+  fill_pal <- c(
+    high = "#b2182b", medium = "#ef8a62", low = "#4d9221",
+    detected = "grey55", `no ES read` = "grey85"
+  )
+  title <- title %||%
+    sprintf("Triangulation triage, verdict %d vs detection %d", yr, det_year)
+
+  ggplot2::ggplot(bnd_slice) +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$map_fill), colour = "grey82",
+                     linewidth = 0.1) +
+    adm1_layer +
+    ggplot2::geom_sf(
+      data = dplyr::filter(bnd_slice, .data$flagged),
+      fill = NA, colour = "#b2182b", linewidth = 0.55, inherit.aes = FALSE
+    ) +
+    ggplot2::scale_fill_manual(values = fill_pal, drop = FALSE,
+                               name = "Triage priority (red ring = flagged)") +
+    ggplot2::guides(fill = ggplot2::guide_legend(
+      nrow = 1, title.position = "top", title.hjust = 0)) +
+    ggplot2::labs(title = title, subtitle = subtitle) +
+    map_theme
 }

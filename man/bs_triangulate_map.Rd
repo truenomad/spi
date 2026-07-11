@@ -8,7 +8,7 @@ bs_triangulate_map(
   x,
   boundaries,
   year = NULL,
-  by = c("triangulation", "priority"),
+  by = c("priority", "triangulation"),
   id_col = NULL,
   title = NULL,
   ...

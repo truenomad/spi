@@ -39,7 +39,7 @@ n_adm1 <- 36L # contiguous provinces to partition the districts into
 min_prov_size <- 4L # SKATER: min districts per province (balances sizes)
 proj_crs <- 32633L # WGS84 / UTM 33N (metres); Lake Chad sits in zone 33N
 snap_m <- 500 # poly2nb snap (m): bridges separately-digitised border seams
-weld_tol <- 150 # st_snap tolerance (m) to weld the international-seam gaps
+gap_fill_km2 <- 20 # mapshaper -clean: absorb coverage gaps below this area (km2)
 country <- "Harad"
 rotate_deg <- 90 # de-identify: rotate the whole layer and drop the CRS
 seed <- 123L
@@ -163,23 +163,40 @@ cli::cli_alert_info(
 )
 
 ## ---------------------------------------------------------------------------##
-# Weld the international-seam gaps ----------------------------------------------
+# Clean into a shared-edge coverage (mapshaper -clean) -------------------------
 ## ---------------------------------------------------------------------------##
 
-cli::cli_h2("Weld seam gaps for gap-free adjacency")
+cli::cli_h2("Clean the coverage")
 
-# The merged national files leave <100 m gaps along the former international
-# borders, so plain poly2nb() (near-zero snap) would still see several
-# components. Snap district vertices onto the shared outline so the shipped
-# layer is a single connected coverage at zero tolerance -- no special snap
-# argument needed by bs_adjacency() or any other consumer downstream.
-patch <- sf::st_make_valid(
-  sf::st_snap(patch, sf::st_union(sf::st_geometry(patch)), tolerance = weld_tol)
-)
+# The four national files are digitised independently, so adjacent adm2 units do
+# not share exact edges -- they leave <100 m gaps/overlaps along the former
+# international borders. A plain vertex snap connects the adjacency graph but
+# still leaves sliver polygons, which surface as artefacts when adm1 (province)
+# outlines dissolved from this layer are overlaid on the adm2 districts.
+# mapshaper's `-clean` rebuilds a proper topological coverage: adjacent polygons
+# share identical edges, and gaps below gap_fill_km2 are absorbed into a
+# neighbour -- so dissolving to adm1 downstream is artefact-free (0 sliver
+# holes). mapshaper works on planar coordinates, so the metric CRS is unchanged.
+clean_coverage <- function(x, gap_fill_km2) {
+  crs0 <- sf::st_crs(x)
+  gj <- geojsonsf::sf_geojson(x, atomise = FALSE)
+  # rmapshaper exposes no public `-clean`, so call its command runner directly.
+  cleaned <- rmapshaper:::apply_mapshaper_commands(
+    data = gj,
+    command = sprintf("-clean gap-fill-area=%d", as.integer(gap_fill_km2 * 1e6)),
+    sys = FALSE
+  )
+  out <- geojsonsf::geojson_sf(as.character(cleaned))
+  sf::st_crs(out) <- crs0
+  sf::st_make_valid(out)
+}
+n_before <- nrow(patch)
+patch <- clean_coverage(patch, gap_fill_km2)
+stopifnot(nrow(patch) == n_before)
 
 cli::cli_alert_info(
-  "welded; components at snap 0: \\
-   {spdep::n.comp.nb(spdep::poly2nb(patch, queen = TRUE))$nc}"
+  "cleaned coverage: {nrow(patch)} units, \\
+   {spdep::n.comp.nb(spdep::poly2nb(patch, queen = TRUE))$nc} component(s)"
 )
 
 ## ---------------------------------------------------------------------------##

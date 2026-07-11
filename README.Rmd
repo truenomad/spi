@@ -298,10 +298,14 @@ tri <- bs_triangulate(
 )
 
 # the ten classes are a verdict x ES-status grid (AFP-detected sits off-grid)
-grid <- subset(tri$district_year, !afp_hit)
-grid$verdict <- factor(grid$verdict_chr, c("FLAG", "WATCH", "No action"))
-grid$ES <- factor(grid$es_status, c("positive", "clear", "no site"))
-table(verdict = grid$verdict, ES = grid$ES)
+tri$district_year |>
+  dplyr::filter(!afp_hit) |>
+  dplyr::mutate(
+    verdict = factor(verdict_chr, c("FLAG", "WATCH", "No action")),
+    ES = factor(es_status, c("positive", "clear", "no site"))
+  ) |>
+  dplyr::count(verdict, ES, .drop = FALSE) |>
+  tidyr::pivot_wider(names_from = ES, values_from = n, values_fill = 0)
 ```
 
 Read as a grid, the field-guide verdict runs down the rows and the independent ES read across the columns, so every cell is one triage class. `detection_lag = 1L` tests the year-*t* verdict against year *t + 1* detections, so the capacity read is taken before the detection's own case-finding could inflate it. The cells that carry the weight sit off the reassuring bottom-right: **FLAG × positive** (confirmed blindspots, where ES caught what AFP missed), **No action × positive** (possible false-adequates the guide waved through), and **FLAG × no site** (flagged with no ES site to check, the highest-value place to deploy ES or an active search). The district-years where AFP itself already detected virus sit outside the grid.
