@@ -51,17 +51,29 @@ blindspot estimates, for each district in each month, how many cases a surveilla
 **Designed for polio AFP surveillance. Applicable to any case-based VPD surveillance system.**
 
 <details>
-<summary><b>Method notes — why a Bayesian spatial model, why INLA, and what the SPI is for</b> (click to expand)</summary>
+<summary><b>Method notes — the estimand, the model, and what the SPI is for</b> (click to expand)</summary>
 
 <br>
 
-**Why a Bayesian spatial model.** District-month AFP counts are small and noisy, so a raw rate is unstable and a single zero-count month can look like a collapse. A BYM2 model (Riebler et al. 2016) borrows strength across space — each district is pulled toward its neighbours in proportion to how little its own data can say — and returns a full posterior, so the SPI carries a credible interval, not a bare point estimate.
+<img src="man/figures/spi-dag.png" width="100%" alt="Directed acyclic graph of the SPI estimand" />
+
+The observed count is the product of two unobserved processes — true non-polio AFP incidence and detection probability — modelled as a negative-binomial count. Fitted to the data, the model estimates an **expected count** (the level prevailing across comparable districts) from a population offset and spatial, seasonal, and annual terms, with context covariates as an optional refinement; the **SPI is observed ÷ expected**. Poliovirus circulation has no path into the model, so the SPI is diagnostic of *surveillance performance* and does not estimate transmission — it enters only as an independent reference for external validation.
+
+$$Y_{it} \sim \mathrm{NegBin}(\mu_{it},\ \theta), \qquad \mathrm{SPI}_{it} = Y_{it}\,/\,\mu_{it}$$
+
+$$\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\mathrm{month}_t) + \gamma_{y(t)} + u_i + v_i + x_{it}^{\top}\beta$$
+
+where $\log(P_{it}/12)$ is the log under-15 person-time offset; $\beta_0$ estimates the background non-polio AFP detection rate from the data; $f(\mathrm{month}_t)$ is harmonic seasonality (12- and 6-month periodicity); $\gamma_{y(t)}$ an exchangeable year effect; $u_i + v_i$ a BYM2 spatial random effect (Riebler et al. 2016); and $x_{it}^{\top}\beta$ the optional district covariates (DTP3 coverage, urbanicity, travel time to care).
+
+**Why a Bayesian spatial model.** District-month AFP counts are small and noisy, so a raw rate is unstable and a single zero-count month can look like a collapse. The BYM2 spatial effect borrows strength across space — each district is pulled toward its neighbours in proportion to how little its own data can say — and returns a full posterior, so the SPI carries a credible interval, not a bare point estimate.
 
 **Why INLA.** MCMC over tens of thousands of district-months would be slow; INLA gives fast, accurate approximate-Bayesian inference for exactly this class of latent Gaussian spatial models, so the whole chain runs in seconds to minutes.
 
-**Expected rate model.** A BYM2 count regression fit by INLA over a log under-15 person-time offset, with year, seasonal, and contextual terms (negative binomial by default; Poisson and Poisson-lognormal comparable by DIC/WAIC). Posterior draws of the expected count become the SPI denominator.
+**What the SPI is for.** It refines the conventional NPAFP rate rather than replacing it: instead of asking whether a district clears a fixed target, it asks whether the district detects as much as a model of its own context expects, with uncertainty attached. SPI = 1 means detection matches expectation; below 1 flags under-detection (a blindspot). It is diagnostic, not predictive — it grades whether the system *could* see, not whether virus was there.
 
-**What the SPI is for.** It refines the conventional NPAFP rate rather than replacing it: instead of asking whether a district clears a fixed target, it asks whether the district detects as much as a model of its own context expects, with uncertainty attached. SPI = 1 means detection matches expectation; below 1 flags under-detection (a blindspot). It is diagnostic, not predictive — it grades whether the system *could* see, not whether virus was there. NPAFP is the polio example the package is built around, but the same expected-versus-observed logic refines any case-based indicator.
+The core engine is disease-agnostic: it operates on case counts, population denominators, and spatial boundaries. But polio AFP/NPAFP is the key example throughout this package and its paper — the method was built around the polio endgame's surveillance-quality problem, and the NPAFP rate is the flat threshold every worked example refines. Other case-based VPD indicators (measles discard surveillance, DHIS2 reporting completeness, and the like) are supported by analogy: changing the application changes the data and covariates, not the methodology.
+
+A blindspot is a district where the surveillance system cannot see. The package finds them, quantifies the uncertainty, and tells you what to do about them.
 
 </details>
 
@@ -262,6 +274,8 @@ bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 
 `bs_field_guide()` reads each district-year through seven signals (S1 to S7) and lands on a FLAG, WATCH, or No-action verdict. S6 uses the neighbour graph; S7 uses the monthly SPI for seasonality and a table of orphan-virus detections.
 
+The `genomic` argument is that table of independent virus detections — here the district-years where the toy's virus-outcome sheet recorded a cVDPV2 (`any_cvdpv2 == 1`). It is the one corroborator that does *not* come from the AFP stream the guide is grading, so S7 can ask whether a flagged silence also had poliovirus surface there — evidence of a genuine blindspot rather than a false alarm. Pass only the `adm2_guid` and `year` of the detections; any district-year absent from the table is treated as no orphan detection.
+
 ```{r field-guide}
 genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
 
@@ -348,14 +362,6 @@ bs_triangulate_map()        # map the triage classes over districts (ggplot2)
 `bs_triangulate()` each return a typed object with `print` (and, where useful,
 `summary` / `as_tibble`) methods; the `bs_spi()` and `bs_concordance()` objects
 also have a `plot()` method.
-
-## Applications
-
-The core engine is disease-agnostic: it operates on case counts, population denominators, and spatial boundaries. But polio AFP/NPAFP is the key example throughout this package and its paper — the method was built around the polio endgame's surveillance-quality problem, and the NPAFP rate is the flat threshold every worked example refines. Other case-based VPD indicators (measles discard surveillance, DHIS2 reporting completeness, and the like) are supported by analogy: changing the application changes the data and covariates, not the methodology.
-
-## The name
-
-A blindspot is a district where the surveillance system cannot see. The package finds them, quantifies the uncertainty, and tells you what to do about them.
 
 ## Citation
 

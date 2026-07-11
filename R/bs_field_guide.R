@@ -586,6 +586,8 @@ as_tibble.blindspot_field_guide <- function(x, ...) {
   label_col <- intersect(c("adm2_name", "adm1_name", id_col), names(foc))[1]
   out <- tibble::tibble(
     district = foc[[label_col]],
+    obs = foc$observed,
+    exp = round(foc$expected_total, 1),
     spi = round(foc$spi_median, 2),
     cri = sprintf("%.2f-%.2f", foc$spi_q05, foc$spi_q95),
     npafp = round(foc$npafp_rate, 1),
