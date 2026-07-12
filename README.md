@@ -39,59 +39,58 @@ surveillance system.**
 
 <summary>
 
-<b>Method notes — the estimand, the model, and what the SPI is for</b>
-(click to expand)
+<b>Method notes — estimand, model, and what the SPI is for</b> (click to
+expand)
 </summary>
 
 <br>
 
 <img src="man/figures/spi-dag.png" width="100%" alt="Directed acyclic graph of the SPI estimand" />
 
-The observed count is the product of two unobserved processes — true
-non-polio AFP incidence and detection probability — modelled as a
+The observed count is the product of two unobserved processes (true
+non-polio AFP incidence and detection probability), modelled as a
 negative-binomial count. Fitted to the data, the model estimates an
 **expected count** (the level prevailing across comparable districts)
 from a population offset and spatial, seasonal, and annual terms, with
 context covariates as an optional refinement; the **SPI is observed ÷
 expected**. Poliovirus circulation has no path into the model, so the
 SPI is diagnostic of *surveillance performance* and does not estimate
-transmission — it enters only as an independent reference for external
+transmission; it enters only as an independent reference for external
 validation.
 
-    Y_it ~ NegBin(μ_it, θ)                    SPI_it = Y_it / μ_it
+$$Y_{it} \sim \text{NegBin}(\mu_{it}, \theta), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}$$
 
-    log(μ_it) = log(P_it / 12) + β₀ + f(month_t) + γ_y(t) + u_i + v_i + x_it′β
+$$\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + x_{it}^{\top}\beta$$
 
-where `log(P_it/12)` is the log under-15 person-time offset; `β₀`
+Here $\log(P_{it}/12)$ is the log under-15 person-time offset; $\beta_0$
 estimates the background non-polio AFP detection rate from the data;
-`f(month_t)` is harmonic seasonality (12- and 6-month periodicity);
-`γ_y(t)` an exchangeable year effect; `u_i + v_i` a BYM2 spatial random
-effect (Riebler et al. 2016); and `x_it′β` the optional district
-covariates (DTP3 coverage, urbanicity, travel time to care).
+$f(\text{month}_t)$ is harmonic seasonality with 12- and 6-month
+periodicity; $\gamma_{y(t)}$ an exchangeable year effect; $u_i + v_i$ a
+BYM2 spatial random effect (Riebler et al. 2016); and
+$x_{it}^{\top}\beta$ the optional district covariates (DTP3 coverage,
+urbanicity, travel time to care).
 
 **Why a Bayesian spatial model.** District-month AFP counts are small
 and noisy, so a raw rate is unstable and a single zero-count month can
 look like a collapse. The BYM2 spatial effect borrows strength across
-space — each district is pulled toward its neighbours in proportion to
-how little its own data can say — and returns a full posterior, so the
-SPI carries a credible interval, not a bare point estimate.
-
-**Why INLA.** MCMC over tens of thousands of district-months would be
-slow; INLA gives fast, accurate approximate-Bayesian inference for
-exactly this class of latent Gaussian spatial models, so the whole chain
-runs in seconds to minutes.
+space, pulling each district toward its neighbours in proportion to how
+little its own data can say, and returns a full posterior, so the SPI
+carries a credible interval rather than a bare point estimate. Fitting
+is by INLA rather than MCMC: for latent Gaussian spatial models of this
+size, approximate-Bayesian inference is accurate and finishes in seconds
+to minutes.
 
 **What the SPI is for.** It refines the conventional NPAFP rate rather
 than replacing it: instead of asking whether a district clears a fixed
 target, it asks whether the district detects as much as a model of its
 own context expects, with uncertainty attached. SPI = 1 means detection
 matches expectation; below 1 flags under-detection (a blindspot). It is
-diagnostic, not predictive — it grades whether the system *could* see,
+diagnostic, not predictive: it grades whether the system *could* see,
 not whether virus was there.
 
 The core engine is disease-agnostic: it operates on case counts,
 population denominators, and spatial boundaries. But polio AFP/NPAFP is
-the key example throughout this package and its paper — the method was
+the key example throughout this package and its paper: the method was
 built around the polio endgame's surveillance-quality problem, and the
 NPAFP rate is the flat threshold every worked example refines. Other
 case-based VPD indicators (measles discard surveillance, DHIS2 reporting
@@ -207,12 +206,12 @@ head(as_tibble(fit_bare)[, c(
 #> # A tibble: 6 x 6
 #>   adm2_guid           month      count expected_median expected_q05 expected_q95
 #>   <chr>               <date>     <int>           <dbl>        <dbl>        <dbl>
-#> 1 {54CD979C-CF9D-6A6~ 2015-01-01     0           0.551        0.275        1.09 
-#> 2 {54CD979C-CF9D-6A6~ 2015-02-01     0           0.564        0.286        1.17 
-#> 3 {54CD979C-CF9D-6A6~ 2015-03-01     0           0.547        0.299        1.09 
-#> 4 {54CD979C-CF9D-6A6~ 2015-04-01     0           0.518        0.261        1.08 
-#> 5 {54CD979C-CF9D-6A6~ 2015-05-01     0           0.477        0.232        0.958
-#> 6 {54CD979C-CF9D-6A6~ 2015-06-01     1           0.543        0.282        1.13
+#> 1 {54CD979C-CF9D-6A6~ 2015-01-01     0           0.579        0.299         1.15
+#> 2 {54CD979C-CF9D-6A6~ 2015-02-01     0           0.590        0.298         1.07
+#> 3 {54CD979C-CF9D-6A6~ 2015-03-01     0           0.596        0.285         1.14
+#> 4 {54CD979C-CF9D-6A6~ 2015-04-01     0           0.553        0.285         1.06
+#> 5 {54CD979C-CF9D-6A6~ 2015-05-01     0           0.516        0.276         1.08
+#> 6 {54CD979C-CF9D-6A6~ 2015-06-01     1           0.534        0.296         1.05
 ```
 
 ### Adjusting for covariates
@@ -322,12 +321,12 @@ head(as_tibble(spi_dy)[, c(
 #> # A tibble: 6 x 6
 #>   adm2_guid                             year observed spi_median spi_q05 spi_q95
 #>   <chr>                                <dbl>    <int>      <dbl>   <dbl>   <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.650   0.417    1.04
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.07    0.691    1.67
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0        0   
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.952   0.618    1.49
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      1.98    1.30     3.10
-#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.41    0.914    2.21
+#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.640   0.432   0.982
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.04    0.703   1.61 
+#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0    
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.921   0.620   1.46 
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      1.95    1.35    2.99 
+#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.41    0.939   2.13
 ```
 
 **Why the yearly SPI is the one we act on.** The index is defined at any
@@ -384,7 +383,7 @@ Every district-year lands in one of the four cells:
 table(conc$district_year$concordance)
 #> 
 #>     Both adequate    True shortfall False reassurance       False alarm 
-#>              1359               234               673                94
+#>              1358               234               674                94
 ```
 
 `plot()` shows the four cells as a scatter of NPAFP rate against SPI,
@@ -415,13 +414,13 @@ S7) and lands on a FLAG, WATCH, or No-action verdict. S6 uses the
 neighbour graph; S7 uses the monthly SPI for seasonality and a table of
 orphan-virus detections.
 
-The `genomic` argument is that table of independent virus detections —
+The `genomic` argument is that table of independent virus detections:
 here the district-years where the toy's virus-outcome sheet recorded a
 cVDPV2 (`any_cvdpv2 == 1`). It is the one corroborator that does *not*
 come from the AFP stream the guide is grading, so S7 can ask whether a
-flagged silence also had poliovirus surface there — evidence of a
-genuine blindspot rather than a false alarm. Pass only the `adm2_guid`
-and `year` of the detections; any district-year absent from the table is
+flagged silence also had poliovirus surface there, evidence of a genuine
+blindspot rather than a false alarm. Pass only the `adm2_guid` and
+`year` of the detections; any district-year absent from the table is
 treated as no orphan detection.
 
 ``` r
@@ -440,22 +439,22 @@ fg
 #>   verdict       n   pct
 #>   <chr>     <int> <dbl>
 #> 1 FLAG         64  27.1
-#> 2 WATCH         2   0.8
-#> 3 No action   170  72
-#> # A tibble: 236 x 10
+#> 2 WATCH         1   0.4
+#> 3 No action   171  72.5
+#> # A tibble: 48 x 10
 #>    district   obs   exp   spi cri       npafp   run traj    corrob verdict
 #>    <chr>    <int> <dbl> <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>  
-#>  1 Khandor      0   2.4  0    0.00-0.00   0       2 falling      2 FLAG   
-#>  2 Vasheth      0   0.7  0    0.00-0.00   0       4 rising       2 FLAG   
-#>  3 Arddor       0   1.7  0    0.00-0.00   0       2 falling      2 FLAG   
-#>  4 Ardor        0   1.2  0    0.00-0.00   0       2 rising       2 FLAG   
-#>  5 Doloth       0   1.1  0    0.00-0.00   0       4 falling      3 FLAG   
-#>  6 Raenan       0   1    0    0.00-0.00   0       4 flat         2 FLAG   
-#>  7 Chakis       0   1.9  0    0.00-0.00   0       4 falling      4 FLAG   
-#>  8 Kiroth       0   1.4  0    0.00-0.00   0       4 rising       2 FLAG   
-#>  9 Vashoth      0   2.3  0    0.00-0.00   0       3 falling      4 FLAG   
-#> 10 Suzil        1   8.2  0.12 0.09-0.16   1.6     5 falling      4 FLAG   
-#> # i 226 more rows
+#>  1 Nentha       2  14.3  0.14 0.11-0.17   2       1 falling      2 FLAG   
+#>  2 Sarnesh      3  14.4  0.21 0.17-0.27   3.5     1 falling      2 FLAG   
+#>  3 Kirun        9  24.9  0.36 0.30-0.44   6.4     2 falling      2 FLAG   
+#>  4 Doldor      13  29.9  0.43 0.36-0.52   6.8     1 falling      2 FLAG   
+#>  5 Raenun      10  22.5  0.44 0.36-0.54   5.8     3 rising       2 FLAG   
+#>  6 Raenwen     10  21.5  0.47 0.38-0.59   5.9     1 falling      2 FLAG   
+#>  7 Beltha      14  29.3  0.48 0.40-0.58   7.5     1 falling      2 FLAG   
+#>  8 Zimun        5  10.1  0.49 0.38-0.64   5.4     3 rising       2 FLAG   
+#>  9 Raendor      8  15.8  0.51 0.40-0.63   4.7     2 falling      2 FLAG   
+#> 10 Kirtha      11  21.8  0.51 0.40-0.63  11.6     2 falling      2 FLAG   
+#> # i 38 more rows
 ```
 
 `summary(fg)` adds the signal fire-counts and a reference for the seven
@@ -493,29 +492,29 @@ bs_field_guide_table(fg, engine = "gt", layout = "worked") |>
   <tbody class="gt_table_body" style="border-style: none; border-top-style: solid; border-top-width: 2px; border-top-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #D3D3D3;">
     <tr style="border-style: none;"><th id="stub_1_1" scope="row" class="gt_row gt_left gt_stub" style="border-style: none; padding-top: 8px; padding-bottom: 8px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; color: #333333; background-color: #FFFFFF; font-size: 100%; font-weight: initial; text-transform: inherit; border-right-style: solid; border-right-width: 2px; border-right-color: #D3D3D3; padding-left: 5px; padding-right: 5px; text-align: left;" valign="middle" bgcolor="#FFFFFF" align="left">S1 Credible discordance</th>
 <td headers="stub_1_1 Belwen
-(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">Does not fire: at or above the cut (SPI 1.06)</td>
+(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">Does not fire: at or above the cut (SPI 1.07)</td>
 <td headers="stub_1_1 Yolan
-(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">Does not fire: 90% CrI (0.45 to 1.18) includes 1</td>
+(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">Does not fire: 90% CrI (0.43 to 1.16) includes 1</td>
 <td headers="stub_1_1 Sarnesh
 (Flag)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">Fires: rate 3.5 adequate, SPI 0.21, 90% CrI upper 0.27</td>
 <td headers="stub_1_1 Arddor
 (Flag, corroborated)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">Does not fire: 90% CrI (0.00 to 0.00) includes 1</td></tr>
     <tr style="border-style: none;"><th id="stub_1_2" scope="row" class="gt_row gt_left gt_stub" style="border-style: none; padding-top: 8px; padding-bottom: 8px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; color: #333333; background-color: #FFFFFF; font-size: 100%; font-weight: initial; text-transform: inherit; border-right-style: solid; border-right-width: 2px; border-right-color: #D3D3D3; padding-left: 5px; padding-right: 5px; text-align: left;" valign="middle" bgcolor="#FFFFFF" align="left">S2 Depth of shortfall</th>
 <td headers="stub_1_2 Belwen
-(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">1.06</td>
+(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">1.07</td>
 <td headers="stub_1_2 Yolan
-(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">0.72</td>
+(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">0.71</td>
 <td headers="stub_1_2 Sarnesh
 (Flag)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">0.21</td>
 <td headers="stub_1_2 Arddor
 (Flag, corroborated)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">0.00</td></tr>
     <tr style="border-style: none;"><th id="stub_1_3" scope="row" class="gt_row gt_left gt_stub" style="border-style: none; padding-top: 8px; padding-bottom: 8px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; color: #333333; background-color: #FFFFFF; font-size: 100%; font-weight: initial; text-transform: inherit; border-right-style: solid; border-right-width: 2px; border-right-color: #D3D3D3; padding-left: 5px; padding-right: 5px; text-align: left;" valign="middle" bgcolor="#FFFFFF" align="left">S3 Observed vs expected</th>
 <td headers="stub_1_3 Belwen
-(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">315 observed vs 297.5 expected</td>
+(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">315 observed vs 295.3 expected</td>
 <td headers="stub_1_3 Yolan
 (Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">1 observed vs 1.4 expected</td>
 <td headers="stub_1_3 Sarnesh
-(Flag)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">3 observed vs 14.2 expected</td>
+(Flag)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">3 observed vs 14.4 expected</td>
 <td headers="stub_1_3 Arddor
 (Flag, corroborated)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">0 observed vs 1.7 expected</td></tr>
     <tr style="border-style: none;"><th id="stub_1_4" scope="row" class="gt_row gt_left gt_stub" style="border-style: none; padding-top: 8px; padding-bottom: 8px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; color: #333333; background-color: #FFFFFF; font-size: 100%; font-weight: initial; text-transform: inherit; border-right-style: solid; border-right-width: 2px; border-right-color: #D3D3D3; padding-left: 5px; padding-right: 5px; text-align: left;" valign="middle" bgcolor="#FFFFFF" align="left">S4 Trajectory</th>
@@ -531,16 +530,16 @@ bs_field_guide_table(fg, engine = "gt", layout = "worked") |>
 <td headers="stub_1_5 Belwen
 (Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">0 consecutive yrs</td>
 <td headers="stub_1_5 Yolan
-(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">5 consecutive yrs</td>
+(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">4 consecutive yrs</td>
 <td headers="stub_1_5 Sarnesh
 (Flag)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #FCE5CD;" bgcolor="#FCE5CD" valign="middle" align="left">1 consecutive yr</td>
 <td headers="stub_1_5 Arddor
 (Flag, corroborated)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #FCE5CD;" bgcolor="#FCE5CD" valign="middle" align="left">2 consecutive yrs</td></tr>
     <tr style="border-style: none;"><th id="stub_1_6" scope="row" class="gt_row gt_left gt_stub" style="border-style: none; padding-top: 8px; padding-bottom: 8px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; color: #333333; background-color: #FFFFFF; font-size: 100%; font-weight: initial; text-transform: inherit; border-right-style: solid; border-right-width: 2px; border-right-color: #D3D3D3; padding-left: 5px; padding-right: 5px; text-align: left;" valign="middle" bgcolor="#FFFFFF" align="left">S6 Neighbour contrast</th>
 <td headers="stub_1_6 Belwen
-(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">SPI 1.06 vs neighbour median 1.08</td>
+(Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">SPI 1.07 vs neighbour median 1.06</td>
 <td headers="stub_1_6 Yolan
-(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">SPI 0.72 vs neighbour median 0.86</td>
+(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">SPI 0.71 vs neighbour median 0.86</td>
 <td headers="stub_1_6 Sarnesh
 (Flag)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">SPI 0.21 vs neighbour median 0.98</td>
 <td headers="stub_1_6 Arddor
@@ -549,7 +548,7 @@ bs_field_guide_table(fg, engine = "gt", layout = "worked") |>
 <td headers="stub_1_7 Belwen
 (Reassuring)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">Detects in peak; orphan none</td>
 <td headers="stub_1_7 Yolan
-(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">Blind through peak; orphan cVDPV 2019</td>
+(Watch)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #F4CCCC;" bgcolor="#F4CCCC" valign="middle" align="left">Detects in peak; orphan cVDPV 2019</td>
 <td headers="stub_1_7 Sarnesh
 (Flag)" class="gt_row gt_left" style="border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: left; background-color: #D9EAD3;" bgcolor="#D9EAD3" valign="middle" align="left">Detects in peak; orphan none</td>
 <td headers="stub_1_7 Arddor

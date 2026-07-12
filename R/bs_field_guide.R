@@ -538,10 +538,11 @@ print.blindspot_field_guide <- function(x, ...) {
   )
   print(verdict_tbl)
 
-  n_show <- min(10L, sum(foc$verdict == "FLAG"))
+  flagged_detect <- foc[foc$verdict == "FLAG" & foc$observed > 1, ]
+  n_show <- min(10L, nrow(flagged_detect))
   if (n_show > 0) {
-    cli::cli_h2("Flagged districts (top {n_show} by depth)")
-    print(.fg_scan_tibble(x, foc), n = n_show)
+    cli::cli_h2("Flagged districts with detections (top {n_show} by depth)")
+    print(.fg_scan_tibble(x, flagged_detect), n = n_show)
   }
   cli::cli_alert_info(
     "See {.fn bs_field_guide_help} to learn the reading, \\

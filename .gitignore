@@ -12,6 +12,9 @@ archive/
 # knitr cache from README.Rmd
 README_cache/
 
+# pkgdown site (built and deployed to gh-pages by CI, not committed)
+docs/
+
 # renv
 renv/library/
 renv/local/
