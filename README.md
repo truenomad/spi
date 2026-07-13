@@ -7,7 +7,7 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml)
-[![codecov](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg?token=bHamTc9ITd)](https://codecov.io/gh/truenomad/blindspot)
+[![codecov](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg?token=vBneu9acox)](https://codecov.io/gh/truenomad/blindspot)
 [![pkgdown](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml)
 [![License:
 MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
