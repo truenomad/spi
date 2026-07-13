@@ -92,16 +92,16 @@
 #' }
 bs_concordance <- function(
   spi,
-  cases            = NULL,
+  cases = NULL,
   population,
-  spi_threshold    = 0.80,
-  npafp_target     = 3,
+  spi_threshold = 0.80,
+  npafp_target = 3,
   npafp_multiplier = 100000L,
-  strata           = NULL,
-  id_col           = NULL,
-  pop_col          = "pop_u15",
-  boundaries       = NULL,
-  verbose          = TRUE
+  strata = NULL,
+  id_col = NULL,
+  pop_col = "pop_u15",
+  boundaries = NULL,
+  verbose = TRUE
 ) {
   .check_pkg(c("dplyr", "tibble", "cli"),
              reason = "to run the SPI x NPAFP concordance analysis")
@@ -170,14 +170,14 @@ bs_concordance <- function(
     dplyr::inner_join(cases_annual, by = c(id_col, "year")) |>
     dplyr::inner_join(pop, by = c(id_col, "year")) |>
     dplyr::mutate(
-      npafp_rate     = .data$count_annual / .data$pop_u15 * npafp_multiplier,
+      npafp_rate = .data$count_annual / .data$pop_u15 * npafp_multiplier,
       npafp_adequate = .data$npafp_rate >= npafp_target,
-      spi_pass       = .data$spi_median  >= spi_threshold,
-      concordance    = dplyr::case_when(
-         .data$npafp_adequate &  .data$spi_pass ~ "Both adequate",
+      spi_pass = .data$spi_median >= spi_threshold,
+      concordance = dplyr::case_when(
+        .data$npafp_adequate & .data$spi_pass ~ "Both adequate",
         !.data$npafp_adequate & !.data$spi_pass ~ "True shortfall",
-         .data$npafp_adequate & !.data$spi_pass ~ "False reassurance",
-        !.data$npafp_adequate &  .data$spi_pass ~ "False alarm"
+        .data$npafp_adequate & !.data$spi_pass ~ "False reassurance",
+        !.data$npafp_adequate & .data$spi_pass ~ "False alarm"
       ),
       concordance = factor(
         .data$concordance,
@@ -229,13 +229,13 @@ bs_concordance <- function(
   structure(
     list(
       district_year = tibble::as_tibble(dy),
-      crosstab      = crosstab,
-      metrics       = metrics,
-      by_stratum    = by_stratum,
-      thresholds    = list(spi = spi_threshold, npafp = npafp_target,
+      crosstab = crosstab,
+      metrics = metrics,
+      by_stratum = by_stratum,
+      thresholds = list(spi = spi_threshold, npafp = npafp_target,
                            multiplier = npafp_multiplier),
-      id_col        = id_col,
-      call          = match.call()
+      id_col = id_col,
+      call = match.call()
     ),
     class = "blindspot_concordance"
   )
@@ -259,9 +259,9 @@ bs_concordance <- function(
   )
   n <- sum(tab)
   list(
-    counts   = tab,
-    row_pct  = round(100 * prop.table(tab, margin = 1), 1),
-    col_pct  = round(100 * prop.table(tab, margin = 2), 1),
+    counts = tab,
+    row_pct = round(100 * prop.table(tab, margin = 1), 1),
+    col_pct = round(100 * prop.table(tab, margin = 2), 1),
     total_pct = round(100 * tab / n, 1)
   )
 }
@@ -285,14 +285,14 @@ bs_concordance <- function(
   agreement <- 100 * mean(who == spi)
 
   tibble::tibble(
-    n                   = n,
-    pct_agreement       = agreement,
-    cohens_kappa        = kappa,
-    mcnemar_p           = mcn,
-    n_both_adequate     = counts[["Both adequate"]],
-    n_true_shortfall    = counts[["True shortfall"]],
+    n = n,
+    pct_agreement = agreement,
+    cohens_kappa = kappa,
+    mcnemar_p = mcn,
+    n_both_adequate = counts[["Both adequate"]],
+    n_true_shortfall = counts[["True shortfall"]],
     n_false_reassurance = counts[["False reassurance"]],
-    n_false_alarm       = counts[["False alarm"]]
+    n_false_alarm = counts[["False alarm"]]
   )
 }
 
@@ -343,9 +343,9 @@ print.blindspot_concordance <- function(x, ...) {
   cell_tbl <- tibble::tibble(
     cell = c("Both adequate", "True shortfall",
              "False reassurance", "False alarm"),
-    n    = c(x$metrics$n_both_adequate, x$metrics$n_true_shortfall,
+    n = c(x$metrics$n_both_adequate, x$metrics$n_true_shortfall,
              x$metrics$n_false_reassurance, x$metrics$n_false_alarm),
-    pct  = round(100 * c(x$metrics$n_both_adequate,
+    pct = round(100 * c(x$metrics$n_both_adequate,
                          x$metrics$n_true_shortfall,
                          x$metrics$n_false_reassurance,
                          x$metrics$n_false_alarm) / x$metrics$n, 1)
@@ -381,18 +381,19 @@ plot.blindspot_concordance <- function(x, ...) {
   spi_cut  <- x$thresholds$spi
   npafp_target <- x$thresholds$npafp
   pal <- c(
-    "Both adequate"     = "#2E7D32",
-    "True shortfall"    = "#C62828",
+    "Both adequate" = "#2E7D32",
+    "True shortfall" = "#C62828",
     "False reassurance" = "#F9A825",
-    "False alarm"       = "#1565C0"
+    "False alarm" = "#1565C0"
   )
-  # Legend labels carry each cell's share of all district-years (from x$metrics).
+  # Legend labels carry each cell's share of all district-years (from
+  # x$metrics).
   m <- x$metrics
   pct <- c(
-    "Both adequate"     = m$n_both_adequate,
-    "True shortfall"    = m$n_true_shortfall,
+    "Both adequate" = m$n_both_adequate,
+    "True shortfall" = m$n_true_shortfall,
     "False reassurance" = m$n_false_reassurance,
-    "False alarm"       = m$n_false_alarm
+    "False alarm" = m$n_false_alarm
   ) / m$n * 100
   cell_labels <- stats::setNames(
     sprintf("%s (%.1f%%)", names(pct), pct), names(pct)
@@ -400,10 +401,10 @@ plot.blindspot_concordance <- function(x, ...) {
   # Darker shades for the in-plot corner labels so each quadrant name reads
   # clearly (a deep tone of its cell colour) over the faint quadrant tint.
   label_pal <- c(
-    "Both adequate"     = "#1B5E20",
-    "True shortfall"    = "#8E1B1B",
+    "Both adequate" = "#1B5E20",
+    "True shortfall" = "#8E1B1B",
     "False reassurance" = "#B8860B",
-    "False alarm"       = "#0D47A1"
+    "False alarm" = "#0D47A1"
   )
   # Quadrant backdrop: a faint tint and a corner label per cell of the 2x2, so
   # the scatter reads as the crosstab the reader has already seen without them
@@ -437,17 +438,17 @@ plot.blindspot_concordance <- function(x, ...) {
                         alpha = 0.7) +
     # corner labels in a deep tone of each quadrant's colour
     ggplot2::annotate("text", x = 0, y = -Inf, label = "True shortfall",
-                      hjust = -0.08, vjust = -1, size = 3.2, fontface = "bold", alpha = 0.85,
-                      colour = label_pal[["True shortfall"]]) +
+                      hjust = -0.08, vjust = -1, size = 3.2, fontface = "bold",
+                      alpha = 0.85, colour = label_pal[["True shortfall"]]) +
     ggplot2::annotate("text", x = Inf, y = -Inf, label = "False reassurance",
-                      hjust = 1.08, vjust = -1, size = 3.2, fontface = "bold", alpha = 0.85,
-                      colour = label_pal[["False reassurance"]]) +
+                      hjust = 1.08, vjust = -1, size = 3.2, fontface = "bold",
+                      alpha = 0.85, colour = label_pal[["False reassurance"]]) +
     ggplot2::annotate("text", x = 0, y = Inf, label = "False alarm",
-                      hjust = -0.08, vjust = 1.9, size = 3.2, fontface = "bold", alpha = 0.85,
-                      colour = label_pal[["False alarm"]]) +
+                      hjust = -0.08, vjust = 1.9, size = 3.2, fontface = "bold",
+                      alpha = 0.85, colour = label_pal[["False alarm"]]) +
     ggplot2::annotate("text", x = Inf, y = Inf, label = "Both adequate",
-                      hjust = 1.08, vjust = 1.9, size = 3.2, fontface = "bold", alpha = 0.85,
-                      colour = label_pal[["Both adequate"]]) +
+                      hjust = 1.08, vjust = 1.9, size = 3.2, fontface = "bold",
+                      alpha = 0.85, colour = label_pal[["Both adequate"]]) +
     ggplot2::scale_colour_manual(
       values = pal, drop = TRUE, labels = cell_labels,
       name = "Concordance (% of total)"
@@ -471,9 +472,9 @@ plot.blindspot_concordance <- function(x, ...) {
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
-      legend.position    = "bottom",
+      legend.position = "bottom",
       legend.box.spacing = grid::unit(14, "pt"),
-      legend.title       = ggplot2::element_text(face = "bold", hjust = 0.5),
+      legend.title = ggplot2::element_text(face = "bold", hjust = 0.5),
       axis.title.y = ggplot2::element_text(margin = ggplot2::margin(r = 12)),
       axis.title.x = ggplot2::element_text(margin = ggplot2::margin(t = 8)),
       plot.subtitle = ggplot2::element_text(margin = ggplot2::margin(b = 10))
@@ -549,15 +550,15 @@ plot.blindspot_concordance <- function(x, ...) {
 bs_concordance_maps <- function(
   concordance,
   boundaries,
-  year          = NULL,
+  year = NULL,
   spi_threshold = NULL,
-  npafp_target  = NULL,
-  npafp_breaks  = c(-Inf, 1, 2, 3, 6, 12, 24, Inf),
-  spi_breaks    = c(-Inf, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, Inf),
-  id_col        = NULL,
-  titles        = NULL,
-  year_label    = NULL,
-  provinces     = TRUE
+  npafp_target = NULL,
+  npafp_breaks = c(-Inf, 1, 2, 3, 6, 12, 24, Inf),
+  spi_breaks = c(-Inf, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, Inf),
+  id_col = NULL,
+  titles = NULL,
+  year_label = NULL,
+  provinces = TRUE
 ) {
   .check_pkg(c("ggplot2", "patchwork", "sf", "dplyr"),
              reason = "to draw the three-panel concordance map")
@@ -583,38 +584,38 @@ bs_concordance_maps <- function(
   # visually match the paper's Figure 2.
   npafp_labels <- c("<1", "1-2", "2-3", "3-6", "6-12", "12-24", ">=24")
   pal_a <- c(
-    "<1"    = "#B71C1C",
-    "1-2"   = "#E57373",
-    "2-3"   = "#FFCDD2",
-    "3-6"   = "#E3F2FD",
-    "6-12"  = "#90CAF9",
+    "<1" = "#B71C1C",
+    "1-2" = "#E57373",
+    "2-3" = "#FFCDD2",
+    "3-6" = "#E3F2FD",
+    "6-12" = "#90CAF9",
     "12-24" = "#1E88E5",
-    ">=24"  = "#0D47A1"
+    ">=24" = "#0D47A1"
   )
   spi_labels <- c("<0.4", "0.4-0.6", "0.6-0.8", "0.8-1.0",
                   "1.0-1.5", "1.5-2.0", ">=2.0")
   pal_b <- c(
-    "<0.4"    = "#B71C1C",
+    "<0.4" = "#B71C1C",
     "0.4-0.6" = "#E53935",
     "0.6-0.8" = "#F57C00",
     "0.8-1.0" = "#E3F2FD",
     "1.0-1.5" = "#90CAF9",
     "1.5-2.0" = "#1E88E5",
-    ">=2.0"   = "#0D47A1"
+    ">=2.0" = "#0D47A1"
   )
   # Panel C: paper's canonical concordance labels with the parenthetical
   # (conventional X, SPI Y) annotations spelled out on the legend chips.
   c_labels <- c(
-    "Both adequate (both pass)"                       = "Both adequate",
-    "True shortfall (both flag)"                      = "True shortfall",
+    "Both adequate (both pass)" = "Both adequate",
+    "True shortfall (both flag)" = "True shortfall",
     "False reassurance (conventional pass, SPI flag)" = "False reassurance",
-    "False alarm (conventional flag, SPI pass)"       = "False alarm"
+    "False alarm (conventional flag, SPI pass)" = "False alarm"
   )
   pal_c <- c(
-    "Both adequate (both pass)"                       = "#EEEEEE",
-    "True shortfall (both flag)"                      = "#9E9E9E",
+    "Both adequate (both pass)" = "#EEEEEE",
+    "True shortfall (both flag)" = "#9E9E9E",
     "False reassurance (conventional pass, SPI flag)" = "#F9A825",
-    "False alarm (conventional flag, SPI pass)"       = "#2E7D32"
+    "False alarm (conventional flag, SPI pass)" = "#2E7D32"
   )
 
   bnd_slice <- boundaries |>
@@ -647,11 +648,17 @@ bs_concordance_maps <- function(
     sprintf("C. Where the two indicators disagree (%s)", yr_lbl)
 
   sub_a <- sprintf(
-    "Threshold = %g per 100 000 children under 15. Indicators\nassessed before %d detections.",
+    paste0(
+      "Threshold = %g per 100 000 children under 15. Indicators\n",
+      "assessed before %d detections."
+    ),
     npafp_target, yr + 1L
   )
   sub_b <- sprintf(
-    "Threshold %g (20%% shortfall vs context-conditional\nexpectation). Before %d detections.",
+    paste0(
+      "Threshold %g (20%% shortfall vs context-conditional\n",
+      "expectation). Before %d detections."
+    ),
     spi_threshold, yr + 1L
   )
   sub_c <- paste0(
@@ -668,21 +675,21 @@ bs_concordance_maps <- function(
 
   base_theme <- ggplot2::theme_void(base_size = 11) +
     ggplot2::theme(
-      plot.title        = ggplot2::element_text(face = "bold", size = 12,
-                                                margin = ggplot2::margin(b = 4)),
-      plot.subtitle     = ggplot2::element_text(size = 9,
-                                                colour = "grey30",
-                                                margin = ggplot2::margin(t = 0,
-                                                                         b = 18)),
-      plot.margin       = ggplot2::margin(6, 10, 6, 10),
-      legend.position   = "bottom",
-      legend.box        = "vertical",
-      legend.title      = ggplot2::element_text(size = 8, face = "bold"),
-      legend.text       = ggplot2::element_text(size = 8),
-      legend.key.width  = grid::unit(1.1, "lines"),
+      plot.title = ggplot2::element_text(
+        face = "bold", size = 12, margin = ggplot2::margin(b = 4)
+      ),
+      plot.subtitle = ggplot2::element_text(
+        size = 9, colour = "grey30", margin = ggplot2::margin(t = 0, b = 18)
+      ),
+      plot.margin = ggplot2::margin(6, 10, 6, 10),
+      legend.position = "bottom",
+      legend.box = "vertical",
+      legend.title = ggplot2::element_text(size = 8, face = "bold"),
+      legend.text = ggplot2::element_text(size = 8),
+      legend.key.width = grid::unit(1.1, "lines"),
       legend.key.height = grid::unit(0.5, "lines"),
-      legend.margin     = ggplot2::margin(0, 0, 0, 0),
-      legend.spacing.y  = grid::unit(0.1, "lines")
+      legend.margin = ggplot2::margin(0, 0, 0, 0),
+      legend.spacing.y = grid::unit(0.1, "lines")
     )
 
   p_a <- ggplot2::ggplot(bnd_slice) +

@@ -77,9 +77,10 @@ test_that("bs_expected validates id / pop columns", {
     bs_expected(cases2, v$pop, v$adj, id_col = "adm2_guid"),
     "not found in population"
   )
+  # pop_col missing is caught by the pre-flight bs_check_inputs()
   expect_error(
     bs_expected(v$cases, v$pop, v$adj, pop_col = "ghost"),
-    "not found in"
+    "denominator column"
   )
 })
 
@@ -96,10 +97,11 @@ test_that("bs_expected validates counts, coverage, and adjacency ids", {
   thin_pop <- v$pop[1, ]
   expect_error(bs_expected(v$cases, thin_pop, v$adj), "covers only")
 
-  # id present in cases but missing from the adjacency graph
+  # id present in cases but missing from the shapefile / adjacency graph:
+  # the pre-flight bs_check_inputs() catches this first (check = TRUE default)
   v8 <- mk_valid(8L)
   adj7 <- make_nb(v8$ids[1:7], island_last = FALSE)
-  expect_error(bs_expected(v8$cases, v8$pop, adj7), "adjacency")
+  expect_error(bs_expected(v8$cases, v8$pop, adj7), "not found in")
 
   # a district-year with no population row (coverage still >= 80%)
   drop_pop <- v8$pop[v8$pop$district_id != "D08", ]
@@ -115,6 +117,55 @@ test_that("bs_expected validates covariate log-transform names", {
                 log_transform = "not_a_cov"),
     "Log-transform column"
   )
+})
+
+# ---------------------------------------------------------------------------
+# (b) pre-flight input check wiring (check = TRUE) + the check-once guard
+# ---------------------------------------------------------------------------
+
+test_that("bs_expected aborts on error-level inputs before fitting", {
+  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  v <- mk_valid()
+  bad <- v$cases
+  bad$count[1] <- -1L
+  expect_error(bs_expected(bad, v$pop, v$adj), "Input validation")
+})
+
+test_that("check = FALSE skips the pre-flight reconciliation", {
+  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  # an id in cases missing from the adjacency: with check = FALSE the pre-flight
+  # is skipped and the fit's own adjacency guard fires instead
+  v8 <- mk_valid(8L)
+  adj7 <- make_nb(v8$ids[1:7], island_last = FALSE)
+  expect_error(
+    bs_expected(v8$cases, v8$pop, adj7, check = FALSE),
+    "adjacency"
+  )
+})
+
+test_that("bs_compare_overdispersion checks inputs exactly once", {
+  n <- 0L
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    bs_check_inputs = function(...) {
+      n <<- n + 1L
+      structure(
+        list(ok = TRUE, n_warning = 0L, n_error = 0L),
+        class = "blindspot_input_check"
+      )
+    },
+    bs_expected = function(...) NULL
+  )
+  v <- mk_valid()
+  # downstream diagnostics choke on the NULL mock fits; we only assert that the
+  # single pre-flight ran before the per-spec (check = FALSE) fits
+  try(
+    bs_compare_overdispersion(
+      v$cases, v$pop, v$adj, specs = c("none", "iid", "nb")
+    ),
+    silent = TRUE
+  )
+  expect_equal(n, 1L)
 })
 
 test_that("bs_compare_overdispersion rejects conflicting arguments", {

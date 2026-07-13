@@ -167,6 +167,47 @@ head(synth$cases)
 #> 6 {54CD979C-CF9D-6A65-567F-8976C9546137} 2015-06-01     1
 ```
 
+### Check the inputs first
+
+Before fitting anything, reconcile the three tables the model consumes:
+the case counts, the population denominators, and the district
+shapefile. `bs_check_inputs()` grades every mismatch at once (error,
+warning, note), so a silent id misalignment or a hole in the monthly
+panel surfaces here rather than as wrong numbers later. `bs_expected()`
+runs it for you and stops on any error; run it yourself first to see the
+warnings too.
+
+``` r
+bs_check_inputs(
+  cases = synth$cases,
+  population = synth$population,
+  shapefile = synth$boundaries,
+  id_col = "adm2_guid"
+)
+#> 
+#> -- blindspot input check -------------------------------------------------------
+#> v All input checks passed -- 236 districts x 120 months (2015-01 to 2024-12).
+```
+
+On a broken copy, one negative count and three dropped months, it
+returns the error that blocks the fit alongside the warnings worth a
+look:
+
+``` r
+bad <- synth$cases
+bad$count[1] <- -1                   # a data-entry slip
+bad <- bad[-(2:4), ]                 # three missing district-months
+
+bs_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
+#> 
+#> -- blindspot input check -------------------------------------------------------
+#> i 236 districts x 120 months (2015-01 to 2024-12)
+#> x 1 case row has negative counts
+#> ! 3 district-months missing from the panel (gaps)
+#> --------------------------------------------------------------------------------
+#> x 1 error -- resolve before fitting.
+```
+
 ### 1. Spatial neighbours
 
 The model shares information between neighbouring districts, so the
@@ -531,6 +572,7 @@ bs_triangulate_table(tri, engine = "gt", year = 2020) |>
 ## Exported functions
 
 ``` r
+bs_check_inputs()           # pre-flight: reconcile cases / population / shapefile
 bs_adjacency()              # spatial neighbour graph from sf boundaries
 bs_expected()               # fit BYM2 expected-count model (INLA)
 bs_compare_overdispersion() # none vs IID vs negative-binomial diagnostic

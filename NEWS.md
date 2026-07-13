@@ -1,3 +1,18 @@
+# blindspot 0.1.0.9000
+
+* Added `bs_check_inputs()`: a graded pre-flight that reconciles the three
+  tables a fit consumes -- case counts, population denominators, and the
+  district shapefile -- before any model runs. It reports id mismatches, panel
+  gaps (returned as a `district_id` x `month` tibble), negative populations
+  (error) and zero populations (warning, excluded rather than floored),
+  partial coverage, shapefile districts with no case rows, and invalid geometry
+  (reported, not repaired) all at once, graded error / warning / note.
+* `bs_expected()` and `bs_compare_overdispersion()` gained a `check` argument
+  (default `TRUE`) and now route through `bs_check_inputs()`, aborting on
+  error-level issues before fitting. The check runs once per fit: the
+  `overdispersion = "auto"` and comparison paths set `check = FALSE` on their
+  inner fits.
+
 # blindspot 0.1.0
 
 * Added `bs_field_guide()`: reads every district-year through the paper's

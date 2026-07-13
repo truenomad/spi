@@ -144,7 +144,9 @@ fg <- bs_field_guide(
   conc,
   adjacency = adj,
   spi_month = cm,
-  genomic   = dplyr::filter(synth_surveillance$virus_outcome, any_cvdpv2 == 1)
+  genomic = dplyr::filter(
+    synth_surveillance$virus_outcome, any_cvdpv2 == 1
+  )
 )
 }
 }

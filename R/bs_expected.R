@@ -71,6 +71,10 @@
 #'   quantiles and save memory.
 #' @param verbose Logical. Progress messages via cli. FALSE for batch jobs.
 #'   Default: TRUE.
+#' @param check Logical. Run [bs_check_inputs()] on `cases`, `population`, and
+#'   `adjacency` before fitting and abort on error-level issues. Default TRUE.
+#'   Set FALSE only to skip a redundant re-check (the auto path and
+#'   [bs_compare_overdispersion()] set it internally so the check runs once).
 #' @param debug Logical. If TRUE, runs INLA in verbose mode (prints its raw
 #'   stdout/stderr, including VB-correction notes), prints model
 #'   diagnostics (CPO failure rate, hyperparameter posterior summary,
@@ -237,6 +241,7 @@ bs_expected <- function(
   pop_col = "pop_u15",
   keep_draws = TRUE,
   verbose = TRUE,
+  check = TRUE,
   debug = FALSE,
   seed = 42L
 ) {
@@ -293,9 +298,35 @@ bs_expected <- function(
     n_draws > 0,
     isTRUE(n_draws == round(n_draws)),
     is.logical(keep_draws),
-    is.logical(verbose)
+    is.logical(verbose),
+    is.logical(check)
   )
   n_draws <- as.integer(n_draws)
+
+  # --- pre-flight input check ---------------------------
+  # One graded reconciliation of cases / population / shapefile before any
+  # fitting. Aborts on error-level issues. Skipped on the recursive calls from
+  # the auto path and bs_compare_overdispersion(), which check once up front.
+  if (check) {
+    rpt <- bs_check_inputs(
+      cases = cases,
+      population = population,
+      shapefile = adjacency,
+      covariates = covariates,
+      id_col = id_col,
+      pop_col = pop_col,
+      verbose = FALSE
+    )
+    if (!rpt$ok) {
+      .abort_input_errors(rpt)
+    }
+    if (rpt$n_warning > 0 && verbose) {
+      cli::cli_alert_info(
+        "{rpt$n_warning} input warning{?s}; run {.fn bs_check_inputs} \\
+         to see {?it/them}."
+      )
+    }
+  }
 
   # --- auto overdispersion selection --------------------
   # "auto" runs the same none/iid/nb comparison as bs_compare_overdispersion()
@@ -314,6 +345,7 @@ bs_expected <- function(
       specs = c("none", "iid", "nb"),
       n_draws = min(n_draws, 200L),
       verbose = verbose,
+      check = FALSE,
       covariates = covariates,
       season = season,
       year_effect = year_effect,
@@ -1374,6 +1406,9 @@ as.data.frame.blindspot_expected <- function(x, ...) {
 #' @param n_draws Integer. Posterior draws per fit. Lower than the
 #'   [bs_expected()] default for speed during comparison. Default: 200L.
 #' @param verbose Logical. Print progress messages. Default: TRUE.
+#' @param check Logical. Run [bs_check_inputs()] once before comparing, and
+#'   abort on error-level issues. Each per-spec fit is then run with
+#'   `check = FALSE`. Default TRUE.
 #'
 #' @return Object of class `blindspot_comparison`. A list containing:
 #' \describe{
@@ -1418,7 +1453,8 @@ bs_compare_overdispersion <- function(
   specs = c("none", "iid", "nb"),
   ...,
   n_draws = 200L,
-  verbose = TRUE
+  verbose = TRUE,
+  check = TRUE
 ) {
   # --- check required packages --------------------------
   .check_pkg(
@@ -1428,19 +1464,39 @@ bs_compare_overdispersion <- function(
 
   stopifnot(
     all(specs %in% c("none", "iid", "nb")),
-    length(specs) >= 2
+    length(specs) >= 2,
+    is.logical(check)
   )
 
   # reject conflicting args in ...
   bad <- intersect(
     names(list(...)),
-    c("overdispersion", "n_draws", "verbose")
+    c("overdispersion", "n_draws", "verbose", "check")
   )
   if (length(bad) > 0) {
     cli::cli_abort(
       "Pass {.arg {bad}} as named arguments to \\
        {.fn bs_compare_overdispersion} directly, not via {.arg ...}."
     )
+  }
+
+  # --- pre-flight input check ---------------------------
+  # Check once here, then fit each spec with check = FALSE so the graded
+  # reconciliation runs a single time no matter how many specs are compared.
+  if (check) {
+    dots <- list(...)
+    rpt <- bs_check_inputs(
+      cases = cases,
+      population = population,
+      shapefile = adjacency,
+      covariates = dots$covariates,
+      id_col = dots$id_col %||% "district_id",
+      pop_col = dots$pop_col %||% "pop_u15",
+      verbose = FALSE
+    )
+    if (!rpt$ok) {
+      .abort_input_errors(rpt)
+    }
   }
 
   # --- fit each specification ---------------------------
@@ -1457,6 +1513,7 @@ bs_compare_overdispersion <- function(
       overdispersion = spec,
       n_draws = n_draws,
       verbose = verbose,
+      check = FALSE,
       ...
     )
   }
