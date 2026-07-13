@@ -25,6 +25,10 @@ mk_valid <- function(n_dist = 4L, id_col = "district_id") {
 # ---------------------------------------------------------------------------
 
 test_that("bs_expected rejects malformed priors", {
+  # bs_expected() checks for INLA before it validates; mock that check away so
+  # the pure-R validation branches run on CI where INLA is not installed. The
+  # abort fires long before any INLA call is reached.
+  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   expect_error(
     bs_expected(v$cases, v$pop, v$adj, prior_phi = "nope"),
@@ -52,6 +56,7 @@ test_that("bs_expected rejects malformed priors", {
 })
 
 test_that("bs_expected rejects bad n_draws and unknown spec strings", {
+  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   expect_error(bs_expected(v$cases, v$pop, v$adj, n_draws = 0))
   expect_error(bs_expected(v$cases, v$pop, v$adj, n_draws = 2.5))
@@ -60,6 +65,7 @@ test_that("bs_expected rejects bad n_draws and unknown spec strings", {
 })
 
 test_that("bs_expected validates id / pop columns", {
+  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   expect_error(
     bs_expected(v$cases, v$pop, v$adj, id_col = "not_here"),
@@ -78,6 +84,7 @@ test_that("bs_expected validates id / pop columns", {
 })
 
 test_that("bs_expected validates counts, coverage, and adjacency ids", {
+  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
 
   # non-integer counts
@@ -100,6 +107,7 @@ test_that("bs_expected validates counts, coverage, and adjacency ids", {
 })
 
 test_that("bs_expected validates covariate log-transform names", {
+  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   cov <- tibble::tibble(district_id = v$ids, year = 2015L, xcov = 1:4)
   expect_error(
