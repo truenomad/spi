@@ -124,6 +124,29 @@ names(synth)
 head(synth$cases)
 ```
 
+### Check the inputs first
+
+Before fitting anything, reconcile the three tables the model consumes: the case counts, the population denominators, and the district shapefile. `bs_check_inputs()` grades every mismatch at once (error, warning, note), so a silent id misalignment or a hole in the monthly panel surfaces here rather than as wrong numbers later. `bs_expected()` runs it for you and stops on any error; run it yourself first to see the warnings too.
+
+```{r check-inputs, message = TRUE}
+bs_check_inputs(
+  cases = synth$cases,
+  population = synth$population,
+  shapefile = synth$boundaries,
+  id_col = "adm2_guid"
+)
+```
+
+On a broken copy, one negative count and three dropped months, it returns the error that blocks the fit alongside the warnings worth a look:
+
+```{r check-inputs-broken, message = TRUE}
+bad <- synth$cases
+bad$count[1] <- -1                   # a data-entry slip
+bad <- bad[-(2:4), ]                 # three missing district-months
+
+bs_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
+```
+
 ### 1. Spatial neighbours
 
 The model shares information between neighbouring districts, so the first step turns the polygons into a neighbour graph.
@@ -365,6 +388,7 @@ bs_triangulate_table(tri, engine = "gt", year = 2020) |>
 ## Exported functions
 
 ```r
+bs_check_inputs()           # pre-flight: reconcile cases / population / shapefile
 bs_adjacency()              # spatial neighbour graph from sf boundaries
 bs_expected()               # fit BYM2 expected-count model (INLA)
 bs_compare_overdispersion() # none vs IID vs negative-binomial diagnostic

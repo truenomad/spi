@@ -21,6 +21,7 @@ bs_expected(
   pop_col = "pop_u15",
   keep_draws = TRUE,
   verbose = TRUE,
+  check = TRUE,
   debug = FALSE,
   seed = 42L
 )
@@ -108,6 +109,11 @@ quantiles and save memory.}
 
 \item{verbose}{Logical. Progress messages via cli. FALSE for batch jobs.
 Default: TRUE.}
+
+\item{check}{Logical. Run \code{\link[=bs_check_inputs]{bs_check_inputs()}} on \code{cases}, \code{population}, and
+\code{adjacency} before fitting and abort on error-level issues. Default TRUE.
+Set FALSE only to skip a redundant re-check (the auto path and
+\code{\link[=bs_compare_overdispersion]{bs_compare_overdispersion()}} set it internally so the check runs once).}
 
 \item{debug}{Logical. If TRUE, runs INLA in verbose mode (prints its raw
 stdout/stderr, including VB-correction notes), prints model

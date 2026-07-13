@@ -32,7 +32,8 @@ quality into operational response categories.
 \itemize{
 \item Ratio of observed counts to expected counts
 \item Full posterior uncertainty quantification
-\item Adapts standardised morbidity ratio (SMR) framework to surveillance monitoring
+\item Adapts standardised morbidity ratio (SMR) framework to surveillance
+monitoring
 }
 
 \strong{Concordance and interpretation}
@@ -90,9 +91,10 @@ disease surveillance system:
 
 \section{Dependencies}{
 
-Core computational engine uses INLA for Bayesian inference. INLA is not
-on CRAN and is distributed via \url{https://inla.r-inla-download.org/R/stable/}.
-The package installation automatically configures the INLA repository.
+Core computational engine uses INLA for Bayesian inference. INLA is not on
+CRAN and is distributed via
+\url{https://inla.r-inla-download.org/R/stable/}. The package installation
+automatically configures the INLA repository.
 }
 
 \section{Citation}{
@@ -111,9 +113,10 @@ Lancet Global Health.
 
 \section{Package philosophy}{
 
-blindspot replaces binary pass/fail threshold classifications with continuous,
-uncertainty-quantified surveillance quality measures that map to specific
-operational responses. The framework learns what each district should be
+blindspot replaces binary pass/fail threshold classifications with
+continuous, uncertainty-quantified surveillance quality measures that map to
+specific operational responses. The framework learns what each district
+should be
 detecting from the data rather than imposing fixed targets.
 }
 

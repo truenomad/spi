@@ -16,7 +16,8 @@
 #'   \item{population}{Tibble, 2,360 x 3. Columns: `adm2_guid`, `year`
 #'     (integer, 2015-2024), `pop_u15` (numeric, under-15 population). Real
 #'     annual under-15 counts extracted from the WorldPop 0-14 rasters over the
-#'     source geometry (range ~19k-900k), so the NPAFP denominators are genuine.}
+#'     source geometry (range ~19k-900k), so the NPAFP denominators are
+#'     genuine.}
 #'   \item{covariates}{Tibble, 2,360 x 5. District-year covariate layers for the
 #'     adjusted `bs_expected()` spec. Columns: `adm2_guid`, `year` (integer,
 #'     2015-2024), `dtp3` (numeric, DTP3 immunisation coverage %, a
@@ -87,7 +88,8 @@
 #' True AFP burden is stable over time; observed counts are that burden thinned
 #' by *detection completeness*. Counts are drawn from a negative-binomial
 #' likelihood with mean
-#' \deqn{\mu^{obs}_{it} = c_{it}\,\exp\!\big(\alpha + b_i + s(m_t) + \log(\mathrm{pop}_{u15,it} / 10^5)\big),}
+#' \deqn{\mu^{obs}_{it} = c_{it}\,\exp\!\big(\alpha + b_i + s(m_t) +
+#'   \log(\mathrm{pop}_{u15,it} / 10^5)\big),}
 #' where `b_i` is a BYM2 spatial random effect (mixing parameter 0.6, marginal
 #' precision 4), `s(m_t)` is a 1st-order harmonic seasonal term, and
 #' \eqn{c_{it} = g_t \cdot r_{it}} is detection completeness. The global factor

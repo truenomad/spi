@@ -494,23 +494,23 @@ bs_triangulate_table <- function(
 # ten-class triage palette; keys match .tri_levels exactly.
 # @noRd
 TRI_CLASS_FILL <- c(
-  "confirmed blindspot"   = "#B71C1C", # deep red: ES caught what AFP missed
-  "blind, unverified"     = "#AD1457", # magenta: flagged, no channel to check
-  "watch, ES positive"    = "#E65100", # orange-red: borderline + ES hit
+  "confirmed blindspot" = "#B71C1C", # deep red: ES caught what AFP missed
+  "blind, unverified" = "#AD1457", # magenta: flagged, no channel to check
+  "watch, ES positive" = "#E65100", # orange-red: borderline + ES hit
   "adequate, ES positive" = "#8E24AA", # purple: possible false-adequate
-  "flagged, ES clear"     = "#F9A825", # amber
-  "watch, ES clear"       = "#FBC02D", # amber-yellow
-  "watch, unverified"     = "#FDD835", # yellow
-  "corroborated clear"    = "#2E7D32", # green: trustworthy, confirmed silence
-  "uncorroborated clear"  = "#A5D6A7", # light green: trustworthy, unconfirmed
-  "detected"              = "#1565C0" # blue: already surfaced through AFP
+  "flagged, ES clear" = "#F9A825", # amber
+  "watch, ES clear" = "#FBC02D", # amber-yellow
+  "watch, unverified" = "#FDD835", # yellow
+  "corroborated clear" = "#2E7D32", # green: trustworthy, confirmed silence
+  "uncorroborated clear" = "#A5D6A7", # light green: trustworthy, unconfirmed
+  "detected" = "#1565C0" # blue: already surfaced through AFP
 )
 
 # @noRd
 TRI_PRIORITY_FILL <- c(
-  high     = "#C62828",
-  medium   = "#F9A825",
-  low      = "#2E7D32",
+  high = "#C62828",
+  medium = "#F9A825",
+  low = "#2E7D32",
   resolved = "#1565C0"
 )
 

@@ -33,7 +33,8 @@ utils::globalVariables(c(
 #' **Surveillance Performance Index (SPI)**
 #' - Ratio of observed counts to expected counts
 #' - Full posterior uncertainty quantification
-#' - Adapts standardised morbidity ratio (SMR) framework to surveillance monitoring
+#' - Adapts standardised morbidity ratio (SMR) framework to surveillance
+#'   monitoring
 #'
 #' **Concordance and interpretation**
 #' - Cross-classify SPI against the conventional NPAFP-rate threshold into a
@@ -75,9 +76,10 @@ utils::globalVariables(c(
 #' - AEFI pharmacovigilance
 #'
 #' @section Dependencies:
-#' Core computational engine uses INLA for Bayesian inference. INLA is not
-#' on CRAN and is distributed via \url{https://inla.r-inla-download.org/R/stable/}.
-#' The package installation automatically configures the INLA repository.
+#' Core computational engine uses INLA for Bayesian inference. INLA is not on
+#' CRAN and is distributed via
+#' \url{https://inla.r-inla-download.org/R/stable/}. The package installation
+#' automatically configures the INLA repository.
 #'
 #' @section Citation:
 #' If you use blindspot in published work, please cite:
@@ -92,9 +94,10 @@ utils::globalVariables(c(
 #' Lancet Global Health.
 #'
 #' @section Package philosophy:
-#' blindspot replaces binary pass/fail threshold classifications with continuous,
-#' uncertainty-quantified surveillance quality measures that map to specific
-#' operational responses. The framework learns what each district should be
+#' blindspot replaces binary pass/fail threshold classifications with
+#' continuous, uncertainty-quantified surveillance quality measures that map to
+#' specific operational responses. The framework learns what each district
+#' should be
 #' detecting from the data rather than imposing fixed targets.
 #'
 #' @docType package

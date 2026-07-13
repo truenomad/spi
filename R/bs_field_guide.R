@@ -115,7 +115,9 @@
 #'   conc,
 #'   adjacency = adj,
 #'   spi_month = cm,
-#'   genomic   = dplyr::filter(synth_surveillance$virus_outcome, any_cvdpv2 == 1)
+#'   genomic = dplyr::filter(
+#'     synth_surveillance$virus_outcome, any_cvdpv2 == 1
+#'   )
 #' )
 #' }
 bs_field_guide <- function(
@@ -436,7 +438,9 @@ bs_field_guide <- function(
   g <- genomic
   if (!is.null(genomic_col)) {
     if (!genomic_col %in% names(g)) {
-      cli::cli_abort("{.arg genomic_col} {.val {genomic_col}} not in {.arg genomic}.")
+      cli::cli_abort(
+        "{.arg genomic_col} {.val {genomic_col}} not in {.arg genomic}."
+      )
     }
     g <- g[as.logical(g[[genomic_col]]) %in% TRUE, , drop = FALSE]
   }
@@ -520,11 +524,15 @@ print.blindspot_field_guide <- function(x, ...) {
 
   active <- names(x$signals_active)[x$signals_active]
   inactive <- names(x$signals_active)[!x$signals_active]
-  cli::cli_inform(c(
-    "Optional signals active: \\
-     {.val {if (length(active)) active else 'none'}}\\
-     {if (length(inactive)) paste0(' | inactive: ', paste(inactive, collapse = ', ')) else ''}"
-  ))
+  active_str <- if (length(active)) active else "none"
+  inactive_str <- if (length(inactive)) {
+    paste0(" | inactive: ", paste(inactive, collapse = ", "))
+  } else {
+    ""
+  }
+  cli::cli_inform(
+    "Optional signals active: {.val {active_str}}{inactive_str}"
+  )
 
   foc <- x$focal
   cli::cli_h2("Verdicts for {x$read_year}")
@@ -676,11 +684,11 @@ bs_field_guide_help <- function(
     )
     cli::cli_ul()
     cli::cli_li(
-      "{.strong FLAG} -- posterior median SPI below {sprintf('%.2f', spi_cut)}, \\
-       the 90% credible interval upper bound below 1, and at least two of \\
-       four corroborators fire (falling trajectory, persistence, neighbour \\
-       discordance, seasonal blindness). Warrants supervisory review and \\
-       active case search."
+      "{.strong FLAG} -- posterior median SPI below \\
+       {sprintf('%.2f', spi_cut)}, the 90% credible interval upper bound \\
+       below 1, and at least two of four corroborators fire (falling \\
+       trajectory, persistence, neighbour discordance, seasonal blindness). \\
+       Warrants supervisory review and active case search."
     )
     cli::cli_li(
       "{.strong WATCH} -- below the cut, but the credible interval still \\
@@ -1066,7 +1074,8 @@ FG_CLASS_FILL <- c(
     names(df)[-1] <- col_ids
     ft <- flextable::flextable(df)
     ft <- flextable::set_header_labels(
-      ft, values = stats::setNames(as.list(c("", col_head)), c("Signal", col_ids))
+      ft,
+      values = stats::setNames(as.list(c("", col_head)), c("Signal", col_ids))
     )
     ft <- flextable::set_caption(ft, title)
     ft <- flextable::bold(ft, j = 1, part = "body")

@@ -11,7 +11,8 @@ bs_compare_overdispersion(
   specs = c("none", "iid", "nb"),
   ...,
   n_draws = 200L,
-  verbose = TRUE
+  verbose = TRUE,
+  check = TRUE
 )
 }
 \arguments{
@@ -33,6 +34,10 @@ or \code{verbose}; those are controlled by this function.}
 \code{\link[=bs_expected]{bs_expected()}} default for speed during comparison. Default: 200L.}
 
 \item{verbose}{Logical. Print progress messages. Default: TRUE.}
+
+\item{check}{Logical. Run \code{\link[=bs_check_inputs]{bs_check_inputs()}} once before comparing, and
+abort on error-level issues. Each per-spec fit is then run with
+\code{check = FALSE}. Default TRUE.}
 }
 \value{
 Object of class \code{blindspot_comparison}. A list containing:
