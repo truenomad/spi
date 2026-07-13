@@ -15,7 +15,7 @@
 #' across neighbours) and an unstructured component. The structured part is
 #' a Gaussian Markov random field whose precision matrix is built directly
 #' from this neighbour graph. Districts with no neighbours contribute no
-#' spatial smoothing — which is why we attach islands to their nearest
+#' spatial smoothing -- which is why we attach islands to their nearest
 #' mainland district by default.
 #'
 #' **Contiguity rule.** Queen contiguity treats districts as neighbours if
@@ -49,7 +49,7 @@
 #'     indicate slivers or duplicated geometry.
 #'   \item *Disjoint connected subgraphs* > 1 means the country splits into
 #'     separate components. BYM2 still fits, but each component is
-#'     smoothed independently — fine if the extra components are small
+#'     smoothed independently -- fine if the extra components are small
 #'     (islands, enclaves), worth investigating if a large region is
 #'     unexpectedly cut off.
 #'   \item *Remaining islands* (`card == 0`) should be empty when
@@ -69,14 +69,14 @@
 #'   `nrow(boundaries)` where element `i` is an integer vector of neighbour
 #'   indices for district `i`. Key attributes:
 #'   \itemize{
-#'     \item `region.id` — character vector of district ids in graph order;
+#'     \item `region.id` -- character vector of district ids in graph order;
 #'       downstream functions use this to align `cases$district_id` with
 #'       the spatial index.
-#'     \item `type` — "queen" or "rook".
-#'     \item `sym` — logical, TRUE for symmetric graphs (always TRUE for
+#'     \item `type` -- "queen" or "rook".
+#'     \item `sym` -- logical, TRUE for symmetric graphs (always TRUE for
 #'       contiguity graphs; may become FALSE after island attachment via
 #'       knn).
-#'     \item `ncomp` — list describing the connected components.
+#'     \item `ncomp` -- list describing the connected components.
 #'   }
 #'
 #' @seealso [bs_expected()], [spdep::poly2nb()], [spdep::summary.nb()]

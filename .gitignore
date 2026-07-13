@@ -9,6 +9,12 @@ archive/
 /.quarto/
 **/*.quarto_ipynb
 
+# knitr cache from README.Rmd
+README_cache/
+
+# pkgdown site (built and deployed to gh-pages by CI, not committed)
+docs/
+
 # renv
 renv/library/
 renv/local/
@@ -16,3 +22,9 @@ renv/cellar/
 renv/lock/
 renv/python/
 renv/staging/
+
+# stray non-interactive plot device output
+Rplots.pdf
+
+# cached geoBoundaries source geometry (fetched by data-raw/synth_admin_polygons.R)
+data-raw/geoboundaries_cache/

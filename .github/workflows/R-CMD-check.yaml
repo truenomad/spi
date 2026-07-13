@@ -1,4 +1,6 @@
-# Run R CMD check on Linux (R devel/release/oldrel) on every push and PR.
+# Run R CMD check on Linux (current R release) on every push and PR.
+# A single release job -- this is a private, non-CRAN package, so the
+# devel/oldrel matrix isn't worth the extra runs.
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 on:
   push:
@@ -38,9 +40,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,  r: 'release'}
-          - {os: ubuntu-latest,  r: 'oldrel-1'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}

@@ -1,9 +1,17 @@
 #' @keywords internal
+#' @importFrom rlang .data .env :=
 "_PACKAGE"
 
 ## usethis namespace: start
 ## usethis namespace: end
 NULL
+
+# Column names referenced inside data-masked dplyr verbs. Declaring them here
+# keeps R CMD check's "no visible binding for global variable" note quiet
+# without threading `.data$` through every call.
+utils::globalVariables(c(
+  "count", "district_id", "log_offset", "month", "month_num", "pop", "year"
+))
 
 #' blindspot: Bayesian Spatiotemporal Surveillance Quality Monitoring
 #'
@@ -27,11 +35,12 @@ NULL
 #' - Full posterior uncertainty quantification
 #' - Adapts standardised morbidity ratio (SMR) framework to surveillance monitoring
 #'
-#' **Operational classification**
-#' - Green: adequate, no action required
-#' - Amber-SPI: uncertain, investigate
-#' - Red: degraded, immediate field investigation
-#' - Structural: persistent zero with high expected count, expand network
+#' **Concordance and interpretation**
+#' - Cross-classify SPI against the conventional NPAFP-rate threshold into a
+#'   four-cell table (both adequate / true shortfall / false alarm / false
+#'   reassurance).
+#' - Read each district-year through the seven-signal field guide (S1-S7) to a
+#'   FLAG / WATCH / No-action verdict.
 #'
 #' @section Main functions:
 #'
@@ -40,6 +49,9 @@ NULL
 #' - [bs_compare_overdispersion()]: Compare Poisson vs negative-binomial fits
 #' - [bs_spi()]: Compute surveillance performance index
 #' - [bs_concordance()]: Cross-classify SPI against the NPAFP-rate threshold
+#' - [bs_field_guide()]: Read the SPI to FLAG / WATCH / No-action verdicts
+#' - [bs_field_guide_table()]: Render the field guide (gt / flextable)
+#' - [bs_field_guide_help()]: Learn to read the field guide
 #'
 #' @section Design principles:
 #' 1. One function, one job

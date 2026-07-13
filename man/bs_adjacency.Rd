@@ -31,14 +31,14 @@ Object of class \code{nb} (\pkg{spdep}). A list of length
 \code{nrow(boundaries)} where element \code{i} is an integer vector of neighbour
 indices for district \code{i}. Key attributes:
 \itemize{
-\item \code{region.id} — character vector of district ids in graph order;
+\item \code{region.id} -- character vector of district ids in graph order;
 downstream functions use this to align \code{cases$district_id} with
 the spatial index.
-\item \code{type} — "queen" or "rook".
-\item \code{sym} — logical, TRUE for symmetric graphs (always TRUE for
+\item \code{type} -- "queen" or "rook".
+\item \code{sym} -- logical, TRUE for symmetric graphs (always TRUE for
 contiguity graphs; may become FALSE after island attachment via
 knn).
-\item \code{ncomp} — list describing the connected components.
+\item \code{ncomp} -- list describing the connected components.
 }
 }
 \description{
@@ -57,7 +57,7 @@ matrix W with \code{W[i, j] = 1} iff districts i and j share a boundary.
 across neighbours) and an unstructured component. The structured part is
 a Gaussian Markov random field whose precision matrix is built directly
 from this neighbour graph. Districts with no neighbours contribute no
-spatial smoothing — which is why we attach islands to their nearest
+spatial smoothing -- which is why we attach islands to their nearest
 mainland district by default.
 
 \strong{Contiguity rule.} Queen contiguity treats districts as neighbours if
@@ -92,7 +92,7 @@ layers. <2 suggests a bad CRS or a topology problem; >10 may
 indicate slivers or duplicated geometry.
 \item \emph{Disjoint connected subgraphs} > 1 means the country splits into
 separate components. BYM2 still fits, but each component is
-smoothed independently — fine if the extra components are small
+smoothed independently -- fine if the extra components are small
 (islands, enclaves), worth investigating if a large region is
 unexpectedly cut off.
 \item \emph{Remaining islands} (\code{card == 0}) should be empty when

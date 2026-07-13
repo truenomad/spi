@@ -5,51 +5,81 @@
 \alias{synth_surveillance}
 \title{Synthetic AFP surveillance toy dataset}
 \format{
-A named list with nine elements:
+A named list with eleven elements:
 \describe{
-\item{cases}{Tibble, 12000 x 3. Columns: \code{adm2_guid} (character district
-id, \code{"GDR-001"}..\code{"GDR-100"}), \code{month} (Date, first-of-month), \code{count}
-(integer). Full 100 x 120 district-month grid with zero counts
-explicit.}
-\item{population}{Tibble, 1000 x 3. Columns: \code{adm2_guid}, \code{year}
-(integer, 2015-2024), \code{pop_u15} (numeric, under-15 population).
-Annual, grown at 2\% per year from a lognormal baseline.}
-\item{boundaries}{\code{sf} object, 100 x 5 (+ geometry). Columns: \code{adm2_guid},
-\code{adm2_name} (canonical or Sindarin-flavoured Gondor toponyms), \code{adm1_name}
-(one of \code{"Belfalas"}, \code{"Lossarnach"}, \code{"Lebennin"}, \code{"Anorien"},
-\code{"Ithilien"}), \code{adm0_name} (\code{"Gondor"}), \code{geometry} (POLYGON, EPSG:4326).
-The 100 polygons are the North Carolina counties shipped with the
-\code{sf} package (Cressie's classic Bayesian-spatial teaching dataset) --
-a real, convincing shape base -- with Gondor labels overlaid so the
-data itself is unambiguously fictional.}
-\item{ward_boundaries}{\code{sf} object, ~640 x 6 (+ geometry). Columns:
-\code{adm3_guid} (\code{"GDR-001-W01"}..), \code{adm3_name} (parent adm2 name plus a
+\item{cases}{Tibble, 28,320 x 3. Columns: \code{adm2_guid} (character district
+id, a POLIS-style GUID such as
+\code{"{54CD979C-CF9D-6A65-567F-8976C9546137}"}), \code{month} (Date,
+first-of-month), \code{count} (integer). Full 236 x 120 district-month grid
+with zero counts explicit.}
+\item{population}{Tibble, 2,360 x 3. Columns: \code{adm2_guid}, \code{year}
+(integer, 2015-2024), \code{pop_u15} (numeric, under-15 population). Real
+annual under-15 counts extracted from the WorldPop 0-14 rasters over the
+source geometry (range ~19k-900k), so the NPAFP denominators are genuine.}
+\item{covariates}{Tibble, 2,360 x 5. District-year covariate layers for the
+adjusted \code{bs_expected()} spec. Columns: \code{adm2_guid}, \code{year} (integer,
+2015-2024), \code{dtp3} (numeric, DTP3 immunisation coverage \%, a
+health-system-reach proxy), \code{urban_prop} (numeric, 0-1 urban share,
+structural per district), \code{travel_time_min} (numeric, median minutes to
+the nearest health facility, an access-to-care proxy; right-skewed, a
+\code{log_transform} candidate). Correlated with the planted blindspots (lower
+coverage, worse access) and population (denser is more urban).}
+\item{boundaries}{\code{sf} object, 236 x 4 (+ geometry). Columns: \code{adm2_guid},
+\code{adm2_name} (invented Haradwaith-flavoured toponyms), \code{adm1_name} (one of
+36 fictional provinces), \code{adm0_name} (\code{"Harad"}), \code{geometry} (POLYGON /
+MULTIPOLYGON on a local grid; CRS deliberately undefined). Derived from
+real Lake Chad adm2 boundaries (geoBoundaries) across four countries,
+merged into one gap-free landmass, partitioned into 36 contiguous
+provinces, relabelled, and rotated onto a local grid with the CRS
+dropped -- so the shape is unambiguously fictional and cannot be traced
+back to a real place.}
+\item{ward_boundaries}{\code{sf} object, ~1,548 x 6 (+ geometry). Columns:
+\code{adm3_guid} (the parent \code{adm2_guid} GUID suffixed \code{-W01}, \code{-W02}, ...),
+\code{adm3_name} (parent adm2 name plus a
 suffix from a pool of directional or geographic descriptors --
-e.g. \code{"Osgiliath North Ward"}, \code{"Dol Amroth Ford"}), \code{adm2_guid},
+e.g. \code{"Khandoth North Ward"}, \code{"Nenad Ford"}), \code{adm2_guid},
 \code{adm2_name}, \code{adm1_name}, \code{adm0_name}, \code{geometry}. Each adm2 is
 subdivided into 5-8 wards by nested Voronoi tessellation.}
-\item{virus_outcome}{Tibble, 1000 x 5. Columns: \code{adm2_guid}, \code{year},
+\item{virus_outcome}{Tibble, 2,360 x 5. Columns: \code{adm2_guid}, \code{year},
 \code{any_wpv1} (integer, 0/1; always 0 in this toy), \code{any_cvdpv2}
-(integer, 0/1), \code{any_virus} (integer, 0/1). Positive district-years
-are drawn one year after a planted blindspot activates, at rate
-\code{plogis(1)}; background rate \code{plogis(-4)}. Retained as an ad-hoc
+(integer, 0/1), \code{any_virus} (integer, 0/1). cVDPV2 detections surface
+the year after a district's detection completeness falls well below the
+contemporaneous norm (relative completeness < 0.6), at rate
+\code{plogis(-0.6)}; background rate \code{plogis(-4)}. Retained as an ad-hoc
 validation anchor even though the framework is descriptive, not
 predictive.}
-\item{es_sites}{\code{sf} object, 30 x 5 (+ geometry). Environmental
-surveillance sentinel sites. Columns: \code{es_site_id}, \code{site_name},
-\code{adm3_guid}, \code{adm2_guid}, \code{adm1_name}, \code{geometry} (POINT). One site per
-selected district, placed at the centroid of a random ward.}
-\item{es_data}{Tibble, ~3600 x 4. Monthly ES sample-level rows. Columns:
+\item{es_sites}{\code{sf} object, 160 x 5 (+ geometry). Environmental
+surveillance sentinel sites (~67\% of districts host one). Columns:
+\code{es_site_id}, \code{site_name}, \code{adm3_guid}, \code{adm2_guid}, \code{adm1_name},
+\code{geometry} (POINT). One site per selected district, placed at the
+centroid of a random ward.}
+\item{es_data}{Tibble, 19,200 x 4. Monthly ES sample-level rows. Columns:
 \code{es_site_id}, \code{adm2_guid}, \code{sample_date} (Date, first-of-month),
 \code{positive_cvdpv2} (integer, 0/1). Positivity probability shares the
 same true-vs-observed gap signal as \code{virus_outcome}, so the two ES
 proxies are internally consistent.}
-\item{es_district_year}{Tibble, 300 x 4. District-year ES rollup.
+\item{es_district_year}{Tibble, 1,600 x 4. District-year ES rollup.
 Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
-\item{truth}{Tibble, 100 x 4. Ground-truth cheat sheet. Columns:
-\code{adm2_guid}, \code{is_blindspot} (logical), \code{planted_onset} (Date, NA
-when not a blindspot), \code{detection_ratio} (numeric, 1.0 for healthy
-districts, 0.2-0.4 for planted blindspots after their onset month).}
+\item{detections}{Tibble, 2,360 x 5. District-year detection channels for
+\code{\link[=bs_triangulate]{bs_triangulate()}}. Columns: \code{adm2_guid}, \code{year}, \code{afp_detected}
+(logical, poliovirus found through AFP surveillance), \code{es_detected}
+(logical, found through environmental surveillance), \code{es_covered}
+(logical, an ES site drains the district). Derived from \code{virus_outcome},
+\code{es_district_year}, and \code{es_sites}. Note: in this toy \code{afp_detected}
+reuses \code{virus_outcome}, which the field guide also consumes as its S7
+orphan signal, so the AFP channel is \emph{not} independent of the guide
+here; the ES channel (\code{es_detected} / \code{es_covered}) is the genuinely
+separate corroborator. A real analysis would supply channel-separated
+detections.}
+\item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
+\code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
+\code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),
+\code{is_blindspot} (logical, TRUE for every non-resilient profile),
+\code{is_low_incidence} (logical, TRUE for the low-baseline clusters that
+seed the False alarm / True shortfall cells), \code{covid_nadir} (numeric,
+the district's relative detection completeness at the 2020 trough), and
+\code{recovered_2024} (logical, TRUE if completeness is back to adequate by
+2024).}
 }
 }
 \usage{
@@ -64,42 +94,70 @@ is present.
 }
 \section{Data-generating process}{
 
-Cases are drawn from a negative-binomial likelihood with mean
-\deqn{\log \mu_{it} = \alpha + b_i + u_t + s(m_t) + \log(\mathrm{pop}_{u15,it} / 10^5),}
-where \code{b_i} is a BYM2 spatial random effect (mixing parameter 0.6,
-marginal precision 4), \code{u_t} is an iid annual random effect, and
-\code{s(m_t)} is a 1st-order harmonic seasonal term. Ten districts are
-planted as blindspots, each with a multiplicative detection ratio in
-\verb{\{0.2, 0.3, 0.4\}} activated at a random month in the second half of the
-study window. \code{virus_outcome} marks the year after each blindspot
-activates as cVDPV2-positive at elevated rate; kept as an optional
-ground-truth anchor for validation-style diagnostics.
+True AFP burden is stable over time; observed counts are that burden thinned
+by \emph{detection completeness}. Counts are drawn from a negative-binomial
+likelihood with mean
+\deqn{\mu^{obs}_{it} = c_{it}\,\exp\!\big(\alpha + b_i + s(m_t) + \log(\mathrm{pop}_{u15,it} / 10^5)\big),}
+where \code{b_i} is a BYM2 spatial random effect (mixing parameter 0.6, marginal
+precision 4), \code{s(m_t)} is a 1st-order harmonic seasonal term, and
+\eqn{c_{it} = g_t \cdot r_{it}} is detection completeness. The global factor
+\code{g_t} improves through 2015-2019 to a pre-COVID peak, crashes ~30\% in 2020
+(COVID-19 disruption), and recovers by 2023-24. The relative factor \code{r_it}
+is 1 for \emph{resilient} districts (which track \code{g_t}) and dips below 1 for the
+other profiles in specific windows: \emph{early_improver} (poor 2015-17,
+maturing away by 2019), \emph{covid_transient} (extra hit 2020-21, recovered by
+2023), and \emph{persistent_laggard} (hit in 2020 and still degraded in 2024).
+Because the SPI model absorbs \code{g_t} into its year effect, SPI tracks \code{r_it}
+-- so the SPI-flagged cells wax with the early-2010s immaturity, ebb to a
+pre-COVID low, spike in 2020-21, and recede as districts recover, leaving a
+residue of persistent laggards. \code{virus_outcome} marks the year after a
+completeness gap as cVDPV2-positive at elevated rate.
+
+Four spatially-contiguous clusters (25 districts, \code{is_low_incidence}) get a
+low baseline (\code{b_i} overridden so their true rate sits around 1.5 per 100,000
+under-15 per year), so their genuine per-capita NPAFP rate sits below the
+conventional target while the context-conditional SPI scores the resilient
+ones adequate -- the "False alarm" cell. Sixteen of the twenty-five are also
+persistent laggards, so their completeness stays low from 2020 on and SPI
+flags them -- the "True shortfall" cell. Normal-baseline laggards and
+transients (raw rate above target, SPI flagged) supply the "False
+reassurance" cell, so all four cells of the SPI x NPAFP crosstab are
+populated and evolve realistically across the ten study years.
 }
 
 \section{Fictional geography}{
 
-Place names are drawn from J.R.R. Tolkien's Kingdom of Gondor -- five
-canonical provinces (Belfalas, Lossarnach, Lebennin, Anorien, Ithilien)
-populated with canonical toponyms (Osgiliath, Dol Amroth, Cair Andros,
-Minas Ithil, Emyn Arnen, ...) and Sindarin-flavoured compounds
-(\verb{amon-}, \verb{nen-}, \verb{rath-}, \verb{naith-} roots) where the canon runs out.
-Purely for demonstrative colour; no lore relevance to surveillance.
+The country "Harad" is a fictional shell over real geometry: 36 invented
+provinces nest ~236 districts, all carrying invented Haradwaith-flavoured
+names (roots such as \verb{Har-}, \verb{Nen-}, \verb{Kir-}, \verb{Dol-} with assorted suffixes).
+No real place name survives, and the layer is rotated onto a local grid with
+the CRS dropped, so it cannot be traced back to its source. Purely for
+demonstrative colour; no lore relevance to surveillance.
 }
 
 \section{Attribution}{
 
-Geometry: 100 North Carolina counties from \code{sf::st_read(system.file( "shape/nc.shp", package = "sf"))}. This is Cressie's classic
-Bayesian-spatial-stats teaching dataset (Cressie 1993; also the running
-example in Bivand, Pebesma & Gomez-Rubio 2013 and in the INLA tutorial).
-Redistributed under the sf package's MIT license. Ordered west -> east
-so the Gondor-province stripe cut lands sensibly.
+Geometry is derived from real admin-2 boundaries for four bordering Lake
+Chad countries (Nigeria, Niger, Chad, Cameroon) from \strong{geoBoundaries}
+gbOpen ADM2, redistributed under CC-BY 4.0 (Runfola et al. 2020,
+\doi{10.1371/journal.pone.0231866}, \url{https://www.geoboundaries.org}). The
+units are merged, cropped to an organic region around the basin, welded into
+a gap-free coverage, relabelled, and rotated (see
+\code{data-raw/synth_admin_polygons.R} and the shipped
+\code{inst/extdata/synth_admin_polygons.provenance.txt}).
+
+Population (\code{pop_u15}) is real under-15 counts zonal-summed from
+\strong{WorldPop} unconstrained global age-structured rasters (0-14), keyed to
+the source geometry and shipped as \code{inst/extdata/synth_admin_pop_u15.csv}.
+WorldPop is released under CC-BY 4.0 (\url{https://www.worldpop.org}).
 }
 
 \section{Reproducibility}{
 
-Regenerate the object with \verb{Rscript --vanilla data-raw/synth_surveillance.R}.
-The generator pins \code{set.seed(20260702)} so the shipped \code{.rda} is
-byte-stable across runs.
+Build the boundary layer with \verb{Rscript data-raw/synth_admin_polygons.R}
+(writes \code{inst/extdata/synth_admin_polygons.gpkg}), then regenerate this
+object with \verb{Rscript --vanilla data-raw/synth_surveillance.R}. The generator
+pins \code{set.seed(20260702)} so the shipped \code{.rda} is byte-stable across runs.
 }
 
 \examples{

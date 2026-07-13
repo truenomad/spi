@@ -1,0 +1,5 @@
+url: https://truenomad.github.io/blindspot
+
+template:
+  bootstrap: 5
+  math-rendering: mathml

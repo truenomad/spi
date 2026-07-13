@@ -1,17 +1,29 @@
 ##################  blindspot -- reproduce the paper's analysis  ##############
 #
-# Runs the paper's modelling chain on the synthetic toy dataset shipped with
-# the package (`blindspot::synth_surveillance`), so anyone can execute it
-# end-to-end without WHO-restricted POLIS data.
+# A guided tour of the whole blindspot API on the synthetic toy dataset shipped
+# with the package (`blindspot::synth_surveillance`), so anyone can execute it
+# end-to-end without WHO-restricted POLIS data. It exercises every exported
+# function:
+#
+#   bs_adjacency              spatial neighbour graph
+#   bs_expected               BYM2 expected-count model (bare + adjusted specs)
+#   bs_compare_overdispersion Poisson / iid / NB likelihood comparison
+#   bs_spi                    surveillance performance index (3 grains)
+#   bs_concordance            SPI vs conventional NPAFP threshold (+ strata)
+#   bs_concordance_maps       three-panel choropleth
+#   bs_field_guide            seven-signal reading -> FLAG / WATCH / No action
+#   bs_field_guide_help       learn to read the verdict
+#   bs_field_guide_table      publication-ready gt / flextable
+#   as_tibble / print / summary / plot methods
 #
 # Mirrors:
 #   blindspot-paper_v2/02_scripts/main/2e_calculate_spi.R
 #   blindspot-paper_v2/02_scripts/main/2f_all_cvdpv2_retrospective.R
 #
 # Primary "bare" spec:
-#   log(mu_it) = alpha + b_i (BYM2) + u_t (IID year) + s(month)
-#              /+ log(pop / 1e5)
-# a priori cuts:  SPI >= 0.80  vs  WHO NPAFP target of 3 per 100,000
+#   log(mu_it) = alpha + b_i (BYM2) + u_t (IID year) + s(month) + log(pop / 1e5)
+# Adjusted spec adds district-level covariates (a sensitivity analysis).
+# A priori cuts:  SPI >= 0.80  vs  WHO NPAFP target of 3 per 100,000
 # person-years.
 #
 # Locate this file after installation:
@@ -19,6 +31,8 @@
 #   file.edit(file)
 #
 # Requires: INLA -- https://inla.r-inla-download.org/R/stable/
+# Note: this runs several INLA fits (bare, adjusted, three overdispersion
+# specs); expect a few minutes on the toy data.
 ###############################################################################
 
 cli::cli_h1("blindspot -- paper reproduction on synthetic data")
@@ -73,14 +87,26 @@ adj <- blindspot::bs_adjacency(
 print(adj)
 
 ## ---------------------------------------------------------------------------##
-# Fit BYM2 expected-count model (paper's primary "bare" spec) ------------------
+# Fit the expected-count model: bare vs adjusted ------------------------------
 ## ---------------------------------------------------------------------------##
 
-# The paper fits four specs (bare, adjusted, sens_no_climate, sens_conflict).
-# The toy bundle has no covariates, so we fit only the bare -- which is the
-# paper's PRIMARY_SPEC (see 00_config.R).
+# bs_expected() is the core engine, and covariates are OPTIONAL -- so there are
+# two specs. We fit BOTH so you can see the difference and choose deliberately:
+#
+#   * BARE (Option A) -- intercept + BYM2 spatial + IID year + harmonic season
+#     + log person-time offset. No covariates, so the SPI reads detection
+#     performance directly. The paper's PRIMARY_SPEC and the fit every
+#     downstream step below uses.
+#   * ADJUSTED (Option B) -- the same model plus the three district-year
+#     covariates shipped in synth$covariates (fit in the next block).
+#
+# CAVEAT (the teaching point): those covariates proxy surveillance *access*,
+# which is partly downstream of detection itself. Adjusting for them can
+# attenuate the very gap the SPI is built to surface -- which is why the paper
+# keeps the BARE model primary and treats the adjusted fit as a sensitivity
+# analysis. Pick the spec deliberately; do not just "add covariates".
 
-cli::cli_h2("Fit BYM2 expected-count model")
+cli::cli_h2("Option A -- bare spec (primary)")
 
 fit_bare <- blindspot::bs_expected(
   cases = cases,
@@ -97,6 +123,63 @@ fit_bare <- blindspot::bs_expected(
 
 print(fit_bare)
 summary(fit_bare)
+
+# Any blindspot object coerces to a tibble for joins / CSV export:
+expected_tbl <- tibble::as_tibble(fit_bare)
+cli::cli_alert_info(
+  "as_tibble(fit_bare): {format(nrow(expected_tbl), big.mark = ',')} rows \\
+   x {ncol(expected_tbl)} cols"
+)
+
+## ---------------------------------------------------------------------------##
+# Option B -- adjusted spec (adds district-level covariates) -------------------
+## ---------------------------------------------------------------------------##
+
+# The toy bundle ships three district-year covariate layers (see
+# ?synth_surveillance): dtp3 (DTP3 coverage %), urban_prop (urban share), and
+# travel_time_min (minutes to the nearest facility). They are correlated with
+# the planted blindspots -- lower coverage, worse access -- so the adjusted
+# model has real signal. travel_time_min is right-skewed, so we log-transform
+# it. Covariates are standardised internally, so each effect reads as the rate
+# ratio per one standard deviation.
+
+cli::cli_h2("Option B -- adjusted spec (covariates)")
+
+covariates <- synth$covariates
+print(utils::head(covariates))
+
+# The ONLY change from the bare call is the covariates + log_transform args:
+fit_adj <- blindspot::bs_expected(
+  cases = cases,
+  population = population,
+  adjacency = adj,
+  covariates = covariates, # <- district-year covariate layers
+  log_transform = "travel_time_min", # <- right-skewed, so log(1 + x)
+  id_col = "adm2_guid",
+  season = "harmonic",
+  year_effect = "iid",
+  overdispersion = "iid",
+  n_draws = n_draws,
+  seed = seed,
+  verbose = TRUE
+)
+
+# Covariate effects: rate ratio per SD, 95% credible interval, and a `signif`
+# flag (CI excludes 1). summary() also prints the fit / calibration diagnostics.
+sm_adj <- summary(fit_adj)
+
+cli::cli_h3("Covariate rate ratios (per SD; travel time on log scale)")
+print(sm_adj$effects)
+
+# Does adjustment improve fit (lower DIC / WAIC)?
+cli::cli_h3("Bare vs adjusted fit")
+print(tibble::tibble(
+  spec = c("bare", "adjusted"),
+  dic = round(c(fit_bare$model$dic$dic, fit_adj$model$dic$dic)),
+  waic = round(c(fit_bare$model$waic$waic, fit_adj$model$waic$waic))
+))
+
+cli::cli_alert_info("Downstream steps use the bare (primary) fit.")
 
 ## ---------------------------------------------------------------------------##
 # Overdispersion sanity check (paper: bs_compare_overdispersion in 2e) ---------
@@ -119,6 +202,8 @@ print(overdisp)
 # SPI at multiple aggregation levels (paper: 2e lines 257-315) -----------------
 ## ---------------------------------------------------------------------------##
 
+# Downstream reporting uses the bare (primary) fit.
+
 cli::cli_h2("Compute SPI at three aggregation levels")
 
 spi_dy <- blindspot::bs_spi(fit_bare, level = "district_year")
@@ -135,10 +220,16 @@ print(spi_dm)
 cli::cli_h3("District-total SPI (single value per district)")
 print(spi_total)
 
+# Coerce to a tibble for downstream joins / export:
+spi_tbl <- tibble::as_tibble(spi_dy)
+cli::cli_alert_info(
+  "as_tibble(spi_dy): {nrow(spi_tbl)} rows x {ncol(spi_tbl)} cols"
+)
+
 # Interactive-only so batch Rscript runs don't spawn a stray Rplots.pdf
 # next to the script.
 if (interactive()) {
-  plot(spi_dy)
+  plot(spi_dy) # distribution / funnel / caterpillar / calibration
 }
 
 ## ---------------------------------------------------------------------------##
@@ -222,15 +313,10 @@ cli::cli_h2("Truth overlay")
 
 planted <- truth$adm2_guid[truth$is_blindspot]
 
-overlay <- conc$district_year |>
-  dplyr::mutate(is_planted = adm2_guid %in% planted) |>
-  dplyr::count(concordance, is_planted) |>
-  tidyr::pivot_wider(
-    names_from = is_planted,
-    values_from = n,
-    values_fill = 0L,
-    names_prefix = "planted_"
-  )
+overlay <- table(
+  concordance = conc$district_year$concordance,
+  planted = ifelse(conc$district_year$adm2_guid %in% planted, "planted", "other")
+)
 
 cli::cli_h3("Concordance cell x planted-blindspot flag")
 print(overlay)
@@ -275,6 +361,49 @@ if (interactive()) {
 # ggplot2::ggsave(
 #   "03_output/main/figures/concordance_maps_2023.png",
 #   maps, width = 18, height = 8, dpi = 300, bg = "white"
+# )
+
+## ---------------------------------------------------------------------------##
+# SPI field guide -- seven-signal reading + verdict (paper: 2t) ----------------
+## ---------------------------------------------------------------------------##
+
+# Reads every district-year through the seven signals (S1-S7) and assigns a
+# FLAG / WATCH / No-action verdict. S6 needs the adjacency graph, S7 needs the
+# monthly SPI (seasonal) and an orphan-poliovirus table (genomic).
+
+cli::cli_h2("SPI field guide")
+
+genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
+
+fg <- blindspot::bs_field_guide(
+  concordance = conc,
+  adjacency = adj,
+  spi_month = spi_dm,
+  genomic = genomic[, c("adm2_guid", "year")],
+  verbose = TRUE
+)
+
+print(fg)
+summary(fg) # adds signal fire-counts + the seven-signal reference
+
+# Learn to read the verdict, narrated on this run's worked example:
+if (interactive()) {
+  blindspot::bs_field_guide_help("all", guide = fg)
+}
+
+# Paper's teaching table (Table S15/S16 style): the seven signals for four
+# rule-selected districts, cells shaded by concern. "scan" lists every flagged
+# district; "worked" walks the four archetypes.
+scan <- blindspot::bs_field_guide_table(fg, engine = "gt", layout = "scan")
+worked <- blindspot::bs_field_guide_table(fg, engine = "gt", layout = "worked")
+if (interactive()) {
+  print(worked)
+}
+
+# Save for the manuscript / desk-review folder (format inferred from extension):
+# blindspot::bs_field_guide_table(
+#   fg, engine = "flextable", layout = "worked",
+#   file = "03_output/main/tables/spi_field_guide_2023.docx"
 # )
 
 # Finished ---------------------------------------------------------------------

@@ -5,7 +5,7 @@
 \alias{blindspot-package}
 \title{blindspot: Bayesian Spatiotemporal Surveillance Quality Monitoring}
 \description{
-\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+\if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
 
 Estimates district-level expected case detection rates using Bayesian spatiotemporal models (BYM2 via INLA), adjusts for reporting delays, monitors temporal trends via first-order random walk smoothing, detects acute surveillance disruptions via Bayesian online changepoint detection, and classifies surveillance quality into operational response categories. The core output is a surveillance performance index (SPI) defined as the ratio of delay-adjusted observed counts to model-estimated expected counts, with full posterior uncertainty quantification. The SPI adapts the standardised morbidity ratio (SMR) framework from disease mapping to surveillance process monitoring. Designed for acute flaccid paralysis (AFP) surveillance in the polio endgame but applicable to any case-based disease surveillance system with spatially distributed reporting units and count data, including measles discard surveillance, neonatal tetanus reporting, and DHIS2 completeness monitoring.
 
@@ -35,12 +35,13 @@ quality into operational response categories.
 \item Adapts standardised morbidity ratio (SMR) framework to surveillance monitoring
 }
 
-\strong{Operational classification}
+\strong{Concordance and interpretation}
 \itemize{
-\item Green: adequate, no action required
-\item Amber-SPI: uncertain, investigate
-\item Red: degraded, immediate field investigation
-\item Structural: persistent zero with high expected count, expand network
+\item Cross-classify SPI against the conventional NPAFP-rate threshold into a
+four-cell table (both adequate / true shortfall / false alarm / false
+reassurance).
+\item Read each district-year through the seven-signal field guide (S1-S7) to a
+FLAG / WATCH / No-action verdict.
 }
 }
 
@@ -52,6 +53,9 @@ quality into operational response categories.
 \item \code{\link[=bs_compare_overdispersion]{bs_compare_overdispersion()}}: Compare Poisson vs negative-binomial fits
 \item \code{\link[=bs_spi]{bs_spi()}}: Compute surveillance performance index
 \item \code{\link[=bs_concordance]{bs_concordance()}}: Cross-classify SPI against the NPAFP-rate threshold
+\item \code{\link[=bs_field_guide]{bs_field_guide()}}: Read the SPI to FLAG / WATCH / No-action verdicts
+\item \code{\link[=bs_field_guide_table]{bs_field_guide_table()}}: Render the field guide (gt / flextable)
+\item \code{\link[=bs_field_guide_help]{bs_field_guide_help()}}: Learn to read the field guide
 }
 }
 
@@ -121,17 +125,14 @@ Useful links:
   \item Report bugs at \url{https://github.com/truenomad/blindspot/issues}
 }
 
-
-Useful links:
-\itemize{
-  \item \url{https://github.com/truenomad/blindspot}
-  \item \url{https://truenomad.r-universe.dev/blindspot}
-  \item Report bugs at \url{https://github.com/truenomad/blindspot/issues}
-}
-
 }
 \author{
-\strong{Maintainer}: Mohamed Yusuf \email{truenomad@who.int} (\href{https://orcid.org/XXXX-XXXX-XXXX-XXXX}{ORCID})
+\strong{Maintainer}: Mohamed Yusuf \email{moyusuf@who.int} (\href{https://orcid.org/0000-0002-9339-4613}{ORCID})
+
+Authors:
+\itemize{
+  \item Mohamed Yusuf \email{moyusuf@who.int} (\href{https://orcid.org/0000-0002-9339-4613}{ORCID})
+}
 
 }
 \keyword{internal}

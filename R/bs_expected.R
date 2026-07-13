@@ -45,7 +45,9 @@
 #' @param overdispersion Character. Overdispersion mechanism: "iid"
 #'   (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month,
 #'   recommended), "nb" (negative binomial likelihood), "none" (plain Poisson,
-#'   not recommended for sparse data). Default: "iid".
+#'   not recommended for sparse data), or "auto" (fit all three and pick the
+#'   recommended spec via [bs_compare_overdispersion()], then refit it at the
+#'   requested `n_draws`). Default: "iid".
 #' @param prior_phi Named list with elements `U` and `alpha` giving the BYM2
 #'   mixing parameter PC prior `P(phi < U) = alpha`. Default:
 #'   `list(U = 0.5, alpha = 0.5)` (agnostic, 50% chance phi below 0.5).
@@ -124,12 +126,12 @@
 #' - INLA uses sparse matrix methods for efficiency
 #'
 #' **Interpreting INLA's diagnostic chatter (`debug = TRUE`).**
-#' - `vb.correction aborted` / `iterative process seems to diverge` —
+#' - `vb.correction aborted` / `iterative process seems to diverge` --
 #'   INLA's variational Bayes correction is an *optional* refinement on
 #'   top of the Laplace approximation. When it fails to converge, INLA
 #'   returns the Laplace result, which is a valid (slightly less
 #'   accurate) posterior. This message is informational, not an error.
-#' - `Matrix is not positive definite` *during fitting* — usually means
+#' - `Matrix is not positive definite` *during fitting* -- usually means
 #'   the BYM2 precision matrix is singular; check that the adjacency
 #'   graph is symmetric and that disconnected components are handled
 #'   (see [bs_adjacency()]).
@@ -137,7 +139,7 @@
 #' **CPO / PIT and `overdispersion = "iid"`.** When the model has an iid
 #' effect per observation (the default), conditional predictive ordinate
 #' (CPO) and the probability integral transform (PIT) are structurally
-#' unreliable — INLA flags most observations as `failure = 1`. This is
+#' unreliable -- INLA flags most observations as `failure = 1`. This is
 #' an artifact of the model spec, not a sign of poor fit. For CPO-based
 #' diagnostics, refit with `overdispersion = "nb"` or
 #' `overdispersion = "none"`.
@@ -162,17 +164,17 @@
 #'
 #' **How to choose:**
 #' \itemize{
-#'   \item *"none"* — no visible cycle, or counts look flat across months.
+#'   \item *"none"* -- no visible cycle, or counts look flat across months.
 #'     Use for aseasonal outcomes (e.g. neonatal tetanus, DHIS2 reporting
 #'     completeness when administratively driven).
 #'   \item *"harmonic"* (default, 4 terms: sin/cos at 12 and 6 month periods)
-#'     — one or two smooth peaks per year. Good for most VPDs. Most
+#'     -- one or two smooth peaks per year. Good for most VPDs. Most
 #'     parsimonious option that still captures seasonality.
-#'   \item *"rw2"* — cyclic 2nd-order random walk over 12 months. Smooth but
+#'   \item *"rw2"* -- cyclic 2nd-order random walk over 12 months. Smooth but
 #'     arbitrary shape; lets the prior do the smoothing rather than imposing a
 #'     sinusoid. Use when seasonality is real but asymmetric or multi-modal
 #'     (e.g. cholera in some settings).
-#'   \item *"monthly"* — 11 free monthly fixed effects (January as reference).
+#'   \item *"monthly"* -- 11 free monthly fixed effects (January as reference).
 #'     Most flexible, no smoothing. Use only with plentiful data (~3+ years
 #'     across most districts); otherwise monthly effects absorb noise.
 #' }
@@ -192,7 +194,7 @@
 #'   DHIS2 reporting completeness \tab none or rw2     \cr
 #' }
 #'
-#' These are starting points, not prescriptions — always verify against the
+#' These are starting points, not prescriptions -- always verify against the
 #' monthly-average plot for your data and country, since seasonality varies by
 #' climate zone and surveillance system.
 #'
@@ -225,7 +227,7 @@ bs_expected <- function(
   covariates = NULL,
   season = c("harmonic", "rw2", "monthly", "none"),
   year_effect = c("none", "iid", "rw1"),
-  overdispersion = c("iid", "nb", "none"),
+  overdispersion = c("iid", "nb", "none", "auto"),
   prior_phi = list(U = 0.5, alpha = 0.5),
   prior_precision = list(U = 1, alpha = 0.01),
   prior_precision_year = list(U = 1, alpha = 0.01),
@@ -294,6 +296,51 @@ bs_expected <- function(
     is.logical(verbose)
   )
   n_draws <- as.integer(n_draws)
+
+  # --- auto overdispersion selection --------------------
+  # "auto" runs the same none/iid/nb comparison as bs_compare_overdispersion()
+  # (the section-3 diagnostic), takes the recommended spec, then falls through
+  # to a single full fit at the requested n_draws with that spec. The
+  # comparison fits at reduced draws for speed; WAIC/DIC/PIT drive the choice
+  # and do not depend on the draw count.
+  if (overdispersion == "auto") {
+    if (verbose) {
+      cli::cli_h1("Auto-selecting the overdispersion mechanism")
+    }
+    cmp <- bs_compare_overdispersion(
+      cases = cases,
+      population = population,
+      adjacency = adjacency,
+      specs = c("none", "iid", "nb"),
+      n_draws = min(n_draws, 200L),
+      verbose = verbose,
+      covariates = covariates,
+      season = season,
+      year_effect = year_effect,
+      prior_phi = prior_phi,
+      prior_precision = prior_precision,
+      prior_precision_year = prior_precision_year,
+      log_transform = log_transform,
+      id_col = id_col,
+      pop_col = pop_col,
+      seed = seed
+    )
+    overdispersion <- cmp$recommendation$choice
+    if (is.na(overdispersion)) {
+      overdispersion <- "iid"
+      if (verbose) {
+        cli::cli_alert_warning(
+          "No spec passed every diagnostic; falling back to {.val iid}."
+        )
+      }
+    }
+    if (verbose) {
+      cli::cli_alert_success(
+        "Auto-selected {.code overdispersion = \"{overdispersion}\"}; \\
+         refitting at n_draws = {n_draws}."
+      )
+    }
+  }
 
   # --- normalise id column to internal name -------------
   # internally we always use "district_id"; rename inputs in
@@ -502,7 +549,7 @@ bs_expected <- function(
   spdep::nb2INLA(adj_path, adjacency)
   adj_graph <- INLA::inla.read.graph(adj_path)
 
-  # warn upfront if adjacency has disconnected components — the BYM2
+  # warn upfront if adjacency has disconnected components -- the BYM2
   # `adjust.for.con.comp = TRUE` flag handles them, but it's worth
   # flagging that smoothing happens per component
   ncomp <- attr(adjacency, "ncomp")
@@ -519,7 +566,7 @@ bs_expected <- function(
     cli::cli_progress_step("Building INLA formula")
   }
 
-  # bym2 spatial — adjust.for.con.comp handles disjoint subgraphs;
+  # bym2 spatial -- adjust.for.con.comp handles disjoint subgraphs;
   # constr = TRUE imposes the sum-to-zero identifiability constraint
   form <- count ~ 1 +
     f(
@@ -707,7 +754,7 @@ bs_expected <- function(
 
   # INLA's "Predictor:" rows already INCLUDE the offset (they are the
   # full linear predictor used in the likelihood). Do NOT add log_offset
-  # again here — doing so would multiply expected counts by exp(offset)
+  # again here -- doing so would multiply expected counts by exp(offset)
   # = pop/12, which is catastrophically wrong.
   draw_matrix <- matrix(NA_real_, nrow = n_draws, ncol = n_obs)
   for (i in seq_len(n_draws)) {
@@ -885,7 +932,7 @@ bs_expected <- function(
   nm
 }
 
-# debug diagnostics — print signals that tell the user whether the fit
+# debug diagnostics -- print signals that tell the user whether the fit
 # looks healthy. Run when bs_expected(..., debug = TRUE).
 .bs_expected_diagnostics <- function(x) {
   fmt_int <- function(v) format(v, big.mark = ",")
@@ -903,7 +950,7 @@ bs_expected <- function(
   cli::cli_alert_info("Median expected count: {round(med_exp, 2)}.")
   if (!is.na(ratio) && (ratio > 10 || ratio < 0.1)) {
     cli::cli_alert_danger(
-      "Expected / observed ratio = {round(ratio, 2)} — model is off by \\
+      "Expected / observed ratio = {round(ratio, 2)} -- model is off by \\
        >10x. Check the offset, family, and population units."
     )
   } else if (!is.na(ratio)) {
@@ -984,7 +1031,7 @@ bs_expected <- function(
   n_sub <- if (!is.null(ncomp)) ncomp$nc else 1L
   if (n_sub > 1) {
     cli::cli_alert_info(
-      "Adjacency has {n_sub} disjoint components — spatial smoothing \\
+      "Adjacency has {n_sub} disjoint components -- spatial smoothing \\
        is per-component."
     )
   }
@@ -1170,49 +1217,6 @@ print.blindspot_expected <- function(x, ...) {
   invisible(x)
 }
 
-#' Detailed summary of a fitted blindspot expected model
-#'
-#' @description
-#' Returns an analysis-ready summary with two structured tibbles: covariate
-#' effects on log and rate-ratio scale, and a calibration / fit diagnostics
-#' table with pass/flag indicators. Mirrors the `lm()` / `glm()` pattern
-#' where `print()` is a console-friendly headline and `summary()` is the
-#' pipe-friendly object for downstream reporting.
-#'
-#' @param object Object of class `blindspot_expected`.
-#' @param ... Ignored.
-#'
-#' @return A list of class `summary.blindspot_expected` containing:
-#' \describe{
-#'   \item{effects}{Tibble with one row per covariate: `log_median`,
-#'     `log_q025`, `log_q975`, `rr_median`, `rr_q025`, `rr_q975`,
-#'     `pct_change`, and a logical `signif` flag (TRUE when the 95\%
-#'     credible interval excludes the null on the rate-ratio scale).
-#'     NULL when the model has no covariates.}
-#'   \item{diagnostics}{Tibble of fit and calibration metrics
-#'     (`calibration_ratio`, `dic`, `waic`, `p_eff`, `p_eff_pct`,
-#'     `cpo_valid_pct`, `pit_ks`, `sd_spatial`) with a logical `pass`
-#'     column. `pass` is `NA` for metrics that have no pass/fail rule.}
-#'   \item{call}{Matched call from the original fit.}
-#' }
-#'
-#' @details
-#' Pass rules used in the `diagnostics` table:
-#' \itemize{
-#'   \item `calibration_ratio`: pass if total observed / total expected is
-#'     within 10\% of 1.
-#'   \item `p_eff` / `p_eff_pct`: pass if effective parameters are < 20\% of
-#'     the observation count (over-parameterisation flag).
-#'   \item `cpo_valid_pct`: pass if > 50\% of observations have valid CPO.
-#'   \item `pit_ks`: pass if Kolmogorov-Smirnov distance from uniform is
-#'     < 0.30.
-#' }
-#'
-#' CPO and PIT are structurally unreliable when `overdispersion = "iid"`
-#' (one iid effect per observation); in that case `cpo_valid_pct` and
-#' `pit_ks` will typically be `NA` or fail, and refitting with `"nb"` or
-#' `"none"` is the way to get meaningful calibration diagnostics.
-#'
 #' @export
 summary.blindspot_expected <- function(object, ...) {
   # --- covariate effects --------------------------------
@@ -1340,14 +1344,6 @@ print.summary.blindspot_expected <- function(x, ...) {
 #' @export
 NULL
 
-#' Coerce a fitted blindspot expected model to a tibble
-#'
-#' @param x Object of class `blindspot_expected`.
-#' @param ... Ignored.
-#'
-#' @return The `summary` tibble (one row per district-month with observed
-#'   count, population, and posterior expected-count quantiles).
-#'
 #' @export
 as_tibble.blindspot_expected <- function(x, ...) {
   x$summary
@@ -1556,9 +1552,9 @@ bs_compare_overdispersion <- function(
 # pick by calibration among the survivors.
 #
 # Rules (each independently disqualifying):
-#   1. cpo_valid < 0.5     — CPO is unreliable for >half the obs
-#   2. p_eff / n_obs > 0.2 — model has effectively one parameter per ~5 obs
-#   3. phi_pegged          — BYM2 mixing parameter at boundary (model
+#   1. cpo_valid < 0.5     -- CPO is unreliable for >half the obs
+#   2. p_eff / n_obs > 0.2 -- model has effectively one parameter per ~5 obs
+#   3. phi_pegged          -- BYM2 mixing parameter at boundary (model
 #                            smell: variance forced into the wrong term)
 #
 # Among survivors, the lowest PIT KS distance from uniform wins.

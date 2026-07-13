@@ -6,10 +6,14 @@
 ^docs$
 ^archive$
 ^data-raw$
-^blindspot_logo_v13\.svg$
+^logo$
 ^README\.Rmd$
+^README_cache$
 ^\.github$
-^\.lintr$
 ^CITATION\.cff$
 ^codecov\.yml$
 ^_pkgdown\.yml$
+^vignettes$
+^\.claude$
+\.gitkeep$
+\.DS_Store$

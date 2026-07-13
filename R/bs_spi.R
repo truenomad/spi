@@ -228,6 +228,7 @@ bs_spi <- function(
 
   base <- fit_data[, c(id_col, "month")]
   base$observed <- observed
+  base$pop_u15 <- fit_data$pop
 
   summary_tbl <- dplyr::bind_cols(
     tibble::as_tibble(base),
@@ -249,6 +250,7 @@ bs_spi <- function(
     dplyr::summarise(
       cols = list(.data$col_idx),
       obs_sum = sum(.env$observed[.data$col_idx]),
+      pop_u15 = mean(.data$pop),
       .groups = "drop"
     )
 
@@ -257,6 +259,7 @@ bs_spi <- function(
 
   base <- groups[, c(id_col, "quarter")]
   base$observed <- groups$obs_sum
+  base$pop_u15 <- groups$pop_u15
 
   summary_tbl <- dplyr::bind_cols(
     tibble::as_tibble(base),
@@ -276,6 +279,7 @@ bs_spi <- function(
     dplyr::summarise(
       cols = list(.data$col_idx),
       obs_sum = sum(.env$observed[.data$col_idx]),
+      pop_u15 = mean(.data$pop),
       .groups = "drop"
     )
 
@@ -284,6 +288,7 @@ bs_spi <- function(
 
   base <- groups[, c(id_col, "year")]
   base$observed <- groups$obs_sum
+  base$pop_u15 <- groups$pop_u15
 
   summary_tbl <- dplyr::bind_cols(
     tibble::as_tibble(base),
@@ -301,6 +306,7 @@ bs_spi <- function(
     dplyr::summarise(
       cols = list(.data$col_idx),
       obs_sum = sum(.env$observed[.data$col_idx]),
+      pop_u15 = mean(.data$pop),
       .groups = "drop"
     )
 
@@ -309,6 +315,7 @@ bs_spi <- function(
 
   base <- groups[, id_col, drop = FALSE]
   base$observed <- groups$obs_sum
+  base$pop_u15 <- groups$pop_u15
 
   summary_tbl <- dplyr::bind_cols(
     tibble::as_tibble(base),
@@ -392,30 +399,6 @@ print.blindspot_spi <- function(x, ...) {
   invisible(x)
 }
 
-#' Summary diagnostics for a `blindspot_spi` object
-#'
-#' @description
-#' Produces a tibble of diagnostic statistics that flag model calibration,
-#' distribution shape, and operational classification yield. Use after
-#' [bs_spi()] to verify the metric is behaving sensibly before downstream
-#' interpretation.
-#'
-#' Pass / flag checks:
-#' \itemize{
-#'   \item Median SPI within 0.9-1.1 (no systematic bias)
-#'   \item Aggregate observed / expected ratio within 0.9-1.1
-#'   \item Log-SPI skewness within -0.5 to 0.5 (symmetric)
-#'   \item Share of credible intervals excluding 1 between 5% and 50%
-#'     (model neither over- nor under-smoothing)
-#' }
-#'
-#' @param object Object of class `blindspot_spi`.
-#' @param ... Unused.
-#'
-#' @return A tibble of named diagnostics with pass / flag indicators,
-#'   returned invisibly. Printing happens as a side effect.
-#'
-#' @family blindspot core functions
 #' @export
 summary.blindspot_spi <- function(object, ...) {
   rlang::check_dots_empty()
@@ -601,13 +584,6 @@ summary.blindspot_spi <- function(object, ...) {
   if (x >= lo && x <= hi) "pass" else "flag"
 }
 
-#' Coerce a `blindspot_spi` object to a tibble
-#'
-#' @param x Object of class `blindspot_spi`.
-#' @param ... Unused.
-#' @return The `summary` tibble (one row per group with observed counts and
-#'   posterior SPI quantiles).
-#' @family blindspot core functions
 #' @export
 as_tibble.blindspot_spi <- function(x, ...) {
   rlang::check_dots_empty()
@@ -620,34 +596,12 @@ as.data.frame.blindspot_spi <- function(x, ...) {
   as.data.frame(x$summary)
 }
 
-#' Plot diagnostics for a `blindspot_spi` object
-#'
-#' @description
-#' Produces diagnostic plots for SPI output. The default `distribution`
-#' plot is the headline calibration check: a well-fit SPI should look
-#' roughly log-normal, centred near 1, with smooth tails. Skewed,
-#' multi-modal, or extreme-heavy distributions suggest model
-#' misspecification.
-#'
-#' @param x Object of class `blindspot_spi`.
-#' @param type Character. Plot type: "distribution" (default), "funnel",
-#'   "caterpillar", "calibration".
-#' @param thresholds Numeric. SPI cut-points to mark with reference
-#'   lines. Default: `c(0.5, 1, 1.5)`.
-#' @param year Optional integer. Filter to a specific year
-#'   (district_year level only).
-#' @param n_show Integer. Districts shown on each end of the caterpillar
-#'   plot. Default: 50L.
-#' @param ... Unused.
-#'
-#' @return A ggplot object.
-#'
-#' @family blindspot core functions
 #' @export
 plot.blindspot_spi <- function(
   x,
   type = c("distribution", "funnel", "caterpillar", "calibration"),
   thresholds = c(0.5, 1, 1.5),
+  npafp_target = 3,
   year = NULL,
   n_show = 50L,
   ...
@@ -664,7 +618,7 @@ plot.blindspot_spi <- function(
   switch(
     type,
     distribution = .plot_distribution(sm, thresholds),
-    funnel = .plot_funnel(sm, thresholds),
+    funnel = .plot_funnel(sm, thresholds, npafp_target),
     caterpillar = .plot_caterpillar(sm, n_show, thresholds),
     calibration = .plot_calibration(sm)
   )
@@ -712,6 +666,7 @@ plot.blindspot_spi <- function(
 # @noRd
 .plot_distribution <- function(sm, thresholds) {
   n_total <- nrow(sm)
+  n_fmt <- format(n_total, big.mark = ",")
   med <- round(stats::median(sm$spi_median, na.rm = TRUE), 2)
   pct_below_05 <- round(
     mean(sm$spi_median < 0.5, na.rm = TRUE) * 100, 1
@@ -757,7 +712,7 @@ plot.blindspot_spi <- function(
     ggplot2::labs(
       title = "SPI distribution",
       subtitle = glue::glue(
-        "n = {n_total} | median = {med} | ",
+        "n = {n_fmt} | median = {med} | ",
         "<0.5: {pct_below_05}% | ",
         ">1.5: {pct_above_15}%{dropped_note}"
       ),
@@ -769,53 +724,87 @@ plot.blindspot_spi <- function(
 
 # funnel plot: SPI vs expected total
 # @noRd
-.plot_funnel <- function(sm, thresholds) {
+.plot_funnel <- function(sm, thresholds, npafp_target = 3) {
   # drop SPI = 0 (log10 would push to -Inf and ggplot warns)
   plot_df <- sm[is.finite(sm$spi_median) & sm$spi_median > 0, ]
+  # A small seeded horizontal-only jitter (a few percent of the expected count)
+  # breaks the diagonal contours that integer observed counts trace on a log-log
+  # funnel, so the dense core reads as a cloud rather than stripes. SPI (y) is
+  # never moved.
+  plot_df$expected_jit <- plot_df$expected_total *
+    withr::with_seed(1L, exp(stats::runif(nrow(plot_df), -0.06, 0.06)))
 
-  ggplot2::ggplot(
+  spi_cut <- thresholds[thresholds != 1]
+  p <- ggplot2::ggplot(
     plot_df,
-    ggplot2::aes(
-      x = .data$expected_total,
-      y = .data$spi_median
+    ggplot2::aes(x = .data$expected_jit, y = .data$spi_median)
+  )
+
+  # Colour each district-year by whether its conventional NPAFP rate meets the
+  # target (uses the population denominator carried in the summary). Adequate
+  # points are faint so the dense core reads as a density gradient; below-target
+  # points sit on top, larger and opaque, so the sparse group stays visible --
+  # conventionally adequate districts scatter across the full SPI range, which
+  # is the one-directional refinement the SPI adds. No error bars: with hundreds
+  # of points they read as noise, and the funnel narrowing already shows that
+  # uncertainty shrinks with the expected count.
+  has_pop <- "pop_u15" %in% names(plot_df) && any(is.finite(plot_df$pop_u15))
+  if (has_pop) {
+    lab_adequate <- sprintf("NPAFP >= %g per 100,000", npafp_target)
+    lab_below <- sprintf("NPAFP < %g per 100,000", npafp_target)
+    plot_df$npafp_rate <- plot_df$observed / plot_df$pop_u15 * 1e5
+    plot_df$adequacy <- factor(
+      ifelse(plot_df$npafp_rate >= npafp_target, lab_adequate, lab_below),
+      levels = c(lab_adequate, lab_below)
     )
-  ) +
-    ggplot2::geom_errorbar(
-      ggplot2::aes(
-        ymin = .data$spi_q05,
-        ymax = .data$spi_q95
-      ),
-      width = 0,
-      alpha = 0.15,
-      colour = .bs_palette$grey_mid
-    ) +
-    ggplot2::geom_point(
-      alpha = 0.6,
-      size = 1.1,
-      colour = .bs_palette$primary_dark
-    ) +
+    p <- p +
+      ggplot2::geom_point(
+        data = plot_df[plot_df$adequacy == lab_adequate, ],
+        ggplot2::aes(colour = .data$adequacy),
+        alpha = 0.35, size = 1.5, shape = 16, stroke = 0
+      ) +
+      ggplot2::geom_point(
+        data = plot_df[plot_df$adequacy == lab_below, ],
+        ggplot2::aes(colour = .data$adequacy),
+        alpha = 0.9, size = 1.9, shape = 16, stroke = 0
+      ) +
+      ggplot2::scale_colour_manual(
+        name = NULL,
+        values = stats::setNames(
+          c(.bs_palette$primary_dark, "#D55E00"),
+          c(lab_adequate, lab_below)
+        )
+      ) +
+      ggplot2::guides(colour = ggplot2::guide_legend(
+        override.aes = list(size = 2.6, alpha = 1)
+      ))
+  } else {
+    p <- p +
+      ggplot2::geom_point(
+        alpha = 0.4, size = 1.5, shape = 16, stroke = 0,
+        colour = .bs_palette$primary_dark
+      )
+  }
+
+  p +
+    ggplot2::geom_hline(yintercept = 1, linetype = "dashed", linewidth = 0.5) +
     ggplot2::geom_hline(
-      yintercept = 1,
-      linetype = "dashed",
-      linewidth = 0.5
-    ) +
-    ggplot2::geom_hline(
-      yintercept = thresholds[thresholds != 1],
-      linetype = "dotted",
-      colour = .bs_palette$burgundy,
-      linewidth = 0.5
+      yintercept = spi_cut, linetype = "dotted",
+      colour = .bs_palette$burgundy, linewidth = 0.5
     ) +
     ggplot2::scale_x_log10() +
-    ggplot2::scale_y_log10(
-      breaks = c(0.1, 0.25, 0.5, 1, 2, 5)
-    ) +
+    ggplot2::scale_y_log10(breaks = c(0.1, 0.25, 0.5, 1, 2, 5)) +
     ggplot2::labs(
       title = "SPI funnel",
-      subtitle = "uncertainty should shrink with expected count",
+      subtitle = paste(
+        "SPI vs expected count; each district-year coloured by conventional",
+        "NPAFP adequacy"
+      ),
       x = "expected count (log scale)",
       y = "SPI (log scale)"
     ) +
-    .bs_theme()
+    .bs_theme() +
+    ggplot2::theme(legend.position = "bottom")
 }
 
 # caterpillar: ranked SPI with credible intervals

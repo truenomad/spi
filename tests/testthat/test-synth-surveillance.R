@@ -2,11 +2,33 @@ test_that("synth_surveillance has the expected structure", {
   skip_if_not_installed("sf")
 
   data("synth_surveillance", package = "blindspot")
+  n_dist <- nrow(synth_surveillance$boundaries)
+  n_es <- nrow(synth_surveillance$es_sites)
 
   expect_named(
     synth_surveillance,
-    c("cases", "population", "boundaries", "ward_boundaries",
-      "virus_outcome", "es_sites", "es_data", "es_district_year", "truth")
+    c("cases", "population", "covariates", "boundaries", "ward_boundaries",
+      "virus_outcome", "es_sites", "es_data", "es_district_year", "detections",
+      "truth")
+  )
+
+  # covariates: district-year layers for the adjusted spec
+  expect_named(
+    synth_surveillance$covariates,
+    c("adm2_guid", "year", "dtp3", "urban_prop", "travel_time_min")
+  )
+  expect_equal(nrow(synth_surveillance$covariates), n_dist * 10)
+  expect_false(anyNA(synth_surveillance$covariates))
+  # planted blindspots carry lower DTP3 coverage than resilient districts,
+  # so the adjusted model has real signal to attribute
+  cov_truth <- merge(
+    synth_surveillance$covariates,
+    synth_surveillance$truth[, c("adm2_guid", "is_blindspot")],
+    by = "adm2_guid"
+  )
+  expect_lt(
+    mean(cov_truth$dtp3[cov_truth$is_blindspot]),
+    mean(cov_truth$dtp3[!cov_truth$is_blindspot])
   )
 
   # wards: 5-8 per district
@@ -15,36 +37,65 @@ test_that("synth_surveillance has the expected structure", {
   )$adm2_guid)
   expect_true(all(n_wards_per_adm2 >= 5L & n_wards_per_adm2 <= 8L))
 
-  # ES: 30 sites, monthly samples across the whole window
-  expect_equal(nrow(synth_surveillance$es_sites), 30L)
-  expect_equal(nrow(synth_surveillance$es_data), 30L * 120L)
+  # ES: sentinel sites, monthly samples across the whole window
+  expect_gt(n_es, 0L)
+  expect_equal(nrow(synth_surveillance$es_data), n_es * 120L)
 
-  # cases: 100 districts x 120 months, zero-filled grid
-  expect_equal(nrow(synth_surveillance$cases), 100 * 120)
+  # cases: full district x 120-month grid, zero-filled
+  expect_equal(nrow(synth_surveillance$cases), n_dist * 120)
   expect_named(synth_surveillance$cases, c("adm2_guid", "month", "count"))
   expect_type(synth_surveillance$cases$count, "integer")
   expect_true(all(synth_surveillance$cases$count >= 0))
   expect_s3_class(synth_surveillance$cases$month, "Date")
 
   # population: annual, under-15
-  expect_equal(nrow(synth_surveillance$population), 100 * 10)
+  expect_equal(nrow(synth_surveillance$population), n_dist * 10)
   expect_named(synth_surveillance$population, c("adm2_guid", "year", "pop_u15"))
   expect_true(all(synth_surveillance$population$pop_u15 > 0))
 
-  # boundaries: sf with 100 polygons at EPSG:4326
+  # boundaries: sf on a local grid (CRS deliberately dropped), 36 provinces
   expect_s3_class(synth_surveillance$boundaries, "sf")
-  expect_equal(nrow(synth_surveillance$boundaries), 100)
-  expect_equal(sf::st_crs(synth_surveillance$boundaries)$epsg, 4326L)
+  expect_equal(length(unique(synth_surveillance$cases$adm2_guid)), n_dist)
+  expect_equal(length(unique(synth_surveillance$boundaries$adm1_name)), 36L)
+  expect_true(is.na(sf::st_crs(synth_surveillance$boundaries)$epsg))
 
-  # virus_outcome: 100 x 10 district-years
-  expect_equal(nrow(synth_surveillance$virus_outcome), 100 * 10)
+  # virus_outcome: district x 10-year grid
+  expect_equal(nrow(synth_surveillance$virus_outcome), n_dist * 10)
   expect_named(
     synth_surveillance$virus_outcome,
     c("adm2_guid", "year", "any_wpv1", "any_cvdpv2", "any_virus")
   )
 
-  # truth: 10 planted blindspots
-  expect_equal(sum(synth_surveillance$truth$is_blindspot), 10L)
+  # detections: district-year channels for bs_triangulate()
+  det <- synth_surveillance$detections
+  expect_equal(nrow(det), n_dist * 10)
+  expect_named(
+    det, c("adm2_guid", "year", "afp_detected", "es_detected", "es_covered")
+  )
+  expect_type(det$afp_detected, "logical")
+  expect_type(det$es_detected, "logical")
+  expect_type(det$es_covered, "logical")
+  expect_false(anyNA(det))
+  # a positive ES read only where a site drains the district
+  expect_true(all(det$es_covered[det$es_detected]))
+  # coverage tracks the ES sites, all ten years
+  expect_equal(sum(det$es_covered), n_es * 10L)
+
+  # truth: surveillance profiles + low-incidence seeds
+  expect_setequal(
+    names(synth_surveillance$truth),
+    c("adm2_guid", "surveillance_profile", "is_blindspot",
+      "is_low_incidence", "covid_nadir", "recovered_2024")
+  )
+  expect_gt(sum(synth_surveillance$truth$is_low_incidence), 0L)
+  expect_true(all(c("resilient", "early_improver", "covid_transient",
+                    "persistent_laggard") %in%
+                    synth_surveillance$truth$surveillance_profile))
+  # is_blindspot is exactly the non-resilient set
+  expect_true(all(
+    synth_surveillance$truth$is_blindspot ==
+      (synth_surveillance$truth$surveillance_profile != "resilient")
+  ))
 })
 
 test_that("bs_adjacency runs on the synthetic boundaries", {
@@ -54,9 +105,33 @@ test_that("bs_adjacency runs on the synthetic boundaries", {
   adj <- bs_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
 
   expect_s3_class(adj, "blindspot_nb")
-  expect_equal(length(adj), 100L)
-  # Voronoi tessellation should give a connected graph with no islands
+  expect_equal(length(adj), nrow(synth_surveillance$boundaries))
+  # the welded boundary layer should give a connected graph with no islands
   expect_equal(sum(spdep::card(adj) == 0), 0L)
+})
+
+test_that("overdispersion = 'auto' resolves to a concrete spec", {
+  skip_on_cran()
+  skip_if_not_installed("INLA")
+  skip_if_not_installed("sf")
+
+  data("synth_surveillance", package = "blindspot")
+
+  fit <- fit_or_skip(
+    cases = synth_surveillance$cases,
+    population = synth_surveillance$population,
+    adjacency = synth_surveillance$boundaries,
+    id_col = "adm2_guid",
+    overdispersion = "auto",
+    n_draws = 100L,
+    seed = 1L,
+    verbose = FALSE
+  )
+  expect_s3_class(fit, "blindspot_expected")
+  # "auto" is resolved internally; the stored spec is one of the three
+  # concrete mechanisms, never the sentinel "auto".
+  expect_true(fit$overdispersion %in% c("none", "iid", "nb"))
+  expect_true("expected_median" %in% names(tibble::as_tibble(fit)))
 })
 
 test_that("full chain runs and recovers planted blindspots above chance", {
@@ -66,17 +141,17 @@ test_that("full chain runs and recovers planted blindspots above chance", {
 
   data("synth_surveillance", package = "blindspot")
 
-  fit <- bs_expected(
-    cases          = synth_surveillance$cases,
-    population     = synth_surveillance$population,
-    adjacency      = synth_surveillance$boundaries,
-    id_col         = "adm2_guid",
-    season         = "harmonic",
-    year_effect    = "iid",
+  fit <- fit_or_skip(
+    cases = synth_surveillance$cases,
+    population = synth_surveillance$population,
+    adjacency = synth_surveillance$boundaries,
+    id_col = "adm2_guid",
+    season = "harmonic",
+    year_effect = "iid",
     overdispersion = "iid",
-    n_draws        = 200L,
-    seed           = 1L,
-    verbose        = FALSE
+    n_draws = 200L,
+    seed = 1L,
+    verbose = FALSE
   )
   expect_s3_class(fit, "blindspot_expected")
 
@@ -84,26 +159,38 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   expect_s3_class(spi, "blindspot_spi")
 
   conc <- bs_concordance(
-    spi           = spi,
-    cases         = synth_surveillance$cases,
-    population    = synth_surveillance$population,
+    spi = spi,
+    cases = synth_surveillance$cases,
+    population = synth_surveillance$population,
     spi_threshold = 0.80,
-    npafp_target  = 3,
-    boundaries    = synth_surveillance$boundaries,
-    verbose       = FALSE
+    npafp_target = 3,
+    boundaries = synth_surveillance$boundaries,
+    verbose = FALSE
   )
   expect_s3_class(conc, "blindspot_concordance")
 
-  # planted blindspots should show up in SPI-flagged cells (True shortfall
-  # or False reassurance) at above-chance rates. Rough check: at least half
-  # the planted districts must appear in an SPI-flagged cell in some year.
+  dy <- conc$district_year
   spi_flagged_cells <- c("True shortfall", "False reassurance")
-  called <- unique(conc$district_year$adm2_guid[
-    conc$district_year$concordance %in% spi_flagged_cells
-  ])
+
+  # Planted blindspots (non-resilient) should surface in an SPI-flagged cell in
+  # some year at above-chance rates.
+  called <- unique(dy$adm2_guid[dy$concordance %in% spi_flagged_cells])
   planted <- synth_surveillance$truth$adm2_guid[
     synth_surveillance$truth$is_blindspot
   ]
-  recovered <- mean(planted %in% called)
-  expect_gt(recovered, 0.5)
+  expect_gt(mean(planted %in% called), 0.5)
+
+  # Temporal narrative: SPI-flagged share peaks during the COVID window
+  # (2020-21) and is lower both before (pre-COVID improvement) and after
+  # (recovery). This is the whole point of the multi-year fixture.
+  flagged <- tapply(
+    dy$concordance %in% spi_flagged_cells, dy$year, sum
+  )
+  covid <- mean(flagged[c("2020", "2021")])
+  expect_gt(covid, mean(flagged[c("2018", "2019")]))   # crash vs pre-COVID best
+  expect_gt(covid, flagged[["2024"]])                  # crash vs recovered tail
+
+  # Persistent laggards never fully recover: True shortfall / False reassurance
+  # cells remain populated in the final year.
+  expect_gt(flagged[["2024"]], 0)
 })
