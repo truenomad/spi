@@ -195,7 +195,7 @@ make_spi_dy <- function(id_col = "district_id", years = 2015:2016) {
 }
 
 # tiny expand.grid over a per-district spec x years
-tidyr_expand <- function(spec, years) {
+expand_spec <- function(spec, years) {
   out <- spec[rep(seq_len(nrow(spec)), times = length(years)), ]
   out$year <- rep(years, each = nrow(spec))
   out
@@ -327,12 +327,13 @@ make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
   )
 }
 
-# genomic orphan table: FG1 carries an orphan detection
+# genomic orphan table: FG1 and FG2 carry orphan detections, so both the
+# "corroborated" (genomic) and "persistent" corrob picks are reachable.
 make_genomic <- function(id_col = "adm2_guid") {
   tibble::tibble(
-    !!id_col := c("FG1", "FG1"),
-    year = c(2022L, 2023L),
-    any_cvdpv2 = c(1L, 1L)
+    !!id_col := c("FG1", "FG1", "FG2"),
+    year = c(2022L, 2023L, 2021L),
+    any_cvdpv2 = c(1L, 1L, 1L)
   )
 }
 

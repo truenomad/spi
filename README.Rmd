@@ -135,7 +135,7 @@ adj
 
 ### 2. Expected counts
 
-`bs_expected()` is the core model. It estimates how many cases each district should report each month, given its population, its neighbours, and the season. The bare spec is a BYM2 spatial term, an IID year effect (which soaks up system-wide shifts such as the COVID drop), a harmonic season, and IID overdispersion, all on a log person-time offset.
+`bs_expected()` is the core model. It estimates how many cases each district should report each month, given its population, its neighbours, and the season. The bare spec is a BYM2 spatial term, an IID year effect (which soaks up system-wide shifts such as the COVID drop), a harmonic season, and IID overdispersion, all on a log person-time offset. The `overdispersion` argument takes `"none"`, `"iid"`, or `"nb"` (negative binomial); pass `"auto"` to have it run the comparison in step 3 for you and refit with the best-calibrated spec.
 
 ```{r fit-bare}
 fit_bare <- bs_expected(
