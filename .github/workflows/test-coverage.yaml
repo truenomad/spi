@@ -34,6 +34,11 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       # Don't let the project's renv autoloader run in CI (see the strip step).
       RENV_CONFIG_AUTO_LOAD: FALSE
+      # Run the NOT_CRAN-gated integration fits so coverage measures the model
+      # fit body of bs_expected(); without them bs_expected floors near 61% and
+      # the package total sits around 88%. Unlike R-CMD-check, the coverage job
+      # installs INLA (next step) precisely so these fits execute here.
+      NOT_CRAN: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -51,8 +56,9 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          # Hard deps + non-INLA suggests. INLA is omitted so CI never contacts
-          # its flaky repo; INLA-dependent tests skip via skip_if_not_installed.
+          # Hard deps + non-INLA suggests. INLA is installed in the next step,
+          # not through pak's resolver, so a flaky INLA repo can't stall the
+          # whole dependency resolution.
           dependencies: '"hard"'
           extra-packages: |
             any::covr
@@ -63,6 +69,29 @@ jobs:
             any::scales
             any::terra
             any::exactextractr
+
+      # INLA is not on CRAN and its repo intermittently 415s, so install it on
+      # its own with a few retries. Coverage is not a merge gate, so if INLA is
+      # briefly unavailable this job fails and Codecov keeps its last value
+      # rather than recording a misleadingly low number.
+      - name: Install INLA for coverage
+        run: |
+          ok <- requireNamespace("INLA", quietly = TRUE)
+          for (i in 1:3) {
+            if (ok) break
+            try(install.packages(
+              "INLA",
+              repos = c(
+                INLA = "https://inla.r-inla-download.org/R/stable",
+                getOption("repos")
+              ),
+              dependencies = TRUE
+            ), silent = TRUE)
+            ok <- requireNamespace("INLA", quietly = TRUE)
+            if (!ok) Sys.sleep(20)
+          }
+          if (!ok) stop("INLA failed to install after 3 attempts")
+        shell: Rscript {0}
 
       - name: Test coverage
         run: |
