@@ -35,7 +35,7 @@ set.seed(1)
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg)](https://app.codecov.io/gh/truenomad/blindspot)
+[![codecov](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg?token=bHamTc9ITd)](https://codecov.io/gh/truenomad/blindspot)
 [![pkgdown](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![R >= 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
@@ -155,10 +155,13 @@ fit_bare <- bs_expected(
 The model output is the expected case count for every district-month, with a full posterior. Displayed next to the observed count:
 
 ```{r fit-bare-show}
-head(as_tibble(fit_bare)[, c(
-  "adm2_guid", "month", "count",
-  "expected_median", "expected_q05", "expected_q95"
-)])
+as_tibble(fit_bare) |>
+  dplyr::filter(count > 0) |>
+  dplyr::select(
+    adm2_guid, month, count,
+    expected_median, expected_q05, expected_q95
+  ) |>
+  head()
 ```
 
 ### Adjusting for covariates
@@ -217,6 +220,8 @@ od <- bs_compare_overdispersion(
 ```{r overdispersion-show}
 od$summary
 ```
+
+To skip the manual step, `bs_expected(overdispersion = "auto")` runs this same comparison internally and refits with the recommended spec.
 
 ### 4. Surveillance Performance Index
 
@@ -303,11 +308,16 @@ fg
 
 `summary(fg)` adds the signal fire-counts and a reference for the seven signals, and `bs_field_guide_help()` walks a worked example in the console.
 
-For a report, `bs_field_guide_table()` renders the worked example as a publication-ready `gt` or `flextable`: the rule-picked archetype districts (by name) read down the seven signals, each cell shaded by concern.
+For a report, `bs_field_guide_table()` renders the worked example as a publication-ready `gt` or `flextable`: the rule-picked archetype districts (by name) read down the seven signals, each cell shaded by concern. (The image below is a snapshot; the live call returns a `gt` object whose cell shading GitHub would otherwise strip.)
 
-```{r fg-table, results = "asis"}
-bs_field_guide_table(fg, engine = "gt", layout = "worked") |>
-  gt::as_raw_html()
+```{r fg-table-code, eval = FALSE}
+bs_field_guide_table(fg, engine = "gt", layout = "worked")
+```
+
+```{r fg-table, echo = FALSE, fig.alt = "Field guide table: four districts read down the seven signals, cells shaded green for reassuring, amber for watch, and red for adverse."}
+fg_tbl <- bs_field_guide_table(fg, engine = "gt", layout = "worked")
+gt::gtsave(fg_tbl, "man/figures/README-fg-table.png", expand = 5)
+knitr::include_graphics("man/figures/README-fg-table.png")
 ```
 
 <!-- Section 8 (Triangulation) is temporarily dropped from the rendered docs.

@@ -110,6 +110,30 @@ test_that("bs_adjacency runs on the synthetic boundaries", {
   expect_equal(sum(spdep::card(adj) == 0), 0L)
 })
 
+test_that("overdispersion = 'auto' resolves to a concrete spec", {
+  skip_on_cran()
+  skip_if_not_installed("INLA")
+  skip_if_not_installed("sf")
+
+  data("synth_surveillance", package = "blindspot")
+
+  fit <- fit_or_skip(
+    cases = synth_surveillance$cases,
+    population = synth_surveillance$population,
+    adjacency = synth_surveillance$boundaries,
+    id_col = "adm2_guid",
+    overdispersion = "auto",
+    n_draws = 100L,
+    seed = 1L,
+    verbose = FALSE
+  )
+  expect_s3_class(fit, "blindspot_expected")
+  # "auto" is resolved internally; the stored spec is one of the three
+  # concrete mechanisms, never the sentinel "auto".
+  expect_true(fit$overdispersion %in% c("none", "iid", "nb"))
+  expect_true("expected_median" %in% names(tibble::as_tibble(fit)))
+})
+
 test_that("full chain runs and recovers planted blindspots above chance", {
   skip_on_cran()
   skip_if_not_installed("INLA")
@@ -118,16 +142,16 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   data("synth_surveillance", package = "blindspot")
 
   fit <- fit_or_skip(
-    cases          = synth_surveillance$cases,
-    population     = synth_surveillance$population,
-    adjacency      = synth_surveillance$boundaries,
-    id_col         = "adm2_guid",
-    season         = "harmonic",
-    year_effect    = "iid",
+    cases = synth_surveillance$cases,
+    population = synth_surveillance$population,
+    adjacency = synth_surveillance$boundaries,
+    id_col = "adm2_guid",
+    season = "harmonic",
+    year_effect = "iid",
     overdispersion = "iid",
-    n_draws        = 200L,
-    seed           = 1L,
-    verbose        = FALSE
+    n_draws = 200L,
+    seed = 1L,
+    verbose = FALSE
   )
   expect_s3_class(fit, "blindspot_expected")
 
@@ -135,13 +159,13 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   expect_s3_class(spi, "blindspot_spi")
 
   conc <- bs_concordance(
-    spi           = spi,
-    cases         = synth_surveillance$cases,
-    population    = synth_surveillance$population,
+    spi = spi,
+    cases = synth_surveillance$cases,
+    population = synth_surveillance$population,
     spi_threshold = 0.80,
-    npafp_target  = 3,
-    boundaries    = synth_surveillance$boundaries,
-    verbose       = FALSE
+    npafp_target = 3,
+    boundaries = synth_surveillance$boundaries,
+    verbose = FALSE
   )
   expect_s3_class(conc, "blindspot_concordance")
 

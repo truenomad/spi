@@ -11,7 +11,7 @@ bs_expected(
   covariates = NULL,
   season = c("harmonic", "rw2", "monthly", "none"),
   year_effect = c("none", "iid", "rw1"),
-  overdispersion = c("iid", "nb", "none"),
+  overdispersion = c("iid", "nb", "none", "auto"),
   prior_phi = list(U = 0.5, alpha = 0.5),
   prior_precision = list(U = 1, alpha = 0.01),
   prior_precision_year = list(U = 1, alpha = 0.01),
@@ -61,7 +61,9 @@ when the between-year pattern is non-monotonic, such as a U shape);
 \item{overdispersion}{Character. Overdispersion mechanism: "iid"
 (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month,
 recommended), "nb" (negative binomial likelihood), "none" (plain Poisson,
-not recommended for sparse data). Default: "iid".}
+not recommended for sparse data), or "auto" (fit all three and pick the
+recommended spec via \code{\link[=bs_compare_overdispersion]{bs_compare_overdispersion()}}, then refit it at the
+requested \code{n_draws}). Default: "iid".}
 
 \item{prior_phi}{Named list with elements \code{U} and \code{alpha} giving the BYM2
 mixing parameter PC prior \code{P(phi < U) = alpha}. Default:

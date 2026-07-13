@@ -45,7 +45,9 @@
 #' @param overdispersion Character. Overdispersion mechanism: "iid"
 #'   (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month,
 #'   recommended), "nb" (negative binomial likelihood), "none" (plain Poisson,
-#'   not recommended for sparse data). Default: "iid".
+#'   not recommended for sparse data), or "auto" (fit all three and pick the
+#'   recommended spec via [bs_compare_overdispersion()], then refit it at the
+#'   requested `n_draws`). Default: "iid".
 #' @param prior_phi Named list with elements `U` and `alpha` giving the BYM2
 #'   mixing parameter PC prior `P(phi < U) = alpha`. Default:
 #'   `list(U = 0.5, alpha = 0.5)` (agnostic, 50% chance phi below 0.5).
@@ -225,7 +227,7 @@ bs_expected <- function(
   covariates = NULL,
   season = c("harmonic", "rw2", "monthly", "none"),
   year_effect = c("none", "iid", "rw1"),
-  overdispersion = c("iid", "nb", "none"),
+  overdispersion = c("iid", "nb", "none", "auto"),
   prior_phi = list(U = 0.5, alpha = 0.5),
   prior_precision = list(U = 1, alpha = 0.01),
   prior_precision_year = list(U = 1, alpha = 0.01),
@@ -294,6 +296,51 @@ bs_expected <- function(
     is.logical(verbose)
   )
   n_draws <- as.integer(n_draws)
+
+  # --- auto overdispersion selection --------------------
+  # "auto" runs the same none/iid/nb comparison as bs_compare_overdispersion()
+  # (the section-3 diagnostic), takes the recommended spec, then falls through
+  # to a single full fit at the requested n_draws with that spec. The
+  # comparison fits at reduced draws for speed; WAIC/DIC/PIT drive the choice
+  # and do not depend on the draw count.
+  if (overdispersion == "auto") {
+    if (verbose) {
+      cli::cli_h1("Auto-selecting the overdispersion mechanism")
+    }
+    cmp <- bs_compare_overdispersion(
+      cases = cases,
+      population = population,
+      adjacency = adjacency,
+      specs = c("none", "iid", "nb"),
+      n_draws = min(n_draws, 200L),
+      verbose = verbose,
+      covariates = covariates,
+      season = season,
+      year_effect = year_effect,
+      prior_phi = prior_phi,
+      prior_precision = prior_precision,
+      prior_precision_year = prior_precision_year,
+      log_transform = log_transform,
+      id_col = id_col,
+      pop_col = pop_col,
+      seed = seed
+    )
+    overdispersion <- cmp$recommendation$choice
+    if (is.na(overdispersion)) {
+      overdispersion <- "iid"
+      if (verbose) {
+        cli::cli_alert_warning(
+          "No spec passed every diagnostic; falling back to {.val iid}."
+        )
+      }
+    }
+    if (verbose) {
+      cli::cli_alert_success(
+        "Auto-selected {.code overdispersion = \"{overdispersion}\"}; \\
+         refitting at n_draws = {n_draws}."
+      )
+    }
+  }
 
   # --- normalise id column to internal name -------------
   # internally we always use "district_id"; rename inputs in
