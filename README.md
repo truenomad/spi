@@ -35,6 +35,28 @@ does not forecast where poliovirus is circulating.
 **Designed for polio AFP surveillance. Applicable to any case-based VPD
 surveillance system.**
 
+The expected count comes from a negative-binomial model of each
+district-month, and the SPI is the observed count over that expectation:
+
+$$
+Y_{it} \sim \text{NegBin}(\mu_{it}, \theta),
+\qquad
+\text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}
+$$
+
+$$
+\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t)
+  + \gamma_{y(t)} + u_i + v_i + x_{it}^{\top}\beta
+$$
+
+Here $\log(P_{it}/12)$ is the log under-15 person-time offset; $\beta_0$
+estimates the background non-polio AFP detection rate from the data;
+$f(\text{month}_t)$ is harmonic seasonality with 12- and 6-month
+periodicity; $\gamma_{y(t)}$ an exchangeable year effect; $u_i + v_i$ a
+BYM2 spatial random effect (Riebler et al. 2016); and
+$x_{it}^{\top}\beta$ the optional district covariates (DTP3 coverage,
+urbanicity, travel time to care).
+
 <details>
 
 <summary>
@@ -57,18 +79,6 @@ expected**. Poliovirus circulation has no path into the model, so the
 SPI is diagnostic of *surveillance performance* and does not estimate
 transmission; it enters only as an independent reference for external
 validation.
-
-$$Y_{it} \sim \text{NegBin}(\mu_{it}, \theta), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}$$
-
-$$\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + x_{it}^{\top}\beta$$
-
-Here $\log(P_{it}/12)$ is the log under-15 person-time offset; $\beta_0$
-estimates the background non-polio AFP detection rate from the data;
-$f(\text{month}_t)$ is harmonic seasonality with 12- and 6-month
-periodicity; $\gamma_{y(t)}$ an exchangeable year effect; $u_i + v_i$ a
-BYM2 spatial random effect (Riebler et al. 2016); and
-$x_{it}^{\top}\beta$ the optional district covariates (DTP3 coverage,
-urbanicity, travel time to care).
 
 **Why a Bayesian spatial model.** District-month AFP counts are small
 and noisy, so a raw rate is unstable and a single zero-count month can
