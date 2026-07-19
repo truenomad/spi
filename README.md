@@ -471,17 +471,19 @@ bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 
 `bs_field_guide()` reads each district-year through seven signals (S1 to
 S7) and lands on a FLAG, WATCH, or No-action verdict. S6 uses the
-neighbour graph; S7 uses the monthly SPI for seasonality and a table of
-orphan-virus detections.
+neighbour graph; S7 uses the monthly SPI for seasonality and, for the
+detection half, any poliovirus found there through the case-based (AFP)
+channel or environmental surveillance (ES).
 
-The `genomic` argument is that table of independent virus detections:
-here the district-years where the toy's virus-outcome sheet recorded a
-cVDPV2 (`any_cvdpv2 == 1`). It is the one corroborator that does *not*
-come from the AFP stream the guide is grading, so S7 can ask whether a
-flagged silence also had poliovirus surface there, evidence of a genuine
-blindspot rather than a false alarm. Pass only the `adm2_guid` and
-`year` of the detections; any district-year absent from the table is
-treated as no orphan detection.
+The `genomic` and `es` arguments are those two independent detection
+channels: `genomic` is the district-years where the toy's virus-outcome
+sheet recorded a cVDPV2 (`any_cvdpv2 == 1`), and `es` is the ES
+district-year table where a positive sewage sample was found
+(`n_positive > 0`). Neither comes from the AFP stream the guide is
+grading, so S7 can ask whether a flagged silence also had poliovirus
+surface there, evidence of a genuine blindspot rather than a false
+alarm. Detections corroborate the reading from outside the model but
+never change the verdict.
 
 ``` r
 genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
@@ -491,6 +493,8 @@ fg <- bs_field_guide(
   adjacency = adj,
   spi_month = spi_dm,
   genomic = genomic[, c("adm2_guid", "year")],
+  es = synth$es_district_year,
+  es_col = "n_positive",
   verbose = FALSE
 )
 
@@ -532,6 +536,36 @@ bs_field_guide_table(fg, engine = "gt", layout = "worked")
 ```
 
 <img src="man/figures/README-fg-table.png" alt="Field guide table: four districts read down the seven signals, cells shaded green for reassuring, amber for watch, and red for adverse." width="100%" />
+
+For the one district you are about to investigate,
+`bs_field_guide_pager()` renders a single-district **field pager**: a
+self-contained, print-ready A4 tear-sheet. Hand it the field guide and
+the shapefile and it builds the neighbour graph itself, so it is
+self-contained. The masthead carries the verdict; the chart plots the
+district's SPI against its touching neighbours (with the 90%
+credible-interval ribbon and AFP / ES detection markers) and a locator
+inset drawn from the real geometry; the seven signals read out as gate,
+magnitude, and corroboration; and a verdict banner states the action.
+`path` writes an auto-named
+`spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`.
+
+``` r
+bs_field_guide_pager(
+  fg, district = "Tirwen", boundaries = synth$boundaries,
+  id_col = "adm2_guid", path = "reports/"
+)
+```
+
+<details>
+
+<summary>
+
+One-page field pager for a flagged district
+</summary>
+
+<img src="man/figures/README-pager.png" alt="One-page SPI field pager: masthead verdict, an SPI-over-time chart against neighbours with a locator inset, the seven-signal reading, and a verdict banner." width="100%" />
+
+</details>
 
 <!-- Section 8 (Triangulation) is temporarily dropped from the rendered docs.
      To restore, delete this comment wrapper and drop the `eval = FALSE` chunk

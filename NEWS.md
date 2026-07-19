@@ -1,5 +1,25 @@
 # blindspot 0.1.0.9000
 
+* `bs_field_guide()` gained an `es` / `es_col` argument: a second, independent
+  detection channel for S7 alongside `genomic` (AFP). It adds `es_years` /
+  `es_detected` to `district_year`, mirroring the AFP `orphan_years` /
+  `genomic_orphan`. Both channels are narrative corroboration and never change
+  the verdict, matching the paper. The shipped `synth_field_guide` now carries
+  the ES channel.
+* Added `bs_field_guide_pager()`: renders one district's field-guide reading
+  as a self-contained, print-ready HTML tear-sheet -- masthead verdict, an
+  SPI-over-time chart of the district against its touching neighbours (real
+  90% credible-interval ribbon), the seven signals laid out as gate /
+  magnitude / corroboration, and a verdict banner. The accent colour tracks
+  the verdict. It is self-contained: pass `boundaries` (the shapefile) and it
+  builds the neighbour graph itself with `bs_adjacency()` and draws a locator
+  inset from the real geometry -- the focal district ringed by its neighbours.
+  S7 reports poliovirus found there through both channels, case-based (AFP)
+  and environmental surveillance (`es`), each marked distinctly on the chart
+  (AFP diamond, ES ring); detections are narrative corroboration only and
+  never change the verdict. `district` resolves by id or name; `path` writes an
+  auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}` (PNG via
+  \pkg{webshot2}). See `inst/examples/pager_demo.R`.
 * Added `bs_check_inputs()`: a graded pre-flight that reconciles the three
   tables a fit consumes -- case counts, population denominators, and the
   district shapefile -- before any model runs. It reports id mismatches, panel

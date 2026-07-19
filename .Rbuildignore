@@ -17,3 +17,4 @@
 ^\.claude$
 \.gitkeep$
 \.DS_Store$
+^inst/examples/pager/.*\.png$

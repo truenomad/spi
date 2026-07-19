@@ -50,7 +50,7 @@ conc <- bs_concordance(
   boundaries = synth$boundaries
 )
 
-# 5. field guide (all seven signals active) ------------------------------------
+# 5. field guide (all signals active, both detection channels) -----------------
 genomic <- synth$virus_outcome |>
   dplyr::filter(any_cvdpv2 == 1) |>
   dplyr::select(adm2_guid, year)
@@ -60,6 +60,8 @@ synth_field_guide <- bs_field_guide(
   adjacency = adj,
   spi_month = spi_dm,
   genomic = genomic,
+  es = synth$es_district_year,
+  es_col = "n_positive",
   verbose = TRUE
 )
 

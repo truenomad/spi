@@ -10,6 +10,8 @@ bs_field_guide(
   spi_month = NULL,
   genomic = NULL,
   genomic_col = NULL,
+  es = NULL,
+  es_col = NULL,
   read_year = NULL,
   spi_cut = NULL,
   persistence = 3L,
@@ -31,13 +33,22 @@ district-year plus the thresholds.}
 \item{spi_month}{Optional \code{\link[=bs_spi]{bs_spi()}} result at \code{district_month} level.
 Enables the seasonal half of S7. Default: NULL.}
 
-\item{genomic}{Optional tibble of orphan poliovirus detections with the
-district id column and \code{year}. Enables the genomic half of S7. Rows are
-detections; pass \code{genomic_col} to filter on a 0/1 flag column. Default:
-NULL.}
+\item{genomic}{Optional tibble of case-based (AFP) poliovirus detections
+with the district id column and \code{year}. Enables the AFP half of the S7
+detection signal. Rows are detections; pass \code{genomic_col} to filter on a
+0/1 flag column. Default: NULL.}
 
 \item{genomic_col}{Optional name of a logical / 0-1 column in \code{genomic};
 only truthy rows count as detections. Default: NULL (every row counts).}
+
+\item{es}{Optional tibble of environmental-surveillance (ES) detections with
+the district id column and \code{year}. Enables the ES half of the S7 detection
+signal. Rows are positives; pass \code{es_col} to filter on a count / flag
+column. Default: NULL.}
+
+\item{es_col}{Optional name of a count / logical column in \code{es}; only rows
+with a positive count (or \code{TRUE}) count as detections. Default: NULL
+(every row counts).}
 
 \item{read_year}{Integer focal year for \code{print()} and the default table /
 help rendering. Default: NULL (latest year present).}
@@ -69,8 +80,8 @@ An object of class \code{blindspot_field_guide}. A list with:
 \item{district_year}{Tibble, one row per district-year, carrying the
 inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1},
 \code{s1_discordance}, \code{longest_run_below}, \code{trajectory}, \code{neighbour_spi},
-\code{neighbour_discordant}, \code{seasonal}, \code{orphan_years}, \code{genomic_orphan}),
-\code{corroborators}, and \code{verdict} (factor).}
+\code{neighbour_discordant}, \code{seasonal}, \code{orphan_years}, \code{genomic_orphan},
+\code{es_years}, \code{es_detected}), \code{corroborators}, and \code{verdict} (factor).}
 \item{focal}{The \code{read_year} slice of \code{district_year}.}
 \item{reference}{The seven-signal reference tibble (what each asks /
 rules out).}
@@ -102,9 +113,10 @@ last \code{traj_window} years (falling / flat / rising).
 the cut up to that year.
 \item \strong{S6 Neighbour contrast} -- under-detection while immediate
 neighbours perform adequately (needs \code{adjacency}).
-\item \strong{S7 Seasonal and genomic corroboration} -- detection flat
-through the expected peak months (needs \code{spi_month}), and any orphan
-poliovirus detected there (needs \code{genomic}).
+\item \strong{S7 Seasonal and detection corroboration} -- detection flat
+through the expected peak months (needs \code{spi_month}), and any
+poliovirus detected there through the case-based (AFP) channel (needs
+\code{genomic}) or environmental surveillance (needs \code{es}).
 }
 }
 \details{
@@ -115,12 +127,12 @@ corroborating signals fire (a falling trajectory, persistence of at least
 \code{persistence} years, neighbour discordance, or seasonal blindness). A
 district below the cut whose credible interval still reaches 1 is kept at
 \strong{watch} rather than flagged; everything else needs \strong{no action}.
-Genomic corroboration strengthens a flag in the narrative but is never one
-of the four corroborators, matching the paper.
+Detection corroboration (AFP or ES) strengthens a flag in the narrative but
+is never one of the four corroborators, matching the paper.
 
 Signals that need optional inputs degrade gracefully: without \code{adjacency},
-\code{spi_month}, or \code{genomic} the corresponding signal is \code{NA} and contributes
-no corroborator. \code{signals_active} records which were computable.
+\code{spi_month}, \code{genomic}, or \code{es} the corresponding signal is \code{NA} and
+contributes no corroborator. \code{signals_active} records which were computable.
 }
 \examples{
 # a precomputed field guide on the synthetic bundle ships with the package
@@ -146,7 +158,9 @@ fg <- bs_field_guide(
   spi_month = cm,
   genomic = dplyr::filter(
     synth_surveillance$virus_outcome, any_cvdpv2 == 1
-  )
+  ),
+  es = synth_surveillance$es_district_year,
+  es_col = "n_positive"
 )
 }
 }

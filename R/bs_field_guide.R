@@ -22,9 +22,10 @@
 #'     the cut up to that year.
 #'   \item **S6 Neighbour contrast** -- under-detection while immediate
 #'     neighbours perform adequately (needs `adjacency`).
-#'   \item **S7 Seasonal and genomic corroboration** -- detection flat
-#'     through the expected peak months (needs `spi_month`), and any orphan
-#'     poliovirus detected there (needs `genomic`).
+#'   \item **S7 Seasonal and detection corroboration** -- detection flat
+#'     through the expected peak months (needs `spi_month`), and any
+#'     poliovirus detected there through the case-based (AFP) channel (needs
+#'     `genomic`) or environmental surveillance (needs `es`).
 #' }
 #'
 #' @details
@@ -35,12 +36,12 @@
 #' `persistence` years, neighbour discordance, or seasonal blindness). A
 #' district below the cut whose credible interval still reaches 1 is kept at
 #' **watch** rather than flagged; everything else needs **no action**.
-#' Genomic corroboration strengthens a flag in the narrative but is never one
-#' of the four corroborators, matching the paper.
+#' Detection corroboration (AFP or ES) strengthens a flag in the narrative but
+#' is never one of the four corroborators, matching the paper.
 #'
 #' Signals that need optional inputs degrade gracefully: without `adjacency`,
-#' `spi_month`, or `genomic` the corresponding signal is `NA` and contributes
-#' no corroborator. `signals_active` records which were computable.
+#' `spi_month`, `genomic`, or `es` the corresponding signal is `NA` and
+#' contributes no corroborator. `signals_active` records which were computable.
 #'
 #' @param concordance A [bs_concordance()] result (class
 #'   `blindspot_concordance`). Supplies fused SPI + NPAFP for every
@@ -49,12 +50,19 @@
 #'   (class `blindspot_nb`). Enables S6. Default: NULL.
 #' @param spi_month Optional [bs_spi()] result at `district_month` level.
 #'   Enables the seasonal half of S7. Default: NULL.
-#' @param genomic Optional tibble of orphan poliovirus detections with the
-#'   district id column and `year`. Enables the genomic half of S7. Rows are
-#'   detections; pass `genomic_col` to filter on a 0/1 flag column. Default:
-#'   NULL.
+#' @param genomic Optional tibble of case-based (AFP) poliovirus detections
+#'   with the district id column and `year`. Enables the AFP half of the S7
+#'   detection signal. Rows are detections; pass `genomic_col` to filter on a
+#'   0/1 flag column. Default: NULL.
 #' @param genomic_col Optional name of a logical / 0-1 column in `genomic`;
 #'   only truthy rows count as detections. Default: NULL (every row counts).
+#' @param es Optional tibble of environmental-surveillance (ES) detections with
+#'   the district id column and `year`. Enables the ES half of the S7 detection
+#'   signal. Rows are positives; pass `es_col` to filter on a count / flag
+#'   column. Default: NULL.
+#' @param es_col Optional name of a count / logical column in `es`; only rows
+#'   with a positive count (or `TRUE`) count as detections. Default: NULL
+#'   (every row counts).
 #' @param read_year Integer focal year for `print()` and the default table /
 #'   help rendering. Default: NULL (latest year present).
 #' @param spi_cut Numeric SPI adequacy cut. Default: NULL (take
@@ -77,8 +85,8 @@
 #'   \item{district_year}{Tibble, one row per district-year, carrying the
 #'     inputs plus every signal value (`spi_below`, `cri_excludes_1`,
 #'     `s1_discordance`, `longest_run_below`, `trajectory`, `neighbour_spi`,
-#'     `neighbour_discordant`, `seasonal`, `orphan_years`, `genomic_orphan`),
-#'     `corroborators`, and `verdict` (factor).}
+#'     `neighbour_discordant`, `seasonal`, `orphan_years`, `genomic_orphan`,
+#'     `es_years`, `es_detected`), `corroborators`, and `verdict` (factor).}
 #'   \item{focal}{The `read_year` slice of `district_year`.}
 #'   \item{reference}{The seven-signal reference tibble (what each asks /
 #'     rules out).}
@@ -117,7 +125,9 @@
 #'   spi_month = cm,
 #'   genomic = dplyr::filter(
 #'     synth_surveillance$virus_outcome, any_cvdpv2 == 1
-#'   )
+#'   ),
+#'   es = synth_surveillance$es_district_year,
+#'   es_col = "n_positive"
 #' )
 #' }
 bs_field_guide <- function(
@@ -126,6 +136,8 @@ bs_field_guide <- function(
   spi_month = NULL,
   genomic = NULL,
   genomic_col = NULL,
+  es = NULL,
+  es_col = NULL,
   read_year = NULL,
   spi_cut = NULL,
   persistence = 3L,
@@ -205,13 +217,21 @@ bs_field_guide <- function(
   }
   dy$seasonally_blind <- !is.na(dy$seasonal) & dy$seasonal == "blind"
 
-  # --- S7 genomic ------------------------------------------------------
+  # --- S7 detections: AFP (genomic) and ES -----------------------------
+  # both are narrative corroboration; neither enters the corroborator count
   have_genomic <- !is.null(genomic)
   if (have_genomic) {
     dy <- .fg_add_genomic(dy, genomic, id_col, genomic_col)
   } else {
     dy$orphan_years <- NA_character_
     dy$genomic_orphan <- NA
+  }
+  have_es <- !is.null(es)
+  if (have_es) {
+    dy <- .fg_add_es(dy, es, id_col, es_col)
+  } else {
+    dy$es_years <- NA_character_
+    dy$es_detected <- NA
   }
 
   # --- corroborators + verdict ----------------------------------------
@@ -234,7 +254,8 @@ bs_field_guide <- function(
   signals_active <- c(
     s6_neighbour = have_adjacency,
     s7_seasonal = have_seasonal,
-    s7_genomic = have_genomic
+    s7_genomic = have_genomic,
+    s7_es = have_es
   )
 
   if (verbose) {
@@ -457,6 +478,37 @@ bs_field_guide <- function(
   dy
 }
 
+# S7 ES: environmental-surveillance positive years up to and including each
+# year. `es_col`, when given, is a count (>0) or logical (TRUE) positive flag.
+# @noRd
+.fg_add_es <- function(dy, es, id_col, es_col) {
+  stopifnot(
+    is.data.frame(es),
+    id_col %in% names(es),
+    "year" %in% names(es)
+  )
+  g <- es
+  if (!is.null(es_col)) {
+    if (!es_col %in% names(g)) {
+      cli::cli_abort("{.arg es_col} {.val {es_col}} not in {.arg es}.")
+    }
+    v <- g[[es_col]]
+    keep <- if (is.logical(v)) v %in% TRUE else as.numeric(v) > 0
+    g <- g[keep, , drop = FALSE]
+  }
+  es_map <- split(as.integer(g$year), as.character(g[[id_col]]))
+  ids <- as.character(dy[[id_col]])
+  yrs <- as.integer(dy$year)
+  dy$es_years <- vapply(seq_along(ids), function(i) {
+    y <- es_map[[ids[i]]]
+    if (is.null(y)) return("")
+    y <- sort(unique(y[y <= yrs[i]]))
+    if (length(y) == 0L) "" else paste(y, collapse = ", ")
+  }, character(1))
+  dy$es_detected <- nzchar(dy$es_years)
+  dy
+}
+
 # ---------------------------------------------------------------------------
 # static reference content (paper tables S15 + S17)
 # ---------------------------------------------------------------------------
@@ -483,8 +535,8 @@ bs_field_guide <- function(
     "S6 Neighbour contrast",
     "Does the district under-detect while its immediate neighbours perform adequately?",
     "A region-wide data problem: a localised gap against healthy neighbours points to a district-specific failure.",
-    "S7 Seasonal and genomic corroboration",
-    "Is observed detection flat through the expected peak season, and has any orphan poliovirus been detected there?",
+    "S7 Seasonal and detection corroboration",
+    "Is observed detection flat through the expected peak season, and has any poliovirus been detected there by AFP cases or environmental surveillance?",
     "Nothing on its own: corroboration strengthens a flag, but its absence never proves adequacy."
   )
 }
