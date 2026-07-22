@@ -524,8 +524,10 @@ plot.blindspot_concordance <- function(x, ...) {
 #' @param titles Optional character vector of length 3 to override the
 #'   default panel titles.
 #' @param year_label Character. What to call the displayed year in the
-#'   panel titles. Defaults to `sprintf("year T-1: %d", year)` -- the
-#'   paper's convention.
+#'   panel titles. Defaults to the plain year (e.g. `"2023"`). Pass
+#'   `sprintf("year T-1: %d", year)` to restore the paper's
+#'   validation-narrative wording where the map sits beside the
+#'   year-T detection panel.
 #' @param provinces Logical. Overlay dissolved adm1 (province) outlines (dark
 #'   grey) on the light-grey district choropleths? Default `TRUE`. Assumes the
 #'   adm2 layer is a clean coverage (shared edges); on an imperfectly
@@ -638,8 +640,12 @@ bs_concordance_maps <- function(
     )
   }
 
-  # ---- Panel titles + subtitles (paper wording) ----
-  yr_lbl <- year_label %||% sprintf("year T-1: %d", yr)
+  # ---- Panel titles + subtitles ----
+  # Label by the displayed year. The "year T-1 / before N detections" framing
+  # is only meaningful when the detections are on the figure (or it sits beside
+  # the year-T detection panel), which this standalone map does not draw -- pass
+  # `year_label` to restore that wording where the narrative supports it.
+  yr_lbl <- year_label %||% sprintf("%d", yr)
   ttl_a <- (titles %||% NULL)[1] %||%
     sprintf("A. Conventional NPAFP rate (%s)", yr_lbl)
   ttl_b <- (titles %||% NULL)[2] %||%
@@ -648,18 +654,11 @@ bs_concordance_maps <- function(
     sprintf("C. Where the two indicators disagree (%s)", yr_lbl)
 
   sub_a <- sprintf(
-    paste0(
-      "Threshold = %g per 100 000 children under 15. Indicators\n",
-      "assessed before %d detections."
-    ),
-    npafp_target, yr + 1L
+    "Threshold = %g per 100 000 children under 15.", npafp_target
   )
   sub_b <- sprintf(
-    paste0(
-      "Threshold %g (20%% shortfall vs context-conditional\n",
-      "expectation). Before %d detections."
-    ),
-    spi_threshold, yr + 1L
+    "Threshold %g (20%% shortfall vs context-conditional expectation).",
+    spi_threshold
   )
   sub_c <- paste0(
     "Amber: conventional pass, SPI flag (False reassurance). Green:\n",

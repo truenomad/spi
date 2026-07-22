@@ -42,8 +42,10 @@ categorical fills. Defaults match the paper.}
 default panel titles.}
 
 \item{year_label}{Character. What to call the displayed year in the
-panel titles. Defaults to \code{sprintf("year T-1: \%d", year)} -- the
-paper's convention.}
+panel titles. Defaults to the plain year (e.g. \code{"2023"}). Pass
+\code{sprintf("year T-1: \%d", year)} to restore the paper's
+validation-narrative wording where the map sits beside the
+year-T detection panel.}
 
 \item{provinces}{Logical. Overlay dissolved adm1 (province) outlines (dark
 grey) on the light-grey district choropleths? Default \code{TRUE}. Assumes the
