@@ -660,17 +660,21 @@ bs_concordance_maps <- function(
   ttl_c <- (titles %||% NULL)[3] %||%
     sprintf("C. Where the two indicators disagree (%s)", yr_lbl)
 
-  sub_a <- sprintf(
+  # Wrap subtitles/legend titles to a fixed width: ggplot draws these
+  # left-aligned and never wraps them, so a long single line spills out of a
+  # narrow panel into its neighbour (the composed three-panel figure).
+  sub_a <- .wrap_lines(sprintf(
     "Threshold = %g per 100 000 children under 15.", npafp_target
-  )
-  sub_b <- sprintf(
+  ))
+  sub_b <- .wrap_lines(sprintf(
     "Threshold %g (20%% shortfall vs context-conditional expectation).",
     spi_threshold
-  )
-  sub_c <- paste0(
-    "Amber: conventional pass, SPI flag (False reassurance). Green:\n",
-    "conventional flag, SPI pass (False alarm). Concordant cells\nin grey."
-  )
+  ))
+  sub_c <- .wrap_lines(paste0(
+    "Amber: conventional pass, SPI flag (False reassurance). ",
+    "Green: conventional flag, SPI pass (False alarm). ",
+    "Concordant cells in grey."
+  ))
 
   # ---- Panel A fill category ----
   bnd_slice$npafp_cat <- factor(
@@ -704,9 +708,9 @@ bs_concordance_maps <- function(
     adm1_layer +
     ggplot2::scale_fill_manual(
       values = pal_a, drop = FALSE, na.value = "grey85",
-      name = sprintf(
+      name = .wrap_lines(sprintf(
         "NPAFP per 100 000 u15 (%d); red = below conventional threshold", yr
-      )
+      ))
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(
       nrow = 1, title.position = "top", title.hjust = 0,
@@ -727,10 +731,10 @@ bs_concordance_maps <- function(
     adm1_layer +
     ggplot2::scale_fill_manual(
       values = pal_b, drop = FALSE, na.value = "grey85",
-      name = sprintf(
+      name = .wrap_lines(sprintf(
         "Posterior median SPI (%d); red = below adequacy of %g",
         yr, spi_threshold
-      )
+      ))
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(
       nrow = 1, title.position = "top", title.hjust = 0,
@@ -751,10 +755,12 @@ bs_concordance_maps <- function(
     adm1_layer +
     ggplot2::scale_fill_manual(
       values = pal_c, drop = FALSE, na.value = "grey85",
-      name = "Per-LGA agreement (conventional NPAFP x SPI)"
+      name = .wrap_lines("Per-LGA agreement (conventional NPAFP x SPI)")
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(
-      nrow = 2, title.position = "top", title.hjust = 0, byrow = TRUE
+      # single column: the four cell labels are long, so a multi-column
+      # layout spills past the right edge of the (rightmost) panel
+      ncol = 1, title.position = "top", title.hjust = 0
     )) +
     ggplot2::labs(title = ttl_c, subtitle = sub_c) +
     base_theme
@@ -766,6 +772,17 @@ bs_concordance_maps <- function(
     patchwork::plot_annotation(
       theme = ggplot2::theme(plot.margin = ggplot2::margin(6, 22, 6, 6))
     )
+}
+
+# wrap a one-line label to <= `width` characters per line so long panel
+# subtitles and legend titles do not overflow a narrow map panel into the
+# neighbouring one. Operates on the finished string (post-sprintf).
+.wrap_lines <- function(x, width = 36) {
+  vapply(
+    x,
+    function(s) paste(strwrap(s, width = width), collapse = "\n"),
+    character(1), USE.NAMES = FALSE
+  )
 }
 
 # nicely-named intervals for use as factor levels + palette keys
