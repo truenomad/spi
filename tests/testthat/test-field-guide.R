@@ -171,8 +171,10 @@ test_that("bs_field_guide can be recomputed end to end", {
   fg <- bs_field_guide(
     conc, adjacency = adj, spi_month = cm,
     genomic = dplyr::filter(s$virus_outcome, any_cvdpv2 == 1)[, c("adm2_guid", "year")],
+    es = s$es_district_year, es_col = "n_positive",
     verbose = FALSE
   )
   expect_s3_class(fg, "blindspot_field_guide")
+  # all four channels supplied -> every signal computable
   expect_true(all(fg$signals_active))
 })
