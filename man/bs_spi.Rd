@@ -7,6 +7,7 @@
 bs_spi(
   expected,
   cases = NULL,
+  boundaries = NULL,
   level = c("district_year", "district_month", "district_quarter", "district_total"),
   min_expected = 1,
   verbose = TRUE
@@ -19,6 +20,12 @@ bs_spi(
 \item{cases}{Optional tibble with the district identifier column (matching
 \code{expected$id_col}), \code{month} (Date), and \code{count}. If NULL (default), uses
 the observed counts already in the expected model fit.}
+
+\item{boundaries}{Optional \code{sf} object or data frame carrying the id column
+plus admin name columns (\code{adm1_name}, \code{adm2_name}, ...). When supplied,
+those names are joined onto the \code{summary} output immediately before the
+id column, so saved SPI tables carry human-readable labels next to the
+district id. Default \code{NULL}.}
 
 \item{level}{Character. Aggregation level: "district_month" (raw, highest
 temporal resolution), "district_quarter" (calendar-quarter SPI per

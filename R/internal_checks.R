@@ -20,6 +20,51 @@
   invisible(TRUE)
 }
 
+#' Attach administrative name columns before the id column
+#'
+#' Left-joins the standard admin-hierarchy name columns
+#' (`adm0_name`/`adm1_name`/`adm2_name`) from a boundaries layer onto a
+#' district-keyed table and relocates them to sit immediately before `id_col`,
+#' so saved outputs carry human-readable labels next to the district id. A
+#' no-op when `boundaries` is NULL or carries none of the name columns.
+#'
+#' @param df Data frame keyed by `id_col`.
+#' @param boundaries `sf` object or data frame carrying `id_col` and one or
+#'   more name columns. If NULL, `df` is returned unchanged.
+#' @param id_col Name of the district id column, present in both `df` and
+#'   `boundaries`.
+#' @param cols Optional character vector naming which label columns to attach.
+#'   Defaults to whichever of adm0/adm1/adm2_name are present in `boundaries`.
+#' @return `df` with the label columns joined and moved before `id_col`.
+#' @noRd
+.attach_admin_labels <- function(df, boundaries, id_col, cols = NULL) {
+  if (is.null(boundaries)) {
+    return(df)
+  }
+  bnd <- boundaries
+  if (inherits(bnd, "sf")) {
+    .check_pkg("sf", reason = "to read admin names from an sf boundaries layer")
+    bnd <- sf::st_drop_geometry(bnd)
+  }
+  if (!id_col %in% names(bnd)) {
+    cli::cli_abort(
+      "{.arg boundaries} must contain the id column {.val {id_col}}."
+    )
+  }
+  label_cols <- cols %||%
+    intersect(c("adm0_name", "adm1_name", "adm2_name"), names(bnd))
+  # never re-attach the key or a column df already carries
+  label_cols <- setdiff(label_cols, c(id_col, names(df)))
+  if (length(label_cols) == 0L) {
+    return(df)
+  }
+
+  df <- dplyr::left_join(df, bnd[, c(id_col, label_cols)], by = id_col)
+  dplyr::relocate(
+    df, dplyr::all_of(label_cols), .before = dplyr::all_of(id_col)
+  )
+}
+
 #' validate cases tibble
 #' @noRd
 .validate_cases <- function(cases) {

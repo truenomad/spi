@@ -206,9 +206,13 @@ print(overdisp)
 
 cli::cli_h2("Compute SPI at three aggregation levels")
 
-spi_dy <- blindspot::bs_spi(fit_bare, level = "district_year")
-spi_dm <- blindspot::bs_spi(fit_bare, level = "district_month")
-spi_total <- blindspot::bs_spi(fit_bare, level = "district_total")
+# pass boundaries so saved SPI tables carry adm1/adm2 names next to the id
+spi_dy <- blindspot::bs_spi(fit_bare, level = "district_year",
+                            boundaries = boundaries)
+spi_dm <- blindspot::bs_spi(fit_bare, level = "district_month",
+                            boundaries = boundaries)
+spi_total <- blindspot::bs_spi(fit_bare, level = "district_total",
+                               boundaries = boundaries)
 
 cli::cli_h3("District-year SPI (primary reporting level)")
 print(spi_dy)

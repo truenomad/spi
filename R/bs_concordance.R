@@ -194,6 +194,13 @@ bs_concordance <- function(
       # avoid duplicating columns already present in dy
       keep_cols <- setdiff(names(bnd_flat), setdiff(names(dy), id_col))
       dy <- dplyr::left_join(dy, bnd_flat[, keep_cols], by = id_col)
+      # surface the admin names next to the id, before the metric columns
+      name_cols <- intersect(c("adm0_name", "adm1_name", "adm2_name"),
+                             names(dy))
+      if (length(name_cols)) {
+        dy <- dplyr::relocate(dy, dplyr::all_of(name_cols),
+                              .before = dplyr::all_of(id_col))
+      }
     }
   }
 

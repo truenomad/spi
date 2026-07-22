@@ -27,6 +27,35 @@ test_that("bs_spi computes every aggregation level", {
   expect_equal(dy$level, "district_year")
 })
 
+test_that("bs_spi attaches admin names just before the id column", {
+  fit <- make_expected()
+  id <- fit$id_col
+  ids <- sort(unique(fit$data[[id]]))
+  labels <- data.frame(
+    ids,
+    adm1_name = paste0("Prov-", substr(ids, 2, 3)),
+    adm2_name = paste0("Dist-", ids),
+    stringsAsFactors = FALSE
+  )
+  names(labels)[1] <- id
+
+  s <- bs_spi(fit, level = "district_year", boundaries = labels,
+              verbose = FALSE)
+  nm <- names(s$summary)
+  gi <- match(id, nm)
+  # the two names sit immediately before the id column, in adm1 -> adm2 order
+  expect_equal(nm[gi - 2L], "adm1_name")
+  expect_equal(nm[gi - 1L], "adm2_name")
+  # names carry a value, not NA, for a known district
+  expect_true(all(!is.na(s$summary$adm2_name)))
+  # the low-information slice (derived from summary) carries them too
+  expect_true(all(c("adm1_name", "adm2_name") %in% names(s$low_information)))
+
+  # default (no boundaries) is unchanged
+  s0 <- bs_spi(fit, level = "district_year", verbose = FALSE)
+  expect_false("adm2_name" %in% names(s0$summary))
+})
+
 test_that("bs_spi honours an override cases table and imputes gaps to 0", {
   fit <- make_expected()
   id <- fit$id_col

@@ -12,6 +12,11 @@
 #' @param cases Optional tibble with the district identifier column (matching
 #'   `expected$id_col`), `month` (Date), and `count`. If NULL (default), uses
 #'   the observed counts already in the expected model fit.
+#' @param boundaries Optional `sf` object or data frame carrying the id column
+#'   plus admin name columns (`adm1_name`, `adm2_name`, ...). When supplied,
+#'   those names are joined onto the `summary` output immediately before the
+#'   id column, so saved SPI tables carry human-readable labels next to the
+#'   district id. Default `NULL`.
 #' @param level Character. Aggregation level: "district_month" (raw, highest
 #'   temporal resolution), "district_quarter" (calendar-quarter SPI per
 #'   district), "district_year" (annual SPI per district, default),
@@ -55,12 +60,14 @@
 #'   overdispersion = "nb"
 #' )
 #'
-#' spi_dy <- bs_spi(expected = fit, level = "district_year")
+#' # pass boundaries to carry adm1/adm2 names next to the district id
+#' spi_dy <- bs_spi(fit, level = "district_year", boundaries = boundaries)
 #' print(spi_dy)
 #' }
 bs_spi <- function(
   expected,
   cases = NULL,
+  boundaries = NULL,
   level = c(
     "district_year",
     "district_month",
@@ -146,6 +153,9 @@ bs_spi <- function(
     district_year = .spi_district_year(draws, observed, fit_data, id_col),
     district_total = .spi_district_total(draws, observed, fit_data, id_col)
   )
+
+  # --- attach admin names (adm*_name) just before the id column ---
+  spi_obj$summary <- .attach_admin_labels(spi_obj$summary, boundaries, id_col)
 
   # --- low-information flag -----------------------------
   low_info <- spi_obj$summary |>

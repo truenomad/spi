@@ -1,5 +1,12 @@
 # blindspot 0.1.0.9000
 
+* `bs_spi()` gained a `boundaries` argument. When supplied (an `sf` layer or a
+  plain data frame keyed by the id column), the admin name columns
+  (`adm1_name`, `adm2_name`, ...) are joined onto the `summary` output and
+  placed immediately before the district id, so saved SPI tables carry
+  human-readable labels next to `adm2_guid`. `bs_concordance()` already joined
+  boundary names; those are now likewise moved to just before the id column,
+  and `bs_field_guide()` inherits the ordering from the concordance table.
 * `bs_field_guide()` gained three opt-in settings, all off by default so the
   published flag counts reproduce out of the box. `traj_alpha` turns S4
   (trajectory) into a significance-gated trend test: a trajectory reads
