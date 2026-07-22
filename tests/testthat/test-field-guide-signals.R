@@ -8,12 +8,14 @@ seasonal_map <- list(FG1 = "present", FG2 = "blind", FG3 = "muted",
                      FG4 = "present", FG5 = "none", FG6 = "present")
 
 build_full_guide <- function(genomic = make_genomic(), genomic_col = NULL,
+                             es = make_es(), es_col = "n_positive",
                              verbose = FALSE, ...) {
   conc <- make_concordance()
   nb <- make_nb(ids6)
   sm <- make_spi_month("adm2_guid", ids6, 2019:2024, seasonal_map)
   bs_field_guide(conc, adjacency = nb, spi_month = sm, genomic = genomic,
-                 genomic_col = genomic_col, verbose = verbose, ...)
+                 genomic_col = genomic_col, es = es, es_col = es_col,
+                 verbose = verbose, ...)
 }
 
 test_that("all seven signals compute when the inputs are supplied", {
@@ -40,6 +42,81 @@ test_that("genomic_col filters detections and validates its name", {
   expect_true(any(fg$district_year$genomic_orphan, na.rm = TRUE))
 
   expect_error(build_full_guide(genomic_col = "missing_flag"), "genomic_col")
+})
+
+test_that("dedupe_temporal collapses the trajectory + persistence pair", {
+  base <- build_full_guide()
+  dedup <- build_full_guide(dedupe_temporal = TRUE)
+
+  # FG1 flags on a falling, persistent trajectory with quiet neighbours/season,
+  # so its two temporal signals are the whole corroboration
+  fg1 <- function(fg) fg$focal[fg$focal$adm2_guid == "FG1", ]
+  expect_equal(fg1(base)$corroborators, 2L)
+  expect_identical(as.character(fg1(base)$verdict), "FLAG")
+  # counted once, the temporal pair no longer clears the 2-of-N rule
+  expect_equal(fg1(dedup)$corroborators, 1L)
+  expect_false(as.character(fg1(dedup)$verdict) == "FLAG")
+  expect_true(dedup$params$dedupe_temporal)
+})
+
+test_that("traj_alpha gates a volatile slope to flat, not falling", {
+  years <- 2019:2024
+  # a volatile series with a net-negative slope but no significant trend: the
+  # KAHMARD case the review flagged (spikes and craters, not a steady decline)
+  spi <- c(0.95, 0.90, 0.30, 0.85, 0.30, 0.75)
+  dy <- tibble::tibble(
+    adm2_guid = "V1", adm2_name = "Volatile", adm1_name = "P", year = years,
+    observed = 2L, expected_total = 12, spi_median = spi,
+    spi_q05 = pmax(spi - 0.15, 0.05), spi_q95 = spi + 0.10,
+    npafp_rate = 5, npafp_adequate = TRUE
+  )
+  conc <- structure(
+    list(
+      district_year = dy,
+      thresholds = list(spi = 0.8, npafp = 3, multiplier = 1e5),
+      id_col = "adm2_guid", call = quote(bs_concordance())
+    ),
+    class = "blindspot_concordance"
+  )
+
+  foc <- function(fg) fg$focal[fg$focal$adm2_guid == "V1", ]
+  # the default bare slope sign reads the endpoint drop as "falling"; the
+  # recommended significance gate (traj_alpha = 0.1) calls it "flat"
+  expect_identical(foc(bs_field_guide(conc, verbose = FALSE))$trajectory,
+                   "falling")
+  gated <- bs_field_guide(conc, traj_alpha = 0.1, verbose = FALSE)
+  expect_identical(foc(gated)$trajectory, "flat")
+})
+
+test_that("neighbourhood_shortfall names the region-wide absorption case", {
+  fg <- build_full_guide()
+  dy <- fg$district_year
+  expect_true("neighbourhood_shortfall" %in% names(dy))
+
+  # FG1 is below the cut and so is its neighbour FG2: region-wide, not a local
+  # discordance -- and the two states never overlap
+  fg1 <- fg$focal[fg$focal$adm2_guid == "FG1", ]
+  expect_true(fg1$neighbourhood_shortfall)
+  expect_false(fg1$neighbour_discordant)
+  expect_false(any(dy$neighbourhood_shortfall & dy$neighbour_discordant,
+                   na.rm = TRUE))
+
+  # without adjacency the column is present but NA (graceful degradation)
+  bare <- bs_field_guide(make_concordance(), verbose = FALSE)
+  expect_true(all(is.na(bare$district_year$neighbourhood_shortfall)))
+})
+
+test_that("detection_corroborates counts a detection as an extra signal", {
+  base <- build_full_guide()
+  withdet <- build_full_guide(detection_corroborates = TRUE)
+
+  # FG2 carries a genomic orphan; counting it lifts the corroborator tally by 1
+  fg2 <- function(fg) fg$focal[fg$focal$adm2_guid == "FG2", ]
+  expect_true(fg2(base)$genomic_orphan)
+  expect_equal(fg2(withdet)$corroborators, fg2(base)$corroborators + 1L)
+  expect_true(withdet$params$detection_corroborates)
+  # default keeps the detection out of the count (paper's spec)
+  expect_false(base$params$detection_corroborates)
 })
 
 test_that("bs_field_guide degrades and warns without optional inputs", {

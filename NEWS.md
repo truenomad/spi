@@ -1,5 +1,32 @@
 # blindspot 0.1.0.9000
 
+* `bs_field_guide()` gained three opt-in settings, all off by default so the
+  published flag counts reproduce out of the box. `traj_alpha` turns S4
+  (trajectory) into a significance-gated trend test: a trajectory reads
+  "falling"/"rising" only if its OLS slope differs from zero at that two-sided
+  level (needing three or more points), else "flat". This stops an endpoint
+  drop or a single volatile year from reading as a sustained decline, matching
+  the paper's S4 intent ("a sustained downward slope is a trend, not a single
+  anomalous year"); `traj_alpha = 0.1` is the recommended setting and improves
+  specificity on volatile series. `dedupe_temporal` counts a falling trajectory
+  (S4) and a persistent sub-cut run (S5) as a single "temporal" corroborator
+  rather than two, so a flag cannot rest on two readings of the same decline --
+  the case that bites where neighbours drop out and the 2-of-4 rule reduces to
+  one temporal fact counted twice. `detection_corroborates` promotes an AFP or
+  ES detection to a counted, independent signal -- the recommended way to give
+  a persistently-low district in a degraded neighbourhood a non-temporal leg
+  (the KITI/KHULM absorption case), since it is the one corroborator not
+  downstream of the AFP reporting being absorbed.
+* `bs_field_guide()` also adds a `neighbourhood_shortfall` column on
+  `district_year`, naming the absorption / self-benchmarking case (district and
+  its neighbourhood both below the cut) that the boolean `neighbour_discordant`
+  could not distinguish.
+* `bs_field_guide_pager()`: the S6 reading now names a region-wide shortfall
+  explicitly when a district and its neighbours are both below the cut; the
+  chart's endpoint label peels a trailing "(qualifier)" onto its own line and
+  shrinks the name to fit the right margin (no more collision with the SPI
+  value); and the flag-rule sentence enumerates the actual corroborator axes,
+  so it stays honest under `dedupe_temporal` / `detection_corroborates`.
 * `bs_field_guide()` gained an `es` / `es_col` argument: a second, independent
   detection channel for S7 alongside `genomic` (AFP). It adds `es_years` /
   `es_detected` to `district_year`, mirroring the AFP `orphan_years` /

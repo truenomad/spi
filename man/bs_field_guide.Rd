@@ -17,7 +17,10 @@ bs_field_guide(
   persistence = 3L,
   traj_window = 5L,
   traj_tol = 0.01,
+  traj_alpha = NULL,
   min_corroborators = 2L,
+  dedupe_temporal = FALSE,
+  detection_corroborates = FALSE,
   id_col = NULL,
   verbose = TRUE
 )
@@ -65,8 +68,26 @@ at each year (S4). Default: 5.}
 \item{traj_tol}{Numeric slope dead-band per year below which a trajectory
 is "flat" (S4). Default: 0.01.}
 
+\item{traj_alpha}{Optional numeric significance level for S4. When set, a
+trajectory is only "falling" or "rising" if its OLS slope differs from
+zero at this two-sided level (needing at least three points in the
+window); otherwise it is "flat". This guards against a single anomalous or
+volatile year reading as a sustained trend. Default: NULL (the paper's
+slope-sign-and-tolerance trajectory, which reproduces the published flag
+counts). \code{0.1} is the recommended setting, improving specificity on
+volatile series.}
+
 \item{min_corroborators}{Integer. Corroborating signals required to flag.
 Default: 2.}
+
+\item{dedupe_temporal}{Logical. Count a falling trajectory (S4) and a
+persistent sub-cut run (S5) as a single "temporal" corroborator rather
+than two, since over a short window they can re-read the same decline.
+Default: FALSE (they count separately, matching the paper).}
+
+\item{detection_corroborates}{Logical. Count an AFP or ES detection (S7) as
+an independent corroborating signal. Default: FALSE (detections strengthen
+a flag in the narrative but never enter the count, matching the paper).}
 
 \item{id_col}{Character district id column. Default: NULL (take
 \code{concordance$id_col}).}
@@ -80,8 +101,9 @@ An object of class \code{blindspot_field_guide}. A list with:
 \item{district_year}{Tibble, one row per district-year, carrying the
 inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1},
 \code{s1_discordance}, \code{longest_run_below}, \code{trajectory}, \code{neighbour_spi},
-\code{neighbour_discordant}, \code{seasonal}, \code{orphan_years}, \code{genomic_orphan},
-\code{es_years}, \code{es_detected}), \code{corroborators}, and \code{verdict} (factor).}
+\code{neighbour_discordant}, \code{neighbourhood_shortfall}, \code{seasonal},
+\code{orphan_years}, \code{genomic_orphan}, \code{es_years}, \code{es_detected}),
+\code{corroborators}, and \code{verdict} (factor).}
 \item{focal}{The \code{read_year} slice of \code{district_year}.}
 \item{reference}{The seven-signal reference tibble (what each asks /
 rules out).}
@@ -107,8 +129,10 @@ sub-threshold on SPI with the 90\% credible interval excluding 1.
 sits below the cut.
 \item \strong{S3 Observed vs expected} -- few observed cases against a
 substantial model-expected count.
-\item \strong{S4 Trajectory} -- the sign of the SPI-vs-year slope over the
-last \code{traj_window} years (falling / flat / rising).
+\item \strong{S4 Trajectory} -- the SPI-vs-year slope over the last
+\code{traj_window} years (falling / flat / rising); set \code{traj_alpha} to
+significance-gate it into a trend test so a single anomalous year is not
+read as a decline.
 \item \strong{S5 Persistence} -- the longest run of consecutive years below
 the cut up to that year.
 \item \strong{S6 Neighbour contrast} -- under-detection while immediate
@@ -129,6 +153,17 @@ district below the cut whose credible interval still reaches 1 is kept at
 \strong{watch} rather than flagged; everything else needs \strong{no action}.
 Detection corroboration (AFP or ES) strengthens a flag in the narrative but
 is never one of the four corroborators, matching the paper.
+
+Three settings refine the reading; all are off by default, so the field
+guide reproduces the paper's published spec out of the box (bare slope-sign
+S4, four separately-counted signals). \code{dedupe_temporal} collapses the
+trajectory (S4) and persistence (S5) signals into one, so a flag cannot rest
+on two readings of the same decline; \code{detection_corroborates} promotes an
+AFP or ES detection to a counted, independent signal; and \code{traj_alpha}
+significance-gates S4 into a trend test (0.1 is the recommended value) so a
+single anomalous or endpoint-only year no longer reads as a sustained
+decline. Each changes flag counts against the published numbers, which is
+why each is opt-in.
 
 Signals that need optional inputs degrade gracefully: without \code{adjacency},
 \code{spi_month}, \code{genomic}, or \code{es} the corresponding signal is \code{NA} and

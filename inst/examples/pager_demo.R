@@ -12,6 +12,23 @@
 #   source(system.file("examples/pager_demo.R", package = "blindspot"))
 # or, from a source checkout:
 #   Rscript inst/examples/pager_demo.R
+#
+# Operational note: the pager renders S4, the corroborator count and the
+# verdict straight from the field-guide object -- it does not recompute them.
+# So the one lever that keeps a volatile or endpoint-only year from reading as
+# a "falling" trend on the page is `traj_alpha` at the *build* of the field
+# guide, not at the pager call. `bs_field_guide()` defaults to `traj_alpha =
+# NULL` (bare slope sign) to reproduce the paper's published flag counts; for
+# operational pagers that people read, build the guide with the significance
+# gate on so the trend test carries through:
+#
+#   fg <- bs_field_guide(conc, adjacency = adj, spi_month = cm,
+#                        genomic = g, es = e, traj_alpha = 0.1)
+#
+# Keep bare slope for manuscript figures, gate the operational pagers. This
+# synthetic gallery renders from the precomputed (bare-slope) `synth_field_guide`
+# so it runs instantly without INLA; the one line above is the only change for
+# a real operational run.
 
 library(blindspot)
 
@@ -20,6 +37,10 @@ out_dir <- file.path("inst", "examples", "pager")
 fg <- synth_field_guide
 foc <- fg$focal
 cut <- fg$thresholds$spi
+
+# ES is an optional S7 channel; tolerate a field guide built without it
+es_hit <- if ("es_detected" %in% names(foc)) foc$es_detected %in% TRUE else FALSE
+gen_hit <- foc$genomic_orphan %in% TRUE
 
 # one district per verdict archetype, chosen by rule so the gallery survives a
 # regeneration of the synthetic bundle. these are the four accent states the
@@ -39,8 +60,7 @@ largest <- function(keep) {
 }
 
 districts <- unique(c(
-  deepest(foc$verdict == "FLAG" &
-            (foc$genomic_orphan %in% TRUE | foc$es_detected %in% TRUE)),
+  deepest(foc$verdict == "FLAG" & (gen_hit | es_hit)),
   deepest(foc$verdict == "WATCH"),
   deepest(foc$verdict == "No action" & foc$spi_below),
   largest(foc$verdict == "No action" & foc$spi_median >= cut)

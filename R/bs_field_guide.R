@@ -16,8 +16,10 @@
 #'     sits below the cut.
 #'   \item **S3 Observed vs expected** -- few observed cases against a
 #'     substantial model-expected count.
-#'   \item **S4 Trajectory** -- the sign of the SPI-vs-year slope over the
-#'     last `traj_window` years (falling / flat / rising).
+#'   \item **S4 Trajectory** -- the SPI-vs-year slope over the last
+#'     `traj_window` years (falling / flat / rising); set `traj_alpha` to
+#'     significance-gate it into a trend test so a single anomalous year is not
+#'     read as a decline.
 #'   \item **S5 Persistence** -- the longest run of consecutive years below
 #'     the cut up to that year.
 #'   \item **S6 Neighbour contrast** -- under-detection while immediate
@@ -38,6 +40,17 @@
 #' **watch** rather than flagged; everything else needs **no action**.
 #' Detection corroboration (AFP or ES) strengthens a flag in the narrative but
 #' is never one of the four corroborators, matching the paper.
+#'
+#' Three settings refine the reading; all are off by default, so the field
+#' guide reproduces the paper's published spec out of the box (bare slope-sign
+#' S4, four separately-counted signals). `dedupe_temporal` collapses the
+#' trajectory (S4) and persistence (S5) signals into one, so a flag cannot rest
+#' on two readings of the same decline; `detection_corroborates` promotes an
+#' AFP or ES detection to a counted, independent signal; and `traj_alpha`
+#' significance-gates S4 into a trend test (0.1 is the recommended value) so a
+#' single anomalous or endpoint-only year no longer reads as a sustained
+#' decline. Each changes flag counts against the published numbers, which is
+#' why each is opt-in.
 #'
 #' Signals that need optional inputs degrade gracefully: without `adjacency`,
 #' `spi_month`, `genomic`, or `es` the corresponding signal is `NA` and
@@ -73,8 +86,23 @@
 #'   at each year (S4). Default: 5.
 #' @param traj_tol Numeric slope dead-band per year below which a trajectory
 #'   is "flat" (S4). Default: 0.01.
+#' @param traj_alpha Optional numeric significance level for S4. When set, a
+#'   trajectory is only "falling" or "rising" if its OLS slope differs from
+#'   zero at this two-sided level (needing at least three points in the
+#'   window); otherwise it is "flat". This guards against a single anomalous or
+#'   volatile year reading as a sustained trend. Default: NULL (the paper's
+#'   slope-sign-and-tolerance trajectory, which reproduces the published flag
+#'   counts). `0.1` is the recommended setting, improving specificity on
+#'   volatile series.
 #' @param min_corroborators Integer. Corroborating signals required to flag.
 #'   Default: 2.
+#' @param dedupe_temporal Logical. Count a falling trajectory (S4) and a
+#'   persistent sub-cut run (S5) as a single "temporal" corroborator rather
+#'   than two, since over a short window they can re-read the same decline.
+#'   Default: FALSE (they count separately, matching the paper).
+#' @param detection_corroborates Logical. Count an AFP or ES detection (S7) as
+#'   an independent corroborating signal. Default: FALSE (detections strengthen
+#'   a flag in the narrative but never enter the count, matching the paper).
 #' @param id_col Character district id column. Default: NULL (take
 #'   `concordance$id_col`).
 #' @param verbose Logical. Progress and degradation messages via cli.
@@ -85,8 +113,9 @@
 #'   \item{district_year}{Tibble, one row per district-year, carrying the
 #'     inputs plus every signal value (`spi_below`, `cri_excludes_1`,
 #'     `s1_discordance`, `longest_run_below`, `trajectory`, `neighbour_spi`,
-#'     `neighbour_discordant`, `seasonal`, `orphan_years`, `genomic_orphan`,
-#'     `es_years`, `es_detected`), `corroborators`, and `verdict` (factor).}
+#'     `neighbour_discordant`, `neighbourhood_shortfall`, `seasonal`,
+#'     `orphan_years`, `genomic_orphan`, `es_years`, `es_detected`),
+#'     `corroborators`, and `verdict` (factor).}
 #'   \item{focal}{The `read_year` slice of `district_year`.}
 #'   \item{reference}{The seven-signal reference tibble (what each asks /
 #'     rules out).}
@@ -143,7 +172,10 @@ bs_field_guide <- function(
   persistence = 3L,
   traj_window = 5L,
   traj_tol = 0.01,
+  traj_alpha = NULL,
   min_corroborators = 2L,
+  dedupe_temporal = FALSE,
+  detection_corroborates = FALSE,
   id_col = NULL,
   verbose = TRUE
 ) {
@@ -189,7 +221,7 @@ bs_field_guide <- function(
 
   # --- S5 persistence + S4 trajectory (per district, cumulative in year) ---
   dy <- .fg_add_persistence(dy, id_col, spi_cut)
-  dy <- .fg_add_trajectory(dy, id_col, traj_window, traj_tol)
+  dy <- .fg_add_trajectory(dy, id_col, traj_window, traj_tol, traj_alpha)
 
   # --- S6 neighbour contrast ------------------------------------------
   have_adjacency <- !is.null(adjacency)
@@ -199,6 +231,7 @@ bs_field_guide <- function(
     dy$neighbour_spi <- NA_real_
     dy$island <- NA
     dy$neighbour_discordant <- NA
+    dy$neighbourhood_shortfall <- NA
   }
 
   # --- S7 seasonal -----------------------------------------------------
@@ -236,20 +269,33 @@ bs_field_guide <- function(
 
   # --- corroborators + verdict ----------------------------------------
   is_true <- function(x) !is.na(x) & x
-  dy <- dy |>
-    dplyr::mutate(
-      corroborators = (.data$trajectory == "falling") +
-        (.data$longest_run_below >= persistence) +
-        is_true(.data$neighbour_discordant) +
-        is_true(.data$seasonally_blind),
-      verdict = dplyr::case_when(
-        .data$spi_below & .data$cri_excludes_1 &
-          .data$corroborators >= min_corroborators ~ "FLAG",
-        .data$spi_below & !.data$cri_excludes_1 ~ "WATCH",
-        TRUE ~ "No action"
-      ),
-      verdict = factor(.data$verdict, levels = c("FLAG", "WATCH", "No action"))
-    )
+  # the temporal axis (S4 falling, S5 persistence) is one corroborator when
+  # deduped -- over a short window the two can re-read the same decline -- and
+  # two otherwise (the paper's spec)
+  temporal_falling <- dy$trajectory == "falling"
+  temporal_persistent <- dy$longest_run_below >= persistence
+  temporal <- if (dedupe_temporal) {
+    as.integer(temporal_falling | temporal_persistent)
+  } else {
+    as.integer(temporal_falling) + as.integer(temporal_persistent)
+  }
+  # a detection is narrative corroboration by default; only when
+  # detection_corroborates is it counted as an independent signal
+  detection <- is_true(dy$genomic_orphan) | is_true(dy$es_detected)
+  detection_corr <- if (detection_corroborates) as.integer(detection) else 0L
+  dy$corroborators <- temporal +
+    as.integer(is_true(dy$neighbour_discordant)) +
+    as.integer(is_true(dy$seasonally_blind)) +
+    detection_corr
+  dy$verdict <- factor(
+    dplyr::case_when(
+      dy$spi_below & dy$cri_excludes_1 &
+        dy$corroborators >= min_corroborators ~ "FLAG",
+      dy$spi_below & !dy$cri_excludes_1 ~ "WATCH",
+      TRUE ~ "No action"
+    ),
+    levels = c("FLAG", "WATCH", "No action")
+  )
 
   signals_active <- c(
     s6_neighbour = have_adjacency,
@@ -259,7 +305,9 @@ bs_field_guide <- function(
   )
 
   if (verbose) {
-    n_assessable <- 2L + sum(have_adjacency, have_seasonal)
+    n_assessable <- (if (dedupe_temporal) 1L else 2L) +
+      as.integer(have_adjacency) + as.integer(have_seasonal) +
+      (if (detection_corroborates) as.integer(have_genomic || have_es) else 0L)
     off <- names(signals_active)[!signals_active]
     if (length(off) > 0) {
       cli::cli_alert_info(
@@ -292,7 +340,10 @@ bs_field_guide <- function(
         persistence = as.integer(persistence),
         traj_window = as.integer(traj_window),
         traj_tol = traj_tol,
-        min_corroborators = as.integer(min_corroborators)
+        traj_alpha = traj_alpha,
+        min_corroborators = as.integer(min_corroborators),
+        dedupe_temporal = dedupe_temporal,
+        detection_corroborates = detection_corroborates
       ),
       signals_active = signals_active,
       id_col = id_col,
@@ -334,9 +385,11 @@ bs_field_guide <- function(
   out
 }
 
-# S4: sign of the SPI-vs-year slope over the trailing `window` years.
+# S4: sign of the SPI-vs-year slope over the trailing `window` years. With
+# `alpha` set, the slope must also be significantly different from zero (a real
+# trend test) before it reads as falling / rising, else it is flat.
 # @noRd
-.fg_add_trajectory <- function(dy, id_col, window, tol) {
+.fg_add_trajectory <- function(dy, id_col, window, tol, alpha = NULL) {
   slope_at <- function(year, val, focal) {
     w <- year >= (focal - window + 1L) & year <= focal
     yr <- year[w]
@@ -345,24 +398,53 @@ bs_field_guide <- function(
     if (sum(ok) < 2L) return(NA_real_)
     unname(stats::coef(stats::lm(vv[ok] ~ yr[ok]))[2L])
   }
-  dy |>
+  # two-sided p-value for the slope; needs >= 3 points for a residual df
+  pval_at <- function(year, val, focal) {
+    w <- year >= (focal - window + 1L) & year <= focal
+    yr <- year[w]
+    vv <- val[w]
+    ok <- is.finite(yr) & is.finite(vv)
+    if (sum(ok) < 3L) return(NA_real_)
+    fit <- stats::lm(vv[ok] ~ yr[ok])
+    # a near-perfect fit warns ("summary may be unreliable") but its slope is
+    # unambiguously significant; the warning is benign, so silence it
+    tryCatch(
+      suppressWarnings(stats::coef(summary(fit))[2L, 4L]),
+      error = function(e) NA_real_
+    )
+  }
+  dy <- dy |>
     dplyr::group_by(dplyr::across(dplyr::all_of(id_col))) |>
     dplyr::mutate(
       traj_slope = vapply(
         .data$year,
         function(y) slope_at(.data$year, .data$spi_median, y),
         numeric(1)
-      )
+      ),
+      traj_p = if (is.null(alpha)) {
+        NA_real_
+      } else {
+        vapply(
+          .data$year,
+          function(y) pval_at(.data$year, .data$spi_median, y),
+          numeric(1)
+        )
+      }
     ) |>
-    dplyr::ungroup() |>
-    dplyr::mutate(
-      trajectory = dplyr::case_when(
-        is.na(.data$traj_slope) ~ "flat",
-        .data$traj_slope <= -tol ~ "falling",
-        .data$traj_slope >= tol ~ "rising",
-        TRUE ~ "flat"
-      )
-    )
+    dplyr::ungroup()
+
+  significant <- if (is.null(alpha)) {
+    rep(TRUE, nrow(dy))
+  } else {
+    !is.na(dy$traj_p) & dy$traj_p < alpha
+  }
+  dy$trajectory <- dplyr::case_when(
+    is.na(dy$traj_slope) ~ "flat",
+    dy$traj_slope <= -tol & significant ~ "falling",
+    dy$traj_slope >= tol & significant ~ "rising",
+    TRUE ~ "flat"
+  )
+  dy
 }
 
 # S6: neighbour-median SPI per district-year, and discordance flag.
@@ -410,7 +492,11 @@ bs_field_guide <- function(
     dplyr::mutate(
       island = .data[[id_col]] %in% islands,
       neighbour_discordant = !is.na(.data$neighbour_spi) &
-        .data$neighbour_spi >= spi_cut & .data$spi_median < spi_cut
+        .data$neighbour_spi >= spi_cut & .data$spi_median < spi_cut,
+      # the absorption / self-benchmarking case: the district is short and so
+      # is its neighbourhood, so the shortfall is region-wide, not local
+      neighbourhood_shortfall = !is.na(.data$neighbour_spi) &
+        .data$neighbour_spi < spi_cut & .data$spi_median < spi_cut
     )
 }
 

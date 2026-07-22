@@ -467,7 +467,7 @@ as.character.blindspot_pager <- function(x, ...) {
 # format a number with the pager's middle-dot decimal separator.
 # @noRd
 .pager_dot <- function(x, digits = 2) {
-  gsub(".", "·", formatC(x, format = "f", digits = digits), fixed = TRUE)
+  gsub(".", "\u00b7", formatC(x, format = "f", digits = digits), fixed = TRUE)
 }
 
 # parse a cumulative "2021, 2022" detection-year string to integers.
@@ -522,15 +522,15 @@ as.character.blindspot_pager <- function(x, ...) {
     FLAG = list(
       verdict = "FLAG",
       accent = "#c8102e",
-      tag = if (corroborated) "Flag · corroborated" else "Flag",
-      priority = "priority · review and search",
+      tag = if (corroborated) "Flag \u00b7 corroborated" else "Flag",
+      priority = "priority \u00b7 review and search",
       action = c("Supervisory review", "active case search")
     ),
     WATCH = list(
       verdict = "WATCH",
       accent = "#e87722",
       tag = "Watch",
-      priority = "hold · collect another year",
+      priority = "hold \u00b7 collect another year",
       action = c("Watch", "collect another year")
     ),
     # No action splits: a genuinely adequate district (green, "Adequate") vs a
@@ -541,7 +541,7 @@ as.character.blindspot_pager <- function(x, ...) {
         verdict = "No action",
         accent = "#5a6883",
         tag = "No action",
-        priority = "sub-threshold · monitor",
+        priority = "sub-threshold \u00b7 monitor",
         action = c("No action", "routine monitoring")
       )
     } else {
@@ -549,7 +549,7 @@ as.character.blindspot_pager <- function(x, ...) {
         verdict = "No action",
         accent = "#1f6f43",
         tag = "Adequate",
-        priority = "routine · no action",
+        priority = "routine \u00b7 no action",
         action = c("No action", "routine monitoring")
       )
     }
@@ -717,17 +717,27 @@ as.character.blindspot_pager <- function(x, ...) {
   }
   ex <- px(n - 1)
   ey <- py(focal_series[n])
+  # endpoint label: peel a trailing "(qualifier)" down to the mono sub-line and
+  # shrink the main name to fit the right margin, so a long name like
+  # "TURWO (TARWE)" neither collides with the SPI value nor runs off the frame
+  lbl <- as.character(focal[[name_col]] %||% "")
+  paren <- regmatches(lbl, regexec("^(.*?)\\s*\\(([^)]*)\\)\\s*$", lbl))[[1]]
+  main <- if (length(paren) == 3L) paren[2] else lbl
+  qual <- if (length(paren) == 3L) sprintf("(%s) \u00b7 ", paren[3]) else ""
+  avail <- (w - 4) - (ex + 10)
+  name_size <- max(9, min(14.5, avail / (0.62 * max(nchar(main), 1L))))
   s <- paste0(
     s, "<circle cx=\"", fnum(ex), "\" cy=\"", fnum(ey),
     "\" r=\"3.6\" fill=\"", accent, "\" stroke=\"#fffdf8\" ",
     "stroke-width=\"1.6\"/>",
     "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ey + 2),
-    "\" font-family=\"Archivo\" font-weight=\"900\" font-size=\"14.5\" fill=\"",
-    accent, "\">", .pager_escape(as.character(focal[[name_col]] %||% "")),
+    "\" font-family=\"Archivo\" font-weight=\"900\" font-size=\"",
+    fnum(name_size), "\" fill=\"", accent, "\">", .pager_escape(main),
     "</text>",
     "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ey + 15),
     "\" font-family=\"Spline Sans Mono\" font-size=\"9.5\" fill=\"", accent,
-    "\">SPI ", .pager_dot(focal$spi_median, 2), "</text></svg>"
+    "\">", .pager_escape(qual), "SPI ", .pager_dot(focal$spi_median, 2),
+    "</text></svg>"
   )
   s
 }
@@ -821,8 +831,8 @@ as.character.blindspot_pager <- function(x, ...) {
     )
   } else if (isTRUE(r$spi_below)) {
     sprintf(
-      paste0("%s against a neighbour median of %s, a shortfall shared with ",
-             "its neighbours rather than a local gap."),
+      paste0("%s against a neighbour median of %s, itself below the cut: a ",
+             "region-wide shortfall rather than a local gap."),
       spi, nb
     )
   } else {
@@ -850,19 +860,22 @@ as.character.blindspot_pager <- function(x, ...) {
   falling <- r$trajectory == "falling"
   persistent <- run >= persistence
   discordant <- isTRUE(r$neighbour_discordant)
-  # only seasonal blindness is a *counted* corroborator; a detection
-  # corroborates from outside the model and is flagged "external", so a reader
-  # counting the corroborating chips does not over-count against the flag rule
+  # seasonal blindness always counts; a detection counts only when the guide
+  # was built with detection_corroborates, otherwise it corroborates from
+  # outside the model and is flagged "external", so a reader counting the
+  # corroborating chips does not over-count against the flag rule
   seasonal_counts <- isTRUE(r$seasonally_blind)
   detected <- length(detections$afp) > 0 || length(detections$es) > 0
-  s7_role <- if (seasonal_counts) {
+  detection_counts <- isTRUE(params$detection_corroborates) && detected
+  s7_counts <- seasonal_counts || detection_counts
+  s7_role <- if (s7_counts) {
     "corr"
   } else if (detected) {
     "external"
   } else {
     "quiet"
   }
-  s7_label <- if (seasonal_counts) {
+  s7_label <- if (s7_counts) {
     "corroborates"
   } else if (detected) {
     "external"
@@ -1010,14 +1023,14 @@ as.character.blindspot_pager <- function(x, ...) {
       adm0[nzchar(adm0) & adm0 != name],
       admin_label
     ),
-    collapse = " · "
+    collapse = " \u00b7 "
   )
 
   spi <- .pager_dot(focal$spi_median, 2)
   nb_txt <- if (is.na(focal$neighbour_spi)) {
     ""
   } else {
-    sprintf(" · neighbours %s", .pager_dot(focal$neighbour_spi, 2))
+    sprintf(" \u00b7 neighbours %s", .pager_dot(focal$neighbour_spi, 2))
   }
 
   legend_neighbour <- if (length(neighbours) == 0L) {
@@ -1042,19 +1055,34 @@ as.character.blindspot_pager <- function(x, ...) {
   }, character(1))
   rows <- paste(rows, collapse = "")
 
+  # enumerate the actual corroborator axes: the temporal pair collapses to one
+  # under dedupe_temporal, and a detection joins the count under
+  # detection_corroborates -- so the "of N" and the list stay honest
+  dedupe <- isTRUE(params$dedupe_temporal)
+  detection_counts <- isTRUE(params$detection_corroborates)
+  axes <- c(
+    if (dedupe) "trajectory or persistence" else "trajectory, persistence",
+    "neighbours", "season",
+    if (detection_counts) "detections" else NULL
+  )
+  n_axes <- (if (dedupe) 1L else 2L) + 2L + (if (detection_counts) 1L else 0L)
+  detect_clause <- if (detection_counts) {
+    "."
+  } else {
+    "; detections corroborate from outside this count."
+  }
   rule <- sprintf(
-    paste0("A %s is flagged when its SPI sits below the %s adequacy ",
-           "cut, its 90%% credible interval lies wholly below one, and at ",
-           "least %d of four signals corroborate (trajectory, persistence, ",
-           "neighbours, season); detections corroborate from outside this ",
-           "count."),
-    unit_noun, .pager_dot(spi_cut, 2), as.integer(params$min_corroborators)
+    paste0("A %s is flagged when its SPI sits below the %s adequacy cut, its ",
+           "90%% credible interval lies wholly below one, and at least %d of ",
+           "%d signals corroborate (%s)%s"),
+    unit_noun, .pager_dot(spi_cut, 2), as.integer(params$min_corroborators),
+    n_axes, paste(axes, collapse = ", "), detect_clause
   )
   caption <- .pager_escape(.pager_caption(focal, name))
   banner_reading <- .pager_escape(
     .pager_banner_reading(focal, spi_cut, params, detections, detection_label)
   )
-  action <- paste(vstyle$action, collapse = " ·<br>")
+  action <- paste(vstyle$action, collapse = " \u00b7<br>")
   legend_detect <- paste0(
     if (length(detections$afp) > 0) {
       "<span><span class=\"ld\"></span> AFP detection</span>"
@@ -1067,7 +1095,7 @@ as.character.blindspot_pager <- function(x, ...) {
       ""
     }
   )
-  eyebrow <- sprintf("blindspot · SPI reading · %s %d · %s",
+  eyebrow <- sprintf("blindspot \u00b7 SPI reading \u00b7 %s %d \u00b7 %s",
                      adm0, year, note)
 
   paste0(
@@ -1084,9 +1112,9 @@ as.character.blindspot_pager <- function(x, ...) {
     nb_txt, "</div></div></div>",
     # body
     "<div class=\"body\"><div class=\"cgroup\">",
-    "<div class=\"sectlab\"><span>SPI over time — ", name,
+    "<div class=\"sectlab\"><span>SPI over time \u2014 ", name,
     " against its touching neighbours</span>",
-    "<span>observed ÷ model-expected non-polio AFP</span></div>",
+    "<span>observed \u00f7 model-expected non-polio AFP</span></div>",
     "<div class=\"caption\">", caption, "</div>",
     "<div class=\"chartbox\"><div class=\"ts\">", chart, "</div>",
     if (nzchar(locator)) {
@@ -1100,13 +1128,13 @@ as.character.blindspot_pager <- function(x, ...) {
     "<span><span class=\"lk\"></span> ", name, "</span>",
     "<span><span class=\"lband\"></span> 90% credible interval</span>",
     legend_neighbour,
-    "<span><span class=\"lk exp\"></span> 1·0, expected detection</span>",
+    "<span><span class=\"lk exp\"></span> 1\u00b70, expected detection</span>",
     legend_detect,
     "</div></div>",
     # reading
     "<div class=\"reading\"><div class=\"sectlab\" ",
-    "style=\"margin-bottom:6px\"><span>The reading — seven signals for ",
-    name, "</span><span>gate · magnitude · corroboration</span></div>",
+    "style=\"margin-bottom:6px\"><span>The reading \u2014 seven signals for ",
+    name, "</span><span>gate \u00b7 magnitude \u00b7 corroboration</span></div>",
     "<div class=\"rrule\">", rule, "</div>",
     "<div>", rows, "</div></div>",
     # verdict banner
@@ -1115,7 +1143,7 @@ as.character.blindspot_pager <- function(x, ...) {
     "<div class=\"va\">", action, "</div></div>",
     "</div>",
     # footer
-    "<div class=\"foot\"><div>computed from bs_spi() posterior · ", note,
+    "<div class=\"foot\"><div>computed from bs_spi() posterior \u00b7 ", note,
     "</div><div>verify against source systems before operational use</div>",
     "</div></div></div></body></html>"
   )
@@ -1127,7 +1155,7 @@ as.character.blindspot_pager <- function(x, ...) {
   paste0(
     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">",
     "<meta name=\"viewport\" content=\"width=device-width, ",
-    "initial-scale=1.0\"><title>", name, " — SPI reading ", year,
+    "initial-scale=1.0\"><title>", name, " \u2014 SPI reading ", year,
     "</title><style>", .pager_css(accent), "</style></head>"
   )
 }

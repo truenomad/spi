@@ -337,4 +337,15 @@ make_genomic <- function(id_col = "adm2_guid") {
   )
 }
 
+# environmental-surveillance positives keyed by district-year, with an
+# `n_positive` count column (mirrors synth_surveillance$es_district_year). FG3
+# and FG5 carry positives so the S7 ES channel (s7_es) is exercised.
+make_es <- function(id_col = "adm2_guid") {
+  tibble::tibble(
+    !!id_col := c("FG3", "FG5"),
+    year = c(2022L, 2023L),
+    n_positive = c(1L, 2L)
+  )
+}
+
 `%||%` <- function(x, y) if (is.null(x)) y else x
