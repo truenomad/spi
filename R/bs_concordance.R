@@ -508,6 +508,13 @@ plot.blindspot_concordance <- function(x, ...) {
 #' as a single figure but each panel is a full `ggplot` you can extract
 #' or restyle.
 #'
+#' The maps hold a fixed geographic aspect ratio, so render at a shape
+#' that matches the boundaries or the panels float in whitespace. For a
+#' landscape territory the three side-by-side panels want a wide, short
+#' canvas -- roughly `width:height` of 3:1 (e.g. `ggsave(width = 15,
+#' height = 5)`); a portrait territory wants a taller one. Saving too
+#' tall leaves large empty bands above and below the maps.
+#'
 #' @param concordance A `blindspot_concordance` object. `$district_year`
 #'   must contain `year`, `npafp_rate`, `spi_median`, and `concordance`.
 #' @param boundaries `sf` object with the district id column matching
@@ -678,7 +685,7 @@ bs_concordance_maps <- function(
         face = "bold", size = 12, margin = ggplot2::margin(b = 4)
       ),
       plot.subtitle = ggplot2::element_text(
-        size = 9, colour = "grey30", margin = ggplot2::margin(t = 0, b = 18)
+        size = 9, colour = "grey30", margin = ggplot2::margin(t = 0, b = 8)
       ),
       plot.margin = ggplot2::margin(6, 10, 6, 10),
       legend.position = "bottom",
@@ -743,7 +750,7 @@ bs_concordance_maps <- function(
                      colour = "grey82", linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
-      values = pal_c, drop = TRUE, na.value = "grey85",
+      values = pal_c, drop = FALSE, na.value = "grey85",
       name = "Per-LGA agreement (conventional NPAFP x SPI)"
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(

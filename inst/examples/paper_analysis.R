@@ -357,10 +357,12 @@ if (interactive()) {
   print(maps)
 }
 
-# Save to disk for the manuscript / desk-review folder:
+# Save to disk for the manuscript / desk-review folder. Keep the canvas
+# wide and short so the (landscape) maps fill it rather than floating in
+# whitespace -- match height to the boundaries' aspect ratio.
 # ggplot2::ggsave(
 #   "03_output/main/figures/concordance_maps_2023.png",
-#   maps, width = 18, height = 8, dpi = 300, bg = "white"
+#   maps, width = 18, height = 6, dpi = 300, bg = "white"
 # )
 
 ## ---------------------------------------------------------------------------##
