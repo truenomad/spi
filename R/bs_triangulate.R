@@ -44,7 +44,7 @@
 #' District-years present in `field_guide` but absent from `detections` are
 #' read as no detection and no ES site. Detections here are confirmed
 #' poliovirus isolations by channel, distinct from the orphan-sequence signal
-#' the field guide uses as S7.
+#' the field guide uses as out-of-grid detection corroboration.
 #'
 #' @param field_guide A [bs_field_guide()] result (class
 #'   `blindspot_field_guide`). Supplies the verdict per district-year.

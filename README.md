@@ -1,4 +1,3 @@
-
 <!-- README.md is generated from README.Rmd. Please edit that file, then run
      `devtools::build_readme()` (or knit) to regenerate README.md. -->
 
@@ -11,14 +10,14 @@
 [![pkgdown](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml)
 [![License:
 MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![R \>=
+[![R >=
 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
 
 <!-- badges: end -->
 
 > **Find the districts where the surveillance system can't see**
 
-*In the districts that report no cases, is the silence real?*
+_In the districts that report no cases, is the silence real?_
 
 blindspot estimates, for each district in each month, how many cases a
 surveillance system should be detecting given its health facilities,
@@ -63,6 +62,7 @@ where
 
 <b>Method notes — estimand, model, and what the SPI is for</b> (click to
 expand)
+
 </summary>
 
 <br>
@@ -76,7 +76,7 @@ negative-binomial count. Fitted to the data, the model estimates an
 from a population offset and spatial, seasonal, and annual terms, with
 context covariates as an optional refinement; the **SPI is observed ÷
 expected**. Poliovirus circulation has no path into the model, so the
-SPI is diagnostic of *surveillance performance* and does not estimate
+SPI is diagnostic of _surveillance performance_ and does not estimate
 transmission; it enters only as an independent reference for external
 validation.
 
@@ -95,7 +95,7 @@ than replacing it: instead of asking whether a district clears a fixed
 target, it asks whether the district detects as much as a model of its
 own context expects, with uncertainty attached. SPI = 1 means detection
 matches expectation; below 1 flags under-detection (a blindspot). It is
-diagnostic, not predictive: it grades whether the system *could* see,
+diagnostic, not predictive: it grades whether the system _could_ see,
 not whether virus was there.
 
 The core engine is disease-agnostic: it operates on case counts,
@@ -115,16 +115,9 @@ about them.
 
 ## Installation
 
-``` r
+```r
 # from r-universe (recommended)
-install.packages(
-  "blindspot",
-  repos = c(
-    "https://truenomad.r-universe.dev",
-    "https://inla.r-inla-download.org/R/stable/",
-    "https://cloud.r-project.org"
-  )
-)
+install.packages("blindspot")
 
 # or from github
 pak::pak("truenomad/blindspot")
@@ -137,7 +130,7 @@ reproduce every step without POLIS access. It is the short version of
 `inst/examples/paper_analysis.R`, which you can open with
 `file.edit(system.file("examples/paper_analysis.R", package = "blindspot"))`.
 
-``` r
+```r
 library(blindspot)
 ```
 
@@ -148,11 +141,11 @@ library(blindspot)
 denominator, district polygons, a genomic outcome, and a ground-truth
 sheet recording where the blindspots were planted.
 
-``` r
+```r
 synth <- synth_surveillance
 names(synth)
-#>  [1] "cases"            "population"       "covariates"       "boundaries"      
-#>  [5] "ward_boundaries"  "virus_outcome"    "es_sites"         "es_data"         
+#>  [1] "cases"            "population"       "covariates"       "boundaries"
+#>  [5] "ward_boundaries"  "virus_outcome"    "es_sites"         "es_data"
 #>  [9] "es_district_year" "detections"       "truth"
 
 head(synth$cases)
@@ -177,14 +170,14 @@ panel surfaces here rather than as wrong numbers later. `bs_expected()`
 runs it for you and stops on any error; run it yourself first to see the
 warnings too.
 
-``` r
+```r
 bs_check_inputs(
   cases = synth$cases,
   population = synth$population,
   shapefile = synth$boundaries,
   id_col = "adm2_guid"
 )
-#> 
+#>
 #> -- blindspot input check -------------------------------------------------------
 #> v All input checks passed -- 236 districts x 120 months (2015-01 to 2024-12).
 ```
@@ -193,13 +186,13 @@ On a broken copy, one negative count and three dropped months, it
 returns the error that blocks the fit alongside the warnings worth a
 look:
 
-``` r
+```r
 bad <- synth$cases
 bad$count[1] <- -1                   # a data-entry slip
 bad <- bad[-(2:4), ]                 # three missing district-months
 
 bs_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
-#> 
+#>
 #> -- blindspot input check -------------------------------------------------------
 #> i 236 districts x 120 months (2015-01 to 2024-12)
 #> x 1 case row has negative counts
@@ -213,13 +206,13 @@ bs_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
 The model shares information between neighbouring districts, so the
 first step turns the polygons into a neighbour graph.
 
-``` r
+```r
 adj <- bs_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
 #> Neighbour list object:
-#> Number of regions: 236 
-#> Number of nonzero links: 1,320 
-#> Percentage nonzero weights: 2.3700 
+#> Number of regions: 236
+#> Number of nonzero links: 1,320
+#> Percentage nonzero weights: 2.3700
 #> Average number of links: 5.5932
 ```
 
@@ -234,7 +227,7 @@ season, and IID overdispersion, all on a log person-time offset. The
 binomial); pass `"auto"` to have it run the comparison in step 3 for you
 and refit with the best-calibrated spec.
 
-``` r
+```r
 fit_bare <- bs_expected(
   cases = synth$cases,
   population = synth$population,
@@ -252,7 +245,7 @@ fit_bare <- bs_expected(
 The model output is the expected case count for every district-month,
 with a full posterior. Displayed next to the observed count:
 
-``` r
+```r
 as_tibble(fit_bare) |>
   dplyr::filter(count > 0) |>
   dplyr::select(
@@ -278,7 +271,7 @@ reach, urbanicity, or access to care, `bs_expected()` takes them as a
 district-year tibble through the `covariates` argument. The toy ships
 three you can use straight away:
 
-``` r
+```r
 head(synth$covariates)
 #>                                adm2_guid year dtp3 urban_prop travel_time_min
 #> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2015 84.8      0.566            15.9
@@ -291,7 +284,7 @@ head(synth$covariates)
 
 Pass them in, log-transforming the skewed travel-time column:
 
-``` r
+```r
 fit_adj <- bs_expected(
   cases = synth$cases,
   population = synth$population,
@@ -312,15 +305,15 @@ Each effect comes back as a rate ratio per standard deviation (the
 covariates are standardised inside the model). Here are the three
 covariates, dropping the seasonal harmonic terms:
 
-``` r
+```r
 eff <- summary(fit_adj)$effects
 eff[eff$covariate %in% c("dtp3", "urban_prop", "travel_time_min"),
     c("covariate", "rr_median", "rr_q025", "rr_q975", "signif")]
 #> # A tibble: 3 x 5
 #>   covariate       rr_median rr_q025 rr_q975 signif
-#>   <chr>               <dbl>   <dbl>   <dbl> <lgl> 
-#> 1 dtp3                0.999   0.951    1.05 FALSE 
-#> 2 urban_prop          1.03    0.940    1.13 FALSE 
+#>   <chr>               <dbl>   <dbl>   <dbl> <lgl>
+#> 1 dtp3                0.999   0.951    1.05 FALSE
+#> 2 urban_prop          1.03    0.940    1.13 FALSE
 #> 3 travel_time_min     0.991   0.968    1.01 FALSE
 ```
 
@@ -337,7 +330,7 @@ model as the main one. The rest of this walk uses `fit_bare`.
 A quick likelihood check across none, IID, and negative-binomial, so the
 choice is justified rather than assumed.
 
-``` r
+```r
 od <- bs_compare_overdispersion(
   cases = synth$cases,
   population = synth$population,
@@ -349,14 +342,14 @@ od <- bs_compare_overdispersion(
 )
 ```
 
-``` r
+```r
 od$summary
 #> # A tibble: 3 x 11
 #>   spec  n_obs    dic   waic p_eff sd_spatial phi_spatial phi_pegged sd_extra
 #>   <chr> <int>  <dbl>  <dbl> <dbl>      <dbl>       <dbl> <lgl>         <dbl>
-#> 1 none  28320 83377. 83463.  232.      0.865       0.928 FALSE        NA    
+#> 1 none  28320 83377. 83463.  232.      0.865       0.928 FALSE        NA
 #> 2 iid   28320 80358. 80238. 6373.      0.861       0.923 FALSE         0.457
-#> 3 nb    28320 81148. 81144.  231.      0.867       0.936 FALSE        NA    
+#> 3 nb    28320 81148. 81144.  231.      0.867       0.936 FALSE        NA
 #> # i 2 more variables: cpo_valid <dbl>, pit_ks <dbl>
 ```
 
@@ -369,12 +362,12 @@ The SPI is observed over expected, computed for every posterior draw so
 the uncertainty in the denominator carries through. It can be summarised
 at any grain:
 
-``` r
+```r
 spi_dy <- bs_spi(fit_bare, level = "district_year")  # annual per district
 spi_dm <- bs_spi(fit_bare, level = "district_month")  # monthly per district
 ```
 
-``` r
+```r
 head(as_tibble(spi_dy)[, c(
   "adm2_guid", "year", "observed", "spi_median", "spi_q05", "spi_q95"
 )])
@@ -382,10 +375,10 @@ head(as_tibble(spi_dy)[, c(
 #>   adm2_guid                             year observed spi_median spi_q05 spi_q95
 #>   <chr>                                <dbl>    <int>      <dbl>   <dbl>   <dbl>
 #> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.640   0.432   0.982
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.04    0.703   1.61 
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0    
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.921   0.620   1.46 
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      1.95    1.35    2.99 
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.04    0.703   1.61
+#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.921   0.620   1.46
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      1.95    1.35    2.99
 #> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.41    0.939   2.13
 ```
 
@@ -404,7 +397,7 @@ detection scatters around 1, and the spread narrows as the expected
 count grows, so a low SPI at a high expected count is a genuine
 shortfall rather than small-number noise.
 
-``` r
+```r
 plot(spi_dy, type = "funnel")
 ```
 
@@ -413,7 +406,7 @@ plot(spi_dy, type = "funnel")
 The default `distribution` view is the headline calibration check: a
 well-fit SPI is roughly log-normal and centred near 1.
 
-``` r
+```r
 plot(spi_dy)
 ```
 
@@ -427,7 +420,7 @@ person-years) into a 2x2. The cell that matters is false reassurance:
 the NPAFP rate looks fine, but the SPI still flags under-detection. That
 is the blindspot a plain threshold walks past.
 
-``` r
+```r
 conc <- bs_concordance(
   spi = spi_dy,
   cases = synth$cases,
@@ -439,10 +432,10 @@ conc <- bs_concordance(
 
 Every district-year lands in one of the four cells:
 
-``` r
+```r
 table(conc$district_year$concordance)
-#> 
-#>     Both adequate    True shortfall False reassurance       False alarm 
+#>
+#>     Both adequate    True shortfall False reassurance       False alarm
 #>              1358               234               674                94
 ```
 
@@ -450,7 +443,7 @@ table(conc$district_year$concordance)
 split by the two thresholds (dashed). The false-reassurance points sit
 bottom-right: adequate NPAFP rate, low SPI.
 
-``` r
+```r
 plot(conc)
 ```
 
@@ -461,31 +454,36 @@ plot(conc)
 Three panels for one year: the conventional NPAFP rate, the posterior
 median SPI, and where the two disagree.
 
-``` r
+```r
 bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 ```
 
 <img src="man/figures/README-maps-1.png" alt="" width="100%" />
 
-### 7. The seven-signal field guide
+### 7. The five-signal STEPS field guide
 
-`bs_field_guide()` reads each district-year through seven signals (S1 to
-S7) and lands on a FLAG, WATCH, or No-action verdict. S6 uses the
-neighbour graph; S7 uses the monthly SPI for seasonality and, for the
-detection half, any poliovirus found there through the case-based (AFP)
-channel or environmental surveillance (ES).
+`bs_field_guide()` reads each district-year through five signals —
+**STEPS** (significance, trend, extent, persistence, surroundings) — and
+lands on a FLAG, WATCH, or No-action verdict. Significance is the entry
+point; trend, persistence and surroundings are the three corroborators
+(a flag needs at least two of them); extent grades depth. Surroundings
+uses the neighbour graph. Seasonal blindness (from the monthly SPI) and
+any poliovirus found there through the case-based (AFP) channel or
+environmental surveillance (ES) are computed as **out-of-grid
+corroboration**: they strengthen a flag but are never one of the five
+STEPS.
 
 The `genomic` and `es` arguments are those two independent detection
 channels: `genomic` is the district-years where the toy's virus-outcome
 sheet recorded a cVDPV2 (`any_cvdpv2 == 1`), and `es` is the ES
 district-year table where a positive sewage sample was found
 (`n_positive > 0`). Neither comes from the AFP stream the guide is
-grading, so S7 can ask whether a flagged silence also had poliovirus
-surface there, evidence of a genuine blindspot rather than a false
-alarm. Detections corroborate the reading from outside the model but
-never change the verdict.
+grading, so the out-of-grid detection can ask whether a flagged silence
+also had poliovirus surface there, evidence of a genuine blindspot
+rather than a false alarm. Detections corroborate the reading from
+outside the grid but never enter the STEPS count or change the verdict.
 
-``` r
+```r
 genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
 
 fg <- bs_field_guide(
@@ -507,35 +505,35 @@ fg
 #> 3 No action   171  72.5
 #> # A tibble: 48 x 10
 #>    district   obs   exp   spi cri       npafp   run traj    corrob verdict
-#>    <chr>    <int> <dbl> <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>  
-#>  1 Nentha       2  14.3  0.14 0.11-0.17   2       1 falling      2 FLAG   
-#>  2 Sarnesh      3  14.4  0.21 0.17-0.27   3.5     1 falling      2 FLAG   
-#>  3 Kirun        9  24.9  0.36 0.30-0.44   6.4     2 falling      2 FLAG   
-#>  4 Doldor      13  29.9  0.43 0.36-0.52   6.8     1 falling      2 FLAG   
-#>  5 Raenun      10  22.5  0.44 0.36-0.54   5.8     3 rising       2 FLAG   
-#>  6 Raenwen     10  21.5  0.47 0.38-0.59   5.9     1 falling      2 FLAG   
-#>  7 Beltha      14  29.3  0.48 0.40-0.58   7.5     1 falling      2 FLAG   
-#>  8 Zimun        5  10.1  0.49 0.38-0.64   5.4     3 rising       2 FLAG   
-#>  9 Raendor      8  15.8  0.51 0.40-0.63   4.7     2 falling      2 FLAG   
-#> 10 Kirtha      11  21.8  0.51 0.40-0.63  11.6     2 falling      2 FLAG   
+#>    <chr>    <int> <dbl> <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>
+#>  1 Nentha       2  14.3  0.14 0.11-0.17   2       1 falling      2 FLAG
+#>  2 Sarnesh      3  14.4  0.21 0.17-0.27   3.5     1 falling      2 FLAG
+#>  3 Kirun        9  24.9  0.36 0.30-0.44   6.4     2 falling      2 FLAG
+#>  4 Doldor      13  29.9  0.43 0.36-0.52   6.8     1 falling      2 FLAG
+#>  5 Raenun      10  22.5  0.44 0.36-0.54   5.8     3 rising       2 FLAG
+#>  6 Raenwen     10  21.5  0.47 0.38-0.59   5.9     1 falling      2 FLAG
+#>  7 Beltha      14  29.3  0.48 0.40-0.58   7.5     1 falling      2 FLAG
+#>  8 Zimun        5  10.1  0.49 0.38-0.64   5.4     3 rising       2 FLAG
+#>  9 Raendor      8  15.8  0.51 0.40-0.63   4.7     2 falling      2 FLAG
+#> 10 Kirtha      11  21.8  0.51 0.40-0.63  11.6     2 falling      2 FLAG
 #> # i 38 more rows
 ```
 
-`summary(fg)` adds the signal fire-counts and a reference for the seven
-signals, and `bs_field_guide_help()` walks a worked example in the
+`summary(fg)` adds the signal fire-counts and a reference for the five
+STEPS, and `bs_field_guide_help()` walks a worked example in the
 console.
 
 For a report, `bs_field_guide_table()` renders the worked example as a
 publication-ready `gt` or `flextable`: the rule-picked archetype
-districts (by name) read down the seven signals, each cell shaded by
+districts (by name) read down the five STEPS, each cell shaded by
 concern. (The image below is a snapshot; the live call returns a `gt`
 object whose cell shading GitHub would otherwise strip.)
 
-``` r
+```r
 bs_field_guide_table(fg, engine = "gt", layout = "worked")
 ```
 
-<img src="man/figures/README-fg-table.png" alt="Field guide table: four districts read down the seven signals, cells shaded green for reassuring, amber for watch, and red for adverse." width="100%" />
+<img src="man/figures/README-fg-table.png" alt="Field guide table: four districts read down the five STEPS, cells shaded green for reassuring, amber for watch, and red for adverse." width="100%" />
 
 For the one district you are about to investigate,
 `bs_field_guide_pager()` renders a single-district **field pager**: a
@@ -544,12 +542,12 @@ the shapefile and it builds the neighbour graph itself, so it is
 self-contained. The masthead carries the verdict; the chart plots the
 district's SPI against its touching neighbours (with the 90%
 credible-interval ribbon and AFP / ES detection markers) and a locator
-inset drawn from the real geometry; the seven signals read out as gate,
-magnitude, and corroboration; and a verdict banner states the action.
-`path` writes an auto-named
-`spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`.
+inset drawn from the real geometry; the five STEPS read out as gate,
+magnitude, and corroboration (with seasonal and detection corroboration
+out of grid); and a verdict banner states the action. `path` writes an
+auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`.
 
-``` r
+```r
 bs_field_guide_pager(
   fg, district = "Tirwen", boundaries = synth$boundaries,
   id_col = "adm2_guid", path = "reports/"
@@ -561,9 +559,10 @@ bs_field_guide_pager(
 <summary>
 
 One-page field pager for a flagged district
+
 </summary>
 
-<img src="man/figures/README-pager.png" alt="One-page SPI field pager: masthead verdict, an SPI-over-time chart against neighbours with a locator inset, the seven-signal reading, and a verdict banner." width="100%" />
+<img src="man/figures/README-pager.png" alt="One-page SPI field pager: masthead verdict, an SPI-over-time chart against neighbours with a locator inset, the five-STEPS reading, and a verdict banner." width="100%" />
 
 </details>
 
@@ -605,7 +604,7 @@ bs_triangulate_table(tri, engine = "gt", year = 2020) |>
 
 ## Exported functions
 
-``` r
+```r
 bs_check_inputs()           # pre-flight: reconcile cases / population / shapefile
 bs_adjacency()              # spatial neighbour graph from sf boundaries
 bs_expected()               # fit BYM2 expected-count model (INLA)
@@ -628,10 +627,9 @@ useful, `summary` / `as_tibble`) methods; the `bs_spi()` and
 
 ## Citation
 
-``` r
+```r
 Yusuf MA (2026). blindspot: Bayesian spatiotemporal
-  surveillance quality monitoring. R package version 0.1.0.
-  https://github.com/truenomad/blindspot
+  surveillance quality monitoring. R package version 0.1.0. https://github.com/truenomad/blindspot
 ```
 
 ## Related packages

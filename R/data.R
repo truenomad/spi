@@ -68,11 +68,11 @@
 #'     (logical, found through environmental surveillance), `es_covered`
 #'     (logical, an ES site drains the district). Derived from `virus_outcome`,
 #'     `es_district_year`, and `es_sites`. Note: in this toy `afp_detected`
-#'     reuses `virus_outcome`, which the field guide also consumes as its S7
-#'     orphan signal, so the AFP channel is *not* independent of the guide
-#'     here; the ES channel (`es_detected` / `es_covered`) is the genuinely
-#'     separate corroborator. A real analysis would supply channel-separated
-#'     detections.}
+#'     reuses `virus_outcome`, which the field guide also consumes as its
+#'     out-of-grid AFP orphan signal, so the AFP channel is *not* independent of
+#'     the guide here; the ES channel (`es_detected` / `es_covered`) is the
+#'     genuinely separate corroborator. A real analysis would supply
+#'     channel-separated detections.}
 #'   \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 #'     `adm2_guid`, `surveillance_profile` (character: `"resilient"`,
 #'     `"early_improver"`, `"covid_transient"`, or `"persistent_laggard"`),
@@ -175,9 +175,9 @@
 
 #' Precomputed SPI field guide on the synthetic bundle
 #'
-#' A [bs_field_guide()] result computed on [synth_surveillance], with all
-#' seven signals active (S6 neighbour contrast, S7 seasonal, and S7 genomic
-#' all supplied). It ships so that [bs_field_guide_help()], the
+#' A [bs_field_guide()] result computed on [synth_surveillance], with the
+#' surroundings signal and the out-of-grid seasonal and detection channels all
+#' supplied. It ships so that [bs_field_guide_help()], the
 #' [bs_field_guide_table()] examples, and the package tests run instantly
 #' without refitting the (INLA-based) upstream model. The full modelling chain
 #' that produced it is `bs_adjacency()` -> `bs_expected()` (bare spec) ->

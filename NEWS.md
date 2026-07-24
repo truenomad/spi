@@ -1,5 +1,19 @@
 # blindspot 0.1.0.9000
 
+* **The field guide is now framed as five signals -- STEPS (significance,
+  trend, extent, persistence, surroundings)** -- matching the paper's
+  "Interpreting and acting on the SPI" section. `bs_field_guide()`, its tables,
+  the console help, and `bs_field_guide_pager()` all read out the five STEPS:
+  significance is the entry point, extent grades depth (merging the old
+  "depth of shortfall" and "observed vs expected" into one row), and trend,
+  persistence and surroundings are the three corroborators. **The flag rule is
+  now two of three corroborators (trend, persistence, surroundings)**, down
+  from two of four: seasonal blindness is no longer a counted corroborator.
+  Seasonal blindness and any AFP / ES detection are now **out-of-grid
+  corroboration** -- computed and reported (in the scan table and the pager),
+  strengthening a flag from outside the grid, but never one of the five STEPS
+  and never in the count. This changes default flag counts against the previous
+  seven-signal spec; the shipped `synth_field_guide` is regenerated to match.
 * `bs_spi()` gained a `boundaries` argument. When supplied (an `sf` layer or a
   plain data frame keyed by the id column), the admin name columns
   (`adm1_name`, `adm2_name`, ...) are joined onto the `summary` output and
@@ -8,17 +22,17 @@
   boundary names; those are now likewise moved to just before the id column,
   and `bs_field_guide()` inherits the ordering from the concordance table.
 * `bs_field_guide()` gained three opt-in settings, all off by default so the
-  published flag counts reproduce out of the box. `traj_alpha` turns S4
-  (trajectory) into a significance-gated trend test: a trajectory reads
+  published flag counts reproduce out of the box. `traj_alpha` turns the trend
+  signal (T) into a significance-gated trend test: a trend reads
   "falling"/"rising" only if its OLS slope differs from zero at that two-sided
   level (needing three or more points), else "flat". This stops an endpoint
   drop or a single volatile year from reading as a sustained decline, matching
-  the paper's S4 intent ("a sustained downward slope is a trend, not a single
-  anomalous year"); `traj_alpha = 0.1` is the recommended setting and improves
-  specificity on volatile series. `dedupe_temporal` counts a falling trajectory
-  (S4) and a persistent sub-cut run (S5) as a single "temporal" corroborator
+  the paper's trend (T) intent ("a sustained downward slope is a trend, not a
+  single anomalous year"); `traj_alpha = 0.1` is the recommended setting and
+  improves specificity on volatile series. `dedupe_temporal` counts a falling
+  trend (T) and a persistent sub-cut run (P) as a single "temporal" corroborator
   rather than two, so a flag cannot rest on two readings of the same decline --
-  the case that bites where neighbours drop out and the 2-of-4 rule reduces to
+  the case that bites where neighbours drop out and the 2-of-3 rule reduces to
   one temporal fact counted twice. `detection_corroborates` promotes an AFP or
   ES detection to a counted, independent signal -- the recommended way to give
   a persistently-low district in a degraded neighbourhood a non-temporal leg

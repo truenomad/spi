@@ -24,8 +24,8 @@ Default: NULL (use \code{synth_field_guide}).}
 The narrated worked-example tibble, invisibly.
 }
 \description{
-An interpretation aid for the console. Explains the seven signals and the
-flag rule behind \code{\link[=bs_field_guide]{bs_field_guide()}}, lists the common misreadings that
+An interpretation aid for the console. Explains the five STEPS signals and
+the flag rule behind \code{\link[=bs_field_guide]{bs_field_guide()}}, lists the common misreadings that
 end a programme's trust in the score, and -- most usefully -- walks
 through a \strong{live worked example}: four archetype districts (reassuring,
 watch, flag, corroborated flag) selected by rule from a real field guide

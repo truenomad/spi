@@ -1,56 +1,62 @@
-#' Read a low SPI through the seven-signal field guide
+#' Read a low SPI through the five-signal STEPS field guide
 #'
 #' @description
 #' Turns a [bs_concordance()] result into an operational reading of every
-#' district-year: the seven interpretation signals (S1-S7) and a
-#' three-level verdict (`FLAG`, `WATCH`, `No action`). It automates the
-#' paper's *"Interpreting and acting on the SPI"* field guide, which
-#' separates a genuine, sustained detection shortfall from statistical
-#' noise or a low-expectation artefact.
+#' district-year: the five interpretation signals -- **STEPS** (significance,
+#' trend, extent, persistence, surroundings) -- and a three-level verdict
+#' (`FLAG`, `WATCH`, `No action`). It automates the paper's *"Interpreting and
+#' acting on the SPI"* field guide, which separates a genuine, sustained
+#' detection shortfall from statistical noise or a low-expectation artefact
+#' using only the SPI and its credible interval; the reading rests on the
+#' signals' convergence.
 #'
-#' The seven signals, each ruling out a different alternative explanation:
+#' The five STEPS signals, each ruling out a different alternative explanation:
 #' \itemize{
-#'   \item **S1 Credible discordance** -- conventionally adequate yet
-#'     sub-threshold on SPI with the 90% credible interval excluding 1.
-#'   \item **S2 Depth of shortfall** -- how far the posterior median SPI
-#'     sits below the cut.
-#'   \item **S3 Observed vs expected** -- few observed cases against a
-#'     substantial model-expected count.
-#'   \item **S4 Trajectory** -- the SPI-vs-year slope over the last
-#'     `traj_window` years (falling / flat / rising); set `traj_alpha` to
-#'     significance-gate it into a trend test so a single anomalous year is not
-#'     read as a decline.
-#'   \item **S5 Persistence** -- the longest run of consecutive years below
-#'     the cut up to that year.
-#'   \item **S6 Neighbour contrast** -- under-detection while immediate
-#'     neighbours perform adequately (needs `adjacency`).
-#'   \item **S7 Seasonal and detection corroboration** -- detection flat
-#'     through the expected peak months (needs `spi_month`), and any
-#'     poliovirus detected there through the case-based (AFP) channel (needs
-#'     `genomic`) or environmental surveillance (needs `es`).
+#'   \item **S: Significance** -- the district meets the WHO non-polio AFP
+#'     target yet reads sub-threshold on SPI, with the full 90% credible
+#'     interval staying below 1, so the disagreement with the target is real.
+#'     The starting point.
+#'   \item **T: Trend** -- the SPI-vs-year slope over the last `traj_window`
+#'     years (falling / flat / rising); set `traj_alpha` to significance-gate
+#'     it into a trend test so a single anomalous year is not read as a decline.
+#'   \item **E: Extent** -- how far below expectation the district sits, in
+#'     posterior median SPI and observed versus model-expected cases (a deep
+#'     rather than borderline or small-denominator shortfall).
+#'   \item **P: Persistence** -- the longest run of consecutive years below the
+#'     cut up to that year.
+#'   \item **S: Surroundings** -- under-detection while immediate neighbours
+#'     perform adequately (needs `adjacency`).
 #' }
+#'
+#' Seasonal detection through the expected peak months (needs `spi_month`) and
+#' any poliovirus found there through the case-based (AFP) channel (needs
+#' `genomic`) or environmental surveillance (needs `es`) are computed and
+#' reported as **out-of-grid corroboration**: they strengthen a flag from
+#' outside the model but are never one of the five STEPS and never enter the
+#' corroborator count, matching the paper.
 #'
 #' @details
 #' A district-year is **flagged** when three conditions hold together: the
 #' posterior median SPI is below `spi_cut`, the upper bound of the 90%
-#' credible interval is below 1, and at least `min_corroborators` of four
-#' corroborating signals fire (a falling trajectory, persistence of at least
-#' `persistence` years, neighbour discordance, or seasonal blindness). A
-#' district below the cut whose credible interval still reaches 1 is kept at
-#' **watch** rather than flagged; everything else needs **no action**.
-#' Detection corroboration (AFP or ES) strengthens a flag in the narrative but
-#' is never one of the four corroborators, matching the paper.
+#' credible interval is below 1, and at least `min_corroborators` of three
+#' corroborating signals fire (a deteriorating **trend**, sustained
+#' sub-threshold **persistence**, or under-detection against healthy
+#' **surroundings**). A district below the cut whose credible interval still
+#' reaches 1 is kept at **watch** rather than flagged; everything else needs
+#' **no action**. Significance is the entry point, not a corroborator; extent
+#' grades depth; seasonal and detection corroboration (AFP or ES) strengthen a
+#' flag from outside the grid but never enter the count, matching the paper.
 #'
 #' Three settings refine the reading; all are off by default, so the field
 #' guide reproduces the paper's published spec out of the box (bare slope-sign
-#' S4, four separately-counted signals). `dedupe_temporal` collapses the
-#' trajectory (S4) and persistence (S5) signals into one, so a flag cannot rest
-#' on two readings of the same decline; `detection_corroborates` promotes an
-#' AFP or ES detection to a counted, independent signal; and `traj_alpha`
-#' significance-gates S4 into a trend test (0.1 is the recommended value) so a
-#' single anomalous or endpoint-only year no longer reads as a sustained
-#' decline. Each changes flag counts against the published numbers, which is
-#' why each is opt-in.
+#' trend, three separately-counted signals). `dedupe_temporal` collapses the
+#' trend and persistence signals into one, so a flag cannot rest on two
+#' readings of the same decline; `detection_corroborates` promotes an AFP or ES
+#' detection to a counted, independent signal (otherwise it corroborates from
+#' outside the grid); and `traj_alpha` significance-gates the trend into a
+#' proper trend test (0.1 is the recommended value) so a single anomalous or
+#' endpoint-only year no longer reads as a sustained decline. Each changes flag
+#' counts against the published numbers, which is why each is opt-in.
 #'
 #' Signals that need optional inputs degrade gracefully: without `adjacency`,
 #' `spi_month`, `genomic`, or `es` the corresponding signal is `NA` and
@@ -60,19 +66,19 @@
 #'   `blindspot_concordance`). Supplies fused SPI + NPAFP for every
 #'   district-year plus the thresholds.
 #' @param adjacency Optional spatial neighbour object from [bs_adjacency()]
-#'   (class `blindspot_nb`). Enables S6. Default: NULL.
+#'   (class `blindspot_nb`). Enables the surroundings signal (S). Default: NULL.
 #' @param spi_month Optional [bs_spi()] result at `district_month` level.
-#'   Enables the seasonal half of S7. Default: NULL.
+#'   Enables the seasonal (out-of-grid) corroboration. Default: NULL.
 #' @param genomic Optional tibble of case-based (AFP) poliovirus detections
-#'   with the district id column and `year`. Enables the AFP half of the S7
-#'   detection signal. Rows are detections; pass `genomic_col` to filter on a
-#'   0/1 flag column. Default: NULL.
+#'   with the district id column and `year`. Enables the AFP half of the
+#'   out-of-grid detection corroboration. Rows are detections; pass
+#'   `genomic_col` to filter on a 0/1 flag column. Default: NULL.
 #' @param genomic_col Optional name of a logical / 0-1 column in `genomic`;
 #'   only truthy rows count as detections. Default: NULL (every row counts).
 #' @param es Optional tibble of environmental-surveillance (ES) detections with
-#'   the district id column and `year`. Enables the ES half of the S7 detection
-#'   signal. Rows are positives; pass `es_col` to filter on a count / flag
-#'   column. Default: NULL.
+#'   the district id column and `year`. Enables the ES half of the out-of-grid
+#'   detection corroboration. Rows are positives; pass `es_col` to filter on a
+#'   count / flag column. Default: NULL.
 #' @param es_col Optional name of a count / logical column in `es`; only rows
 #'   with a positive count (or `TRUE`) count as detections. Default: NULL
 #'   (every row counts).
@@ -81,12 +87,13 @@
 #' @param spi_cut Numeric SPI adequacy cut. Default: NULL (take
 #'   `concordance$thresholds$spi`).
 #' @param persistence Integer. Consecutive sub-cut years that corroborate a
-#'   flag (S5). Default: 3.
-#' @param traj_window Integer. Trajectory regression window in years, ending
-#'   at each year (S4). Default: 5.
-#' @param traj_tol Numeric slope dead-band per year below which a trajectory
-#'   is "flat" (S4). Default: 0.01.
-#' @param traj_alpha Optional numeric significance level for S4. When set, a
+#'   flag (persistence, P). Default: 3.
+#' @param traj_window Integer. Trend regression window in years, ending
+#'   at each year (trend, T). Default: 5.
+#' @param traj_tol Numeric slope dead-band per year below which a trend
+#'   is "flat" (trend, T). Default: 0.01.
+#' @param traj_alpha Optional numeric significance level for the trend (T).
+#'   When set, a
 #'   trajectory is only "falling" or "rising" if its OLS slope differs from
 #'   zero at this two-sided level (needing at least three points in the
 #'   window); otherwise it is "flat". This guards against a single anomalous or
@@ -96,13 +103,14 @@
 #'   volatile series.
 #' @param min_corroborators Integer. Corroborating signals required to flag.
 #'   Default: 2.
-#' @param dedupe_temporal Logical. Count a falling trajectory (S4) and a
-#'   persistent sub-cut run (S5) as a single "temporal" corroborator rather
-#'   than two, since over a short window they can re-read the same decline.
-#'   Default: FALSE (they count separately, matching the paper).
-#' @param detection_corroborates Logical. Count an AFP or ES detection (S7) as
-#'   an independent corroborating signal. Default: FALSE (detections strengthen
-#'   a flag in the narrative but never enter the count, matching the paper).
+#' @param dedupe_temporal Logical. Count a falling trend (T) and a persistent
+#'   sub-cut run (P) as a single "temporal" corroborator rather than two, since
+#'   over a short window they can re-read the same decline. Default: FALSE (they
+#'   count separately, matching the paper).
+#' @param detection_corroborates Logical. Count an AFP or ES detection (the
+#'   out-of-grid detection corroboration) as an independent corroborating
+#'   signal. Default: FALSE (detections strengthen a flag in the narrative but
+#'   never enter the count, matching the paper).
 #' @param id_col Character district id column. Default: NULL (take
 #'   `concordance$id_col`).
 #' @param verbose Logical. Progress and degradation messages via cli.
@@ -117,7 +125,7 @@
 #'     `orphan_years`, `genomic_orphan`, `es_years`, `es_detected`),
 #'     `corroborators`, and `verdict` (factor).}
 #'   \item{focal}{The `read_year` slice of `district_year`.}
-#'   \item{reference}{The seven-signal reference tibble (what each asks /
+#'   \item{reference}{The five-signal STEPS reference tibble (what each asks /
 #'     rules out).}
 #'   \item{read_year, thresholds, params, signals_active, id_col, call}{
 #'     Metadata: focal year, `spi_cut` / `npafp_target`, the tuning
@@ -219,11 +227,11 @@ bs_field_guide <- function(
         .data$cri_excludes_1
     )
 
-  # --- S5 persistence + S4 trajectory (per district, cumulative in year) ---
+  # --- persistence (P) + trend (T) (per district, cumulative in year) ---
   dy <- .fg_add_persistence(dy, id_col, spi_cut)
   dy <- .fg_add_trajectory(dy, id_col, traj_window, traj_tol, traj_alpha)
 
-  # --- S6 neighbour contrast ------------------------------------------
+  # --- surroundings (S): neighbour contrast ---------------------------
   have_adjacency <- !is.null(adjacency)
   if (have_adjacency) {
     dy <- .fg_add_neighbour(dy, adjacency, id_col, spi_cut)
@@ -234,7 +242,7 @@ bs_field_guide <- function(
     dy$neighbourhood_shortfall <- NA
   }
 
-  # --- S7 seasonal -----------------------------------------------------
+  # --- out-of-grid: seasonal blindness --------------------------------
   have_seasonal <- !is.null(spi_month)
   if (have_seasonal) {
     stopifnot(inherits(spi_month, "blindspot_spi"))
@@ -250,7 +258,7 @@ bs_field_guide <- function(
   }
   dy$seasonally_blind <- !is.na(dy$seasonal) & dy$seasonal == "blind"
 
-  # --- S7 detections: AFP (genomic) and ES -----------------------------
+  # --- out-of-grid: detections -- AFP (genomic) and ES ----------------
   # both are narrative corroboration; neither enters the corroborator count
   have_genomic <- !is.null(genomic)
   if (have_genomic) {
@@ -269,9 +277,10 @@ bs_field_guide <- function(
 
   # --- corroborators + verdict ----------------------------------------
   is_true <- function(x) !is.na(x) & x
-  # the temporal axis (S4 falling, S5 persistence) is one corroborator when
-  # deduped -- over a short window the two can re-read the same decline -- and
-  # two otherwise (the paper's spec)
+  # the paper's flag rule counts three STEPS corroborators -- trend,
+  # persistence, surroundings -- and needs at least two. the temporal axis
+  # (trend falling, persistence) is one corroborator when deduped, since over a
+  # short window the two can re-read the same decline, and two otherwise.
   temporal_falling <- dy$trajectory == "falling"
   temporal_persistent <- dy$longest_run_below >= persistence
   temporal <- if (dedupe_temporal) {
@@ -279,13 +288,13 @@ bs_field_guide <- function(
   } else {
     as.integer(temporal_falling) + as.integer(temporal_persistent)
   }
-  # a detection is narrative corroboration by default; only when
-  # detection_corroborates is it counted as an independent signal
+  # seasonal blindness and any AFP / ES detection are out-of-grid
+  # corroboration: computed and reported, but never one of the three STEPS.
+  # only when detection_corroborates is a detection counted as an extra signal.
   detection <- is_true(dy$genomic_orphan) | is_true(dy$es_detected)
   detection_corr <- if (detection_corroborates) as.integer(detection) else 0L
   dy$corroborators <- temporal +
     as.integer(is_true(dy$neighbour_discordant)) +
-    as.integer(is_true(dy$seasonally_blind)) +
     detection_corr
   dy$verdict <- factor(
     dplyr::case_when(
@@ -298,15 +307,15 @@ bs_field_guide <- function(
   )
 
   signals_active <- c(
-    s6_neighbour = have_adjacency,
-    s7_seasonal = have_seasonal,
-    s7_genomic = have_genomic,
-    s7_es = have_es
+    surroundings = have_adjacency,
+    seasonal = have_seasonal,
+    detect_afp = have_genomic,
+    detect_es = have_es
   )
 
   if (verbose) {
     n_assessable <- (if (dedupe_temporal) 1L else 2L) +
-      as.integer(have_adjacency) + as.integer(have_seasonal) +
+      as.integer(have_adjacency) +
       (if (detection_corroborates) as.integer(have_genomic || have_es) else 0L)
     off <- names(signals_active)[!signals_active]
     if (length(off) > 0) {
@@ -357,7 +366,8 @@ bs_field_guide <- function(
 # signal helpers
 # ---------------------------------------------------------------------------
 
-# S5: longest run of consecutive sub-cut years up to and including each year.
+# P (persistence): longest run of consecutive sub-cut years up to and
+# including each year.
 # @noRd
 .fg_add_persistence <- function(dy, id_col, spi_cut) {
   dy |>
@@ -385,9 +395,9 @@ bs_field_guide <- function(
   out
 }
 
-# S4: sign of the SPI-vs-year slope over the trailing `window` years. With
-# `alpha` set, the slope must also be significantly different from zero (a real
-# trend test) before it reads as falling / rising, else it is flat.
+# T (trend): sign of the SPI-vs-year slope over the trailing `window` years.
+# With `alpha` set, the slope must also be significantly different from zero (a
+# real trend test) before it reads as falling / rising, else it is flat.
 # @noRd
 .fg_add_trajectory <- function(dy, id_col, window, tol, alpha = NULL) {
   slope_at <- function(year, val, focal) {
@@ -447,7 +457,8 @@ bs_field_guide <- function(
   dy
 }
 
-# S6: neighbour-median SPI per district-year, and discordance flag.
+# S (surroundings): neighbour-median SPI per district-year, and discordance
+# flag.
 # @noRd
 .fg_add_neighbour <- function(dy, adjacency, id_col, spi_cut) {
   ids <- attr(adjacency, "region.id")
@@ -500,7 +511,8 @@ bs_field_guide <- function(
     )
 }
 
-# S7 seasonal: blind / muted / present through the expected peak months.
+# out-of-grid seasonal: blind / muted / present through the expected peak
+# months.
 # @noRd
 .fg_add_seasonal <- function(dy, spi_month, id_col) {
   sm <- spi_month$summary
@@ -534,7 +546,7 @@ bs_field_guide <- function(
   }
 }
 
-# S7 genomic: orphan detection years up to and including each year.
+# out-of-grid genomic: orphan detection years up to and including each year.
 # @noRd
 .fg_add_genomic <- function(dy, genomic, id_col, genomic_col) {
   stopifnot(
@@ -564,8 +576,9 @@ bs_field_guide <- function(
   dy
 }
 
-# S7 ES: environmental-surveillance positive years up to and including each
-# year. `es_col`, when given, is a count (>0) or logical (TRUE) positive flag.
+# out-of-grid ES: environmental-surveillance positive years up to and including
+# each year. `es_col`, when given, is a count (>0) or logical (TRUE) positive
+# flag.
 # @noRd
 .fg_add_es <- function(dy, es, id_col, es_col) {
   stopifnot(
@@ -596,34 +609,28 @@ bs_field_guide <- function(
 }
 
 # ---------------------------------------------------------------------------
-# static reference content (paper tables S15 + S17)
+# static reference content (paper tables S15 STEPS + S17 misreadings)
 # ---------------------------------------------------------------------------
 
 # @noRd
 .fg_reference <- function(spi_cut = 0.80) {
   tibble::tribble(
     ~signal, ~asks, ~rules_out,
-    "S1 Credible discordance",
-    "Is a conventionally adequate district nonetheless flagged sub-threshold, with the uncertainty in its estimate excluding true adequacy?",
-    "Statistical noise: the shortfall is not an artefact of a wide credible interval that still touches 1.",
-    "S2 Depth of shortfall",
-    "How far below expectation does the district sit?",
-    "A borderline miss: a posterior median far below the cut is a deep, not marginal, shortfall.",
-    "S3 Observed versus expected",
-    "Is a substantial expected detection burden met by few observed cases?",
-    "A small-denominator artefact: the gap is against a real expected count, not a low-expectation district.",
-    "S4 Trajectory",
+    "S: Significance",
+    "Does the district meet the WHO non-polio AFP target yet detect fewer cases than expected for its conditions, with its full uncertainty range staying below the adequate level?",
+    "A false alarm: the district reads low even after allowing for uncertainty in the estimate, so this is a real disagreement with the target, not a chance dip.",
+    "T: Trend",
     "Is performance deteriorating, stable, or recovering over the last five years?",
     "A one-off dip: a sustained downward slope is a trend, not a single anomalous year.",
-    "S5 Persistence",
+    "E: Extent",
+    "How far below expectation does the district sit, in posterior median SPI and observed versus expected cases?",
+    "A borderline miss or a small-denominator artefact: a median far below the cut against a real expected count is a deep, not marginal, shortfall.",
+    "P: Persistence",
     "How many consecutive years has the district stayed below the adequacy threshold?",
     "Transient variation: a long unbroken run is chronic under-detection, not year-to-year fluctuation.",
-    "S6 Neighbour contrast",
+    "S: Surroundings",
     "Does the district under-detect while its immediate neighbours perform adequately?",
-    "A region-wide data problem: a localised gap against healthy neighbours points to a district-specific failure.",
-    "S7 Seasonal and detection corroboration",
-    "Is observed detection flat through the expected peak season, and has any poliovirus been detected there by AFP cases or environmental surveillance?",
-    "Nothing on its own: corroboration strengthens a flag, but its absence never proves adequacy."
+    "A region-wide data problem: a localised gap against healthy neighbours points to a district-specific failure rather than a shared one."
   )
 }
 
@@ -702,20 +709,22 @@ summary.blindspot_field_guide <- function(object, ...) {
   print(object, ...)
   foc <- object$focal
   cli::cli_h2("Signal fire counts for {object$read_year}")
+  detection <- (foc$genomic_orphan %in% TRUE) | (foc$es_detected %in% TRUE)
   fires <- tibble::tibble(
-    signal = c("S1 discordance", "S4 falling", "S5 persistent",
-               "S6 neighbour", "S7 seasonal-blind", "S7 genomic-orphan"),
+    signal = c("S Significance", "T Trend (falling)", "P Persistence",
+               "S Surroundings", "+ Seasonal-blind (external)",
+               "+ Detection (external)"),
     n = c(
-      sum(object$focal$s1_discordance, na.rm = TRUE),
+      sum(foc$s1_discordance, na.rm = TRUE),
       sum(foc$trajectory == "falling", na.rm = TRUE),
       sum(foc$longest_run_below >= object$params$persistence, na.rm = TRUE),
       sum(foc$neighbour_discordant, na.rm = TRUE),
       sum(foc$seasonally_blind, na.rm = TRUE),
-      sum(foc$genomic_orphan, na.rm = TRUE)
+      sum(detection, na.rm = TRUE)
     )
   )
   print(fires)
-  cli::cli_h2("Seven-signal reference")
+  cli::cli_h2("Five-signal STEPS reference")
   print(object$reference)
   invisible(object)
 }
@@ -753,8 +762,8 @@ as_tibble.blindspot_field_guide <- function(x, ...) {
 #' Learn to read the SPI field guide
 #'
 #' @description
-#' An interpretation aid for the console. Explains the seven signals and the
-#' flag rule behind [bs_field_guide()], lists the common misreadings that
+#' An interpretation aid for the console. Explains the five STEPS signals and
+#' the flag rule behind [bs_field_guide()], lists the common misreadings that
 #' end a programme's trust in the score, and -- most usefully -- walks
 #' through a **live worked example**: four archetype districts (reassuring,
 #' watch, flag, corroborated flag) selected by rule from a real field guide
@@ -798,10 +807,11 @@ bs_field_guide_help <- function(
   cli::cli_h1("How to read a low SPI")
 
   if ("signals" %in% topic) {
-    cli::cli_h2("The seven signals")
+    cli::cli_h2("The five signals (STEPS)")
     cli::cli_text(
-      "A low SPI marks a district for a closer look. Read it through seven \\
-       signals, each ruling out a different innocent explanation; the \\
+      "A low SPI marks a district for a closer look. Read it through five \\
+       signals -- STEPS (significance, trend, extent, persistence, \\
+       surroundings) -- each ruling out a different innocent explanation; the \\
        reading rests on their convergence."
     )
     ref <- .fg_reference(spi_cut)
@@ -824,8 +834,8 @@ bs_field_guide_help <- function(
     cli::cli_li(
       "{.strong FLAG} -- posterior median SPI below \\
        {sprintf('%.2f', spi_cut)}, the 90% credible interval upper bound \\
-       below 1, and at least two of four corroborators fire (falling \\
-       trajectory, persistence, neighbour discordance, seasonal blindness). \\
+       below 1, and at least two of three corroborators fire (a falling \\
+       trend, persistence, neighbour discordance -- the T, P and S of STEPS). \\
        Warrants supervisory review and active case search."
     )
     cli::cli_li(
@@ -837,8 +847,10 @@ bs_field_guide_help <- function(
     )
     cli::cli_end()
     cli::cli_text(
-      "Genomic corroboration strengthens a flag from outside the model, but \\
-       is never required to make one."
+      "Significance is the entry point, not a corroborator; extent grades \\
+       depth. Seasonal blindness and any AFP / ES detection strengthen a flag \\
+       from outside the grid, but are never one of the three corroborators \\
+       and never required to make a flag."
     )
   }
 
@@ -973,7 +985,7 @@ bs_field_guide_help <- function(
 #' \itemize{
 #'   \item `"scan"` -- one row per district for the focal year, with the key
 #'     signals and the verdict; the verdict cell is shaded by concern.
-#'   \item `"worked"` -- the paper's teaching layout: the seven signals plus
+#'   \item `"worked"` -- the paper's teaching layout: the five STEPS plus
 #'     the verdict as rows, a few districts as columns, every cell shaded
 #'     adverse (rose) / intermediate (amber) / reassuring (green). When
 #'     `districts` is NULL, four archetype districts (reassuring, watch, flag,
@@ -1091,7 +1103,7 @@ FG_CLASS_FILL <- c(
     SPI = round(foc$spi_median, 2),
     `90% CrI` = sprintf("%.2f-%.2f", foc$spi_q05, foc$spi_q95),
     NPAFP = round(foc$npafp_rate, 1),
-    Trajectory = tools::toTitleCase(foc$trajectory),
+    Trend = tools::toTitleCase(foc$trajectory),
     `Run (yr)` = as.integer(foc$longest_run_below),
     Seasonal = .fg_seasonal_word(foc$seasonal),
     Corrob = as.integer(foc$corroborators),
@@ -1144,15 +1156,14 @@ FG_CLASS_FILL <- c(
     cli::cli_abort("no districts available for the worked example.")
   }
 
-  row_key <- c("s1", "s2", "s3", "s4", "s5", "s6", "s7", "verdict")
+  row_key <- c("significance", "trend", "extent", "persistence",
+               "surroundings", "verdict")
   row_lab <- c(
-    s1 = "S1 Credible discordance",
-    s2 = "S2 Depth of shortfall",
-    s3 = "S3 Observed vs expected",
-    s4 = "S4 Trajectory",
-    s5 = sprintf("S5 Persistence (yrs below %.2f)", spi_cut),
-    s6 = "S6 Neighbour contrast",
-    s7 = "S7 Seasonal / genomic",
+    significance = "S: Significance",
+    trend = "T: Trend",
+    extent = "E: Extent (SPI; observed vs expected)",
+    persistence = sprintf("P: Persistence (yrs below %.2f)", spi_cut),
+    surroundings = "S: Surroundings (neighbour contrast)",
     verdict = "Verdict"
   )
 
@@ -1160,7 +1171,7 @@ FG_CLASS_FILL <- c(
     .fg_cell_signals(as.list(sel[i, ]), spi_cut)
   })
   classes <- lapply(seq_len(nrow(sel)), function(i) {
-    .fg_cell_classes(as.list(sel[i, ]))
+    .fg_cell_classes(as.list(sel[i, ]), spi_cut)
   })
 
   col_ids <- paste0("d", seq_len(nrow(sel)))
@@ -1176,15 +1187,17 @@ FG_CLASS_FILL <- c(
   }, character(length(row_key)))
 
   title <- sprintf(
-    "Reading the SPI: the seven signals for %d districts, %d",
+    "Reading the SPI: the five STEPS for %d districts, %d",
     nrow(sel), year
   )
   footer <- sprintf(
-    paste0("Districts selected by rule from the field guide, ordered ",
-           "reassuring to corroborated flag. Shading marks each signal as ",
+    paste0("Districts selected by rule from the field guide, ordered from ",
+           "reassuring to a persistent flag. Shading marks each signal as ",
            "adverse (rose), intermediate (amber), or reassuring (green). ",
-           "Adequacy cut SPI %.2f; genomic corroboration strengthens a flag ",
-           "but is never required."),
+           "Adequacy cut SPI %.2f; the flag rule needs two of three ",
+           "corroborators (trend, persistence, surroundings). Seasonal and ",
+           "AFP / ES detection corroborate from outside the grid and are ",
+           "never required."),
     spi_cut
   )
 
@@ -1335,45 +1348,47 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_cell_signals <- function(r, spi_cut) {
   c(
-    s1 = if (isTRUE(r$s1_discordance)) {
+    significance = if (isTRUE(r$s1_discordance)) {
       sprintf("Fires: rate %.1f adequate, SPI %.2f, 90%% CrI upper %.2f",
               r$npafp_rate, r$spi_median, r$spi_q95)
+    } else if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) {
+      sprintf("Fires: SPI %.2f, 90%% CrI upper %.2f below one",
+              r$spi_median, r$spi_q95)
     } else if (isTRUE(r$spi_below)) {
       sprintf("Does not fire: 90%% CrI (%.2f to %.2f) includes 1",
               r$spi_q05, r$spi_q95)
     } else {
       sprintf("Does not fire: at or above the cut (SPI %.2f)", r$spi_median)
     },
-    s2 = sprintf("%.2f", r$spi_median),
-    s3 = sprintf("%d observed vs %.1f expected",
-                 as.integer(round(r$observed)), r$expected_total),
-    s4 = tools::toTitleCase(r$trajectory),
-    s5 = sprintf("%d consecutive yr%s", as.integer(r$longest_run_below),
-                 if (as.integer(r$longest_run_below) == 1L) "" else "s"),
-    s6 = .fg_s6_cell(r),
-    s7 = sprintf("%s; %s", .fg_seasonal_word(r$seasonal), .fg_genomic_cell(r)),
+    trend = tools::toTitleCase(r$trajectory),
+    extent = sprintf("SPI %.2f; %d observed vs %.1f expected",
+                     r$spi_median, as.integer(round(r$observed)),
+                     r$expected_total),
+    persistence = sprintf("%d consecutive yr%s",
+                          as.integer(r$longest_run_below),
+                          if (as.integer(r$longest_run_below) == 1L) "" else
+                            "s"),
+    surroundings = .fg_s6_cell(r),
     verdict = .fg_verdict_reason(r, spi_cut)
   )
 }
 
 # @noRd
-.fg_cell_classes <- function(r) {
+.fg_cell_classes <- function(r, spi_cut = 0.80) {
   c(
-    s1 = if (isTRUE(r$s1_discordance)) "warm" else "cool",
-    s2 = if (isTRUE(r$spi_below)) "warm" else "cool",
-    s3 = if (isTRUE(r$spi_below) && r$observed < r$expected_total) "warm"
-         else "cool",
-    s4 = switch(r$trajectory, falling = "warm", flat = "amber",
-                rising = "cool", "amber"),
-    s5 = if (r$longest_run_below >= 3L) "warm"
-         else if (r$longest_run_below >= 1L) "amber" else "cool",
-    s6 = if (isTRUE(r$island) || is.na(r$neighbour_spi)) "none"
-         else if (isTRUE(r$neighbour_discordant)) "warm"
-         else if (!isTRUE(r$spi_below) && r$neighbour_spi >= 0.80) "cool"
-         else "amber",
-    s7 = if (isTRUE(r$seasonally_blind) || isTRUE(r$genomic_orphan)) "warm"
-         else if (!is.na(r$seasonal) && r$seasonal == "muted") "amber"
-         else "cool",
+    significance = if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) "warm"
+                   else if (isTRUE(r$spi_below)) "amber" else "cool",
+    trend = switch(r$trajectory, falling = "warm", flat = "amber",
+                   rising = "cool", "amber"),
+    extent = if (!isTRUE(r$spi_below)) "cool"
+             else if ((spi_cut - r$spi_median) >= 0.15) "warm" else "amber",
+    persistence = if (r$longest_run_below >= 3L) "warm"
+                  else if (r$longest_run_below >= 1L) "amber" else "cool",
+    surroundings = if (isTRUE(r$island) || is.na(r$neighbour_spi)) "none"
+                   else if (isTRUE(r$neighbour_discordant)) "warm"
+                   else if (!isTRUE(r$spi_below) && r$neighbour_spi >= 0.80)
+                     "cool"
+                   else "amber",
     verdict = switch(as.character(r$verdict), FLAG = "warm", WATCH = "amber",
                      "cool")
   )
@@ -1393,15 +1408,6 @@ FG_CLASS_FILL <- c(
   out <- unname(map[x])
   out[is.na(x) | is.na(out)] <- "Not assessed"
   out
-}
-
-# @noRd
-.fg_genomic_cell <- function(r) {
-  if (is.na(r$genomic_orphan)) return("genomic not assessed")
-  if (isTRUE(r$genomic_orphan) && nzchar(r$orphan_years %||% "")) {
-    return(paste0("orphan cVDPV ", r$orphan_years))
-  }
-  "orphan none"
 }
 
 # @noRd

@@ -101,7 +101,7 @@ district-years, whether that aligned verdict was already \code{FLAG} or \code{WA
 District-years present in \code{field_guide} but absent from \code{detections} are
 read as no detection and no ES site. Detections here are confirmed
 poliovirus isolations by channel, distinct from the orphan-sequence signal
-the field guide uses as S7.
+the field guide uses as out-of-grid detection corroboration.
 }
 \examples{
 fg <- synth_field_guide

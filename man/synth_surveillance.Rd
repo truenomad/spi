@@ -67,11 +67,11 @@ Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
 (logical, found through environmental surveillance), \code{es_covered}
 (logical, an ES site drains the district). Derived from \code{virus_outcome},
 \code{es_district_year}, and \code{es_sites}. Note: in this toy \code{afp_detected}
-reuses \code{virus_outcome}, which the field guide also consumes as its S7
-orphan signal, so the AFP channel is \emph{not} independent of the guide
-here; the ES channel (\code{es_detected} / \code{es_covered}) is the genuinely
-separate corroborator. A real analysis would supply channel-separated
-detections.}
+reuses \code{virus_outcome}, which the field guide also consumes as its
+out-of-grid AFP orphan signal, so the AFP channel is \emph{not} independent of
+the guide here; the ES channel (\code{es_detected} / \code{es_covered}) is the
+genuinely separate corroborator. A real analysis would supply
+channel-separated detections.}
 \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 \code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
 \code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),
