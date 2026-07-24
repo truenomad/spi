@@ -15,11 +15,9 @@ MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/
 
 <!-- badges: end -->
 
-> **Find the districts where the surveillance system can't see**
+> **In the districts that report no cases, is the silence real?**
 
-_In the districts that report no cases, is the silence real?_
-
-blindspot estimates, for each district in each month, how many cases a
+`blindspot` estimates, for each district in each month, how many cases a
 surveillance system should be detecting given its health facilities,
 population, care-seeking patterns, conflict exposure, and the detection
 history of its neighbours. The ratio of what is detected to what is
