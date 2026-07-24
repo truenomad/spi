@@ -116,9 +116,6 @@ about them.
 ## Installation
 
 ```r
-# from r-universe (recommended)
-install.packages("blindspot")
-
 # or from github
 pak::pak("truenomad/blindspot")
 ```
