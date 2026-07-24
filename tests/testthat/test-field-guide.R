@@ -19,7 +19,7 @@ test_that("synth_field_guide has the expected structure", {
   ))
   expect_s3_class(dy$verdict, "factor")
   expect_setequal(levels(dy$verdict), c("FLAG", "WATCH", "No action"))
-  # all seven signals active in the shipped object
+  # all optional signals active in the shipped object
   expect_true(all(synth_field_guide$signals_active))
   # focal is the read-year slice, one row per district
   expect_equal(
@@ -82,7 +82,8 @@ test_that("graceful degradation without optional inputs", {
   expect_false(any(bare$signals_active))
   expect_true(all(is.na(bare$district_year$neighbour_spi)))
   expect_true(all(is.na(bare$district_year$seasonal)))
-  # no WATCH/FLAG relies on S6/S7 here; verdicts still computable from S1/S4/S5
+  # no verdict relies on surroundings/out-of-grid here; still computable from
+  # significance + trend + persistence
   expect_s3_class(bare$district_year$verdict, "factor")
   # corroborators only ever from trajectory + persistence now (max 2)
   expect_lte(max(bare$district_year$corroborators), 2L)

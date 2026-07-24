@@ -2,7 +2,7 @@
 % Please edit documentation in R/bs_field_guide.R
 \name{bs_field_guide}
 \alias{bs_field_guide}
-\title{Read a low SPI through the seven-signal field guide}
+\title{Read a low SPI through the five-signal STEPS field guide}
 \usage{
 bs_field_guide(
   concordance,
@@ -31,23 +31,23 @@ bs_field_guide(
 district-year plus the thresholds.}
 
 \item{adjacency}{Optional spatial neighbour object from \code{\link[=bs_adjacency]{bs_adjacency()}}
-(class \code{blindspot_nb}). Enables S6. Default: NULL.}
+(class \code{blindspot_nb}). Enables the surroundings signal (S). Default: NULL.}
 
 \item{spi_month}{Optional \code{\link[=bs_spi]{bs_spi()}} result at \code{district_month} level.
-Enables the seasonal half of S7. Default: NULL.}
+Enables the seasonal (out-of-grid) corroboration. Default: NULL.}
 
 \item{genomic}{Optional tibble of case-based (AFP) poliovirus detections
-with the district id column and \code{year}. Enables the AFP half of the S7
-detection signal. Rows are detections; pass \code{genomic_col} to filter on a
-0/1 flag column. Default: NULL.}
+with the district id column and \code{year}. Enables the AFP half of the
+out-of-grid detection corroboration. Rows are detections; pass
+\code{genomic_col} to filter on a 0/1 flag column. Default: NULL.}
 
 \item{genomic_col}{Optional name of a logical / 0-1 column in \code{genomic};
 only truthy rows count as detections. Default: NULL (every row counts).}
 
 \item{es}{Optional tibble of environmental-surveillance (ES) detections with
-the district id column and \code{year}. Enables the ES half of the S7 detection
-signal. Rows are positives; pass \code{es_col} to filter on a count / flag
-column. Default: NULL.}
+the district id column and \code{year}. Enables the ES half of the out-of-grid
+detection corroboration. Rows are positives; pass \code{es_col} to filter on a
+count / flag column. Default: NULL.}
 
 \item{es_col}{Optional name of a count / logical column in \code{es}; only rows
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
@@ -60,15 +60,16 @@ help rendering. Default: NULL (latest year present).}
 \code{concordance$thresholds$spi}).}
 
 \item{persistence}{Integer. Consecutive sub-cut years that corroborate a
-flag (S5). Default: 3.}
+flag (persistence, P). Default: 3.}
 
-\item{traj_window}{Integer. Trajectory regression window in years, ending
-at each year (S4). Default: 5.}
+\item{traj_window}{Integer. Trend regression window in years, ending
+at each year (trend, T). Default: 5.}
 
-\item{traj_tol}{Numeric slope dead-band per year below which a trajectory
-is "flat" (S4). Default: 0.01.}
+\item{traj_tol}{Numeric slope dead-band per year below which a trend
+is "flat" (trend, T). Default: 0.01.}
 
-\item{traj_alpha}{Optional numeric significance level for S4. When set, a
+\item{traj_alpha}{Optional numeric significance level for the trend (T).
+When set, a
 trajectory is only "falling" or "rising" if its OLS slope differs from
 zero at this two-sided level (needing at least three points in the
 window); otherwise it is "flat". This guards against a single anomalous or
@@ -80,14 +81,15 @@ volatile series.}
 \item{min_corroborators}{Integer. Corroborating signals required to flag.
 Default: 2.}
 
-\item{dedupe_temporal}{Logical. Count a falling trajectory (S4) and a
-persistent sub-cut run (S5) as a single "temporal" corroborator rather
-than two, since over a short window they can re-read the same decline.
-Default: FALSE (they count separately, matching the paper).}
+\item{dedupe_temporal}{Logical. Count a falling trend (T) and a persistent
+sub-cut run (P) as a single "temporal" corroborator rather than two, since
+over a short window they can re-read the same decline. Default: FALSE (they
+count separately, matching the paper).}
 
-\item{detection_corroborates}{Logical. Count an AFP or ES detection (S7) as
-an independent corroborating signal. Default: FALSE (detections strengthen
-a flag in the narrative but never enter the count, matching the paper).}
+\item{detection_corroborates}{Logical. Count an AFP or ES detection (the
+out-of-grid detection corroboration) as an independent corroborating
+signal. Default: FALSE (detections strengthen a flag in the narrative but
+never enter the count, matching the paper).}
 
 \item{id_col}{Character district id column. Default: NULL (take
 \code{concordance$id_col}).}
@@ -105,7 +107,7 @@ inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1},
 \code{orphan_years}, \code{genomic_orphan}, \code{es_years}, \code{es_detected}),
 \code{corroborators}, and \code{verdict} (factor).}
 \item{focal}{The \code{read_year} slice of \code{district_year}.}
-\item{reference}{The seven-signal reference tibble (what each asks /
+\item{reference}{The five-signal STEPS reference tibble (what each asks /
 rules out).}
 \item{read_year, thresholds, params, signals_active, id_col, call}{
 Metadata: focal year, \code{spi_cut} / \code{npafp_target}, the tuning
@@ -115,55 +117,61 @@ the matched call.}
 }
 \description{
 Turns a \code{\link[=bs_concordance]{bs_concordance()}} result into an operational reading of every
-district-year: the seven interpretation signals (S1-S7) and a
-three-level verdict (\code{FLAG}, \code{WATCH}, \verb{No action}). It automates the
-paper's \emph{"Interpreting and acting on the SPI"} field guide, which
-separates a genuine, sustained detection shortfall from statistical
-noise or a low-expectation artefact.
+district-year: the five interpretation signals -- \strong{STEPS} (significance,
+trend, extent, persistence, surroundings) -- and a three-level verdict
+(\code{FLAG}, \code{WATCH}, \verb{No action}). It automates the paper's \emph{"Interpreting and
+acting on the SPI"} field guide, which separates a genuine, sustained
+detection shortfall from statistical noise or a low-expectation artefact
+using only the SPI and its credible interval; the reading rests on the
+signals' convergence.
 
-The seven signals, each ruling out a different alternative explanation:
+The five STEPS signals, each ruling out a different alternative explanation:
 \itemize{
-\item \strong{S1 Credible discordance} -- conventionally adequate yet
-sub-threshold on SPI with the 90\% credible interval excluding 1.
-\item \strong{S2 Depth of shortfall} -- how far the posterior median SPI
-sits below the cut.
-\item \strong{S3 Observed vs expected} -- few observed cases against a
-substantial model-expected count.
-\item \strong{S4 Trajectory} -- the SPI-vs-year slope over the last
-\code{traj_window} years (falling / flat / rising); set \code{traj_alpha} to
-significance-gate it into a trend test so a single anomalous year is not
-read as a decline.
-\item \strong{S5 Persistence} -- the longest run of consecutive years below
-the cut up to that year.
-\item \strong{S6 Neighbour contrast} -- under-detection while immediate
-neighbours perform adequately (needs \code{adjacency}).
-\item \strong{S7 Seasonal and detection corroboration} -- detection flat
-through the expected peak months (needs \code{spi_month}), and any
-poliovirus detected there through the case-based (AFP) channel (needs
-\code{genomic}) or environmental surveillance (needs \code{es}).
+\item \strong{S: Significance} -- the district meets the WHO non-polio AFP
+target yet reads sub-threshold on SPI, with the full 90\% credible
+interval staying below 1, so the disagreement with the target is real.
+The starting point.
+\item \strong{T: Trend} -- the SPI-vs-year slope over the last \code{traj_window}
+years (falling / flat / rising); set \code{traj_alpha} to significance-gate
+it into a trend test so a single anomalous year is not read as a decline.
+\item \strong{E: Extent} -- how far below expectation the district sits, in
+posterior median SPI and observed versus model-expected cases (a deep
+rather than borderline or small-denominator shortfall).
+\item \strong{P: Persistence} -- the longest run of consecutive years below the
+cut up to that year.
+\item \strong{S: Surroundings} -- under-detection while immediate neighbours
+perform adequately (needs \code{adjacency}).
 }
+
+Seasonal detection through the expected peak months (needs \code{spi_month}) and
+any poliovirus found there through the case-based (AFP) channel (needs
+\code{genomic}) or environmental surveillance (needs \code{es}) are computed and
+reported as \strong{out-of-grid corroboration}: they strengthen a flag from
+outside the model but are never one of the five STEPS and never enter the
+corroborator count, matching the paper.
 }
 \details{
 A district-year is \strong{flagged} when three conditions hold together: the
 posterior median SPI is below \code{spi_cut}, the upper bound of the 90\%
-credible interval is below 1, and at least \code{min_corroborators} of four
-corroborating signals fire (a falling trajectory, persistence of at least
-\code{persistence} years, neighbour discordance, or seasonal blindness). A
-district below the cut whose credible interval still reaches 1 is kept at
-\strong{watch} rather than flagged; everything else needs \strong{no action}.
-Detection corroboration (AFP or ES) strengthens a flag in the narrative but
-is never one of the four corroborators, matching the paper.
+credible interval is below 1, and at least \code{min_corroborators} of three
+corroborating signals fire (a deteriorating \strong{trend}, sustained
+sub-threshold \strong{persistence}, or under-detection against healthy
+\strong{surroundings}). A district below the cut whose credible interval still
+reaches 1 is kept at \strong{watch} rather than flagged; everything else needs
+\strong{no action}. Significance is the entry point, not a corroborator; extent
+grades depth; seasonal and detection corroboration (AFP or ES) strengthen a
+flag from outside the grid but never enter the count, matching the paper.
 
 Three settings refine the reading; all are off by default, so the field
 guide reproduces the paper's published spec out of the box (bare slope-sign
-S4, four separately-counted signals). \code{dedupe_temporal} collapses the
-trajectory (S4) and persistence (S5) signals into one, so a flag cannot rest
-on two readings of the same decline; \code{detection_corroborates} promotes an
-AFP or ES detection to a counted, independent signal; and \code{traj_alpha}
-significance-gates S4 into a trend test (0.1 is the recommended value) so a
-single anomalous or endpoint-only year no longer reads as a sustained
-decline. Each changes flag counts against the published numbers, which is
-why each is opt-in.
+trend, three separately-counted signals). \code{dedupe_temporal} collapses the
+trend and persistence signals into one, so a flag cannot rest on two
+readings of the same decline; \code{detection_corroborates} promotes an AFP or ES
+detection to a counted, independent signal (otherwise it corroborates from
+outside the grid); and \code{traj_alpha} significance-gates the trend into a
+proper trend test (0.1 is the recommended value) so a single anomalous or
+endpoint-only year no longer reads as a sustained decline. Each changes flag
+counts against the published numbers, which is why each is opt-in.
 
 Signals that need optional inputs degrade gracefully: without \code{adjacency},
 \code{spi_month}, \code{genomic}, or \code{es} the corresponding signal is \code{NA} and

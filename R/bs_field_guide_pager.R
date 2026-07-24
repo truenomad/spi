@@ -5,8 +5,9 @@
 #' print-ready HTML "pager": a masthead with the verdict, an SPI-over-time
 #' chart of the district against its touching neighbours (with the 90%
 #' credible-interval ribbon and any orphan-poliovirus detections marked), the
-#' seven-signal reading laid out as gate / magnitude / corroboration, and a
-#' verdict banner with the recommended action.
+#' five-STEPS reading laid out as gate / magnitude / corroboration (with
+#' seasonal and detection corroboration read out of grid), and a verdict banner
+#' with the recommended action.
 #'
 #' It is the single-district companion to [bs_field_guide_table()]: where the
 #' table scans many districts at once, the pager is the tear-sheet you hand to
@@ -19,17 +20,18 @@
 #' fonts offline). Every number is read from `x`; nothing is simulated.
 #'
 #' Pass `adjacency` (from [bs_adjacency()]) to draw each touching neighbour as
-#' its own muted line and to key the S6 neighbour-contrast reading off the same
+#' its own muted line and to key the surroundings (S) reading off the same
 #' graph the field guide used. Without it the chart falls back to the single
 #' neighbour-median series already stored on the field guide, and the neighbour
 #' lines are omitted.
 #'
-#' S7's detection half reports poliovirus found there through either channel:
-#' the case-based (AFP) detections already carried by the field guide's
-#' `genomic` input, and any environmental-surveillance (ES) positives passed
-#' via `es`. Both are marked on the chart (AFP as a filled diamond, ES as a
-#' hollow ring) and named in the S7 reading. Detections are narrative
-#' corroboration only; they never change the verdict, matching the paper.
+#' The out-of-grid detection row reports poliovirus found there through either
+#' channel: the case-based (AFP) detections already carried by the field
+#' guide's `genomic` input, and any environmental-surveillance (ES) positives
+#' passed via `es`. Both are marked on the chart (AFP as a filled diamond, ES as
+#' a hollow ring) and named in the reading. Detections are narrative
+#' corroboration only; they never enter the STEPS count or change the verdict,
+#' matching the paper.
 #'
 #' The accent colour tracks the verdict: rose for a flag, amber for a watch,
 #' green for no action. A flag with an orphan-poliovirus detection is titled
@@ -57,8 +59,8 @@
 #' @param es_col Optional name of a count / logical column in `es`; only rows
 #'   with a positive count (or `TRUE`) count as detections. Default: NULL
 #'   (every row counts).
-#' @param detection_label Serotype label used in the S7 detection reading, e.g.
-#'   `"cVDPV2"` or `"WPV1"`. Default: `"cVDPV2"`.
+#' @param detection_label Serotype label used in the out-of-grid detection
+#'   reading, e.g. `"cVDPV2"` or `"WPV1"`. Default: `"cVDPV2"`.
 #' @param id_col District id column, shared by `adjacency` / `boundaries` /
 #'   `es`. Default: NULL (`x$id_col`).
 #' @param year Integer focal year for the reading. Default: NULL
@@ -103,7 +105,7 @@
 #' \dontrun{
 #' # self-contained: hand it the shapefile and it builds the neighbour graph
 #' # itself, draws a locator inset, and reads both detection channels (AFP +
-#' # ES, already carried by the field guide) into S7
+#' # ES, already carried by the field guide) into the out-of-grid detection row
 #' bs_field_guide_pager(
 #'   fg,
 #'   district = "Tirwen",
@@ -166,8 +168,9 @@ bs_field_guide_pager <- function(
   )
   nb_ids <- .pager_neighbour_ids(adjacency, foc_id, id_col)
 
-  # AFP + ES detection years for S7; both channels come from the field guide
-  # (orphan_years / es_years), with `es` an optional ad-hoc override
+  # AFP + ES detection years for the out-of-grid detection row; both channels
+  # come from the field guide (orphan_years / es_years), with `es` an optional
+  # ad-hoc override
   detections <- list(
     afp = .pager_parse_years(focal$orphan_years),
     es = if (!is.null(es)) {
@@ -496,8 +499,8 @@ as.character.blindspot_pager <- function(x, ...) {
   yrs[yrs <= year]
 }
 
-# S7 / banner detection clause, e.g. "cVDPV2 detected in AFP (2021, 2023) and
-# ES (2022, 2024)"; "" when neither channel has a detection.
+# out-of-grid / banner detection clause, e.g. "cVDPV2 detected in AFP (2021,
+# 2023) and ES (2022, 2024)"; "" when neither channel has a detection.
 # @noRd
 .pager_detection_phrase <- function(detections, label) {
   afp <- detections$afp
@@ -742,9 +745,10 @@ as.character.blindspot_pager <- function(x, ...) {
   s
 }
 
-# ---- seven-signal reading rows --------------------------------------------
+# ---- STEPS reading rows ---------------------------------------------------
 
-# build the seven signal rows (code, name, reading, role) for the focal year.
+# build the five STEPS rows plus the out-of-grid season/detection row (code,
+# name, reading, role) for the focal year.
 # @noRd
 .pager_signals <- function(
   focal, spi_cut, params, detections, detection_label, unit_noun = "district"
@@ -785,24 +789,22 @@ as.character.blindspot_pager <- function(x, ...) {
     )
   }
 
+  # extent (E) merges depth of shortfall and observed-vs-expected into one row
   depth <- spi_cut - r$spi_median
-  s2 <- if (!isTRUE(r$spi_below)) {
-    sprintf("A posterior median SPI of %s, at or above the adequacy cut.", spi)
+  extent_depth <- if (!isTRUE(r$spi_below)) {
+    "at or above the adequacy cut"
   } else if (depth >= 0.15) {
-    sprintf(
-      paste0("A posterior median SPI of %s, a deep rather than borderline ",
-             "shortfall."),
-      spi
-    )
+    "a deep rather than borderline shortfall"
   } else if (depth <= 0.05) {
-    sprintf("A posterior median SPI of %s, a borderline shortfall.", spi)
+    "a borderline shortfall"
   } else {
-    sprintf("A posterior median SPI of %s, a moderate shortfall.", spi)
+    "a moderate shortfall"
   }
-
-  s3 <- sprintf(
-    "About %d case%s detected against roughly %d expected for the %s.",
-    obs, if (obs == 1L) "" else "s", as.integer(exp), unit_noun
+  extent <- sprintf(
+    paste0("A posterior median SPI of %s, %s: about %d case%s detected ",
+           "against roughly %d expected for the %s."),
+    spi, extent_depth, obs, if (obs == 1L) "" else "s", as.integer(exp),
+    unit_noun
   )
 
   s4 <- switch(
@@ -860,22 +862,21 @@ as.character.blindspot_pager <- function(x, ...) {
   falling <- r$trajectory == "falling"
   persistent <- run >= persistence
   discordant <- isTRUE(r$neighbour_discordant)
-  # seasonal blindness always counts; a detection counts only when the guide
-  # was built with detection_corroborates, otherwise it corroborates from
-  # outside the model and is flagged "external", so a reader counting the
-  # corroborating chips does not over-count against the flag rule
-  seasonal_counts <- isTRUE(r$seasonally_blind)
+  # seasonal blindness and any detection are out-of-grid: never one of the
+  # three STEPS corroborators. a detection is counted only when the guide was
+  # built with detection_corroborates, otherwise it corroborates from outside
+  # the grid and is flagged "external", so a reader counting the corroborating
+  # chips does not over-count against the flag rule
   detected <- length(detections$afp) > 0 || length(detections$es) > 0
   detection_counts <- isTRUE(params$detection_corroborates) && detected
-  s7_counts <- seasonal_counts || detection_counts
-  s7_role <- if (s7_counts) {
+  det_role <- if (detection_counts) {
     "corr"
   } else if (detected) {
     "external"
   } else {
     "quiet"
   }
-  s7_label <- if (s7_counts) {
+  det_label <- if (detection_counts) {
     "corroborates"
   } else if (detected) {
     "external"
@@ -884,23 +885,21 @@ as.character.blindspot_pager <- function(x, ...) {
   }
 
   list(
-    list(code = "S1", name = "Credible discordance", reading = s1,
+    list(code = "S", name = "Significance", reading = s1,
          role = "gate", label = "gate"),
-    list(code = "S2", name = "Depth of shortfall", reading = s2,
-         role = "mag", label = "magnitude"),
-    list(code = "S3", name = "Observed vs expected", reading = s3,
-         role = "mag", label = "magnitude"),
-    list(code = "S4", name = "Trajectory", reading = s4,
+    list(code = "T", name = "Trend", reading = s4,
          role = if (falling) "corr" else "quiet",
          label = if (falling) "corroborates" else "quiet"),
-    list(code = "S5", name = "Persistence", reading = s5,
+    list(code = "E", name = "Extent", reading = extent,
+         role = "mag", label = "magnitude"),
+    list(code = "P", name = "Persistence", reading = s5,
          role = if (persistent) "supp" else "quiet",
          label = if (persistent) "supports" else "quiet"),
-    list(code = "S6", name = "Neighbour contrast", reading = s6,
+    list(code = "S", name = "Surroundings", reading = s6,
          role = if (discordant) "corr" else "quiet",
          label = if (discordant) "corroborates" else "quiet"),
-    list(code = "S7", name = "Seasonal & detections", reading = s7,
-         role = s7_role, label = s7_label)
+    list(code = "+", name = "Seasonal & detections", reading = s7,
+         role = det_role, label = det_label)
   )
 }
 
@@ -979,13 +978,18 @@ as.character.blindspot_pager <- function(x, ...) {
       "signal firing; no action is warranted."
     ))
   }
-  # concise, bounded summary: the counted corroborators as a count (the S-rows
-  # name which fired), plus the detection channels (years are shown in S7)
+  # concise, bounded summary: the counted corroborators as a count (the STEPS
+  # rows name which fired), plus the detection channels shown out-of-grid. the
+  # base is three (trend, persistence, surroundings), or four when a detection
+  # is promoted to a counted signal, so the "of N" stays honest
+  dedupe <- isTRUE(params$dedupe_temporal)
+  detection_counts <- isTRUE(params$detection_corroborates)
+  n_axes <- (if (dedupe) 1L else 2L) + 1L + (if (detection_counts) 1L else 0L)
   n_corr <- as.integer(focal$corroborators)
-  corr <- if (n_corr >= 4L) {
-    "all four signals"
+  corr <- if (n_corr >= n_axes) {
+    sprintf("all %d signals", n_axes)
   } else {
-    sprintf("%d of four signals", n_corr)
+    sprintf("%d of %d signals", n_corr, n_axes)
   }
   channels <- c(
     if (length(detections$afp) > 0) "AFP" else NULL,
@@ -1057,19 +1061,20 @@ as.character.blindspot_pager <- function(x, ...) {
 
   # enumerate the actual corroborator axes: the temporal pair collapses to one
   # under dedupe_temporal, and a detection joins the count under
-  # detection_corroborates -- so the "of N" and the list stay honest
+  # detection_corroborates -- so the "of N" and the list stay honest. season
+  # never counts; it corroborates from outside the grid
   dedupe <- isTRUE(params$dedupe_temporal)
   detection_counts <- isTRUE(params$detection_corroborates)
   axes <- c(
-    if (dedupe) "trajectory or persistence" else "trajectory, persistence",
-    "neighbours", "season",
+    if (dedupe) "trend or persistence" else "trend, persistence",
+    "surroundings",
     if (detection_counts) "detections" else NULL
   )
-  n_axes <- (if (dedupe) 1L else 2L) + 2L + (if (detection_counts) 1L else 0L)
+  n_axes <- (if (dedupe) 1L else 2L) + 1L + (if (detection_counts) 1L else 0L)
   detect_clause <- if (detection_counts) {
     "."
   } else {
-    "; detections corroborate from outside this count."
+    "; season and detections corroborate from outside this count."
   }
   rule <- sprintf(
     paste0("A %s is flagged when its SPI sits below the %s adequacy cut, its ",
@@ -1133,7 +1138,7 @@ as.character.blindspot_pager <- function(x, ...) {
     "</div></div>",
     # reading
     "<div class=\"reading\"><div class=\"sectlab\" ",
-    "style=\"margin-bottom:6px\"><span>The reading \u2014 seven signals for ",
+    "style=\"margin-bottom:6px\"><span>The reading \u2014 the five STEPS for ",
     name, "</span><span>gate \u00b7 magnitude \u00b7 corroboration</span></div>",
     "<div class=\"rrule\">", rule, "</div>",
     "<div>", rows, "</div></div>",

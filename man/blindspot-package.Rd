@@ -41,7 +41,8 @@ monitoring
 \item Cross-classify SPI against the conventional NPAFP-rate threshold into a
 four-cell table (both adequate / true shortfall / false alarm / false
 reassurance).
-\item Read each district-year through the seven-signal field guide (S1-S7) to a
+\item Read each district-year through the five-signal STEPS field guide
+(significance, trend, extent, persistence, surroundings) to a
 FLAG / WATCH / No-action verdict.
 }
 }

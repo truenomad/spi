@@ -235,7 +235,7 @@ make_nb <- function(ids, island_last = TRUE) {
   nb
 }
 
-# --- a district-month blindspot_spi for the S7 seasonal signal -------------
+# --- a district-month blindspot_spi for the out-of-grid seasonal signal ----
 # seasonal_map: named vector id -> "blind" | "muted" | "present" | "none"
 make_spi_month <- function(id_col, ids, years, seasonal_map) {
   rows <- list()
@@ -271,7 +271,8 @@ make_spi_month <- function(id_col, ids, years, seasonal_map) {
 
 # --- a blindspot_concordance for the field guide --------------------------
 # Six districts across six years, engineered to reach FLAG / WATCH / No action
-# and to light up the S4-S7 signals.
+# and to light up the trend / persistence / surroundings and out-of-grid
+# seasonal / detection signals.
 make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
                              npafp_target = 3) {
   years <- 2019:2024
@@ -339,7 +340,8 @@ make_genomic <- function(id_col = "adm2_guid") {
 
 # environmental-surveillance positives keyed by district-year, with an
 # `n_positive` count column (mirrors synth_surveillance$es_district_year). FG3
-# and FG5 carry positives so the S7 ES channel (s7_es) is exercised.
+# and FG5 carry positives so the out-of-grid ES channel (detect_es) is
+# exercised.
 make_es <- function(id_col = "adm2_guid") {
   tibble::tibble(
     !!id_col := c("FG3", "FG5"),

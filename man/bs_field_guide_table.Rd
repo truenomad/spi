@@ -56,7 +56,7 @@ Two layouts:
 \itemize{
 \item \code{"scan"} -- one row per district for the focal year, with the key
 signals and the verdict; the verdict cell is shaded by concern.
-\item \code{"worked"} -- the paper's teaching layout: the seven signals plus
+\item \code{"worked"} -- the paper's teaching layout: the five STEPS plus
 the verdict as rows, a few districts as columns, every cell shaded
 adverse (rose) / intermediate (amber) / reassuring (green). When
 \code{districts} is NULL, four archetype districts (reassuring, watch, flag,

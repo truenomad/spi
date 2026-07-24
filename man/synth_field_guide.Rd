@@ -13,9 +13,9 @@ of \code{\link[=bs_field_guide]{bs_field_guide()}} for the element structure. Re
 synth_field_guide
 }
 \description{
-A \code{\link[=bs_field_guide]{bs_field_guide()}} result computed on \link{synth_surveillance}, with all
-seven signals active (S6 neighbour contrast, S7 seasonal, and S7 genomic
-all supplied). It ships so that \code{\link[=bs_field_guide_help]{bs_field_guide_help()}}, the
+A \code{\link[=bs_field_guide]{bs_field_guide()}} result computed on \link{synth_surveillance}, with the
+surroundings signal and the out-of-grid seasonal and detection channels all
+supplied. It ships so that \code{\link[=bs_field_guide_help]{bs_field_guide_help()}}, the
 \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} examples, and the package tests run instantly
 without refitting the (INLA-based) upstream model. The full modelling chain
 that produced it is \code{bs_adjacency()} -> \code{bs_expected()} (bare spec) ->

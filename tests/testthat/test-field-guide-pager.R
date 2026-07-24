@@ -37,8 +37,8 @@ test_that("a flag district renders a well-formed pager object", {
   html <- p$html
   expect_match(html, "<!DOCTYPE html>", fixed = TRUE)
   expect_match(html, "<svg", fixed = TRUE)
-  # seven signal rows, one legend, one verdict banner
-  expect_equal(lengths(regmatches(html, gregexpr("class=\"srow\"", html))), 7L)
+  # five STEPS rows + one out-of-grid detection row, one legend, one banner
+  expect_equal(lengths(regmatches(html, gregexpr("class=\"srow\"", html))), 6L)
   expect_match(html, "vbanner", fixed = TRUE)
   # flag accent is rose
   expect_match(html, "--accent:#c8102e", fixed = TRUE)
@@ -82,11 +82,11 @@ test_that("a detection without seasonal blindness reads as external, not counted
   d <- cand[["adm2_name"]][1]
 
   h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
-  s7 <- regmatches(
+  det <- regmatches(
     h, regexpr("Seasonal &amp; detections.*?</span>", h)
   )
-  # the S7 chip is "external", not the counted "corroborates"
-  expect_match(s7, "role external", fixed = TRUE)
+  # the out-of-grid detection chip is "external", not the counted "corroborates"
+  expect_match(det, "role external", fixed = TRUE)
 })
 
 test_that("path writes an auto-named html file", {
@@ -183,7 +183,7 @@ test_that("boundaries build the graph and draw a locator inset", {
   expect_no_match(without, "<div class=\"locbadge\">", fixed = TRUE)
 })
 
-test_that("ES detections from the field guide enter S7 and the chart", {
+test_that("ES detections from the field guide enter the detection row and chart", {
   fg <- synth_field_guide
   foc <- fg$focal
   skip_if(!"es_detected" %in% names(foc))

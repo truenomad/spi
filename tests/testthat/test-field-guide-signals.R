@@ -1,7 +1,8 @@
-# The seven-signal machinery of bs_field_guide() -- the S6 neighbour, S7
-# seasonal and S7 genomic helpers -- only runs when the optional inputs are
-# supplied. These build a field guide from constructed inputs (make_*, see
-# helper-fixtures.R) so those branches run without an INLA fit.
+# The optional-signal machinery of bs_field_guide() -- the surroundings (S)
+# neighbour helper and the out-of-grid seasonal / genomic / ES helpers -- only
+# runs when the optional inputs are supplied. These build a field guide from
+# constructed inputs (make_*, see helper-fixtures.R) so those branches run
+# without an INLA fit.
 
 ids6 <- paste0("FG", 1:6)
 seasonal_map <- list(FG1 = "present", FG2 = "blind", FG3 = "muted",
@@ -18,19 +19,19 @@ build_full_guide <- function(genomic = make_genomic(), genomic_col = NULL,
                  verbose = verbose, ...)
 }
 
-test_that("all seven signals compute when the inputs are supplied", {
+test_that("all optional signals compute when the inputs are supplied", {
   fg <- build_full_guide()
   expect_s3_class(fg, "blindspot_field_guide")
   expect_true(all(fg$signals_active))
 
   dy <- fg$district_year
-  # S6 neighbour contrast produced real values (not all NA) and a discordance
+  # surroundings (S) produced real values (not all NA) and a discordance
   expect_false(all(is.na(dy$neighbour_spi)))
   expect_true(any(dy$neighbour_discordant, na.rm = TRUE))
-  # S7 seasonal produced blind / muted / present / not-assessed labels
+  # out-of-grid seasonal produced blind / muted / present / not-assessed labels
   expect_true(any(dy$seasonally_blind, na.rm = TRUE))
   expect_true(all(c("blind", "muted", "present") %in% dy$seasonal))
-  # S7 genomic orphan attached to FG1 / FG2
+  # out-of-grid genomic orphan attached to FG1 / FG2
   expect_true(any(dy$genomic_orphan, na.rm = TRUE))
   # every verdict level reachable
   expect_true(all(c("FLAG", "WATCH", "No action") %in%

@@ -53,8 +53,8 @@ Each row (or each \code{es_col}-positive row) is an ES positive. Default: NULL
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
 
-\item{detection_label}{Serotype label used in the S7 detection reading, e.g.
-\code{"cVDPV2"} or \code{"WPV1"}. Default: \code{"cVDPV2"}.}
+\item{detection_label}{Serotype label used in the out-of-grid detection
+reading, e.g. \code{"cVDPV2"} or \code{"WPV1"}. Default: \code{"cVDPV2"}.}
 
 \item{year}{Integer focal year for the reading. Default: NULL
 (\code{x$read_year}).}
@@ -103,8 +103,9 @@ Turns one district's \code{\link[=bs_field_guide]{bs_field_guide()}} reading int
 print-ready HTML "pager": a masthead with the verdict, an SPI-over-time
 chart of the district against its touching neighbours (with the 90\%
 credible-interval ribbon and any orphan-poliovirus detections marked), the
-seven-signal reading laid out as gate / magnitude / corroboration, and a
-verdict banner with the recommended action.
+five-STEPS reading laid out as gate / magnitude / corroboration (with
+seasonal and detection corroboration read out of grid), and a verdict banner
+with the recommended action.
 
 It is the single-district companion to \code{\link[=bs_field_guide_table]{bs_field_guide_table()}}: where the
 table scans many districts at once, the pager is the tear-sheet you hand to
@@ -117,17 +118,18 @@ remote reference is a Google Fonts stylesheet, which degrades to system
 fonts offline). Every number is read from \code{x}; nothing is simulated.
 
 Pass \code{adjacency} (from \code{\link[=bs_adjacency]{bs_adjacency()}}) to draw each touching neighbour as
-its own muted line and to key the S6 neighbour-contrast reading off the same
+its own muted line and to key the surroundings (S) reading off the same
 graph the field guide used. Without it the chart falls back to the single
 neighbour-median series already stored on the field guide, and the neighbour
 lines are omitted.
 
-S7's detection half reports poliovirus found there through either channel:
-the case-based (AFP) detections already carried by the field guide's
-\code{genomic} input, and any environmental-surveillance (ES) positives passed
-via \code{es}. Both are marked on the chart (AFP as a filled diamond, ES as a
-hollow ring) and named in the S7 reading. Detections are narrative
-corroboration only; they never change the verdict, matching the paper.
+The out-of-grid detection row reports poliovirus found there through either
+channel: the case-based (AFP) detections already carried by the field
+guide's \code{genomic} input, and any environmental-surveillance (ES) positives
+passed via \code{es}. Both are marked on the chart (AFP as a filled diamond, ES as
+a hollow ring) and named in the reading. Detections are narrative
+corroboration only; they never enter the STEPS count or change the verdict,
+matching the paper.
 
 The accent colour tracks the verdict: rose for a flag, amber for a watch,
 green for no action. A flag with an orphan-poliovirus detection is titled
@@ -140,7 +142,7 @@ pager
 \dontrun{
 # self-contained: hand it the shapefile and it builds the neighbour graph
 # itself, draws a locator inset, and reads both detection channels (AFP +
-# ES, already carried by the field guide) into S7
+# ES, already carried by the field guide) into the out-of-grid detection row
 bs_field_guide_pager(
   fg,
   district = "Tirwen",
