@@ -457,3 +457,71 @@ test_that("bs_compare_overdispersion and auto selection run end to end", {
   expect_s3_class(auto, "blindspot_expected")
   expect_true(auto$overdispersion %in% c("none", "iid", "nb"))
 })
+
+# ---------------------------------------------------------------------------
+# (c) determinism -- a seeded fit must be reproducible run to run.
+# Regression guard: `seed` used to be applied with set.seed() only, which
+# steers the config draw but not the latent-field draw inside INLA's compiled
+# code, so two "seeded" runs silently disagreed by enough to move SPI and flip
+# field-guide verdicts.
+# ---------------------------------------------------------------------------
+
+test_that("seed argument is validated", {
+  d <- sub_inputs(4L, 12L)
+  bad <- function(s) {
+    bs_expected(
+      cases = d$cases, population = d$pop, adjacency = d$bnd,
+      id_col = "adm2_guid", seed = s, verbose = FALSE
+    )
+  }
+  expect_error(bad(-1L), "non-negative")
+  expect_error(bad(2.5), "non-negative")
+  expect_error(bad(c(1L, 2L)), "non-negative")
+  expect_error(bad(NA_integer_), "non-negative")
+})
+
+test_that("a seeded fit is reproducible and leaves the caller's RNG alone", {
+  skip_on_cran()
+  skip_if_not_installed("INLA")
+  d <- sub_inputs(6L, 24L)
+
+  run <- function() {
+    fit_or_skip(
+      cases = d$cases, population = d$pop, adjacency = d$bnd,
+      id_col = "adm2_guid", season = "none", n_draws = 40L, seed = 7L,
+      verbose = FALSE
+    )
+  }
+
+  set.seed(99L)
+  before <- .Random.seed
+  a <- run()
+  # bs_expected must not displace the stream the caller is drawing from
+  expect_identical(.Random.seed, before)
+
+  b <- run()
+  expect_identical(a$summary$expected_mean, b$summary$expected_mean)
+  expect_identical(a$summary$expected_median, b$summary$expected_median)
+  expect_identical(a$draws, b$draws)
+  # the fit is pinned to one thread alongside a seed, else it drifts too
+  expect_identical(a$model$.args$num.threads, "1:1")
+})
+
+test_that("num_threads = NULL opts out of the serial pin", {
+  skip_on_cran()
+  skip_if_not_installed("INLA")
+  d <- sub_inputs(4L, 12L)
+
+  # pin the global to a multithreaded value so "did we inherit it?" is a
+  # question with a distinguishable answer even on a single-core runner
+  old <- INLA::inla.getOption("num.threads")
+  on.exit(INLA::inla.setOption(num.threads = old), add = TRUE)
+  INLA::inla.setOption(num.threads = "2:1")
+
+  fit <- suppressWarnings(fit_or_skip(
+    cases = d$cases, population = d$pop, adjacency = d$bnd,
+    id_col = "adm2_guid", season = "none", n_draws = 20L, seed = 7L,
+    num_threads = NULL, verbose = FALSE
+  ))
+  expect_false(identical(fit$model$.args$num.threads, "1:1"))
+})

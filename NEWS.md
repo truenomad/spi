@@ -1,5 +1,26 @@
 # blindspot 0.1.0.9000
 
+* **`bs_expected(seed = ...)` now actually makes a fit reproducible, and
+  gained `num_threads`.** The seed was applied with `set.seed()` alone. That
+  reaches only R's RNG, which decides *which* posterior configuration each
+  draw is taken from; the latent field drawn *within* that configuration comes
+  from a separate RNG inside INLA's compiled code, and
+  `inla.posterior.sample()` was never told the seed. Two runs of identical
+  seeded code therefore disagreed. The drift was not confined to the last
+  decimal: it moved SPI and flipped `bs_field_guide()` verdicts, and it could
+  do so for a district whose own counts barely moved, because corroboration
+  reads neighbouring districts' posteriors, which drifted too. Anyone who
+  compared two runs — before and after adding a covariate, say — was reading
+  part noise as part signal.
+
+  Fixing the seed alone is not sufficient, so `num_threads` is new: `INLA::inla()`
+  is not bit-reproducible multithreaded, since the hyperparameter mode and
+  integration points shift with thread scheduling. It defaults to `"1:1"`
+  whenever `seed` is set, which makes the default call reproducible at the cost
+  of a serial fit; pass `num_threads = NULL` to inherit INLA's global thread
+  setting and trade determinism back for speed. `seed` is now validated (a
+  single non-negative whole number, or `NULL`), and the caller's RNG state is
+  restored on exit instead of being left displaced.
 * **`bs_field_guide()` gained `noise_alpha`, a sampling-noise gate on
   significance (S).** The SPI credible interval is uncertainty in the *expected*
   count with the observed count held fixed, so it says nothing about sampling
