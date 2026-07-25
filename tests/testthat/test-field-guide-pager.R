@@ -331,6 +331,26 @@ test_that("the chart plots the focal district alone, with no neighbour lines", {
   fg <- synth_field_guide
   d <- flag_district(fg)
   skip_if(is.na(d))
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+
+  # no muted neighbour polylines, cluster label or legend key
+  expect_no_match(h, "stroke=\"#94a0b3\"", fixed = TRUE)
+  expect_no_match(h, "class=\"lk n\"", fixed = TRUE)
+  expect_no_match(h, "neighbouring districts", fixed = TRUE)
+  # neighbours still reach the page as figures, not lines: the masthead median
+  # and the surroundings row
+  nb_spi <- fg$focal$neighbour_spi[fg$focal[["adm2_name"]] == d][1]
+  if (!is.na(nb_spi)) {
+    expect_match(h, "neighbours [0-9]")
+    expect_match(h, "against a neighbour median of", fixed = TRUE)
+  }
+})
+
+test_that("adjacency is inert and says so", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
   skip_if_not_installed("sf")
   skip_if_not_installed("spdep")
 
@@ -340,42 +360,66 @@ test_that("the chart plots the focal district alone, with no neighbour lines", {
   with_adj <- bs_field_guide_pager(
     fg, district = d, adjacency = adj, verbose = FALSE
   )$html
-  without_adj <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
-
-  nb_spi <- fg$focal$neighbour_spi[fg$focal[["adm2_name"]] == d][1]
-  for (h in list(with_adj, without_adj)) {
-    # no muted neighbour polylines, cluster label or legend key
-    expect_no_match(h, "stroke=\"#94a0b3\"", fixed = TRUE)
-    expect_no_match(h, "class=\"lk n\"", fixed = TRUE)
-    expect_no_match(h, "neighbouring districts", fixed = TRUE)
-    # neighbours still reach the page as figures, not lines: the masthead
-    # median and the surroundings row
-    if (!is.na(nb_spi)) {
-      expect_match(h, "neighbours [0-9]")
-      expect_match(h, "against a neighbour median of", fixed = TRUE)
-    }
-  }
+  without <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  # the graph changes nothing on the page
+  expect_identical(with_adj, without)
+  # and a caller passing one is told it is redundant
+  expect_message(
+    bs_field_guide_pager(fg, district = d, adjacency = adj, verbose = TRUE),
+    "no longer affects the pager"
+  )
 })
 
-test_that("boundaries build the graph and draw a locator inset", {
+test_that("boundaries locate the district in the whole country", {
   fg <- synth_field_guide
   d <- flag_district(fg)
   skip_if(is.na(d))
   skip_if_not_installed("sf")
-  skip_if_not_installed("spdep")
+  b <- synth_surveillance$boundaries
 
-  p <- bs_field_guide_pager(
-    fg, district = d, boundaries = synth_surveillance$boundaries,
-    id_col = "adm2_guid", verbose = FALSE
-  )
-  h <- p$html
-  # locator inset drawn from real geometry (the div, not just the css rule)
+  h <- bs_field_guide_pager(
+    fg, district = d, boundaries = b, id_col = "adm2_guid", verbose = FALSE
+  )$html
+
+  # the inset div, not just the css rule
   expect_match(h, "<div class=\"locbadge\">", fixed = TRUE)
-  expect_gt(lengths(regmatches(h, gregexpr("<polygon", h))), 1L)
+  # the country silhouette plus one shape per admin-1 unit, so the inset spans
+  # the country rather than the old handful of touching neighbours
+  n_poly <- lengths(regmatches(h, gregexpr("<polygon", h)))
+  expect_gt(n_poly, length(unique(b$adm1_name)))
+  # the focal district is filled in the verdict accent and ringed
+  expect_match(h, "fill=\"#c8102e\"", fixed = TRUE)
+  expect_match(h, "stroke-opacity=\"0.7\"", fixed = TRUE)
 
   # no shapefile -> no inset div
   without <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_no_match(without, "<div class=\"locbadge\">", fixed = TRUE)
+})
+
+test_that("a multi-country layer is cut to the focal district's country", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+  skip_if_not_installed("sf")
+  b <- synth_surveillance$boundaries
+
+  # a second country far to the east would otherwise scale the inset to both
+  far <- b
+  far$adm0_name <- "Elsewhere"
+  far$adm2_guid <- paste0("far-", far$adm2_guid)
+  sf::st_geometry(far) <- sf::st_geometry(far) + c(60, 0)
+  two <- rbind(b, far)
+
+  one_html <- bs_field_guide_pager(
+    fg, district = d, boundaries = b, id_col = "adm2_guid", verbose = FALSE
+  )$html
+  two_html <- bs_field_guide_pager(
+    fg, district = d, boundaries = two, id_col = "adm2_guid", verbose = FALSE
+  )$html
+  inset <- function(h) {
+    regmatches(h, regexpr("(?<=lbmap\">).*?</svg>", h, perl = TRUE))
+  }
+  expect_identical(inset(one_html), inset(two_html))
 })
 
 test_that("ES detections from the field guide enter the detection row and chart", {
@@ -430,15 +474,13 @@ test_that("adm1-level inputs render without an adm2 column", {
   d <- fg$focal[fg$focal$verdict == "FLAG", ][["adm1_name"]][1]
   skip_if(is.na(d))
   skip_if_not_installed("sf")
-  skip_if_not_installed("spdep")
 
   b <- synth_surveillance$boundaries
   b[["adm1_guid"]] <- b[["adm2_guid"]]
-  adj <- suppressMessages(bs_adjacency(b, id_col = "adm1_guid"))
 
-  # the adjacency branch of the neighbour lookup used to hard-code adm2_name
+  # the inset lookup used to hard-code adm2_name
   p <- bs_field_guide_pager(
-    fg, district = d, adjacency = adj, id_col = "adm1_guid",
+    fg, district = d, boundaries = b, id_col = "adm1_guid",
     admin_label = "province", verbose = FALSE
   )
   expect_s3_class(p, "blindspot_pager")
@@ -449,19 +491,13 @@ test_that("adm1-level inputs render without an adm2 column", {
 })
 
 test_that("unit_noun rewords the reading; default stays \"district\"", {
-  skip_if_not_installed("sf")
-  skip_if_not_installed("spdep")
   fg <- as_adm1_guide(synth_field_guide)
   d <- fg$focal[fg$focal$verdict == "FLAG", ][["adm1_name"]][1]
   skip_if(is.na(d))
 
-  b <- synth_surveillance$boundaries
-  b[["adm1_guid"]] <- b[["adm2_guid"]]
-  adj <- suppressMessages(bs_adjacency(b, id_col = "adm1_guid"))
-
   prov <- bs_field_guide_pager(
-    fg, district = d, adjacency = adj, id_col = "adm1_guid",
-    unit_noun = "province", verbose = FALSE
+    fg, district = d, id_col = "adm1_guid", unit_noun = "province",
+    verbose = FALSE
   )$html
   expect_match(prov, "A province is flagged when", fixed = TRUE)
   expect_match(prov, "expected for the province", fixed = TRUE)
@@ -469,11 +505,8 @@ test_that("unit_noun rewords the reading; default stays \"district\"", {
 
   # default is unchanged: adm2 output still reads "district"
   d2 <- flag_district(synth_field_guide)
-  adj2 <- suppressMessages(
-    bs_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
-  )
   h2 <- bs_field_guide_pager(
-    synth_field_guide, district = d2, adjacency = adj2, verbose = FALSE
+    synth_field_guide, district = d2, verbose = FALSE
   )$html
   expect_match(h2, "A district is flagged when", fixed = TRUE)
 })

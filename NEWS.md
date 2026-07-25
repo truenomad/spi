@@ -30,8 +30,17 @@
   throughout as lying below **one**, not below the adequacy cut.
 * `bs_field_guide_pager()` charts the focal district alone. The per-neighbour
   lines, cluster label and legend key are gone; neighbours reach the page as the
-  neighbour-median figure and the surroundings (S) row. `adjacency` /
-  `boundaries` now only ring the focal district in the locator inset.
+  neighbour-median figure and the surroundings (S) row.
+* **The locator inset now places the district in its country** rather than
+  among its touching neighbours, which showed local shape but not position. It
+  draws the country silhouette, admin-1 outlines from an `adm1_name` column, and
+  the focal district filled in the verdict accent and ringed, with the ring
+  sized off the district so a few-pixel shape stays findable. The badge grows
+  from 112px to 130px, and an `adm0_name` column cuts a multi-country layer down
+  to the focal district's own country. Consequently `adjacency` no longer
+  affects the pager at all: it is documented as ignored, notes itself when
+  supplied under `verbose`, and the pager no longer calls `bs_adjacency()` or
+  needs \pkg{spdep}.
 * Smaller pager fixes to the reading: persistence names the run ending at the
   read year, disclosing the panel's longest separately when that is what gated;
   an expected count below ten keeps one decimal, so "about 1 case against

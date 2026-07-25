@@ -31,16 +31,15 @@ bs_field_guide_pager(
 in the id column, or a district name matched (case-insensitively) against
 \code{name_col}. Ids are tried first, so an id is unambiguous.}
 
-\item{adjacency}{Optional spatial neighbour object from \code{\link[=bs_adjacency]{bs_adjacency()}}
-(class \code{blindspot_nb}). Names the touching neighbours ringed in the
-locator inset. Default: NULL.}
+\item{adjacency}{Deprecated and ignored. The locator inset places the focal
+district in its country rather than among its neighbours, so the pager no
+longer reads a neighbour graph. Default: NULL.}
 
-\item{boundaries}{Optional sf polygon layer keyed by \code{id_col}. Serves double
-duty: when \code{adjacency} is NULL the neighbour graph is built from it with
-\code{\link[=bs_adjacency]{bs_adjacency()}} (so the pager is self-contained -- field guide +
-shapefile, no pre-built graph), and its real geometry draws a locator
-inset on the chart, the focal district in the accent colour ringed by its
-touching neighbours. Default: NULL (no inset).}
+\item{boundaries}{Optional sf polygon layer keyed by \code{id_col}, covering the
+whole country. Draws the locator inset from its real geometry. An
+\code{adm1_name} column, if present, supplies the regional outlines; an
+\code{adm0_name} column restricts a multi-country layer to the focal district's
+own country. Default: NULL (no inset).}
 
 \item{es}{Optional ad-hoc environmental-surveillance detections keyed by
 \code{id_col} and \code{year}, overriding the field guide's own ES channel. Normally
@@ -121,8 +120,12 @@ The chart plots the focal district alone: its SPI line, the 90\%
 credible-interval ribbon and any detection markers. Neighbours enter the
 page as the neighbour-median figure in the masthead and the surroundings (S)
 reading, both taken from the field guide, rather than as lines on the chart.
-Pass \code{adjacency} (from \code{\link[=bs_adjacency]{bs_adjacency()}}) or \code{boundaries} to ring the focal
-district with its touching neighbours in the locator inset.
+
+Pass \code{boundaries} to draw the locator inset: the whole country in outline
+with its admin-1 divisions, and the focal district filled in the accent
+colour and ringed, so a reader can see where in the country it sits. There is
+no neighbour tier, because at badge size a district is only a few pixels
+across.
 
 The out-of-grid detection row reports poliovirus found there through either
 channel: the case-based (AFP) detections already carried by the field
@@ -141,9 +144,9 @@ fg <- synth_field_guide
 pager <- bs_field_guide_pager(fg, district = "Tirwen")
 pager
 \dontrun{
-# self-contained: hand it the shapefile and it builds the neighbour graph
-# itself, draws a locator inset, and reads both detection channels (AFP +
-# ES, already carried by the field guide) into the out-of-grid detection row
+# self-contained: hand it the shapefile and it draws the locator inset, and
+# reads both detection channels (AFP + ES, already carried by the field
+# guide) into the out-of-grid detection row
 bs_field_guide_pager(
   fg,
   district = "Tirwen",
@@ -154,6 +157,6 @@ bs_field_guide_pager(
 }
 }
 \seealso{
-\code{\link[=bs_field_guide]{bs_field_guide()}} for the reading, \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} for
-the multi-district table, and \code{\link[=bs_adjacency]{bs_adjacency()}} for the neighbour graph.
+\code{\link[=bs_field_guide]{bs_field_guide()}} for the reading and \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} for
+the multi-district table.
 }

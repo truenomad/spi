@@ -23,8 +23,12 @@
 #' credible-interval ribbon and any detection markers. Neighbours enter the
 #' page as the neighbour-median figure in the masthead and the surroundings (S)
 #' reading, both taken from the field guide, rather than as lines on the chart.
-#' Pass `adjacency` (from [bs_adjacency()]) or `boundaries` to ring the focal
-#' district with its touching neighbours in the locator inset.
+#'
+#' Pass `boundaries` to draw the locator inset: the whole country in outline
+#' with its admin-1 divisions, and the focal district filled in the accent
+#' colour and ringed, so a reader can see where in the country it sits. There is
+#' no neighbour tier, because at badge size a district is only a few pixels
+#' across.
 #'
 #' The out-of-grid detection row reports poliovirus found there through either
 #' channel: the case-based (AFP) detections already carried by the field
@@ -42,15 +46,14 @@
 #' @param district District to profile: either an id (e.g. the admin-2 GUID)
 #'   in the id column, or a district name matched (case-insensitively) against
 #'   `name_col`. Ids are tried first, so an id is unambiguous.
-#' @param adjacency Optional spatial neighbour object from [bs_adjacency()]
-#'   (class `blindspot_nb`). Names the touching neighbours ringed in the
-#'   locator inset. Default: NULL.
-#' @param boundaries Optional sf polygon layer keyed by `id_col`. Serves double
-#'   duty: when `adjacency` is NULL the neighbour graph is built from it with
-#'   [bs_adjacency()] (so the pager is self-contained -- field guide +
-#'   shapefile, no pre-built graph), and its real geometry draws a locator
-#'   inset on the chart, the focal district in the accent colour ringed by its
-#'   touching neighbours. Default: NULL (no inset).
+#' @param adjacency Deprecated and ignored. The locator inset places the focal
+#'   district in its country rather than among its neighbours, so the pager no
+#'   longer reads a neighbour graph. Default: NULL.
+#' @param boundaries Optional sf polygon layer keyed by `id_col`, covering the
+#'   whole country. Draws the locator inset from its real geometry. An
+#'   `adm1_name` column, if present, supplies the regional outlines; an
+#'   `adm0_name` column restricts a multi-country layer to the focal district's
+#'   own country. Default: NULL (no inset).
 #' @param es Optional ad-hoc environmental-surveillance detections keyed by
 #'   `id_col` and `year`, overriding the field guide's own ES channel. Normally
 #'   ES is supplied once to [bs_field_guide()] (via its `es` argument) and read
@@ -94,8 +97,8 @@
 #'   it reports the verdict and any written files. Recover the markup with
 #'   `as.character()`.
 #'
-#' @seealso [bs_field_guide()] for the reading, [bs_field_guide_table()] for
-#'   the multi-district table, and [bs_adjacency()] for the neighbour graph.
+#' @seealso [bs_field_guide()] for the reading and [bs_field_guide_table()] for
+#'   the multi-district table.
 #'
 #' @importFrom rlang %||%
 #' @export
@@ -104,9 +107,9 @@
 #' pager <- bs_field_guide_pager(fg, district = "Tirwen")
 #' pager
 #' \dontrun{
-#' # self-contained: hand it the shapefile and it builds the neighbour graph
-#' # itself, draws a locator inset, and reads both detection channels (AFP +
-#' # ES, already carried by the field guide) into the out-of-grid detection row
+#' # self-contained: hand it the shapefile and it draws the locator inset, and
+#' # reads both detection channels (AFP + ES, already carried by the field
+#' # guide) into the out-of-grid detection row
 #' bs_field_guide_pager(
 #'   fg,
 #'   district = "Tirwen",
@@ -158,13 +161,14 @@ bs_field_guide_pager <- function(
     )
   }
 
-  # build the neighbour graph from the shapefile when no graph is supplied
-  if (is.null(adjacency) && !is.null(boundaries)) {
-    adjacency <- suppressMessages(
-      bs_adjacency(boundaries, id_col = id_col)
+  # the locator inset places the focal district in its country and draws no
+  # neighbour tier, so a neighbour graph is no longer read here at all
+  if (!is.null(adjacency) && verbose) {
+    cli::cli_alert_info(
+      "{.arg adjacency} no longer affects the pager and can be dropped; \\
+       the locator inset is drawn from {.arg boundaries}."
     )
   }
-  nb_ids <- .pager_neighbour_ids(adjacency, foc_id, id_col)
 
   # AFP + ES detection years for the out-of-grid detection row; both channels
   # come from the field guide (orphan_years / es_years), with `es` an optional
@@ -184,7 +188,7 @@ bs_field_guide_pager <- function(
   # built before the chart: the badge overlays the chart's top-right corner, so
   # the endpoint label has to know whether it is there
   locator <- if (!is.null(boundaries)) {
-    .pager_locator_svg(boundaries, foc_id, nb_ids, id_col, vstyle$accent)
+    .pager_locator_svg(boundaries, foc_id, id_col, vstyle$accent)
   } else {
     ""
   }
@@ -368,31 +372,30 @@ as.character.blindspot_pager <- function(x, ...) {
   cli::cli_abort("cannot write {.val {ext}}; use {.val .html} or {.val .png}.")
 }
 
-# touching-neighbour ids for the focal district from the adjacency graph.
+# locator inset: the focal district in accent, placed in the whole country so a
+# reader can see where in it the district sits. adm1 outlines carry the regional
+# context. There is deliberately no neighbour tier: at badge scale a district is
+# a few pixels across, so a second tone would not read, and the neighbour
+# comparison is already on the page as a figure in the masthead and in the
+# surroundings row.
 # @noRd
-.pager_neighbour_ids <- function(adjacency, foc_id, id_col) {
-  if (is.null(adjacency)) return(character(0))
-  ids <- attr(adjacency, "region.id")
-  if (is.null(ids)) ids <- as.character(seq_along(adjacency))
-  ids <- as.character(ids)
-  idx <- match(as.character(foc_id), ids)
-  if (is.na(idx)) return(character(0))
-  nb <- adjacency[[idx]]
-  if (length(nb) == 1L && nb == 0L) return(character(0))
-  ids[nb]
-}
-
-# locator inset: the focal district (accent) ringed by its touching
-# neighbours (muted), drawn from real boundary geometry into a square viewBox.
-# @noRd
-.pager_locator_svg <- function(boundaries, foc_id, nb_ids, id_col, accent,
-                               size = 100, pad = 6) {
+.pager_locator_svg <- function(boundaries, foc_id, id_col, accent,
+                               size = 130, pad = 5) {
   .check_pkg("sf", reason = "to draw the locator inset")
   ids <- as.character(boundaries[[id_col]])
-  keep <- ids %in% as.character(c(foc_id, nb_ids))
-  if (!as.character(foc_id) %in% ids[keep]) return("")
-  sub <- boundaries[keep, , drop = FALSE]
-  geom <- sf::st_geometry(sub)
+  if (!as.character(foc_id) %in% ids) return("")
+  # a layer spanning several countries would otherwise scale the inset to all of
+  # them, shrinking the one country the reader needs
+  if ("adm0_name" %in% names(boundaries)) {
+    adm0 <- as.character(boundaries$adm0_name)
+    boundaries <- boundaries[
+      !is.na(adm0) & adm0 == adm0[match(as.character(foc_id), ids)], ,
+      drop = FALSE
+    ]
+    ids <- as.character(boundaries[[id_col]])
+  }
+  focal_i <- which(ids == as.character(foc_id))
+  geom <- sf::st_geometry(boundaries)
 
   allm <- sf::st_coordinates(geom)
   xr <- range(allm[, "X"], na.rm = TRUE)
@@ -405,35 +408,77 @@ as.character.blindspot_pager <- function(x, ...) {
   tx <- function(x) ox + (x - xr[1]) * scale
   ty <- function(y) oy + (yr[2] - y) * scale
 
-  ring_polys <- function(i, fill, stroke, sw) {
-    m <- sf::st_coordinates(geom[i])
-    lcols <- setdiff(colnames(m), c("X", "Y"))
-    key <- do.call(paste, c(as.data.frame(m[, lcols, drop = FALSE]), sep = "-"))
-    parts <- lapply(split(seq_len(nrow(m)), key), function(idx) {
-      pts <- paste(
-        sprintf("%.1f,%.1f", tx(m[idx, "X"]), ty(m[idx, "Y"])),
-        collapse = " "
-      )
-      sprintf(
-        paste0("<polygon points=\"%s\" fill=\"%s\" stroke=\"%s\" ",
-               "stroke-width=\"%s\" stroke-linejoin=\"round\"/>"),
-        pts, fill, stroke, sw
-      )
-    })
-    paste(unlist(parts), collapse = "")
+  # the regional tier: admin-1 where the layer names it, else the raw districts.
+  # 30-odd provinces read at this size where several hundred districts blur.
+  tier <- if ("adm1_name" %in% names(boundaries)) {
+    lapply(
+      split(seq_along(geom), as.character(boundaries$adm1_name)),
+      function(i) sf::st_union(geom[i])
+    )
+  } else {
+    lapply(seq_along(geom), function(i) geom[i])
   }
-
-  sub_ids <- as.character(sub[[id_col]])
-  focal_i <- which(sub_ids == as.character(foc_id))
-  nb_i <- setdiff(seq_len(nrow(sub)), focal_i)
 
   s <- sprintf(
     "<svg viewBox=\"0 0 %d %d\" xmlns=\"http://www.w3.org/2000/svg\">",
     size, size
   )
-  for (i in nb_i) s <- paste0(s, ring_polys(i, "#eef0f4", "#b7bfcc", "0.7"))
-  for (i in focal_i) s <- paste0(s, ring_polys(i, accent, "#fffdf8", "1"))
-  paste0(s, "</svg>")
+  # country silhouette, the regional hairlines over it, then the focal district
+  s <- paste0(
+    s,
+    .pager_rings(sf::st_union(geom), tx, ty, "#eef0f4", "#8e99ab", "0.8")
+  )
+  for (g in tier) {
+    s <- paste0(s, .pager_rings(g, tx, ty, "none", "#c3cad6", "0.35"))
+  }
+  paste0(
+    s,
+    .pager_rings(geom[focal_i], tx, ty, accent, "#fffdf8", "0.8"),
+    .pager_focal_halo(geom[focal_i], tx, ty, accent),
+    "</svg>"
+  )
+}
+
+# one geometry as svg polygons, one per ring, projected through `tx` / `ty`.
+# @noRd
+.pager_rings <- function(g, tx, ty, fill, stroke, sw) {
+  m <- sf::st_coordinates(g)
+  if (nrow(m) == 0L) return("")
+  lcols <- setdiff(colnames(m), c("X", "Y"))
+  key <- if (length(lcols) == 0L) {
+    rep("1", nrow(m))
+  } else {
+    do.call(paste, c(as.data.frame(m[, lcols, drop = FALSE]), sep = "-"))
+  }
+  parts <- lapply(split(seq_len(nrow(m)), key), function(idx) {
+    pts <- paste(
+      sprintf("%.1f,%.1f", tx(m[idx, "X"]), ty(m[idx, "Y"])),
+      collapse = " "
+    )
+    sprintf(
+      paste0("<polygon points=\"%s\" fill=\"%s\" stroke=\"%s\" ",
+             "stroke-width=\"%s\" stroke-linejoin=\"round\"/>"),
+      pts, fill, stroke, sw
+    )
+  })
+  paste(unlist(parts), collapse = "")
+}
+
+# ring around the focal district, so a district only a few pixels across at
+# country scale is still findable. sized off the district's own extent so it
+# always encloses it, with a floor that keeps a tiny district visible.
+# @noRd
+.pager_focal_halo <- function(g, tx, ty, accent) {
+  m <- sf::st_coordinates(g)
+  if (nrow(m) == 0L) return("")
+  px <- tx(m[, "X"])
+  py <- ty(m[, "Y"])
+  r <- max(6, max(diff(range(px)), diff(range(py))) / 2 + 3)
+  sprintf(
+    paste0("<circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"none\" ",
+           "stroke=\"%s\" stroke-width=\"1.1\" stroke-opacity=\"0.7\"/>"),
+    mean(range(px)), mean(range(py)), r, accent
+  )
 }
 
 # format a number with the pager's middle-dot decimal separator.
@@ -532,10 +577,11 @@ as.character.blindspot_pager <- function(x, ...) {
 # ---- chart (inline svg, ported geometry) ----------------------------------
 
 # lowest chart-space y the locator badge reaches, in viewBox units: the badge is
-# 112px square and hangs 12px above the chart box, whose 10px top padding the
-# svg starts below. anything above this would print under it.
+# 130px square and hangs 12px above the chart box, whose 10px top padding the
+# svg starts below, and the 734-unit viewBox renders about 708px wide. anything
+# above this would print under the badge.
 # @noRd
-.pager_locator_band <- 118
+.pager_locator_band <- 130
 
 # render the SPI-over-time chart as a static inline SVG string.
 # @noRd
@@ -1342,8 +1388,8 @@ as.character.blindspot_pager <- function(x, ...) {
     ".chartbox{flex-shrink:0;margin-top:8px;background:#fffdf8;border:1px ",
     "solid var(--line);padding:10px 12px 6px;position:relative}",
     ".ts{width:100%}.ts svg{width:100%;height:auto;display:block}",
-    ".locbadge{position:absolute;top:-12px;right:-11px;width:112px;",
-    "height:112px;background:#fffdf8;border:1px solid var(--line);",
+    ".locbadge{position:absolute;top:-12px;right:-11px;width:130px;",
+    "height:130px;background:#fffdf8;border:1px solid var(--line);",
     "box-shadow:0 10px 22px -8px rgba(21,35,59,.42);padding:7px;display:flex;",
     "align-items:center}",
     ".locbadge .lbmap{width:100%}",
