@@ -1396,7 +1396,9 @@ as.character.blindspot_pager <- function(x, ...) {
     "margin:16px 0 4px}",
     ".caption{font-family:'Newsreader',serif;font-size:13px;line-height:1.45;",
     "color:var(--ink);max-width:735px}",
-    ".chartbox{flex-shrink:0;margin-top:8px;background:#fffdf8;border:1px ",
+    # the locator badge hangs 12px above the chart box, so the box needs more
+    # than that above it or the badge collides with the caption
+    ".chartbox{flex-shrink:0;margin-top:24px;background:#fffdf8;border:1px ",
     "solid var(--line);padding:10px 12px 6px;position:relative}",
     ".ts{width:100%}.ts svg{width:100%;height:auto;display:block}",
     ".locbadge{position:absolute;top:-12px;right:-11px;width:130px;",
