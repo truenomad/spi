@@ -15,9 +15,11 @@ bs_field_guide(
   read_year = NULL,
   spi_cut = NULL,
   persistence = 3L,
+  persistence_basis = c("longest", "trailing"),
   traj_window = 5L,
   traj_tol = 0.01,
   traj_alpha = NULL,
+  noise_alpha = NULL,
   min_corroborators = 2L,
   dedupe_temporal = FALSE,
   detection_corroborates = FALSE,
@@ -62,6 +64,15 @@ help rendering. Default: NULL (latest year present).}
 \item{persistence}{Integer. Consecutive sub-cut years that corroborate a
 flag (persistence, P). Default: 3.}
 
+\item{persistence_basis}{Which run the persistence corroborator (P) counts.
+\code{"longest"} is the running maximum over the panel to date: it never falls
+back once earned, so a district that read short years ago still carries
+the run after recovering. \code{"trailing"} is the run ending at the year being
+read, so persistence speaks to that year. Both runs are always reported
+(\code{longest_run_below}, \code{trailing_run_below}); this chooses which one gates.
+Default: \code{"longest"}, reproducing the published flag counts.
+\code{"trailing"} is the recommended setting for an operational read.}
+
 \item{traj_window}{Integer. Trend regression window in years, ending
 at each year (trend, T). Default: 5.}
 
@@ -77,6 +88,22 @@ volatile year reading as a sustained trend. Default: NULL (the paper's
 slope-sign-and-tolerance trajectory, which reproduces the published flag
 counts). \code{0.1} is the recommended setting, improving specificity on
 volatile series.}
+
+\item{noise_alpha}{Optional numeric level for a sampling-noise gate on
+significance (S). The SPI credible interval is posterior uncertainty in
+the \emph{expected} count with the observed count held fixed, so it says
+nothing about sampling variation in the count itself. At \code{observed = 0}
+the ratio is identically zero in every draw, the interval collapses to
+\verb{(0, 0)}, and \code{cri_excludes_1} is TRUE whatever the expected count, so the
+gate does no work. When \code{noise_alpha} is set, the gate additionally
+requires the Poisson reference tail
+\eqn{P(X \le observed \mid \lambda = expected)} to be at or below it, so a
+shortfall that chance alone could produce cannot open the gate. This
+subsumes a minimum-expected-count floor: at a zero count, \code{0.05} implies
+roughly three expected cases. The tail is always reported
+(\code{noise_tail}, \code{noise_plausible}) whether or not it gates. Default: NULL
+(no noise gate, reproducing the published flag counts); \code{0.05} is the
+recommended setting for an operational read.}
 
 \item{min_corroborators}{Integer. Corroborating signals required to flag.
 Default: 2.}
@@ -102,7 +129,9 @@ An object of class \code{blindspot_field_guide}. A list with:
 \describe{
 \item{district_year}{Tibble, one row per district-year, carrying the
 inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1},
-\code{s1_discordance}, \code{longest_run_below}, \code{trajectory}, \code{neighbour_spi},
+\code{s1_discordance}, \code{noise_tail}, \code{noise_plausible},
+\code{longest_run_below}, \code{trailing_run_below}, \code{run_below} (whichever of the
+two \code{persistence_basis} gates on), \code{trajectory}, \code{neighbour_spi},
 \code{neighbour_discordant}, \code{neighbourhood_shortfall}, \code{seasonal},
 \code{orphan_years}, \code{genomic_orphan}, \code{es_years}, \code{es_detected}),
 \code{corroborators}, and \code{verdict} (factor).}

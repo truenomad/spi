@@ -89,6 +89,196 @@ test_that("a detection without seasonal blindness reads as external, not counted
   expect_match(det, "role external", fixed = TRUE)
 })
 
+test_that("the pager prescribes no follow-up action", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  for (phrase in c("Supervisory review", "active case search",
+                   "routine monitoring", "collect another year",
+                   "no action is warranted", "class=\"va\"")) {
+    expect_no_match(h, phrase, fixed = TRUE)
+  }
+})
+
+test_that("a flag does not claim the interval rules out sampling noise", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  expect_no_match(h, "unlikely to be noise", fixed = TRUE)
+  expect_match(h, "uncertainty in the expected level", fixed = TRUE)
+})
+
+test_that("a small-count flag names the sampling-variability caveat", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  # a flag whose Poisson tail leaves chance a plausible explanation
+  cand <- foc[
+    foc$verdict == "FLAG" &
+      stats::ppois(foc$observed, lambda = foc$expected_total) > 0.05,
+  ]
+  skip_if(nrow(cand) == 0)
+  d <- cand[["adm2_name"]][1]
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  expect_match(h, "by chance alone", fixed = TRUE)
+
+  # a well-powered flag carries no such caveat
+  solid <- foc[
+    foc$verdict == "FLAG" &
+      stats::ppois(foc$observed, lambda = foc$expected_total) < 0.01,
+  ]
+  if (nrow(solid) > 0) {
+    hs <- bs_field_guide_pager(
+      fg, district = solid[["adm2_name"]][1], verbose = FALSE
+    )$html
+    expect_no_match(hs, "by chance alone", fixed = TRUE)
+  }
+})
+
+test_that("a zero count is not credited with clearing uncertainty", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  cand <- foc[foc$observed == 0 & foc$spi_below %in% TRUE, ]
+  skip_if(nrow(cand) == 0)
+  d <- cand[["adm2_name"]][1]
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  # the interval collapses to a point mass at zero; never call that a survival
+  expect_no_match(h, "wholly below one: the shortfall holds", fixed = TRUE)
+  expect_match(h, "the interval carries no evidence", fixed = TRUE)
+  expect_match(h, "no cases detected against", fixed = TRUE)
+  expect_no_match(h, "about 0 cases", fixed = TRUE)
+})
+
+test_that("a small expected count keeps a decimal so it matches the ratio", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  # a district whose expected count would mislead once rounded to a whole case
+  cand <- foc[foc$expected_total > 1 & foc$expected_total < 10, ]
+  skip_if(nrow(cand) == 0)
+  d <- cand[["adm2_name"]][1]
+  exp_dot <- gsub(".", "·", sprintf("%.1f", cand$expected_total[1]),
+                  fixed = TRUE)
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  expect_match(h, paste0("roughly ", exp_dot, " expected"), fixed = TRUE)
+
+  # a large count still reads as whole cases
+  big <- foc[foc$expected_total > 100, ]
+  if (nrow(big) > 0) {
+    hb <- bs_field_guide_pager(
+      fg, district = big[["adm2_name"]][1], verbose = FALSE
+    )$html
+    expect_match(hb, "expected for the district", fixed = TRUE)
+    expect_no_match(hb, "·0 expected for", fixed = TRUE)
+  }
+})
+
+test_that("persistence names the current run, not a historical one", {
+  fg <- synth_field_guide
+  dy <- fg$district_year
+  cut <- fg$thresholds$spi
+  # a district whose longest run ended before the read year
+  trailing <- vapply(split(dy, dy[[fg$id_col]]), function(g) {
+    g <- g[order(g$year), ]
+    r <- rle(g$spi_median < cut)
+    if (isTRUE(utils::tail(r$values, 1))) utils::tail(r$lengths, 1) else 0L
+  }, integer(1))
+  foc <- fg$focal
+  tr <- trailing[as.character(foc[[fg$id_col]])]
+  cand <- foc[!is.na(tr) & foc$longest_run_below > tr & tr > 0, ]
+  skip_if(nrow(cand) == 0)
+  i <- 1L
+  d <- cand[["adm2_name"]][i]
+  n_tr <- tr[!is.na(tr) & foc$longest_run_below > tr & tr > 0][i]
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  # the run ending at the read year is what the sentence leads with
+  expect_match(
+    h, sprintf("%d consecutive year%s below the adequacy cut to %d",
+               n_tr, if (n_tr == 1L) "" else "s", fg$read_year),
+    fixed = TRUE
+  )
+  # and the counted run is disclosed as the panel's longest, with its end year
+  expect_match(h, "The counted run is the panel's longest", fixed = TRUE)
+})
+
+test_that("the endpoint label clears the locator badge", {
+  fg <- synth_field_guide
+  skip_if_not_installed("sf")
+  skip_if_not_installed("spdep")
+  foc <- fg$focal
+  # an endpoint high in the panel is the case that used to print under the badge
+  cand <- foc[foc$spi_median > 1, ]
+  skip_if(nrow(cand) == 0)
+  d <- cand[["adm2_name"]][1]
+
+  h <- bs_field_guide_pager(
+    fg, district = d, boundaries = synth_surveillance$boundaries,
+    id_col = "adm2_guid", verbose = FALSE
+  )$html
+  expect_match(h, "<div class=\"locbadge\">", fixed = TRUE)
+  # the label's y sits below the badge's reach; the dot stays on the endpoint
+  lab <- regmatches(
+    h, regexpr("<text x=\"[0-9.]+\" y=\"[0-9.]+\" font-family=\"Archivo\"", h)
+  )
+  y <- as.numeric(sub('.*y="([0-9.]+)".*', "\\1", lab))
+  expect_gt(y, 100)
+})
+
+test_that("an unsupplied channel reads as unsupplied, not as a finding", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+
+  # strip the out-of-grid channels the way bs_field_guide() does when they are
+  # not supplied: the flags go off and the year strings go empty
+  bare <- fg
+  bare$signals_active[c("seasonal", "detect_afp", "detect_es")] <- FALSE
+  for (df in c("district_year", "focal")) {
+    bare[[df]]$seasonal <- NA_character_
+    bare[[df]]$orphan_years <- NA_character_
+    bare[[df]]$es_years <- NA_character_
+  }
+
+  h <- bs_field_guide_pager(bare, district = d, verbose = FALSE)$html
+  expect_match(h, "no monthly SPI supplied", fixed = TRUE)
+  expect_match(h, "no detection channel supplied", fixed = TRUE)
+  # neither an absent season nor an absent channel reads as a finding
+  expect_no_match(h, "no cVDPV2 detected in", fixed = TRUE)
+  expect_no_match(h, "no poliovirus detected there", fixed = TRUE)
+
+  # with the channels back on and quiet, it names what was searched
+  quiet <- fg
+  for (df in c("district_year", "focal")) {
+    quiet[[df]]$orphan_years <- NA_character_
+    quiet[[df]]$es_years <- NA_character_
+  }
+  hq <- bs_field_guide_pager(quiet, district = d, verbose = FALSE)$html
+  expect_match(hq, "no cVDPV2 detected in AFP or ES", fixed = TRUE)
+})
+
+test_that("note is untagged by default and opt-in when supplied", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+
+  bare <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  expect_no_match(bare, "illustrative", fixed = TRUE)
+
+  tagged <- bs_field_guide_pager(
+    fg, district = d, note = "illustrative", verbose = FALSE
+  )$html
+  # eyebrow and footer both carry it
+  expect_equal(
+    lengths(regmatches(tagged, gregexpr("illustrative", tagged))), 2L
+  )
+})
+
 test_that("path writes an auto-named html file", {
   fg <- synth_field_guide
   d <- flag_district(fg)
@@ -137,7 +327,7 @@ test_that("an unknown district errors with a suggestion", {
   )
 })
 
-test_that("adjacency adds per-neighbour lines the median fallback lacks", {
+test_that("the chart plots the focal district alone, with no neighbour lines", {
   fg <- synth_field_guide
   d <- flag_district(fg)
   skip_if(is.na(d))
@@ -152,12 +342,19 @@ test_that("adjacency adds per-neighbour lines the median fallback lacks", {
   )$html
   without_adj <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
 
-  n_line <- function(h) {
-    lengths(regmatches(h, gregexpr("stroke=\"#94a0b3\"", h)))
+  nb_spi <- fg$focal$neighbour_spi[fg$focal[["adm2_name"]] == d][1]
+  for (h in list(with_adj, without_adj)) {
+    # no muted neighbour polylines, cluster label or legend key
+    expect_no_match(h, "stroke=\"#94a0b3\"", fixed = TRUE)
+    expect_no_match(h, "class=\"lk n\"", fixed = TRUE)
+    expect_no_match(h, "neighbouring districts", fixed = TRUE)
+    # neighbours still reach the page as figures, not lines: the masthead
+    # median and the surroundings row
+    if (!is.na(nb_spi)) {
+      expect_match(h, "neighbours [0-9]")
+      expect_match(h, "against a neighbour median of", fixed = TRUE)
+    }
   }
-  # several touching neighbours vs a single stored median series
-  expect_gt(n_line(with_adj), n_line(without_adj))
-  expect_match(without_adj, "neighbour median", fixed = TRUE)
 })
 
 test_that("boundaries build the graph and draw a locator inset", {
@@ -172,8 +369,6 @@ test_that("boundaries build the graph and draw a locator inset", {
     id_col = "adm2_guid", verbose = FALSE
   )
   h <- p$html
-  # neighbour graph built internally -> per-neighbour lines are present
-  expect_gt(lengths(regmatches(h, gregexpr("stroke=\"#94a0b3\"", h))), 1L)
   # locator inset drawn from real geometry (the div, not just the css rule)
   expect_match(h, "<div class=\"locbadge\">", fixed = TRUE)
   expect_gt(lengths(regmatches(h, gregexpr("<polygon", h))), 1L)
@@ -249,8 +444,6 @@ test_that("adm1-level inputs render without an adm2 column", {
   expect_s3_class(p, "blindspot_pager")
   h <- p$html
   expect_match(h, "<!DOCTYPE html>", fixed = TRUE)
-  # per-neighbour lines are drawn from the graph, keyed by adm1
-  expect_gt(lengths(regmatches(h, gregexpr("stroke=\"#94a0b3\"", h))), 1L)
   # the unit name still labels the chart endpoint
   expect_match(h, d, fixed = TRUE)
 })
@@ -272,8 +465,6 @@ test_that("unit_noun rewords the reading; default stays \"district\"", {
   )$html
   expect_match(prov, "A province is flagged when", fixed = TRUE)
   expect_match(prov, "expected for the province", fixed = TRUE)
-  # the plural legend only appears once per-neighbour lines are drawn
-  expect_match(prov, "neighbouring provinces", fixed = TRUE)
   expect_no_match(prov, "A district is flagged when", fixed = TRUE)
 
   # default is unchanged: adm2 output still reads "district"
@@ -285,7 +476,6 @@ test_that("unit_noun rewords the reading; default stays \"district\"", {
     synth_field_guide, district = d2, adjacency = adj2, verbose = FALSE
   )$html
   expect_match(h2, "A district is flagged when", fixed = TRUE)
-  expect_match(h2, "neighbouring districts", fixed = TRUE)
 })
 
 test_that("adm1 auto-name keeps each admin level once", {

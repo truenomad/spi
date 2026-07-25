@@ -20,7 +20,7 @@ bs_field_guide_pager(
   id_col = NULL,
   admin_label = "admin-2 district",
   unit_noun = "district",
-  note = "illustrative",
+  note = NULL,
   verbose = TRUE
 )
 }
@@ -32,8 +32,8 @@ in the id column, or a district name matched (case-insensitively) against
 \code{name_col}. Ids are tried first, so an id is unambiguous.}
 
 \item{adjacency}{Optional spatial neighbour object from \code{\link[=bs_adjacency]{bs_adjacency()}}
-(class \code{blindspot_nb}). Enables per-neighbour lines on the chart. Default:
-NULL.}
+(class \code{blindspot_nb}). Names the touching neighbours ringed in the
+locator inset. Default: NULL.}
 
 \item{boundaries}{Optional sf polygon layer keyed by \code{id_col}. Serves double
 duty: when \code{adjacency} is NULL the neighbour graph is built from it with
@@ -86,8 +86,8 @@ on-page reading (e.g. "expected for the \code{unit_noun}", "A \code{unit_noun} i
 flagged when..."). Set it to match \code{admin_label}, e.g. \code{"province"} for
 admin-1 inputs. Default: \code{"district"}.}
 
-\item{note}{Provenance tag printed in the eyebrow and footer. Default:
-\code{"illustrative"}.}
+\item{note}{Optional provenance tag printed in the eyebrow and footer, e.g.
+\code{"illustrative"} for a worked example. Default: NULL (untagged).}
 
 \item{verbose}{Logical. Emit a cli summary on build. Default: TRUE.}
 }
@@ -101,11 +101,11 @@ it reports the verdict and any written files. Recover the markup with
 \description{
 Turns one district's \code{\link[=bs_field_guide]{bs_field_guide()}} reading into a self-contained,
 print-ready HTML "pager": a masthead with the verdict, an SPI-over-time
-chart of the district against its touching neighbours (with the 90\%
-credible-interval ribbon and any orphan-poliovirus detections marked), the
-five-STEPS reading laid out as gate / magnitude / corroboration (with
-seasonal and detection corroboration read out of grid), and a verdict banner
-with the recommended action.
+chart for the district (with the 90\% credible-interval ribbon and any
+orphan-poliovirus detections marked), the five-STEPS reading laid out as
+gate / magnitude / corroboration (with seasonal and detection corroboration
+read out of grid), and a verdict banner summarising what the reading rests
+on. The pager reports the reading; it recommends no follow-up.
 
 It is the single-district companion to \code{\link[=bs_field_guide_table]{bs_field_guide_table()}}: where the
 table scans many districts at once, the pager is the tear-sheet you hand to
@@ -117,11 +117,12 @@ so the output file needs no JavaScript and no network access (the only
 remote reference is a Google Fonts stylesheet, which degrades to system
 fonts offline). Every number is read from \code{x}; nothing is simulated.
 
-Pass \code{adjacency} (from \code{\link[=bs_adjacency]{bs_adjacency()}}) to draw each touching neighbour as
-its own muted line and to key the surroundings (S) reading off the same
-graph the field guide used. Without it the chart falls back to the single
-neighbour-median series already stored on the field guide, and the neighbour
-lines are omitted.
+The chart plots the focal district alone: its SPI line, the 90\%
+credible-interval ribbon and any detection markers. Neighbours enter the
+page as the neighbour-median figure in the masthead and the surroundings (S)
+reading, both taken from the field guide, rather than as lines on the chart.
+Pass \code{adjacency} (from \code{\link[=bs_adjacency]{bs_adjacency()}}) or \code{boundaries} to ring the focal
+district with its touching neighbours in the locator inset.
 
 The out-of-grid detection row reports poliovirus found there through either
 channel: the case-based (AFP) detections already carried by the field

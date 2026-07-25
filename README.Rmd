@@ -344,7 +344,7 @@ gt::gtsave(fg_tbl, "man/figures/README-fg-table.png", expand = 5)
 knitr::include_graphics("man/figures/README-fg-table.png")
 ```
 
-For the one district you are about to investigate, `bs_field_guide_pager()` renders a single-district **field pager**: a self-contained, print-ready A4 tear-sheet. Hand it the field guide and the shapefile and it builds the neighbour graph itself, so it is self-contained. The masthead carries the verdict; the chart plots the district's SPI against its touching neighbours (with the 90% credible-interval ribbon and AFP / ES detection markers) and a locator inset drawn from the real geometry; the five STEPS read out as gate, magnitude, and corroboration (with seasonal and detection corroboration out of grid); and a verdict banner states the action. `path` writes an auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`.
+For the one district you are about to investigate, `bs_field_guide_pager()` renders a single-district **field pager**: a self-contained, print-ready A4 tear-sheet. Hand it the field guide and the shapefile and it builds the neighbour graph itself, so it is self-contained. The masthead carries the verdict; the chart plots the district's own SPI (with the 90% credible-interval ribbon and AFP / ES detection markers) and a locator inset drawn from the real geometry, with the neighbour median read out as a figure rather than a line; the five STEPS read out as gate, magnitude, and corroboration (with seasonal and detection corroboration out of grid); and a verdict banner states what the reading rests on. The pager reports the reading and recommends no follow-up, and it is explicit about the limits of the credible interval: that interval carries uncertainty in the *expected* count, not sampling variability in the observed one, so a flag resting on a handful of cases says so on its face. `path` writes an auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`.
 
 ```{r pager-code, eval = FALSE}
 bs_field_guide_pager(
@@ -356,7 +356,7 @@ bs_field_guide_pager(
 <details>
 <summary>One-page field pager for a flagged district</summary>
 
-```{r pager-img, echo = FALSE, fig.alt = "One-page SPI field pager: masthead verdict, an SPI-over-time chart against neighbours with a locator inset, the five-STEPS reading, and a verdict banner."}
+```{r pager-img, echo = FALSE, fig.alt = "One-page SPI field pager: masthead verdict, an SPI-over-time chart with a credible-interval ribbon and a locator inset, the five-STEPS reading, and a verdict banner."}
 pager_id <- fg$focal$adm2_guid[fg$focal$verdict == "FLAG"][
   which.min(fg$focal$spi_median[fg$focal$verdict == "FLAG"])
 ]

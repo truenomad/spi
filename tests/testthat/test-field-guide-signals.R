@@ -295,3 +295,80 @@ test_that("gt save dispatch checks the docx dependency", {
   bs_field_guide_table(fg, engine = "gt", layout = "scan", file = f_docx)
   expect_true(file.exists(f_docx) && file.info(f_docx)$size > 0)
 })
+
+# --- the two count-basis gates --------------------------------------------
+
+test_that("noise_alpha closes the gate a zero count opens for free", {
+  # observed 0 against 2 expected: SPI = 0 / expected_draw is identically 0, so
+  # the interval collapses to (0, 0) and clears one whatever the count basis
+  conc <- make_count_concordance(list(
+    ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
+                observed = c(1, 1, 0, 0, 0), expected = 2)
+  ))
+
+  base <- bs_field_guide(conc, verbose = FALSE)
+  f <- base$focal
+  expect_true(f$cri_excludes_1)
+  expect_identical(as.character(f$verdict), "FLAG")
+  # the tail is reported even with no gate asked for
+  expect_equal(f$noise_tail, stats::ppois(0, 2), tolerance = 1e-9)
+  expect_true(f$noise_plausible)
+
+  gated <- bs_field_guide(conc, noise_alpha = 0.05, verbose = FALSE)
+  g <- gated$focal
+  expect_false(g$cri_excludes_1)
+  # below the cut with the gate shut is a watch, not a flag
+  expect_identical(as.character(g$verdict), "WATCH")
+
+  # a well-powered zero is untouched: P(X = 0 | 30) is vanishing
+  powered <- make_count_concordance(list(
+    ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
+                observed = c(1, 1, 0, 0, 0), expected = 30)
+  ))
+  p <- bs_field_guide(powered, noise_alpha = 0.05, verbose = FALSE)$focal
+  expect_false(p$noise_plausible)
+  expect_true(p$cri_excludes_1)
+})
+
+test_that("noise_alpha must be a probability", {
+  conc <- make_concordance()
+  expect_error(bs_field_guide(conc, noise_alpha = 0, verbose = FALSE),
+               "probability")
+  expect_error(bs_field_guide(conc, noise_alpha = 1.5, verbose = FALSE),
+               "probability")
+})
+
+test_that("persistence_basis chooses between a historical and a current run", {
+  # three sub-cut years, then recovery, then one sub-cut year: longest is 3,
+  # the run ending 2024 is 1
+  conc <- make_count_concordance(list(
+    STALE = list(spi = c(0.5, 0.5, 0.5, 1.1, 1.05, 0.7),
+                 q95 = c(0.6, 0.6, 0.6, 1.3, 1.25, 0.75),
+                 observed = 4, expected = 12)
+  ))
+
+  longest <- bs_field_guide(conc, verbose = FALSE)$focal
+  trailing <- bs_field_guide(
+    conc, persistence_basis = "trailing", verbose = FALSE
+  )$focal
+
+  # both runs are always reported, whichever gates
+  expect_equal(longest$longest_run_below, 3L)
+  expect_equal(longest$trailing_run_below, 1L)
+  expect_equal(trailing$longest_run_below, 3L)
+  expect_equal(trailing$trailing_run_below, 1L)
+
+  # run_below tracks the basis, and the corroborator follows it
+  expect_equal(longest$run_below, 3L)
+  expect_equal(trailing$run_below, 1L)
+  expect_gt(longest$corroborators, trailing$corroborators)
+})
+
+test_that("the defaults leave the published reading unchanged", {
+  conc <- make_concordance()
+  base <- bs_field_guide(conc, verbose = FALSE)
+  # longest basis, no noise gate
+  expect_identical(base$params$persistence_basis, "longest")
+  expect_null(base$params$noise_alpha)
+  expect_equal(base$focal$run_below, base$focal$longest_run_below)
+})

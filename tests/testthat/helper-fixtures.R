@@ -351,3 +351,41 @@ make_es <- function(id_col = "adm2_guid") {
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
+
+# --- a concordance with hand-set counts -----------------------------------
+# make_concordance() fixes expected_total at 12, which is well-powered; these
+# gates turn on the count basis, so they need districts specified case by case.
+# `spec` is a named list of list(spi=, q95=, observed=, expected=), years ending
+# 2024.
+make_count_concordance <- function(spec, spi_cut = 0.8,
+                                   id_col = "adm2_guid") {
+  rows <- lapply(names(spec), function(d) {
+    s <- spec[[d]]
+    n <- length(s$spi)
+    tibble::tibble(
+      !!id_col := d,
+      adm2_name = d,
+      adm1_name = "Province 1",
+      year = seq.int(2024 - n + 1, 2024),
+      observed = rep_len(s$observed, n),
+      expected_total = rep_len(s$expected, n),
+      spi_median = s$spi,
+      spi_q05 = pmax(s$spi - 0.15, 0),
+      spi_q95 = s$q95,
+      npafp_rate = 1.5,
+      npafp_adequate = FALSE
+    )
+  })
+  structure(
+    list(
+      district_year = dplyr::bind_rows(rows),
+      crosstab = NULL,
+      metrics = NULL,
+      by_stratum = NULL,
+      thresholds = list(spi = spi_cut, npafp = 3, multiplier = 1e5),
+      id_col = id_col,
+      call = quote(bs_concordance())
+    ),
+    class = "blindspot_concordance"
+  )
+}
