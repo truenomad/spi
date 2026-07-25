@@ -37,8 +37,8 @@ test_that("a flag district renders a well-formed pager object", {
   html <- p$html
   expect_match(html, "<!DOCTYPE html>", fixed = TRUE)
   expect_match(html, "<svg", fixed = TRUE)
-  # five STEPS rows + one out-of-grid detection row, one legend, one banner
-  expect_equal(lengths(regmatches(html, gregexpr("class=\"srow\"", html))), 6L)
+  # five STEPS rows; season and detections read in the context row instead
+  expect_equal(lengths(regmatches(html, gregexpr("class=\"srow\"", html))), 5L)
   expect_match(html, "vbanner", fixed = TRUE)
   # flag accent is rose
   expect_match(html, "--accent:#c8102e", fixed = TRUE)
@@ -70,23 +70,20 @@ test_that("a below-cut no-action district is not called adequate", {
   expect_match(h, "too few signals corroborate", fixed = TRUE)
 })
 
-test_that("a detection without seasonal blindness reads as external, not counted", {
+test_that("a detection is context, never a counted STEPS signal", {
   fg <- synth_field_guide
   foc <- fg$focal
-  # a flag with detections but seasonal not "blind"
-  cand <- foc[
-    foc$verdict == "FLAG" & foc$genomic_orphan %in% TRUE &
-      (is.na(foc$seasonal) | foc$seasonal != "blind"),
-  ]
+  cand <- foc[foc$verdict == "FLAG" & foc$genomic_orphan %in% TRUE, ]
   skip_if(nrow(cand) == 0)
   d <- cand[["adm2_name"]][1]
 
   h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
-  det <- regmatches(
-    h, regexpr("Seasonal &amp; detections.*?</span>", h)
-  )
-  # the out-of-grid detection chip is "external", not the counted "corroborates"
-  expect_match(det, "role external", fixed = TRUE)
+  # it reads in the context row as a detection box
+  expect_match(h, "<div class=\"itile det hit\">", fixed = TRUE)
+  expect_match(h, "detection</div>")
+  # and adds no STEPS row, so it cannot be counted against the flag rule
+  expect_equal(lengths(regmatches(h, gregexpr("class=\"srow\"", h))), 5L)
+  expect_no_match(h, "Seasonal &amp; detections", fixed = TRUE)
 })
 
 test_that("the pager prescribes no follow-up action", {
@@ -246,11 +243,13 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
   }
 
   h <- bs_field_guide_pager(bare, district = d, verbose = FALSE)$html
-  expect_match(h, "no monthly SPI supplied", fixed = TRUE)
-  expect_match(h, "no detection channel supplied", fixed = TRUE)
-  # neither an absent season nor an absent channel reads as a finding
-  expect_no_match(h, "no cVDPV2 detected in", fixed = TRUE)
-  expect_no_match(h, "no poliovirus detected there", fixed = TRUE)
+  # an unsupplied channel says so rather than reading as a clean search
+  expect_equal(
+    lengths(regmatches(h, gregexpr("channel not supplied", h))), 2L
+  )
+  expect_no_match(h, "no cVDPV2 found", fixed = TRUE)
+  # and an unassessed season claims nothing at all
+  expect_no_match(h, "through the expected peak", fixed = TRUE)
 
   # with the channels back on and quiet, it names what was searched
   quiet <- fg
@@ -259,7 +258,10 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
     quiet[[df]]$es_years <- NA_character_
   }
   hq <- bs_field_guide_pager(quiet, district = d, verbose = FALSE)$html
-  expect_match(hq, "no cVDPV2 detected in AFP or ES", fixed = TRUE)
+  expect_equal(
+    lengths(regmatches(hq, gregexpr("no cVDPV2 found", hq))), 2L
+  )
+  expect_no_match(hq, "channel not supplied", fixed = TRUE)
 })
 
 test_that("the masthead carries the under-15 denominator", {
@@ -272,7 +274,7 @@ test_that("the masthead carries the under-15 denominator", {
   h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_match(
     h,
-    paste0("u15 ", formatC(round(pop), format = "d", big.mark = ",")),
+    paste0("pop u15 ", formatC(round(pop), format = "d", big.mark = ",")),
     fixed = TRUE
   )
 
@@ -282,7 +284,7 @@ test_that("the masthead carries the under-15 denominator", {
   bare$district_year$pop_u15 <- NULL
   expect_no_match(
     bs_field_guide_pager(bare, district = d, verbose = FALSE)$html,
-    "u15 ", fixed = TRUE
+    "pop u15 ", fixed = TRUE
   )
 })
 
@@ -300,6 +302,108 @@ test_that("note is untagged by default and opt-in when supplied", {
   # eyebrow and footer both carry it
   expect_equal(
     lengths(regmatches(tagged, gregexpr("illustrative", tagged))), 2L
+  )
+})
+
+test_that("indicators_df is off by default and out of the STEPS grid", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+
+  # the context row always renders, since it carries the detection channels;
+  # the indicator half is what `indicators_df` switches on
+  bare <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  expect_match(bare, "<div class=\"istrip\">", fixed = TRUE)
+  expect_no_match(bare, "class=\"ipanel\"", fixed = TRUE)
+  expect_no_match(bare, "class=\"itiles\"", fixed = TRUE)
+
+  with_ind <- bs_field_guide_pager(
+    fg, district = d, indicators_df = make_indicators(fg), verbose = FALSE
+  )$html
+  expect_match(with_ind, "class=\"ipanel\"", fixed = TRUE)
+  expect_match(with_ind, "class=\"itiles\"", fixed = TRUE)
+  # the indicators add no STEPS row and no role chip, so they cannot be
+  # miscounted as corroborators
+  expect_equal(
+    lengths(regmatches(with_ind, gregexpr("class=\"srow\"", with_ind))), 5L
+  )
+  expect_equal(
+    lengths(regmatches(bare, gregexpr("class=\"role ", bare))),
+    lengths(regmatches(with_ind, gregexpr("class=\"role ", with_ind)))
+  )
+})
+
+test_that("a thin pass rate shows the cases behind it and is not graded", {
+  fg <- synth_field_guide
+  ind <- make_indicators(fg)
+  foc <- ind[ind$year == fg$read_year, ]
+
+  # a district whose percentages rest on one or two assessable cases
+  thin <- foc[foc$afp_cases > 0 & foc$afp_cases < 5, ]
+  skip_if(nrow(thin) == 0)
+  h <- bs_field_guide_pager(
+    fg, district = thin$name[1], indicators_df = ind, verbose = FALSE
+  )$html
+  strip <- regmatches(h, regexpr("class=\"istrip\".*", h))
+  # the headline stays the pass rate, since that is what the indicator is
+  expect_match(strip, "<div class=\"v\">[0-9]+%</div>")
+  # with the cases it rests on spelled out beneath it
+  n1 <- thin$afp_cases[1]
+  expect_match(
+    strip, sprintf("of %d case%s", n1, if (n1 == 1L) "" else "s"),
+    fixed = TRUE
+  )
+  # and no grade, which a rate on a handful of cases cannot support
+  expect_no_match(strip, "meets 80%", fixed = TRUE)
+  expect_no_match(strip, "under 80%", fixed = TRUE)
+
+  # a well-populated district keeps percentages and gets graded
+  fat <- foc[foc$afp_cases > 50, ]
+  skip_if(nrow(fat) == 0)
+  hf <- bs_field_guide_pager(
+    fg, district = fat$name[1], indicators_df = ind, verbose = FALSE
+  )$html
+  expect_match(hf, "%</div>")
+  expect_match(hf, "of [0-9]+ cases")
+})
+
+test_that("no assessable cases reads as absent, never as zero", {
+  fg <- synth_field_guide
+  ind <- make_indicators(fg)
+  foc <- ind[ind$year == fg$read_year, ]
+  none <- foc[foc$afp_cases == 0, ]
+  skip_if(nrow(none) == 0)
+
+  h <- bs_field_guide_pager(
+    fg, district = none$name[1], indicators_df = ind, verbose = FALSE
+  )$html
+  expect_match(h, "none assessable", fixed = TRUE)
+  strip <- regmatches(h, regexpr("class=\"istrip\".*", h))
+  expect_no_match(strip, "<div class=\"v\">0%", fixed = TRUE)
+  expect_match(strip, "<div class=\"v\">--</div>", fixed = TRUE)
+})
+
+test_that("a district absent from the panel simply omits the strip", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+  ind <- make_indicators(fg)
+
+  gone <- ind[ind$name != d, ]
+  h <- bs_field_guide_pager(
+    fg, district = d, indicators_df = gone, verbose = FALSE
+  )$html
+  expect_no_match(h, "class=\"ipanel\"", fixed = TRUE)
+  # the detections still have their say
+  expect_match(h, "<div class=\"istrip\">", fixed = TRUE)
+  expect_match(h, "ES detection", fixed = TRUE)
+  # a panel missing its keys is an error, not a silent omission
+  expect_error(
+    bs_field_guide_pager(
+      fg, district = d, indicators_df = ind[, c("name", "npafp_rate")],
+      verbose = FALSE
+    ),
+    "year"
   )
 })
 
@@ -446,7 +550,7 @@ test_that("a multi-country layer is cut to the focal district's country", {
   expect_identical(inset(one_html), inset(two_html))
 })
 
-test_that("ES detections from the field guide enter the detection row and chart", {
+test_that("ES detections from the field guide reach the context row and chart", {
   fg <- synth_field_guide
   foc <- fg$focal
   skip_if(!"es_detected" %in% names(foc))
@@ -456,14 +560,20 @@ test_that("ES detections from the field guide enter the detection row and chart"
 
   # no `es` argument -- ES is read straight from the field guide
   h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
-  expect_match(h, "ES detection", fixed = TRUE)
-  expect_match(h, "in ES \\(")
+  es_box <- regmatches(
+    h, regexpr("<div class=\"k\">ES detection.*?</div></div>", h)
+  )
+  expect_match(es_box, "detection")
+  expect_match(es_box, "latest [0-9]{4}")
 
-  # a district with no ES positives shows no ES entry
+  # a district with no ES positives says so, rather than dropping the box
   none <- foc[foc$es_detected %in% FALSE, ][["adm2_name"]][1]
   if (!is.na(none)) {
     hn <- bs_field_guide_pager(fg, district = none, verbose = FALSE)$html
-    expect_no_match(hn, "ES detection", fixed = TRUE)
+    hn_box <- regmatches(
+      hn, regexpr("<div class=\"k\">ES detection.*?</div></div>", hn)
+    )
+    expect_match(hn_box, "none", fixed = TRUE)
   }
 })
 

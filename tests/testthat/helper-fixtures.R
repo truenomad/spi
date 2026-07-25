@@ -389,3 +389,44 @@ make_count_concordance <- function(spec, spi_cut = 0.8,
     class = "blindspot_concordance"
   )
 }
+
+# --- a conventional AFP indicator panel ------------------------------------
+# Shaped as polished_indicators_adm2 plus the two columns that table does not
+# carry: onset_notify_pct (derived upstream; no published indicator and no GPEI
+# threshold) and the assessable counts behind the timeliness percentages.
+# Percentages rest on the real case counts, so a district with no AFP cases
+# carries NA and a district with one or two carries a volatile figure -- which
+# is the case the pager's strip has to survive.
+make_indicators <- function(fg = synth_field_guide, seed = 20260725) {
+  withr::local_seed(seed)
+  dy <- fg$district_year
+  n <- nrow(dy)
+  afp <- as.integer(dy$observed) + stats::rbinom(n, size = 2, prob = 0.12)
+  pct_on <- function(k, p) {
+    out <- rep(NA_real_, length(k))
+    hit <- k > 0
+    out[hit] <- 100 *
+      stats::rbinom(sum(hit), size = k[hit], prob = p) / k[hit]
+    out
+  }
+  n_ni <- stats::rbinom(n, size = afp, prob = 0.86)
+  n_on <- stats::rbinom(n, size = afp, prob = 0.83)
+  tibble::tibble(
+    country_iso3code = "HRD",
+    guid = dy$adm2_guid,
+    name = dy$adm2_name,
+    year = as.integer(dy$year),
+    afp_cases = afp,
+    npafp_cases = as.integer(dy$observed),
+    npafp_rate = dy$npafp_rate,
+    # EV isolation is an ES measure, so it is missing where there is no ES site
+    ev_rate = ifelse(
+      dy$adm2_guid %in% synth_surveillance$es_sites$adm2_guid, 58, NA_real_
+    ),
+    stool_adequacy_cond_pct = pct_on(afp, 0.72),
+    inv_timeliness_pct = pct_on(n_ni, 0.7),
+    onset_notify_pct = pct_on(n_on, 0.66),
+    inv_timeliness_n = n_ni,
+    onset_notify_n = n_on
+  )
+}

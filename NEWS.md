@@ -21,62 +21,53 @@
   setting and trade determinism back for speed. `seed` is now validated (a
   single non-negative whole number, or `NULL`), and the caller's RNG state is
   restored on exit instead of being left displaced.
-* **`bs_field_guide()` gained `noise_alpha`, a sampling-noise gate on
-  significance (S).** The SPI credible interval is uncertainty in the *expected*
-  count with the observed count held fixed, so it says nothing about sampling
-  variation in the count. At `observed = 0` the ratio is zero in every draw, the
-  interval collapses to `(0, 0)`, and `cri_excludes_1` is TRUE whatever the
-  expectation, so the gate does no work. Setting `noise_alpha` also requires the
-  Poisson tail `P(X <= observed | expected)` to fall at or below it, which
-  subsumes a minimum-expected floor (at a zero count, `0.05` implies roughly
-  three expected cases). Reported either way as the new `noise_tail` /
-  `noise_plausible` columns. Default NULL (published flag counts unchanged);
-  `0.05` recommended for an operational read.
+* **`bs_field_guide()` gained `noise_alpha`.** The SPI credible interval holds
+  the observed count fixed, so at `observed = 0` it collapses to `(0, 0)` and
+  `cri_excludes_1` is TRUE whatever the expected count. Setting `noise_alpha`
+  also requires the Poisson tail `P(X <= observed | expected)` to fall at or
+  below it, which subsumes a minimum-expected floor. New `noise_tail` /
+  `noise_plausible` columns report the tail either way. Default NULL (published
+  flag counts unchanged); `0.05` for an operational read.
 * **`bs_field_guide()` gained `persistence_basis`.** `longest_run_below` is a
-  running maximum, so a district that has recovered still carries a run that
-  ended years ago and persistence (P) fires on history rather than on the year
-  being read. The new `trailing_run_below` is the run ending at each year, and
-  `run_below` carries whichever one gates. Default `"longest"` (published counts
-  unchanged); `"trailing"` recommended for an operational read.
-* **`bs_field_guide_pager()` no longer overstates the credible interval**, and
-  it prescribes no follow-up. "The shortfall is unlikely to be noise" was not
-  licensed by an interval that holds the observed count fixed: at small expected
-  counts it can sit wholly below one while one extra case would lift the ratio
-  across the cut. The caption now says only that uncertainty in the expected
-  level does not account for the gap, and names the counts when chance alone
-  could. A zero count reads as an empty count with no evidence in it, not as an
-  interval that survived something. The banner's action column ("Supervisory
+  running maximum, so persistence (P) can fire on a run that ended years ago.
+  The new `trailing_run_below` is the run ending at each year, and `run_below`
+  carries whichever gates. Default `"longest"`; `"trailing"` for an operational
+  read.
+* **`bs_field_guide_pager()` no longer overstates the credible interval.** "The
+  shortfall is unlikely to be noise" was not licensed by an interval that holds
+  the observed count fixed. The caption now claims only that uncertainty in the
+  expected level does not account for the gap, and names the counts when chance
+  alone could; a zero count reads as an empty count rather than an interval that
+  survived something.
+* **The pager gained a context row, and the five STEPS are five again.** Season,
+  AFP detections and ES detections leave the grid for a row between the chart
+  and the reading, so nothing outside the flag rule can be miscounted as a
+  corroborator. AFP and ES get a box each, carrying the count and latest year;
+  the chart already marks the years. The seasonal line shows only when it says
+  something.
+* **`bs_field_guide_pager()` gained `indicators_df`**, which fills that row with
+  the non-polio AFP rate over the same years against its target, plus tiles for
+  stool adequacy, the two timeliness percentages and the EV rate. The first
+  three are pass rates over the district's own AFP cases, and a flagged district
+  has few: below five assessable cases a tile spells out what it rests on ("1 of
+  2 cases") and is left ungraded, and a district with none reads "none
+  assessable". The EV rate is an ES measure, so it carries no case denominator
+  and reads "no ES site" where the district has none. Default NULL.
+* The pager prescribes no follow-up. The banner's action column ("Supervisory
   review", "active case search") is gone and the masthead states where the
-  reading sits against the rule instead of a priority. The interval is described
-  throughout as lying below **one**, not below the adequacy cut.
-* `bs_field_guide_pager()` charts the focal district alone. The per-neighbour
-  lines, cluster label and legend key are gone; neighbours reach the page as the
-  neighbour-median figure and the surroundings (S) row.
-* `bs_field_guide_pager()` prints the under-15 population in the masthead,
-  beside the SPI and neighbour figures. It is the denominator the expected count
-  is built on, and without it a reader cannot tell whether an expectation of 1.9
-  cases belongs to a district of twenty thousand children or two hundred
-  thousand. Read from the guide's own `pop_u15`, and omitted when absent.
-* **The locator inset now places the district in its country** rather than
-  among its touching neighbours, which showed local shape but not position. It
-  draws the country silhouette, admin-1 outlines from an `adm1_name` column, and
-  the focal district filled in the verdict accent and ringed, with the ring
-  sized off the district so a few-pixel shape stays findable. The badge grows
-  from 112px to 130px, and an `adm0_name` column cuts a multi-country layer down
-  to the focal district's own country. Consequently `adjacency` no longer
-  affects the pager at all: it is documented as ignored, notes itself when
-  supplied under `verbose`, and the pager no longer calls `bs_adjacency()` or
-  needs \pkg{spdep}.
-* Smaller pager fixes to the reading: persistence names the run ending at the
-  read year, disclosing the panel's longest separately when that is what gated;
-  an expected count below ten keeps one decimal, so "about 1 case against
-  roughly 1 expected" no longer contradicts a stated SPI of 0·70; zero counts
-  read "no cases"; an unsupplied channel reads as unsupplied rather than as a
-  finding (fixing an `NA` year string that rendered as "cVDPV2 detected in AFP
-  (NA)"); the neighbour median is compared against the cut on the printed
-  values, so 0.796 shown as 0·80 is no longer called "below the cut"; the
-  endpoint label clears the locator badge; and the `note` provenance tag is
-  opt-in, so a real reading is no longer stamped `illustrative`.
+  reading sits against the rule.
+* The pager charts the focal district alone, and the locator inset now places it
+  in its country rather than among its touching neighbours. `adjacency` is
+  documented as ignored, and `bs_adjacency()` / \pkg{spdep} are not called.
+* The masthead carries the under-15 population, the denominator the expected
+  count is built on. The footer's "computed from bs_spi() posterior" line goes.
+* Smaller pager fixes: persistence names the run ending at the read year; an
+  expected count below ten keeps a decimal, so "1 case against 1 expected" no
+  longer contradicts a stated SPI of 0·70; an unsupplied channel reads as
+  unsupplied rather than as a finding, fixing an `NA` year string that rendered
+  as "cVDPV2 detected in AFP (NA)"; the neighbour median is compared against the
+  cut on the printed values; the endpoint label clears the locator badge; and
+  the `note` provenance tag is opt-in.
 * **The field guide is now framed as five signals -- STEPS (significance,
   trend, extent, persistence, surroundings)** -- matching the paper's
   "Interpreting and acting on the SPI" section. `bs_field_guide()`, its tables,

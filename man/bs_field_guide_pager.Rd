@@ -9,6 +9,8 @@ bs_field_guide_pager(
   district,
   adjacency = NULL,
   boundaries = NULL,
+  indicators_df = NULL,
+  npafp_target = NULL,
   es = NULL,
   es_col = NULL,
   detection_label = "cVDPV2",
@@ -40,6 +42,21 @@ whole country. Draws the locator inset from its real geometry. An
 \code{adm1_name} column, if present, supplies the regional outlines; an
 \code{adm0_name} column restricts a multi-country layer to the focal district's
 own country. Default: NULL (no inset).}
+
+\item{indicators_df}{Optional district-year panel of conventional AFP and ES
+indicators, keyed by \code{guid} (or \code{id_col}) and \code{year}. When supplied, a
+strip below the chart shows the non-polio AFP rate over the same years
+against its target, plus tiles for whichever of \code{stool_adequacy_cond_pct},
+\code{inv_timeliness_pct}, \code{onset_notify_pct} and \code{ev_rate} are present. Pass
+the assessable counts (\code{inv_timeliness_n}, \code{onset_notify_n}) and they are
+shown under each figure; a percentage on fewer than five cases prints as a
+fraction instead, since a flagged district often has only a handful. These
+indicators support the reading from outside the five STEPS: they never
+enter the corroborator count and never change the verdict. Default NULL
+(no strip).}
+
+\item{npafp_target}{Numeric non-polio AFP rate target for the strip's rate
+panel, per 100,000 under 15. Default: NULL (\code{x$thresholds$npafp}).}
 
 \item{es}{Optional ad-hoc environmental-surveillance detections keyed by
 \code{id_col} and \code{year}, overriding the field guide's own ES channel. Normally
@@ -126,6 +143,16 @@ with its admin-1 divisions, and the focal district filled in the accent
 colour and ringed, so a reader can see where in the country it sits. There is
 no neighbour tier, because at badge size a district is only a few pixels
 across.
+
+Pass \code{indicators_df} to add conventional AFP and ES indicators to the context
+row below the chart: the non-polio AFP rate over the same years against its
+target, and tiles for stool adequacy, the two timeliness percentages and the
+EV rate (an ES measure, so it reads "no ES site" where the district has
+none). Its denominator is the case count, which in a flagged district is
+usually a handful, so a percentage on fewer than five assessable cases prints
+as a fraction and is not graded against a target. These indicators are
+supporting context from outside the five STEPS: they never enter the
+corroborator count and never change the verdict.
 
 The out-of-grid detection row reports poliovirus found there through either
 channel: the case-based (AFP) detections already carried by the field

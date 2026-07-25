@@ -30,6 +30,16 @@
 #' no neighbour tier, because at badge size a district is only a few pixels
 #' across.
 #'
+#' Pass `indicators_df` to add conventional AFP and ES indicators to the context
+#' row below the chart: the non-polio AFP rate over the same years against its
+#' target, and tiles for stool adequacy, the two timeliness percentages and the
+#' EV rate (an ES measure, so it reads "no ES site" where the district has
+#' none). Its denominator is the case count, which in a flagged district is
+#' usually a handful, so a percentage on fewer than five assessable cases prints
+#' as a fraction and is not graded against a target. These indicators are
+#' supporting context from outside the five STEPS: they never enter the
+#' corroborator count and never change the verdict.
+#'
 #' The out-of-grid detection row reports poliovirus found there through either
 #' channel: the case-based (AFP) detections already carried by the field
 #' guide's `genomic` input, and any environmental-surveillance (ES) positives
@@ -54,6 +64,19 @@
 #'   `adm1_name` column, if present, supplies the regional outlines; an
 #'   `adm0_name` column restricts a multi-country layer to the focal district's
 #'   own country. Default: NULL (no inset).
+#' @param indicators_df Optional district-year panel of conventional AFP and ES
+#'   indicators, keyed by `guid` (or `id_col`) and `year`. When supplied, a
+#'   strip below the chart shows the non-polio AFP rate over the same years
+#'   against its target, plus tiles for whichever of `stool_adequacy_cond_pct`,
+#'   `inv_timeliness_pct`, `onset_notify_pct` and `ev_rate` are present. Pass
+#'   the assessable counts (`inv_timeliness_n`, `onset_notify_n`) and they are
+#'   shown under each figure; a percentage on fewer than five cases prints as a
+#'   fraction instead, since a flagged district often has only a handful. These
+#'   indicators support the reading from outside the five STEPS: they never
+#'   enter the corroborator count and never change the verdict. Default NULL
+#'   (no strip).
+#' @param npafp_target Numeric non-polio AFP rate target for the strip's rate
+#'   panel, per 100,000 under 15. Default: NULL (`x$thresholds$npafp`).
 #' @param es Optional ad-hoc environmental-surveillance detections keyed by
 #'   `id_col` and `year`, overriding the field guide's own ES channel. Normally
 #'   ES is supplied once to [bs_field_guide()] (via its `es` argument) and read
@@ -123,6 +146,8 @@ bs_field_guide_pager <- function(
   district,
   adjacency = NULL,
   boundaries = NULL,
+  indicators_df = NULL,
+  npafp_target = NULL,
   es = NULL,
   es_col = NULL,
   detection_label = "cVDPV2",
@@ -183,6 +208,10 @@ bs_field_guide_pager <- function(
   )
 
   spi_cut <- x$thresholds$spi
+  npafp_target <- npafp_target %||% x$thresholds$npafp %||% 3
+  indicators <- .pager_indicators(
+    indicators_df, foc_id, id_col, year, series$year
+  )
   has_detection <- length(detections$afp) > 0 || length(detections$es) > 0
   vstyle <- .pager_verdict_style(focal, corroborated = has_detection)
   # built before the chart: the badge overlays the chart's top-right corner, so
@@ -194,7 +223,7 @@ bs_field_guide_pager <- function(
   }
   chart <- .pager_svg(
     series, focal, vstyle$accent, spi_cut, detections, name_col,
-    has_locator = nzchar(locator)
+    has_locator = nzchar(locator), compact = !is.null(indicators)
   )
   # an ad-hoc `es` argument supplies the ES channel even when the guide lacked
   # it, so mark it live before the reading distinguishes silent from unsupplied
@@ -211,6 +240,9 @@ bs_field_guide_pager <- function(
     focal = focal,
     series = series,
     chart = chart,
+    indicators = indicators,
+    npafp_target = npafp_target,
+    active = active,
     locator = locator,
     signals = signals,
     vstyle = vstyle,
@@ -395,7 +427,10 @@ as.character.blindspot_pager <- function(x, ...) {
     ids <- as.character(boundaries[[id_col]])
   }
   focal_i <- which(ids == as.character(foc_id))
-  geom <- sf::st_geometry(boundaries)
+  # the inset is a flat drawing projected into a square viewBox, so planar is
+  # what is wanted; dropping the CRS says so and spares the reader an
+  # "assumes that they are planar" message per admin-1 union
+  geom <- sf::st_set_crs(sf::st_geometry(boundaries), NA)
 
   allm <- sf::st_coordinates(geom)
   xr <- range(allm[, "X"], na.rm = TRUE)
@@ -586,7 +621,7 @@ as.character.blindspot_pager <- function(x, ...) {
 # render the SPI-over-time chart as a static inline SVG string.
 # @noRd
 .pager_svg <- function(series, focal, accent, spi_cut, detections, name_col,
-                       has_locator = FALSE) {
+                       has_locator = FALSE, compact = FALSE) {
   years <- series$year
   n <- length(years)
   focal_series <- series$spi_median
@@ -605,7 +640,9 @@ as.character.blindspot_pager <- function(x, ...) {
   y_max <- max(1.25, line_top * 1.08, min(ci_top, line_top * 1.5) * 1.02)
 
   w <- 734
-  h <- 400
+  # the indicator strip takes about a hundred pixels below the chart, and the
+  # page is a fixed A4, so the panel gives that back rather than overflowing
+  h <- if (compact) 322 else 400
   ml <- 44
   mr <- 138
   mt <- 22
@@ -746,6 +783,305 @@ as.character.blindspot_pager <- function(x, ...) {
   s
 }
 
+# ---- conventional AFP indicators (out of grid) ----------------------------
+
+# the tiles, in render order. `n` names the column holding the assessable count
+# behind the percentage, falling back to afp_cases. `target` is NA where no
+# published threshold exists, so the tile states the figure without grading it.
+# @noRd
+# `fraction` marks the pass rates whose denominator really is the case count, so
+# a thin one can be spelled out as "1 of 2 cases". EV isolation is a proportion
+# of specimens rather than of cases, so counting cases would invent a numerator;
+# it names the cases behind it without claiming how many passed.
+# @noRd
+.pager_tile_spec <- list(
+  list(key = "stool_adequacy_cond_pct", label = "Stool adequacy",
+       target = 80, n = NA_character_, fraction = TRUE),
+  list(key = "inv_timeliness_pct", label = "Notify \u2192 invest \u22642d",
+       target = 80, n = "inv_timeliness_n", fraction = TRUE),
+  list(key = "onset_notify_pct", label = "Onset \u2192 notify \u22647d",
+       target = NA_real_, n = "onset_notify_n", fraction = TRUE),
+  list(key = "ev_rate", label = "EV rate (ES)",
+       target = 50, n = NA_character_, fraction = FALSE,
+       missing = "no ES site")
+)
+
+# pull one district's indicator rows: the focal-year values and the rate series.
+# matched on `guid` where the panel uses the polished-indicator name, else on
+# the pager's own id column. returns NULL when the district or year is absent,
+# so a panel that does not cover this district simply omits the strip.
+# @noRd
+.pager_indicators <- function(indicators, foc_id, id_col, year, years) {
+  if (is.null(indicators)) return(NULL)
+  stopifnot(is.data.frame(indicators))
+  key <- intersect(c(id_col, "guid"), names(indicators))[1]
+  if (is.na(key) || !"year" %in% names(indicators)) {
+    cli::cli_abort(
+      "{.arg indicators_df} needs a {.field year} column and either \\
+       {.field {id_col}} or {.field guid}."
+    )
+  }
+  d <- indicators[
+    as.character(indicators[[key]]) == as.character(foc_id), ,
+    drop = FALSE
+  ]
+  if (nrow(d) == 0L) return(NULL)
+  d <- d[order(as.integer(d$year)), , drop = FALSE]
+  focal <- d[as.integer(d$year) == year, , drop = FALSE]
+  if (nrow(focal) == 0L) return(NULL)
+  list(
+    focal = as.list(focal[1L, , drop = FALSE]),
+    rate = d$npafp_rate[match(years, as.integer(d$year))]
+  )
+}
+
+# every one of these indicators is a pass rate: the share of the district's AFP
+# cases meeting the criterion. So the value stays the percentage, and the count
+# behind it goes underneath, where a rate resting on two cases can be seen for
+# what it is rather than read as a settled figure.
+# @noRd
+.pager_tile_value <- function(pct, n, floor = 5L) {
+  if (!isTRUE(is.finite(pct))) {
+    return(list(value = "--", state = "miss"))
+  }
+  thin <- isTRUE(is.finite(n)) && n > 0 && n < floor
+  list(
+    value = sprintf("%.0f%%", pct),
+    state = if (thin) "thin" else "ok"
+  )
+}
+
+# the meta line under a tile value: what the figure rests on, and how it reads
+# against its target where it has one.
+# @noRd
+.pager_tile_meta <- function(pct, n, target, state, fraction = TRUE,
+                             missing = NULL) {
+  # spell the rate out as cases where the denominator is the case count and is
+  # small enough that the reader should see it: "1 of 2 cases", not a bare 50%
+  base <- if (identical(state, "miss") && !is.null(missing)) {
+    missing
+  } else if (!isTRUE(is.finite(n))) {
+    ""
+  } else if (n == 0) {
+    "none assessable"
+  } else if (isTRUE(fraction) && identical(state, "thin")) {
+    sprintf(
+      "%d of %d case%s", as.integer(round(pct / 100 * n)), as.integer(n),
+      if (n == 1) "" else "s"
+    )
+  } else {
+    sprintf("of %d cases", as.integer(n))
+  }
+  # grading a figure that rests on a handful of cases against a target asserts
+  # the same false precision the fraction form exists to avoid
+  gradeable <- isTRUE(is.finite(target)) && isTRUE(is.finite(pct)) &&
+    !identical(state, "thin")
+  grade <- if (gradeable) {
+    sprintf(if (pct >= target) "meets %g%%" else "under %g%%", target)
+  } else if (isTRUE(is.finite(target)) && state == "ok") {
+    sprintf("target %g%%", target)
+  } else {
+    ""
+  }
+  paste(Filter(nzchar, c(base, grade)), collapse = " \u00b7 ")
+}
+
+# the four indicator tiles as html.
+# @noRd
+.pager_tiles_html <- function(r) {
+  cells <- vapply(.pager_tile_spec, function(t) {
+    pct <- suppressWarnings(as.numeric(r[[t$key]] %||% NA))
+    # only the case-based pass rates fall back to the case count; EV isolation
+    # is measured off environmental samples, so counting cases behind it would
+    # attach the wrong denominator
+    n <- if (!is.na(t$n)) {
+      suppressWarnings(as.numeric(r[[t$n]] %||% NA))
+    } else if (isTRUE(t$fraction)) {
+      suppressWarnings(as.numeric(r$afp_cases %||% NA))
+    } else {
+      NA_real_
+    }
+    v <- .pager_tile_value(pct, n)
+    sprintf(
+      paste0("<div class=\"itile %s\"><div class=\"k\">%s</div>",
+             "<div class=\"v\">%s</div><div class=\"m\">%s</div></div>"),
+      v$state, .pager_escape(t$label), v$value,
+      .pager_escape(
+        .pager_tile_meta(pct, n, t$target, v$state, t$fraction, t$missing)
+      )
+    )
+  }, character(1))
+  paste0("<div class=\"itiles\">", paste(cells, collapse = ""), "</div>")
+}
+
+# the non-polio AFP rate over the same years as the SPI chart, against its
+# target. the rate's denominator is population rather than the case count, so
+# unlike the tiles it stays meaningful in a district detecting almost nothing.
+# @noRd
+.pager_rate_svg <- function(rate, years, target, accent) {
+  n <- length(years)
+  w <- 300
+  # tall enough to fill the panel the tile column sets, so the rate's shape is
+  # readable rather than a flat squiggle in a half-empty box
+  h <- 96
+  ml <- 26
+  mr <- 34
+  mt <- 10
+  mb <- 14
+  top <- max(c(rate, target), na.rm = TRUE) * 1.15
+  if (!is.finite(top) || top <= 0) top <- target * 1.5
+  px <- function(i) ml + (i / max(n - 1, 1)) * (w - ml - mr)
+  py <- function(v) mt + (1 - v / top) * (h - mt - mb)
+  fnum <- function(v) sprintf("%.1f", v)
+
+  s <- sprintf(
+    "<svg viewBox=\"0 0 %d %d\" width=\"100%%\" height=\"%d\">", w, h, h
+  )
+  # the target line, and the frame
+  s <- paste0(
+    s,
+    sprintf(
+      paste0("<line x1=\"%d\" y1=\"%s\" x2=\"%d\" y2=\"%s\" ",
+             "stroke=\"#15233b\" stroke-width=\"1\" ",
+             "stroke-dasharray=\"4 3\" opacity=\"0.6\"/>"),
+      ml, fnum(py(target)), w - mr, fnum(py(target))
+    ),
+    sprintf(
+      paste0("<text x=\"%d\" y=\"%s\" text-anchor=\"end\" ",
+             "font-family=\"Spline Sans Mono\" font-size=\"7.5\" ",
+             "fill=\"#5a6883\">%g</text>"),
+      ml - 4, fnum(py(target) + 2.5), target
+    ),
+    sprintf(
+      paste0("<line x1=\"%d\" y1=\"%s\" x2=\"%d\" y2=\"%s\" ",
+             "stroke=\"#15233b\" stroke-width=\"1\"/>"),
+      ml, fnum(py(0)), w - mr, fnum(py(0))
+    )
+  )
+  pts <- vapply(
+    which(is.finite(rate)),
+    function(i) paste0(fnum(px(i - 1)), ",", fnum(py(rate[i]))),
+    character(1)
+  )
+  if (length(pts) > 1L) {
+    s <- paste0(
+      s, "<polyline points=\"", paste(pts, collapse = " "),
+      "\" fill=\"none\" stroke=\"", accent,
+      "\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>"
+    )
+  }
+  last <- utils::tail(which(is.finite(rate)), 1)
+  if (length(last) == 1L) {
+    s <- paste0(
+      s,
+      sprintf(
+        "<circle cx=\"%s\" cy=\"%s\" r=\"2.4\" fill=\"%s\"/>",
+        fnum(px(last - 1)), fnum(py(rate[last])), accent
+      ),
+      sprintf(
+        paste0("<text x=\"%s\" y=\"%s\" font-family=\"Spline Sans Mono\" ",
+               "font-size=\"9\" font-weight=\"600\" fill=\"%s\">%s</text>"),
+        fnum(px(last - 1) + 6), fnum(py(rate[last]) + 3), accent,
+        .pager_dot(rate[last], 1)
+      )
+    )
+  }
+  paste0(s, "</svg>")
+}
+
+# how the district reads through its expected seasonal peak, distinguishing a
+# channel that was never supplied from one that was and found nothing.
+# @noRd
+.pager_season_word <- function(r, active) {
+  if (!is.null(active) && !isTRUE(unname(active["seasonal"]))) return("")
+  switch(
+    r$seasonal %||% "not assessed",
+    blind = "Blind through the expected peak",
+    muted = "Muted through the expected peak",
+    # detecting through the peak is worth saying only where the district still
+    # reads short: it is then a district that looks and still finds too little
+    present = if (isTRUE(r$spi_below)) {
+      "Detects through the expected peak, yet still reads short"
+    } else {
+      ""
+    },
+    ""
+  )
+}
+
+# the two detection boxes, one per channel. A channel that was never supplied
+# says so rather than reading as a district that was searched and found clean.
+# @noRd
+.pager_detection_boxes <- function(detections, label, active) {
+  on <- function(nm) is.null(active) || isTRUE(unname(active[nm]))
+  box <- function(title, years, supplied) {
+    if (!supplied) {
+      v <- "--"
+      m <- "channel not supplied"
+      cls <- "miss"
+    } else if (length(years) == 0L) {
+      v <- "none"
+      m <- sprintf("no %s found", label)
+      cls <- "quiet"
+    } else {
+      # the count, not the years: the chart already marks which years
+      v <- sprintf(
+        "%d detection%s", length(years), if (length(years) == 1L) "" else "s"
+      )
+      m <- sprintf("%s, latest %d", label, max(years))
+      cls <- "hit"
+    }
+    sprintf(
+      paste0("<div class=\"itile det %s\"><div class=\"k\">%s</div>",
+             "<div class=\"v\">%s</div><div class=\"m\">%s</div></div>"),
+      cls, title, .pager_escape(v), .pager_escape(m)
+    )
+  }
+  paste0(
+    "<div class=\"idets\">",
+    box("AFP detection", detections$afp, on("detect_afp")),
+    box("ES detection", detections$es, on("detect_es")),
+    "</div>"
+  )
+}
+
+# the whole out-of-grid indicator strip. Deliberately its own block below the
+# chart, with no role chip: these indicators support the reading from outside
+# the five STEPS and never enter the corroborator count or the verdict.
+# @noRd
+.pager_strip_html <- function(ind, years, npafp_target, accent, focal,
+                              detections, detection_label, active) {
+  season <- .pager_season_word(focal, active)
+  dets <- .pager_detection_boxes(detections, detection_label, active)
+  # the indicator half is optional; the detection half always has something to
+  # say, so the row renders either way
+  left <- if (is.null(ind)) {
+    ""
+  } else {
+    paste0(
+      "<div class=\"ipanel\">",
+      "<div class=\"ilab\">Non-polio AFP rate per 100,000 under 15 \u00b7 ",
+      "target ", npafp_target, "</div>",
+      .pager_rate_svg(ind$rate, years, npafp_target, accent),
+      "</div>",
+      .pager_tiles_html(ind$focal)
+    )
+  }
+  paste0(
+    "<div class=\"istrip\">",
+    "<div class=\"sectlab\"><span>Context \u2014 conventional AFP and ES ",
+    "indicators and detections</span>",
+    if (nzchar(season)) {
+      paste0("<span>", .pager_escape(season), "</span>")
+    } else {
+      ""
+    },
+    "</div>",
+    "<div class=\"igrid", if (is.null(ind)) " dets-only" else "", "\">",
+    left, dets, "</div></div>"
+  )
+}
+
 # ---- STEPS reading rows ---------------------------------------------------
 
 # build the five STEPS rows plus the out-of-grid season/detection row (code,
@@ -882,63 +1218,12 @@ as.character.blindspot_pager <- function(x, ...) {
     )
   }
 
-  # both halves of this row distinguish "channel not supplied" from "channel
-  # supplied and quiet": the field guide records which inputs it had in
-  # signals_active, and a silent channel must not read as a district finding
-  on <- function(nm) isTRUE(unname(active[nm]))
-  seasonal_word <- if (!is.null(active) && !on("seasonal")) {
-    "Season not assessed, no monthly SPI supplied"
-  } else {
-    switch(
-      r$seasonal %||% "not assessed",
-      blind = "Blind through the expected peak",
-      muted = "Muted through the expected peak",
-      present = "Detects through the expected peak",
-      "Season not assessable for this unit"
-    )
-  }
-  channels_on <- c(
-    if (is.null(active) || on("detect_afp")) "AFP" else NULL,
-    if (is.null(active) || on("detect_es")) "ES" else NULL
-  )
-  detection <- .pager_detection_phrase(detections, detection_label)
-  det_clause <- if (nzchar(detection)) {
-    detection
-  } else if (length(channels_on) == 0L) {
-    "no detection channel supplied"
-  } else {
-    sprintf(
-      "no %s detected in %s", detection_label,
-      paste(channels_on, collapse = " or ")
-    )
-  }
-  s7 <- sprintf("%s, with %s.", seasonal_word, det_clause)
-
   falling <- r$trajectory == "falling"
   persistent <- run >= persistence
   discordant <- isTRUE(r$neighbour_discordant)
-  # seasonal blindness and any detection are out-of-grid: never one of the
-  # three STEPS corroborators. a detection is counted only when the guide was
-  # built with detection_corroborates, otherwise it corroborates from outside
-  # the grid and is flagged "external", so a reader counting the corroborating
-  # chips does not over-count against the flag rule
-  detected <- length(detections$afp) > 0 || length(detections$es) > 0
-  detection_counts <- isTRUE(params$detection_corroborates) && detected
-  det_role <- if (detection_counts) {
-    "corr"
-  } else if (detected) {
-    "external"
-  } else {
-    "quiet"
-  }
-  det_label <- if (detection_counts) {
-    "corroborates"
-  } else if (detected) {
-    "external"
-  } else {
-    "quiet"
-  }
 
+  # season and detections are out-of-grid; they are read in the context row
+  # below the chart, not as a sixth STEPS line
   list(
     list(code = "S", name = "Significance", reading = s1,
          role = "gate", label = "gate"),
@@ -952,9 +1237,7 @@ as.character.blindspot_pager <- function(x, ...) {
          label = if (persistent) "supports" else "quiet"),
     list(code = "S", name = "Surroundings", reading = s6,
          role = if (discordant) "corr" else "quiet",
-         label = if (discordant) "corroborates" else "quiet"),
-    list(code = "+", name = "Seasonal & detections", reading = s7,
-         role = det_role, label = det_label)
+         label = if (discordant) "corroborates" else "quiet")
   )
 }
 
@@ -1195,7 +1478,8 @@ as.character.blindspot_pager <- function(x, ...) {
 .pager_html <- function(
   focal, series, chart, locator, signals, vstyle, spi_cut, params,
   detections, detection_label, year, name_col, id_col, admin_label,
-  unit_noun = "district", note = NULL
+  unit_noun = "district", note = NULL, indicators = NULL, npafp_target = 3,
+  active = NULL
 ) {
   name <- .pager_escape(as.character(focal[[name_col]]))
   adm1 <- .pager_escape(as.character(focal$adm1_name %||% ""))
@@ -1223,7 +1507,7 @@ as.character.blindspot_pager <- function(x, ...) {
   pop <- suppressWarnings(as.numeric(focal$pop_u15 %||% NA))
   pop_txt <- if (isTRUE(is.finite(pop))) {
     sprintf(
-      "<br>u15 %s", formatC(round(pop), format = "d", big.mark = ",")
+      "<br>pop u15 %s", formatC(round(pop), format = "d", big.mark = ",")
     )
   } else {
     ""
@@ -1254,7 +1538,7 @@ as.character.blindspot_pager <- function(x, ...) {
   detect_clause <- if (detection_counts) {
     "."
   } else {
-    "; season and detections corroborate from outside this count."
+    "; season and detections are read as context above, never in this count."
   }
   rule <- sprintf(
     paste0("A %s is flagged when its SPI sits below the %s adequacy cut, its ",
@@ -1320,10 +1604,16 @@ as.character.blindspot_pager <- function(x, ...) {
     "<span><span class=\"lband\"></span> 90% credible interval</span>",
     "<span><span class=\"lk exp\"></span> 1\u00b70, expected detection</span>",
     legend_detect,
-    "</div></div>",
+    "</div>",
+    .pager_strip_html(
+      indicators, series$year, npafp_target, vstyle$accent, focal,
+      detections, detection_label, active
+    ),
+    "</div>",
     # reading
     "<div class=\"reading\"><div class=\"sectlab\" ",
-    "style=\"margin-bottom:6px\"><span>The reading \u2014 the five STEPS for ",
+    "style=\"margin-bottom:6px\"><span>Reading the SPI \u2014 the five STEPS ",
+    "for ",
     name, "</span><span>gate \u00b7 magnitude \u00b7 corroboration</span></div>",
     "<div class=\"rrule\">", rule, "</div>",
     "<div>", rows, "</div></div>",
@@ -1332,7 +1622,7 @@ as.character.blindspot_pager <- function(x, ...) {
     "<div class=\"vw\">", banner_reading, "</div></div>",
     "</div>",
     # footer
-    "<div class=\"foot\"><div>computed from bs_spi() posterior", note_tag,
+    "<div class=\"foot\"><div>", sub("^ \u00b7 ", "", note_tag),
     "</div><div>verify against source systems before operational use</div>",
     "</div></div></div></body></html>"
   )
@@ -1419,6 +1709,29 @@ as.character.blindspot_pager <- function(x, ...) {
     "transform:rotate(45deg)}",
     ".lo{width:9px;height:9px;border:1.6px solid var(--accent);",
     "border-radius:50%;box-sizing:border-box}",
+    ".istrip{flex-shrink:0;margin-top:20px}",
+    ".igrid{display:grid;grid-template-columns:1fr 274px 120px;gap:8px}",
+    ".igrid.dets-only{grid-template-columns:1fr}",
+    ".idets{display:grid;grid-template-rows:1fr 1fr;gap:6px}",
+    ".itile.det .v{font-size:13px;letter-spacing:-.01em;word-break:break-word}",
+    ".itile.det.hit .v{color:var(--accent)}",
+    ".ipanel{background:#fffdf8;border:1px solid var(--line);",
+    "padding:6px 9px 2px}",
+    ".ilab{font-family:'Spline Sans Mono',monospace;font-size:8px;",
+    "letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);",
+    "margin-bottom:7px}",
+    ".ipanel svg{width:100%;height:auto;display:block}",
+    ".itiles{display:grid;grid-template-columns:1fr 1fr;gap:6px}",
+    ".itile{background:#fffdf8;border:1px solid var(--line);",
+    "padding:4px 8px 5px;",
+    "display:flex;flex-direction:column;justify-content:center}",
+    ".itile .k{font-family:'Spline Sans Mono',monospace;font-size:7.5px;",
+    "letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft)}",
+    ".itile .v{font-size:18px;font-weight:800;letter-spacing:-.025em;",
+    "line-height:1.15;margin-top:5px}",
+    ".itile .m{font-family:'Spline Sans Mono',monospace;font-size:7.5px;",
+    "color:var(--ink-soft);line-height:1.3;margin-top:2px}",
+    ".itile.thin .v,.itile.miss .v{font-size:13px;color:var(--ink-soft)}",
     ".body{flex:1;display:flex;flex-direction:column;justify-content:",
     "space-between;min-height:0}",
     ".cgroup{flex-shrink:0}.reading{margin-top:0;flex-shrink:0}",
