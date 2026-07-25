@@ -1217,6 +1217,17 @@ as.character.blindspot_pager <- function(x, ...) {
   } else {
     sprintf(" \u00b7 neighbours %s", .pager_dot(focal$neighbour_spi, 2))
   }
+  # the under-15 denominator the expected count is built on. Without it a reader
+  # cannot tell whether an expectation of 1.9 cases belongs to a district of
+  # twenty thousand children or two hundred thousand.
+  pop <- suppressWarnings(as.numeric(focal$pop_u15 %||% NA))
+  pop_txt <- if (isTRUE(is.finite(pop))) {
+    sprintf(
+      "<br>u15 %s", formatC(round(pop), format = "d", big.mark = ",")
+    )
+  } else {
+    ""
+  }
 
   rows <- vapply(signals, function(s) {
     sprintf(
@@ -1290,7 +1301,7 @@ as.character.blindspot_pager <- function(x, ...) {
     "<div class=\"parent\">", parent, "</div></div>",
     "<div class=\"verdict\"><span class=\"tag\">", vstyle$tag, "</span>",
     "<div class=\"sub\">", vstyle$state, "<br>SPI <b>", spi, "</b>",
-    nb_txt, "</div></div></div>",
+    nb_txt, pop_txt, "</div></div></div>",
     # body
     "<div class=\"body\"><div class=\"cgroup\">",
     "<div class=\"sectlab\"><span>SPI over time \u2014 ", name, "</span>",

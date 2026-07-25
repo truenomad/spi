@@ -31,6 +31,11 @@
 * `bs_field_guide_pager()` charts the focal district alone. The per-neighbour
   lines, cluster label and legend key are gone; neighbours reach the page as the
   neighbour-median figure and the surroundings (S) row.
+* `bs_field_guide_pager()` prints the under-15 population in the masthead,
+  beside the SPI and neighbour figures. It is the denominator the expected count
+  is built on, and without it a reader cannot tell whether an expectation of 1.9
+  cases belongs to a district of twenty thousand children or two hundred
+  thousand. Read from the guide's own `pop_u15`, and omitted when absent.
 * **The locator inset now places the district in its country** rather than
   among its touching neighbours, which showed local shape but not position. It
   draws the country silhouette, admin-1 outlines from an `adm1_name` column, and

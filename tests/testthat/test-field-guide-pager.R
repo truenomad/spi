@@ -262,6 +262,30 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
   expect_match(hq, "no cVDPV2 detected in AFP or ES", fixed = TRUE)
 })
 
+test_that("the masthead carries the under-15 denominator", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+  pop <- fg$focal$pop_u15[fg$focal[["adm2_name"]] == d][1]
+  skip_if(is.na(pop))
+
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  expect_match(
+    h,
+    paste0("u15 ", formatC(round(pop), format = "d", big.mark = ",")),
+    fixed = TRUE
+  )
+
+  # a guide without the column simply omits the figure
+  bare <- fg
+  bare$focal$pop_u15 <- NULL
+  bare$district_year$pop_u15 <- NULL
+  expect_no_match(
+    bs_field_guide_pager(bare, district = d, verbose = FALSE)$html,
+    "u15 ", fixed = TRUE
+  )
+})
+
 test_that("note is untagged by default and opt-in when supplied", {
   fg <- synth_field_guide
   d <- flag_district(fg)
