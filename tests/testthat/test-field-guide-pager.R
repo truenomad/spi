@@ -86,6 +86,76 @@ test_that("a detection is context, never a counted STEPS signal", {
   expect_no_match(h, "Seasonal &amp; detections", fixed = TRUE)
 })
 
+test_that("clearing the cut is not reported as detecting adequately", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  # at or above the operational cut, yet the whole posterior sits below one
+  short <- foc[!foc$spi_below & foc$cri_excludes_1, ]
+  skip_if(nrow(short) == 0)
+
+  h <- bs_field_guide_pager(
+    fg, district = short[["adm2_name"]][1], verbose = FALSE
+  )$html
+  expect_no_match(h, "--accent:#1f6f43", fixed = TRUE)
+  expect_no_match(h, "class=\"tag\">Adequate", fixed = TRUE)
+  expect_match(h, "class=\"tag\">Below expectation", fixed = TRUE)
+  # and the banner does not claim the gate is silent for a good reason
+  expect_no_match(h, "significance gate never opens", fixed = TRUE)
+  expect_match(h, "detects measurably less than expected", fixed = TRUE)
+
+  # a district whose interval still reaches one keeps the green reading
+  ok <- foc[!foc$spi_below & !foc$cri_excludes_1, ]
+  skip_if(nrow(ok) == 0)
+  hok <- bs_field_guide_pager(
+    fg, district = ok[["adm2_name"]][1], verbose = FALSE
+  )$html
+  expect_match(hok, "--accent:#1f6f43", fixed = TRUE)
+  expect_match(hok, "class=\"tag\">Adequate", fixed = TRUE)
+  expect_match(hok, "significance gate never opens", fixed = TRUE)
+})
+
+test_that("the banner dates the detection it corroborates on", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  cand <- foc[
+    foc$verdict == "FLAG" &
+      (foc$genomic_orphan %in% TRUE | foc$es_detected %in% TRUE),
+  ]
+  skip_if(nrow(cand) == 0)
+
+  h <- bs_field_guide_pager(
+    fg, district = cand[["adm2_name"]][1], verbose = FALSE
+  )$html
+  banner <- regmatches(h, regexpr("(?<=class=\"vw\">).*?(?=</div>)", h,
+                                  perl = TRUE))
+  # detections are cumulative to the read year, so an undated claim can rest on
+  # virus found years ago
+  expect_match(banner, "detected by")
+  expect_match(banner, "(in|latest) [0-9]{4}")
+})
+
+test_that("the onset tile rests on the bundle's own timeliness counts", {
+  fg <- synth_field_guide
+  ind <- make_indicators(fg)
+  foc <- ind[ind$year == fg$read_year, ]
+  tl <- synth_surveillance$afp_timeliness
+  tl <- tl[tl$year == fg$read_year, ]
+
+  # a district with enough assessable cases to print a denominator
+  fat <- foc[foc$onset_notify_n >= 5, ]
+  skip_if(nrow(fat) == 0)
+  d <- fat$name[1]
+  n_expected <- tl$n_assessable[tl$adm2_guid == fat$guid[1]]
+
+  h <- bs_field_guide_pager(
+    fg, district = d, indicators_df = ind, verbose = FALSE
+  )$html
+  onset <- regmatches(
+    h, regexpr("<div class=\"k\">Onset.*?</div></div>", h)
+  )
+  expect_match(onset, sprintf("of %d cases", n_expected), fixed = TRUE)
+})
+
 test_that("the pager prescribes no follow-up action", {
   fg <- synth_field_guide
   d <- flag_district(fg)
@@ -263,7 +333,7 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
     quiet, district = d, detection_label = "cVDPV2", verbose = FALSE
   )$html
   expect_equal(
-    lengths(regmatches(hq, gregexpr("no cVDPV2 found", hq))), 2L
+    lengths(regmatches(hq, gregexpr("no detections", hq))), 2L
   )
   expect_no_match(hq, "channel not supplied", fixed = TRUE)
 })
@@ -369,6 +439,36 @@ test_that("a thin pass rate shows the cases behind it and is not graded", {
   )$html
   expect_match(hf, "%</div>")
   expect_match(hf, "of [0-9]+ cases")
+})
+
+test_that("no ES site is claimed only when no ES detection backs it", {
+  fg <- synth_field_guide
+  ind <- make_indicators(fg)
+  foc <- fg$focal
+
+  # virus found in ES proves a site exists, so a missing rate there is an
+  # unreported rate, not an absent site
+  seen <- foc[foc$es_detected %in% TRUE, ][["adm2_name"]][1]
+  skip_if(is.na(seen))
+  blanked <- ind
+  blanked$ev_rate[blanked$name == seen] <- NA_real_
+  h <- bs_field_guide_pager(
+    fg, district = seen, indicators_df = blanked, verbose = FALSE
+  )$html
+  expect_match(h, "rate not reported", fixed = TRUE)
+  expect_no_match(h, "No ES site", fixed = TRUE)
+  expect_no_match(h, "itile miss gap", fixed = TRUE)
+
+  # with no rate and no detection either, the gap is real and called out
+  quiet <- foc[foc$es_detected %in% FALSE, ][["adm2_name"]][1]
+  skip_if(is.na(quiet))
+  blanked2 <- ind
+  blanked2$ev_rate[blanked2$name == quiet] <- NA_real_
+  hq <- bs_field_guide_pager(
+    fg, district = quiet, indicators_df = blanked2, verbose = FALSE
+  )$html
+  expect_match(hq, "No ES site", fixed = TRUE)
+  expect_match(hq, "itile miss gap", fixed = TRUE)
 })
 
 test_that("no assessable cases reads as absent, never as zero", {
@@ -663,6 +763,86 @@ test_that("adm1 auto-name keeps each admin level once", {
   # adm1_name is both the unit and its own parent level; it must not repeat
   base <- basename(p$paths)
   expect_equal(lengths(regmatches(base, gregexpr(slug, base, fixed = TRUE))), 1L)
+})
+
+test_that("the detection boxes name whatever serotypes were recorded", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  skip_if(!"orphan_serotypes" %in% names(foc))
+  # a flag, so the verdict banner also carries a detection clause to check
+  d <- foc[foc$genomic_orphan %in% TRUE & foc$verdict == "FLAG", ]
+  skip_if(nrow(d) == 0)
+  d <- d[["adm2_name"]][1]
+
+  # one recorded serotype is named on its own
+  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  afp <- regmatches(
+    h, regexpr("<div class=\"k\">AFP detection.*?</div></div>", h)
+  )
+  expect_match(afp, "cVDPV2", fixed = TRUE)
+
+  # two are listed, rather than the page picking one
+  mixed <- fg
+  for (df in c("district_year", "focal")) {
+    hit <- mixed[[df]]$genomic_orphan %in% TRUE
+    mixed[[df]]$orphan_serotypes[hit] <- "cVDPV2, WPV1"
+  }
+  hm <- bs_field_guide_pager(mixed, district = d, verbose = FALSE)$html
+  afp_m <- regmatches(
+    hm, regexpr("<div class=\"k\">AFP detection.*?</div></div>", hm)
+  )
+  expect_match(afp_m, "cVDPV2, WPV1", fixed = TRUE)
+  # and the banner follows the record, not the caller's assumption
+  expect_match(hm, "cVDPV2, WPV1 detected by", fixed = TRUE)
+
+  # a guide built without a serotype column falls back to the declared label
+  none <- fg
+  for (df in c("district_year", "focal")) {
+    none[[df]]$orphan_serotypes <- NA_character_
+    none[[df]]$es_serotypes <- NA_character_
+  }
+  hn <- bs_field_guide_pager(
+    none, district = d, detection_label = "WPV3", verbose = FALSE
+  )$html
+  expect_match(hn, "WPV3", fixed = TRUE)
+})
+
+test_that("a failed indicator target reads in the blind-spot red", {
+  fg <- synth_field_guide
+  ind <- make_indicators(fg)
+  foc <- ind[ind$year == fg$read_year, ]
+  # a well-populated district, so its rates are graded at all
+  fat <- foc[foc$afp_cases > 50 & !is.na(foc$stool_adequacy_cond_pct), ]
+  skip_if(nrow(fat) == 0)
+
+  fail <- fat[fat$stool_adequacy_cond_pct < 80, ]
+  if (nrow(fail) > 0) {
+    h <- bs_field_guide_pager(
+      fg, district = fail$name[1], indicators_df = ind, verbose = FALSE
+    )$html
+    expect_match(h, "itile ok fail", fixed = TRUE)
+  }
+
+  pass <- fat[fat$stool_adequacy_cond_pct >= 80, ]
+  if (nrow(pass) > 0) {
+    hp <- bs_field_guide_pager(
+      fg, district = pass$name[1], indicators_df = ind, verbose = FALSE
+    )$html
+    stool <- regmatches(
+      hp, regexpr("<div class=\"itile[^\"]*\"><div class=\"k\">Stool.*?</div></div>", hp)
+    )
+    expect_no_match(stool, "fail", fixed = TRUE)
+  }
+
+  # a thin rate is never graded, so never reddened
+  thin <- foc[foc$afp_cases > 0 & foc$afp_cases < 5, ]
+  if (nrow(thin) > 0) {
+    ht <- bs_field_guide_pager(
+      fg, district = thin$name[1], indicators_df = ind, verbose = FALSE
+    )$html
+    strip <- regmatches(ht, regexpr("class=\"istrip\".*", ht))
+    expect_no_match(strip, "itile thin fail", fixed = TRUE)
+  }
 })
 
 test_that("no serotype is named unless the caller names one", {

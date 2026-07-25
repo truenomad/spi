@@ -392,7 +392,8 @@ make_count_concordance <- function(spec, spi_cut = 0.8,
 
 # --- a conventional AFP indicator panel ------------------------------------
 # Shaped as polished_indicators_adm2 plus the two columns that table does not
-# carry: onset_notify_pct (derived upstream; no published indicator and no GPEI
+# carry: onset_notify_pct (derived from the bundle's own AFP timeliness counts,
+# since POLIS publishes no such indicator, and it has no GPEI
 # threshold) and the assessable counts behind the timeliness percentages.
 # Percentages rest on the real case counts, so a district with no AFP cases
 # carries NA and a district with one or two carries a volatile figure -- which
@@ -410,7 +411,17 @@ make_indicators <- function(fg = synth_field_guide, seed = 20260725) {
     out
   }
   n_ni <- stats::rbinom(n, size = afp, prob = 0.86)
-  n_on <- stats::rbinom(n, size = afp, prob = 0.83)
+  # onset-to-notification is the one indicator POLIS does not publish, so it is
+  # derived from the bundle's district-year timeliness counts, not simulated
+  tl <- synth_surveillance$afp_timeliness[
+    match(
+      paste(dy$adm2_guid, dy$year),
+      paste(
+        synth_surveillance$afp_timeliness$adm2_guid,
+        synth_surveillance$afp_timeliness$year
+      )
+    ),
+  ]
   tibble::tibble(
     country_iso3code = "HRD",
     guid = dy$adm2_guid,
@@ -425,8 +436,10 @@ make_indicators <- function(fg = synth_field_guide, seed = 20260725) {
     ),
     stool_adequacy_cond_pct = pct_on(afp, 0.72),
     inv_timeliness_pct = pct_on(n_ni, 0.7),
-    onset_notify_pct = pct_on(n_on, 0.66),
+    onset_notify_pct = ifelse(
+      tl$n_assessable > 0, 100 * tl$n_within_7d / tl$n_assessable, NA_real_
+    ),
     inv_timeliness_n = n_ni,
-    onset_notify_n = n_on
+    onset_notify_n = tl$n_assessable
   )
 }

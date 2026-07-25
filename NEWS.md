@@ -65,6 +65,29 @@
   default asserted a serotype the package was never told, and detections can as
   easily be cVDPV1, cVDPV3 or WPV1. Pass the label to declare what you filtered
   `genomic` / `es` down to; leave it NULL where the input mixes serotypes.
+* **The pager no longer calls a district "Adequate" when its interval lies
+  wholly below one.** Clearing the 0.80 operational cut is not evidence of
+  adequate detection: a district can sit above the cut with its whole 90%
+  interval below one, meaning it detects measurably less than the model expects.
+  That case now reads "Below expectation" in neutral slate, and the banner says
+  so instead of "the significance gate never opens".
+* **`bs_field_guide()` gained `serotype_col` and `detection_serotypes`.** The
+  guide recorded the years a detection occurred but not what was found, so a
+  reading had to assume one serotype. With `serotype_col` the distinct serotypes
+  seen up to each year are kept as `orphan_serotypes` / `es_serotypes`, and the
+  pager names them instead of assuming. `detection_serotypes` restricts what
+  counts as a detection at all: an ambiguous VDPV is not a confirmed circulating
+  virus, so `c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")` keeps it out of the years,
+  the flags and the serotype string together. Both default NULL.
+* The verdict banner dates the detection it corroborates on. Detections are
+  cumulative to the read year, so "with WPV1 detected by AFP" could rest on
+  virus found five years earlier; it now reads "in 2020" or "latest 2022", as
+  the detection tiles already did.
+* `synth_surveillance` gained `afp_timeliness`, a district-year table of
+  assessable and within-window AFP counts. Onset-to-notification is the one
+  indicator POLIS does not publish, so the demo and test fixture derive that
+  tile from these counts rather than simulating it. Purely additive: every other
+  table in the bundle is unchanged.
 * The masthead carries the under-15 population, the denominator the expected
   count is built on. The footer's "computed from bs_spi() posterior" line goes.
 * Smaller pager fixes: persistence names the run ending at the read year; an

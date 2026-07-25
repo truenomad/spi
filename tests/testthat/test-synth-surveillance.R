@@ -9,8 +9,21 @@ test_that("synth_surveillance has the expected structure", {
     synth_surveillance,
     c("cases", "population", "covariates", "boundaries", "ward_boundaries",
       "virus_outcome", "es_sites", "es_data", "es_district_year", "detections",
-      "truth")
+      "afp_timeliness", "truth")
   )
+
+  # afp_timeliness: the district-year counts an onset-to-notification
+  # percentage is built from, since POLIS publishes no such indicator
+  expect_named(
+    synth_surveillance$afp_timeliness,
+    c("adm2_guid", "year", "afp_cases", "n_assessable", "n_within_7d")
+  )
+  expect_equal(nrow(synth_surveillance$afp_timeliness), n_dist * 10)
+  # the counts nest: within-window <= assessable <= cases
+  with(synth_surveillance$afp_timeliness, {
+    expect_true(all(n_within_7d <= n_assessable))
+    expect_true(all(n_assessable <= afp_cases))
+  })
 
   # covariates: district-year layers for the adjusted spec
   expect_named(

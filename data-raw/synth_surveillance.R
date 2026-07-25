@@ -457,6 +457,31 @@ detections <- population |>
 # 10. Assemble + save
 # ---------------------------------------------------------------------------
 
+# ---- AFP timeliness -----------------------------------------------------
+# Onset-to-notification is the one AFP indicator POLIS does not publish, so a
+# reading has to derive it from case data. This bundle is aggregate by design
+# (no case-level records), so the analogue is the district-year pair a
+# timeliness percentage is actually computed from: how many cases had a usable
+# onset date, and how many of those were notified inside the window.
+#
+# Generated last, after every draw above, so the RNG stream feeding the existing
+# tables is untouched and this is a purely additive change to the bundle.
+afp_timeliness <- cases |>
+  mutate(year = as.integer(format(month, "%Y"))) |>
+  group_by(adm2_guid, year) |>
+  summarise(afp_cases = sum(count), .groups = "drop") |>
+  mutate(
+    # not every case has a usable onset date
+    n_assessable = rbinom(n(), size = afp_cases, prob = 0.83),
+    # districts that detect more also tend to report faster; the spread keeps
+    # some districts clearly short of any plausible target
+    n_within_7d = rbinom(
+      n(), size = n_assessable,
+      prob = pmin(0.95, pmax(0.25, rnorm(n(), 0.68, 0.14)))
+    )
+  ) |>
+  select(adm2_guid, year, afp_cases, n_assessable, n_within_7d)
+
 synth_surveillance <- list(
   cases = cases,
   population = population,
@@ -468,6 +493,7 @@ synth_surveillance <- list(
   es_data = es_data,
   es_district_year = es_district_year,
   detections = detections,
+  afp_timeliness = afp_timeliness,
   truth = truth
 )
 
@@ -490,6 +516,9 @@ cat("detections:       ", nrow(detections), "district-years,",
     sum(detections$afp_detected), "afp-positive,",
     sum(detections$es_detected), "es-positive,",
     sum(detections$es_covered), "es-covered\n")
+cat("afp_timeliness:   ", nrow(afp_timeliness), "district-years,",
+    sum(afp_timeliness$n_assessable), "assessable,",
+    sum(afp_timeliness$n_within_7d), "within 7d\n")
 cat("truth:            ", sum(truth$is_blindspot), "blindspots,",
     sum(truth$is_low_incidence), "low-incidence; profiles:",
     paste(names(table(truth$surveillance_profile)),

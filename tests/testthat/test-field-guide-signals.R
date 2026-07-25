@@ -372,3 +372,49 @@ test_that("the defaults leave the published reading unchanged", {
   expect_null(base$params$noise_alpha)
   expect_equal(base$focal$run_below, base$focal$longest_run_below)
 })
+
+test_that("detection_serotypes keeps ambiguous virus out of the channels", {
+  conc <- make_count_concordance(list(
+    D1 = list(spi = c(0.5, 0.5, 0.5), q95 = c(0.6, 0.6, 0.6),
+              observed = 4, expected = 12)
+  ))
+  g <- tibble::tibble(
+    adm2_guid = "D1",
+    year = c(2023L, 2024L),
+    serotype = c("aVDPV2", "cVDPV2")
+  )
+
+  # unfiltered, an ambiguous VDPV counts like any other row
+  all_in <- bs_field_guide(
+    conc, genomic = g, serotype_col = "serotype", verbose = FALSE
+  )$focal
+  expect_equal(all_in$orphan_serotypes, "aVDPV2, cVDPV2")
+  expect_equal(all_in$orphan_years, "2023, 2024")
+
+  # filtered, only the confirmed virus reaches the years, the flag and the
+  # serotype string, so all three agree
+  kept <- bs_field_guide(
+    conc, genomic = g, serotype_col = "serotype",
+    detection_serotypes = c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3"),
+    verbose = FALSE
+  )$focal
+  expect_equal(kept$orphan_serotypes, "cVDPV2")
+  expect_equal(kept$orphan_years, "2024")
+  expect_true(kept$genomic_orphan)
+
+  # filtering everything out leaves no detection at all
+  none <- bs_field_guide(
+    conc, genomic = g, serotype_col = "serotype",
+    detection_serotypes = "WPV1", verbose = FALSE
+  )$focal
+  expect_equal(none$orphan_years, "")
+  expect_false(none$genomic_orphan)
+
+  # and asking to filter without saying where the serotype lives is an error
+  expect_error(
+    bs_field_guide(
+      conc, genomic = g, detection_serotypes = "cVDPV2", verbose = FALSE
+    ),
+    "serotype_col"
+  )
+})

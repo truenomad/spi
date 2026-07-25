@@ -51,9 +51,18 @@ conc <- bs_concordance(
 )
 
 # 5. field guide (all signals active, both detection channels) -----------------
-genomic <- synth$virus_outcome |>
-  dplyr::filter(any_cvdpv2 == 1) |>
-  dplyr::select(adm2_guid, year)
+# The bundle records both serotypes, so the genomic input is stacked long with a
+# serotype column rather than filtered to one: a district can then report what
+# was actually found instead of the reading assuming a single serotype.
+vo <- synth$virus_outcome
+genomic <- dplyr::bind_rows(
+  vo |>
+    dplyr::filter(any_cvdpv2 == 1) |>
+    dplyr::transmute(adm2_guid, year, serotype = "cVDPV2"),
+  vo |>
+    dplyr::filter(any_wpv1 == 1) |>
+    dplyr::transmute(adm2_guid, year, serotype = "WPV1")
+)
 
 synth_field_guide <- bs_field_guide(
   concordance = conc,
@@ -62,6 +71,7 @@ synth_field_guide <- bs_field_guide(
   genomic = genomic,
   es = synth$es_district_year,
   es_col = "n_positive",
+  serotype_col = "serotype",
   verbose = TRUE
 )
 

@@ -46,8 +46,9 @@ cut <- fg$thresholds$spi
 # shaped as a district-year panel keyed by guid and year. In a real run this is
 # your polished indicator table. Nothing like it ships with the package, so the
 # gallery fabricates one to exercise the row: the case counts and rate come from
-# the guide, and the quality percentages are SIMULATED. Do not read any meaning
-# into the stool-adequacy, timeliness or EV figures in these PNGs.
+# the guide, onset-to-notification from the bundle's own timeliness counts, and
+# the remaining quality percentages are SIMULATED. Do not read any meaning into
+# the stool-adequacy, notify-to-invest or EV figures in these PNGs.
 #
 # The percentages are drawn against the real assessable case counts on purpose.
 # That is what puts a district with two AFP cases, and one with none at all,
@@ -64,7 +65,21 @@ pct_of <- function(k, p) {
   out
 }
 n_notify <- stats::rbinom(nrows, size = afp_n, prob = 0.86)
-n_onset <- stats::rbinom(nrows, size = afp_n, prob = 0.83)
+
+# onset-to-notification is the one AFP indicator POLIS does not publish, so it
+# is derived from case data rather than simulated: the bundle carries the
+# district-year assessable and within-window counts the percentage is built on
+tl <- synth_surveillance$afp_timeliness[
+  match(
+    paste(dyi$adm2_guid, dyi$year),
+    paste(
+      synth_surveillance$afp_timeliness$adm2_guid,
+      synth_surveillance$afp_timeliness$year
+    )
+  ),
+]
+onset_pct <- ifelse(tl$n_assessable > 0,
+                    100 * tl$n_within_7d / tl$n_assessable, NA_real_)
 
 indicators <- tibble::tibble(
   guid = dyi$adm2_guid,
@@ -84,9 +99,9 @@ indicators <- tibble::tibble(
   ),
   stool_adequacy_cond_pct = pct_of(afp_n, 0.74),
   inv_timeliness_pct = pct_of(n_notify, 0.72),
-  onset_notify_pct = pct_of(n_onset, 0.68),
+  onset_notify_pct = onset_pct,
   inv_timeliness_n = n_notify,
-  onset_notify_n = n_onset
+  onset_notify_n = tl$n_assessable
 )
 
 # ES is an optional out-of-grid channel; tolerate a guide built without it

@@ -586,6 +586,13 @@ as.character.blindspot_pager <- function(x, ...) {
         tag = "No action",
         state = "below cut \u00b7 not corroborated"
       )
+    } else if (.pager_short_of_expectation(focal)) {
+      list(
+        verdict = "No action",
+        accent = "#5a6883",
+        tag = "Below expectation",
+        state = "at cut \u00b7 interval below 1"
+      )
     } else {
       list(
         verdict = "No action",
@@ -790,8 +797,7 @@ as.character.blindspot_pager <- function(x, ...) {
   list(key = "onset_notify_pct", label = "Onset \u2192 notify \u22647d",
        target = NA_real_, n = "onset_notify_n", fraction = TRUE),
   list(key = "ev_rate", label = "EV rate (ES)",
-       target = 50, n = NA_character_, fraction = FALSE,
-       missing = "no ES site")
+       target = 50, n = NA_character_, fraction = FALSE)
 )
 
 # pull one district's indicator rows: the focal-year values and the rate series.
@@ -839,6 +845,22 @@ as.character.blindspot_pager <- function(x, ...) {
   )
 }
 
+# clears the operational cut, yet the whole posterior sits below one: adequate
+# by the rule, short of expectation in fact. Bound to one predicate so the chip,
+# the banner, the caption and the significance row cannot drift apart.
+# @noRd
+.pager_short_of_expectation <- function(r) {
+  !isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)
+}
+
+# can this figure be held to its target? only where there is a target, a value,
+# and enough cases behind it to mean anything. Shared by the wording and the
+# colouring so the two cannot drift apart.
+# @noRd
+.pager_tile_gradeable <- function(pct, target, state) {
+  isTRUE(is.finite(target)) && isTRUE(is.finite(pct)) && identical(state, "ok")
+}
+
 # the meta line under a tile value: what the figure rests on, and how it reads
 # against its target where it has one.
 # @noRd
@@ -862,8 +884,7 @@ as.character.blindspot_pager <- function(x, ...) {
   }
   # grading a figure that rests on a handful of cases against a target asserts
   # the same false precision the fraction form exists to avoid
-  gradeable <- isTRUE(is.finite(target)) && isTRUE(is.finite(pct)) &&
-    !identical(state, "thin")
+  gradeable <- .pager_tile_gradeable(pct, target, state)
   grade <- if (gradeable) {
     sprintf(if (pct >= target) "meets %g%%" else "under %g%%", target)
   } else if (isTRUE(is.finite(target)) && state == "ok") {
@@ -876,7 +897,7 @@ as.character.blindspot_pager <- function(x, ...) {
 
 # the four indicator tiles as html.
 # @noRd
-.pager_tiles_html <- function(r) {
+.pager_tiles_html <- function(r, es_seen = FALSE) {
   cells <- vapply(.pager_tile_spec, function(t) {
     pct <- suppressWarnings(as.numeric(r[[t$key]] %||% NA))
     # only the case-based pass rates fall back to the case count; EV isolation
@@ -890,12 +911,32 @@ as.character.blindspot_pager <- function(x, ...) {
       NA_real_
     }
     v <- .pager_tile_value(pct, n)
+    # a missing EV rate means no ES site only where the district has no ES
+    # detection on record either; virus found there proves a site exists, and
+    # the rate is simply unreported. The genuine gap is called out in red.
+    miss <- t$missing
+    gap <- FALSE
+    if (identical(t$key, "ev_rate") && identical(v$state, "miss")) {
+      if (isTRUE(es_seen)) {
+        miss <- "rate not reported"
+      } else {
+        miss <- "No ES site"
+        gap <- TRUE
+      }
+    }
+    # a graded figure that misses its target reads in the blind-spot red, as
+    # does a district with no ES site at all
+    fail <- .pager_tile_gradeable(pct, t$target, v$state) && pct < t$target
+    cls <- paste(
+      c(v$state, if (fail) "fail", if (gap) "gap"), collapse = " "
+    )
     sprintf(
       paste0("<div class=\"itile %s\"><div class=\"k\">%s</div>",
              "<div class=\"v\">%s</div><div class=\"m\">%s</div></div>"),
-      v$state, .pager_escape(t$label), v$value,
+      cls,
+      .pager_escape(t$label), v$value,
       .pager_escape(
-        .pager_tile_meta(pct, n, t$target, v$state, t$fraction, t$missing)
+        .pager_tile_meta(pct, n, t$target, v$state, t$fraction, miss)
       )
     )
   }, character(1))
@@ -1009,23 +1050,34 @@ as.character.blindspot_pager <- function(x, ...) {
 # the two detection boxes, one per channel. A channel that was never supplied
 # says so rather than reading as a district that was searched and found clean.
 # @noRd
-.pager_detection_boxes <- function(detections, label, active) {
+.pager_detection_boxes <- function(detections, label, active,
+                                   serotypes = list()) {
   on <- function(nm) is.null(active) || isTRUE(unname(active[nm]))
-  box <- function(title, years, supplied) {
+  box <- function(title, years, supplied, found) {
     if (!supplied) {
       v <- "--"
       m <- "channel not supplied"
       cls <- "miss"
     } else if (length(years) == 0L) {
       v <- "none"
-      m <- sprintf("no %s found", label)
+      m <- "no detections"
       cls <- "quiet"
     } else {
-      # the count, not the years: the chart already marks which years
+      # the count, not the years: the chart already marks which years. Name the
+      # serotypes the guide actually recorded; fall back to the caller's
+      # declaration, and to nothing at all where neither is known.
       v <- sprintf(
         "%d detection%s", length(years), if (length(years) == 1L) "" else "s"
       )
-      m <- sprintf("%s, latest %d", label, max(years))
+      what <- if (length(found) > 0L) {
+        paste(found, collapse = ", ")
+      } else {
+        label
+      }
+      m <- paste(
+        c(what[nzchar(what)], sprintf("latest %d", max(years))),
+        collapse = " \u00b7 "
+      )
       cls <- "hit"
     }
     sprintf(
@@ -1036,10 +1088,23 @@ as.character.blindspot_pager <- function(x, ...) {
   }
   paste0(
     "<div class=\"idets\">",
-    box("AFP detection", detections$afp, on("detect_afp")),
-    box("ES detection", detections$es, on("detect_es")),
+    box("AFP detection", detections$afp, on("detect_afp"), serotypes$afp),
+    box("ES detection", detections$es, on("detect_es"), serotypes$es),
     "</div>"
   )
+}
+
+# serotypes the guide recorded for this district-year, per channel. An NA column
+# means the guide was built without `serotype_col`, so nothing is named and the
+# caller's `detection_label` stands in.
+# @noRd
+.pager_serotypes <- function(focal) {
+  pull <- function(x) {
+    x <- x %||% NA_character_
+    if (length(x) != 1L || is.na(x) || !nzchar(x)) return(character(0))
+    trimws(strsplit(x, ",\\s*")[[1]])
+  }
+  list(afp = pull(focal$orphan_serotypes), es = pull(focal$es_serotypes))
 }
 
 # the whole out-of-grid indicator strip. Deliberately its own block below the
@@ -1049,7 +1114,9 @@ as.character.blindspot_pager <- function(x, ...) {
 .pager_strip_html <- function(ind, years, npafp_target, accent, focal,
                               detections, detection_label, active) {
   season <- .pager_season_word(focal, active)
-  dets <- .pager_detection_boxes(detections, detection_label, active)
+  dets <- .pager_detection_boxes(
+    detections, detection_label, active, .pager_serotypes(focal)
+  )
   # the indicator half is optional; the detection half always has something to
   # say, so the row renders either way
   left <- if (is.null(ind)) {
@@ -1061,7 +1128,7 @@ as.character.blindspot_pager <- function(x, ...) {
       "target ", npafp_target, "</div>",
       .pager_rate_svg(ind$rate, years, npafp_target, accent),
       "</div>",
-      .pager_tiles_html(ind$focal)
+      .pager_tiles_html(ind$focal, es_seen = length(detections$es) > 0)
     )
   }
   paste0(
@@ -1119,6 +1186,13 @@ as.character.blindspot_pager <- function(x, ...) {
       paste0("Rate %s is adequate, yet SPI %s with a 90%% interval whose ",
              "upper bound (%s) excludes one."),
       npafp, spi, q95
+    )
+  } else if (.pager_short_of_expectation(r)) {
+    sprintf(
+      paste0("SPI %s clears the adequacy cut, but its 90%% interval (%s to ",
+             "%s) lies wholly below one; the gate stays shut on the cut ",
+             "alone."),
+      spi, q05, q95
     )
   } else if (!isTRUE(r$spi_below)) {
     sprintf("SPI %s sits at or above the adequacy cut; the gate stays shut.",
@@ -1406,6 +1480,13 @@ as.character.blindspot_pager <- function(x, ...) {
              "too few signals corroborate to meet the flag rule."),
       name
     )
+  } else if (.pager_short_of_expectation(focal)) {
+    sprintf(
+      paste0("%s clears the adequacy cut, but its 90%% credible interval lies ",
+             "wholly below one: it detects measurably fewer non-polio AFP ",
+             "cases than the model expects for its size, place and season."),
+      name
+    )
   } else {
     sprintf(
       paste0("%s detects about as many non-polio AFP cases as the model ",
@@ -1434,6 +1515,13 @@ as.character.blindspot_pager <- function(x, ...) {
         "is held at no-action, not flagged."
       ))
     }
+    if (.pager_short_of_expectation(focal)) {
+      return(paste0(
+        "The SPI clears the adequacy cut, but its 90% interval lies wholly ",
+        "below one: the district detects measurably less than expected, and ",
+        "the flag rule does not reach it."
+      ))
+    }
     return(paste0(
       "The SPI sits at or above the adequacy cut, so the significance gate ",
       "never opens and the reading is no-action."
@@ -1456,9 +1544,21 @@ as.character.blindspot_pager <- function(x, ...) {
     if (length(detections$afp) > 0) "AFP" else NULL,
     if (length(detections$es) > 0) "ES" else NULL
   )
+  # the guide already sorted these when it recorded them; re-sorting here would
+  # order them by locale and disagree with the detection boxes
+  found <- unique(unlist(.pager_serotypes(focal), use.names = FALSE))
+  what <- if (length(found) > 0L) paste(found, collapse = ", ") else label
+  # detections are cumulative to the read year, so an undated claim can rest on
+  # virus found five years ago. Name the year the tiles already name.
+  years <- c(detections$afp, detections$es)
   detection <- if (length(channels) > 0) {
     sprintf(
-      ", with %s detected by %s", label, paste(channels, collapse = " and ")
+      ", with %s detected by %s%s", what, paste(channels, collapse = " and "),
+      if (length(years) == 1L) {
+        sprintf(" in %d", years)
+      } else {
+        sprintf(", latest %d", max(years))
+      }
     )
   } else {
     ""
@@ -1729,6 +1829,9 @@ as.character.blindspot_pager <- function(x, ...) {
     ".itile .m{font-family:'Spline Sans Mono',monospace;font-size:7.5px;",
     "color:var(--ink-soft);line-height:1.3;margin-top:2px}",
     ".itile.thin .v,.itile.miss .v{font-size:13px;color:var(--ink-soft)}",
+    ".itile.fail .v,.itile.fail .m,.itile.gap .v,.itile.gap .m{",
+    "color:var(--blind)}",
+    ".itile.gap .m{font-weight:600}",
     ".body{flex:1;display:flex;flex-direction:column;justify-content:",
     "space-between;min-height:0}",
     ".cgroup{flex-shrink:0}.reading{margin-top:0;flex-shrink:0}",

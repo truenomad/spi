@@ -124,6 +124,20 @@
 #'   (`noise_tail`, `noise_plausible`) whether or not it gates. Default: NULL
 #'   (no noise gate, reproducing the published flag counts); `0.05` is the
 #'   recommended setting for an operational read.
+#' @param serotype_col Optional name of a serotype column in `genomic` and / or
+#'   `es`, e.g. holding `"cVDPV2"`, `"WPV1"`. When given, the distinct serotypes
+#'   seen up to each year are recorded as `orphan_serotypes` / `es_serotypes`,
+#'   so a reading can name what was actually found rather than assuming one
+#'   serotype. Without it those columns are NA, which downstream reads as "not
+#'   recorded" rather than "none found". Default: NULL.
+#' @param detection_serotypes Optional character vector of the serotypes that
+#'   count as a detection, matched against `serotype_col`, e.g.
+#'   `c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")`. An ambiguous VDPV is not a
+#'   confirmed circulating virus, so a programme reading usually wants it out of
+#'   the detection channels even though it sits in the line list. Rows outside
+#'   the set are dropped before the detection years, flags and serotypes are
+#'   computed, so all three stay consistent. Requires `serotype_col`. Default:
+#'   NULL (whatever the input contains counts).
 #' @param min_corroborators Integer. Corroborating signals required to flag.
 #'   Default: 2.
 #' @param dedupe_temporal Logical. Count a falling trend (T) and a persistent
@@ -147,7 +161,8 @@
 #'     `longest_run_below`, `trailing_run_below`, `run_below` (whichever of the
 #'     two `persistence_basis` gates on), `trajectory`, `neighbour_spi`,
 #'     `neighbour_discordant`, `neighbourhood_shortfall`, `seasonal`,
-#'     `orphan_years`, `genomic_orphan`, `es_years`, `es_detected`),
+#'     `orphan_years`, `genomic_orphan`, `orphan_serotypes`, `es_years`,
+#'     `es_detected`, `es_serotypes`),
 #'     `corroborators`, and `verdict` (factor).}
 #'   \item{focal}{The `read_year` slice of `district_year`.}
 #'   \item{reference}{The five-signal STEPS reference tibble (what each asks /
@@ -200,6 +215,8 @@ bs_field_guide <- function(
   genomic_col = NULL,
   es = NULL,
   es_col = NULL,
+  serotype_col = NULL,
+  detection_serotypes = NULL,
   read_year = NULL,
   spi_cut = NULL,
   persistence = 3L,
@@ -315,17 +332,23 @@ bs_field_guide <- function(
   # both are narrative corroboration; neither enters the corroborator count
   have_genomic <- !is.null(genomic)
   if (have_genomic) {
-    dy <- .fg_add_genomic(dy, genomic, id_col, genomic_col)
+    dy <- .fg_add_genomic(
+      dy, genomic, id_col, genomic_col, serotype_col, detection_serotypes
+    )
   } else {
     dy$orphan_years <- NA_character_
     dy$genomic_orphan <- NA
+    dy$orphan_serotypes <- NA_character_
   }
   have_es <- !is.null(es)
   if (have_es) {
-    dy <- .fg_add_es(dy, es, id_col, es_col)
+    dy <- .fg_add_es(
+      dy, es, id_col, es_col, serotype_col, detection_serotypes
+    )
   } else {
     dy$es_years <- NA_character_
     dy$es_detected <- NA
+    dy$es_serotypes <- NA_character_
   }
 
   # --- corroborators + verdict ----------------------------------------
@@ -653,7 +676,8 @@ bs_field_guide <- function(
 
 # out-of-grid genomic: orphan detection years up to and including each year.
 # @noRd
-.fg_add_genomic <- function(dy, genomic, id_col, genomic_col) {
+.fg_add_genomic <- function(dy, genomic, id_col, genomic_col,
+                           serotype_col = NULL, keep_serotypes = NULL) {
   stopifnot(
     is.data.frame(genomic),
     id_col %in% names(genomic),
@@ -668,6 +692,7 @@ bs_field_guide <- function(
     }
     g <- g[as.logical(g[[genomic_col]]) %in% TRUE, , drop = FALSE]
   }
+  g <- .fg_keep_serotypes(g, serotype_col, keep_serotypes, "genomic")
   orphan_map <- split(as.integer(g$year), as.character(g[[id_col]]))
   ids <- as.character(dy[[id_col]])
   yrs <- as.integer(dy$year)
@@ -678,14 +703,62 @@ bs_field_guide <- function(
     if (length(y) == 0L) "" else paste(y, collapse = ", ")
   }, character(1))
   dy$genomic_orphan <- nzchar(dy$orphan_years)
+  dy$orphan_serotypes <- .fg_serotypes_to(g, id_col, serotype_col, ids, yrs)
   dy
+}
+
+# keep only the serotypes that count as a detection. An ambiguous VDPV is not a
+# confirmed circulating virus, so a programme reading usually wants WPV and
+# cVDPV only; leaving this NULL counts whatever the input contains.
+# @noRd
+.fg_keep_serotypes <- function(g, serotype_col, keep, arg) {
+  if (is.null(keep)) return(g)
+  if (is.null(serotype_col)) {
+    cli::cli_abort(
+      "{.arg detection_serotypes} needs {.arg serotype_col} so the serotype \\
+       of each detection is known."
+    )
+  }
+  if (!serotype_col %in% names(g)) {
+    cli::cli_abort(
+      "{.arg serotype_col} {.val {serotype_col}} not in {.arg {arg}}."
+    )
+  }
+  g[as.character(g[[serotype_col]]) %in% as.character(keep), , drop = FALSE]
+}
+
+# the distinct serotypes seen in a district up to and including each year, as a
+# comma-joined string. NA throughout where the input names no serotype, so a
+# reader downstream can tell "not recorded" from "none found".
+# @noRd
+.fg_serotypes_to <- function(g, id_col, serotype_col, ids, yrs) {
+  if (is.null(serotype_col) || !serotype_col %in% names(g)) {
+    return(rep(NA_character_, length(ids)))
+  }
+  keep <- !is.na(g[[serotype_col]]) & nzchar(as.character(g[[serotype_col]]))
+  g <- g[keep, , drop = FALSE]
+  by_id <- split(
+    data.frame(
+      year = as.integer(g$year),
+      serotype = as.character(g[[serotype_col]]),
+      stringsAsFactors = FALSE
+    ),
+    as.character(g[[id_col]])
+  )
+  vapply(seq_along(ids), function(i) {
+    d <- by_id[[ids[i]]]
+    if (is.null(d)) return("")
+    v <- sort(unique(d$serotype[d$year <= yrs[i]]))
+    if (length(v) == 0L) "" else paste(v, collapse = ", ")
+  }, character(1))
 }
 
 # out-of-grid ES: environmental-surveillance positive years up to and including
 # each year. `es_col`, when given, is a count (>0) or logical (TRUE) positive
 # flag.
 # @noRd
-.fg_add_es <- function(dy, es, id_col, es_col) {
+.fg_add_es <- function(dy, es, id_col, es_col, serotype_col = NULL,
+                      keep_serotypes = NULL) {
   stopifnot(
     is.data.frame(es),
     id_col %in% names(es),
@@ -700,6 +773,7 @@ bs_field_guide <- function(
     keep <- if (is.logical(v)) v %in% TRUE else as.numeric(v) > 0
     g <- g[keep, , drop = FALSE]
   }
+  g <- .fg_keep_serotypes(g, serotype_col, keep_serotypes, "es")
   es_map <- split(as.integer(g$year), as.character(g[[id_col]]))
   ids <- as.character(dy[[id_col]])
   yrs <- as.integer(dy$year)
@@ -710,6 +784,7 @@ bs_field_guide <- function(
     if (length(y) == 0L) "" else paste(y, collapse = ", ")
   }, character(1))
   dy$es_detected <- nzchar(dy$es_years)
+  dy$es_serotypes <- .fg_serotypes_to(g, id_col, serotype_col, ids, yrs)
   dy
 }
 

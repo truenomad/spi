@@ -73,6 +73,14 @@
 #'     the guide here; the ES channel (`es_detected` / `es_covered`) is the
 #'     genuinely separate corroborator. A real analysis would supply
 #'     channel-separated detections.}
+#'   \item{afp_timeliness}{Tibble, 2,360 x 5. District-year AFP timeliness
+#'     counts. Columns: `adm2_guid`, `year`, `afp_cases`, `n_assessable` (cases
+#'     with a usable onset date), `n_within_7d` (of those, notified inside the
+#'     window). Onset-to-notification is the one conventional AFP indicator
+#'     POLIS does not publish, so a reading has to build it from case data; this
+#'     is the district-year aggregate such a percentage is computed from, and
+#'     what [bs_field_guide_pager()]'s `indicators_df` expects behind
+#'     `onset_notify_pct` / `onset_notify_n`.}
 #'   \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 #'     `adm2_guid`, `surveillance_profile` (character: `"resilient"`,
 #'     `"early_improver"`, `"covid_transient"`, or `"persistent_laggard"`),

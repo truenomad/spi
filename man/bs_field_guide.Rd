@@ -12,6 +12,8 @@ bs_field_guide(
   genomic_col = NULL,
   es = NULL,
   es_col = NULL,
+  serotype_col = NULL,
+  detection_serotypes = NULL,
   read_year = NULL,
   spi_cut = NULL,
   persistence = 3L,
@@ -54,6 +56,22 @@ count / flag column. Default: NULL.}
 \item{es_col}{Optional name of a count / logical column in \code{es}; only rows
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
+
+\item{serotype_col}{Optional name of a serotype column in \code{genomic} and / or
+\code{es}, e.g. holding \code{"cVDPV2"}, \code{"WPV1"}. When given, the distinct serotypes
+seen up to each year are recorded as \code{orphan_serotypes} / \code{es_serotypes},
+so a reading can name what was actually found rather than assuming one
+serotype. Without it those columns are NA, which downstream reads as "not
+recorded" rather than "none found". Default: NULL.}
+
+\item{detection_serotypes}{Optional character vector of the serotypes that
+count as a detection, matched against \code{serotype_col}, e.g.
+\code{c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")}. An ambiguous VDPV is not a
+confirmed circulating virus, so a programme reading usually wants it out of
+the detection channels even though it sits in the line list. Rows outside
+the set are dropped before the detection years, flags and serotypes are
+computed, so all three stay consistent. Requires \code{serotype_col}. Default:
+NULL (whatever the input contains counts).}
 
 \item{read_year}{Integer focal year for \code{print()} and the default table /
 help rendering. Default: NULL (latest year present).}
@@ -133,7 +151,8 @@ inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1},
 \code{longest_run_below}, \code{trailing_run_below}, \code{run_below} (whichever of the
 two \code{persistence_basis} gates on), \code{trajectory}, \code{neighbour_spi},
 \code{neighbour_discordant}, \code{neighbourhood_shortfall}, \code{seasonal},
-\code{orphan_years}, \code{genomic_orphan}, \code{es_years}, \code{es_detected}),
+\code{orphan_years}, \code{genomic_orphan}, \code{orphan_serotypes}, \code{es_years},
+\code{es_detected}, \code{es_serotypes}),
 \code{corroborators}, and \code{verdict} (factor).}
 \item{focal}{The \code{read_year} slice of \code{district_year}.}
 \item{reference}{The five-signal STEPS reference tibble (what each asks /
