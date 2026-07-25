@@ -242,7 +242,9 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
     bare[[df]]$es_years <- NA_character_
   }
 
-  h <- bs_field_guide_pager(bare, district = d, verbose = FALSE)$html
+  h <- bs_field_guide_pager(
+    bare, district = d, detection_label = "cVDPV2", verbose = FALSE
+  )$html
   # an unsupplied channel says so rather than reading as a clean search
   expect_equal(
     lengths(regmatches(h, gregexpr("channel not supplied", h))), 2L
@@ -257,7 +259,9 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
     quiet[[df]]$orphan_years <- NA_character_
     quiet[[df]]$es_years <- NA_character_
   }
-  hq <- bs_field_guide_pager(quiet, district = d, verbose = FALSE)$html
+  hq <- bs_field_guide_pager(
+    quiet, district = d, detection_label = "cVDPV2", verbose = FALSE
+  )$html
   expect_equal(
     lengths(regmatches(hq, gregexpr("no cVDPV2 found", hq))), 2L
   )
@@ -659,6 +663,34 @@ test_that("adm1 auto-name keeps each admin level once", {
   # adm1_name is both the unit and its own parent level; it must not repeat
   base <- basename(p$paths)
   expect_equal(lengths(regmatches(base, gregexpr(slug, base, fixed = TRUE))), 1L)
+})
+
+test_that("no serotype is named unless the caller names one", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  d <- foc[foc$genomic_orphan %in% TRUE | foc$es_detected %in% TRUE, ]
+  skip_if(nrow(d) == 0)
+  d <- d[["adm2_name"]][1]
+
+  # the guide records detection years but not serotypes, so the default page
+  # must not assert one
+  bare <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  expect_match(bare, "poliovirus", fixed = TRUE)
+  expect_no_match(bare, "cVDPV", fixed = TRUE)
+  expect_no_match(bare, "WPV", fixed = TRUE)
+
+  # and it uses whatever the caller declares they filtered down to
+  named <- bs_field_guide_pager(
+    fg, district = d, detection_label = "cVDPV1", verbose = FALSE
+  )$html
+  expect_match(named, "cVDPV1", fixed = TRUE)
+  expect_no_match(named, "poliovirus", fixed = TRUE)
+
+  # an empty declaration is treated as no declaration
+  blank <- bs_field_guide_pager(
+    fg, district = d, detection_label = "", verbose = FALSE
+  )$html
+  expect_match(blank, "poliovirus", fixed = TRUE)
 })
 
 test_that("detection_label controls the serotype wording", {

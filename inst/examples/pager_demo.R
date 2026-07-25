@@ -124,6 +124,9 @@ pagers <- lapply(districts, function(d) {
     boundaries = synth_surveillance$boundaries,
     id_col = "adm2_guid",
     indicators_df = indicators,
+    # the guide above was built from a cVDPV2-only genomic input, so the page
+    # may name that serotype; a mixed input would leave this NULL
+    detection_label = "cVDPV2",
     path = out_dir
   )
 })

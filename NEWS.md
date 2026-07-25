@@ -59,6 +59,12 @@
 * The pager charts the focal district alone, and the locator inset now places it
   in its country rather than among its touching neighbours. `adjacency` is
   documented as ignored, and `bs_adjacency()` / \pkg{spdep} are not called.
+* `bs_field_guide_pager()`'s `detection_label` defaults to NULL, and the page
+  reads "poliovirus" rather than naming a serotype. The field guide records the
+  years a detection occurred but not what was found, so the old `"cVDPV2"`
+  default asserted a serotype the package was never told, and detections can as
+  easily be cVDPV1, cVDPV3 or WPV1. Pass the label to declare what you filtered
+  `genomic` / `es` down to; leave it NULL where the input mixes serotypes.
 * The masthead carries the under-15 population, the denominator the expected
   count is built on. The footer's "computed from bs_spi() posterior" line goes.
 * Smaller pager fixes: persistence names the run ending at the read year; an

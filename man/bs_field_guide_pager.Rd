@@ -13,7 +13,7 @@ bs_field_guide_pager(
   npafp_target = NULL,
   es = NULL,
   es_col = NULL,
-  detection_label = "cVDPV2",
+  detection_label = NULL,
   year = NULL,
   path = NULL,
   file = NULL,
@@ -69,8 +69,12 @@ Each row (or each \code{es_col}-positive row) is an ES positive. Default: NULL
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
 
-\item{detection_label}{Serotype label used in the out-of-grid detection
-reading, e.g. \code{"cVDPV2"} or \code{"WPV1"}. Default: \code{"cVDPV2"}.}
+\item{detection_label}{What the detections in \code{x} and \code{es} actually are,
+e.g. \code{"cVDPV2"} or \code{"WPV1"}. The field guide records only the years a
+detection occurred, not its serotype, so this is your declaration of what
+you filtered \code{genomic} / \code{es} down to when you built the guide. Leave it
+NULL where the input mixes serotypes: the page then reads "poliovirus"
+rather than naming one it was never told. Default: NULL.}
 
 \item{year}{Integer focal year for the reading. Default: NULL
 (\code{x$read_year}).}

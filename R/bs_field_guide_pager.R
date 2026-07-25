@@ -86,8 +86,12 @@
 #' @param es_col Optional name of a count / logical column in `es`; only rows
 #'   with a positive count (or `TRUE`) count as detections. Default: NULL
 #'   (every row counts).
-#' @param detection_label Serotype label used in the out-of-grid detection
-#'   reading, e.g. `"cVDPV2"` or `"WPV1"`. Default: `"cVDPV2"`.
+#' @param detection_label What the detections in `x` and `es` actually are,
+#'   e.g. `"cVDPV2"` or `"WPV1"`. The field guide records only the years a
+#'   detection occurred, not its serotype, so this is your declaration of what
+#'   you filtered `genomic` / `es` down to when you built the guide. Leave it
+#'   NULL where the input mixes serotypes: the page then reads "poliovirus"
+#'   rather than naming one it was never told. Default: NULL.
 #' @param id_col District id column, shared by `adjacency` / `boundaries` /
 #'   `es`. Default: NULL (`x$id_col`).
 #' @param year Integer focal year for the reading. Default: NULL
@@ -150,7 +154,7 @@ bs_field_guide_pager <- function(
   npafp_target = NULL,
   es = NULL,
   es_col = NULL,
-  detection_label = "cVDPV2",
+  detection_label = NULL,
   year = NULL,
   path = NULL,
   file = NULL,
@@ -209,6 +213,7 @@ bs_field_guide_pager <- function(
 
   spi_cut <- x$thresholds$spi
   npafp_target <- npafp_target %||% x$thresholds$npafp %||% 3
+  detection_label <- .pager_detection_label(detection_label)
   indicators <- .pager_indicators(
     indicators_df, foc_id, id_col, year, series$year
   )
@@ -549,23 +554,6 @@ as.character.blindspot_pager <- function(x, ...) {
   }
   yrs <- sort(unique(as.integer(g$year)))
   yrs[yrs <= year]
-}
-
-# out-of-grid / banner detection clause, e.g. "cVDPV2 detected in AFP (2021,
-# 2023) and ES (2022, 2024)"; "" when neither channel has a detection.
-# @noRd
-.pager_detection_phrase <- function(detections, label) {
-  afp <- detections$afp
-  es <- detections$es
-  parts <- character(0)
-  if (length(afp) > 0) {
-    parts <- c(parts, sprintf("AFP (%s)", paste(afp, collapse = ", ")))
-  }
-  if (length(es) > 0) {
-    parts <- c(parts, sprintf("ES (%s)", paste(es, collapse = ", ")))
-  }
-  if (length(parts) == 0) return("")
-  sprintf("%s detected in %s", label, paste(parts, collapse = " and "))
 }
 
 # verdict-driven accent colour, tag text and state line for the masthead. the
@@ -1007,6 +995,15 @@ as.character.blindspot_pager <- function(x, ...) {
     },
     ""
   )
+}
+
+# the serotype to name in the detection wording. The guide carries detection
+# years but not serotypes, so an unset label must not be filled in with a guess:
+# it falls back to the generic term instead.
+# @noRd
+.pager_detection_label <- function(label) {
+  label <- if (is.null(label)) "" else trimws(as.character(label)[1])
+  if (nzchar(label) && !is.na(label)) label else "poliovirus"
 }
 
 # the two detection boxes, one per channel. A channel that was never supplied
