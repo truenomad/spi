@@ -82,9 +82,18 @@
 #'   observed count), and skips muting INLA's compiled-binary messages.
 #'   Use when results look off or when investigating convergence. Default:
 #'   FALSE.
-#' @param seed Integer. Random seed for `inla.posterior.sample()`, so posterior
-#'   draws are reproducible across runs. Pass `NULL` to draw a fresh random
-#'   seed each call. Default: 42L.
+#' @param seed Integer. Random seed forwarded to `inla.posterior.sample()`,
+#'   which pins the posterior draws. Must be a single non-negative whole
+#'   number; `NULL` draws a fresh seed each call. Seeding alone is *not*
+#'   sufficient for run-to-run reproducibility -- see the Reproducibility
+#'   section. Default: 42L.
+#' @param num_threads Threads for the INLA fit, passed to `INLA::inla()` and
+#'   `inla.posterior.sample()` as `num.threads` (INLA's `"A:B"` form, e.g.
+#'   `"1:1"` or `"12:1"`). Defaults to `"1:1"` whenever `seed` is set, because
+#'   a multithreaded fit is not bit-reproducible even at a fixed seed; pass
+#'   `NULL` to inherit `INLA::inla.getOption("num.threads")` and regain
+#'   parallel speed at the cost of determinism. Ignored when `seed = NULL`
+#'   unless given explicitly.
 #'
 #' @return Object of class `blindspot_expected`. A list containing:
 #' \describe{
@@ -202,6 +211,35 @@
 #' monthly-average plot for your data and country, since seasonality varies by
 #' climate zone and surveillance system.
 #'
+#' @section Reproducibility:
+#' Three separate things have to be pinned before two runs of the same code
+#' agree, and `seed` on its own covers only one of them:
+#'
+#' 1. **Which posterior configuration each draw comes from.**
+#'    `inla.posterior.sample()` picks this with R's own RNG, so `set.seed()`
+#'    governs it.
+#' 2. **The latent field drawn within that configuration.** This comes from an
+#'    RNG inside INLA's compiled code that R's `set.seed()` cannot reach, so
+#'    the seed has to be handed to INLA directly.
+#' 3. **The fit itself.** `INLA::inla()` is not bit-reproducible when it runs
+#'    multithreaded: the hyperparameter mode and integration points shift with
+#'    thread scheduling, so the draws are taken from a slightly different
+#'    posterior. `num_threads` governs this.
+#'
+#' `bs_expected()` handles (1) and (2) whenever `seed` is non-NULL, restoring
+#' the caller's RNG state afterwards. (3) is why `num_threads` defaults to
+#' `"1:1"` alongside a seed.
+#'
+#' Leaving any one of them loose does not merely perturb the last decimal: it
+#' moves SPI values and flips field-guide verdicts, and it can do so for a
+#' district whose own numbers barely moved, because corroboration reads
+#' *neighbouring* districts' posteriors, which drift too.
+#'
+#' The defaults are therefore reproducible but serial, which costs wall clock
+#' against a multithreaded fit. For exploratory work where determinism does
+#' not matter, pass `num_threads = NULL` to inherit INLA's global thread
+#' setting, or `seed = NULL` to opt out entirely.
+#'
 #' @references
 #' Riebler A, et al. (2016). An intuitive Bayesian spatial model for disease
 #' mapping that accounts for scaling. Statistical Methods in Medical Research,
@@ -243,7 +281,8 @@ bs_expected <- function(
   verbose = TRUE,
   check = TRUE,
   debug = FALSE,
-  seed = 42L
+  seed = 42L,
+  num_threads = if (is.null(seed)) NULL else "1:1"
 ) {
   # --- check required packages --------------------------
   .check_pkg(
@@ -288,6 +327,56 @@ bs_expected <- function(
     .check_prior(
       prior_precision_year, "prior_precision_year", U_max = Inf
     )
+  }
+
+  # a seed only buys reproducibility if INLA can use it verbatim: negative
+  # values mean "reuse whatever RNG state is lying around" and 0 means "pick
+  # one at random", so neither keeps the promise the argument advertises.
+  if (!is.null(seed)) {
+    if (
+      !is.numeric(seed) ||
+        length(seed) != 1 ||
+        is.na(seed) ||
+        seed < 0 ||
+        !isTRUE(seed == round(seed))
+    ) {
+      cli::cli_abort(c(
+        "{.arg seed} must be a single non-negative whole number, \\
+         or {.code NULL}.",
+        "x" = "Got {.val {seed}}.",
+        "i" = "{.code NULL} draws a fresh seed each call."
+      ))
+    }
+    seed <- as.integer(seed)
+
+    # Capture the caller's RNG here, at entry, rather than next to the
+    # set.seed() further down: spdep and INLA both draw from R's RNG while
+    # building the graph and fitting, so a later capture would restore a
+    # mid-function state and still leave the caller's stream displaced.
+    had_rng <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    old_rng <- if (had_rng) get(".Random.seed", envir = globalenv())
+    on.exit(
+      {
+        if (had_rng) {
+          assign(".Random.seed", old_rng, envir = globalenv())
+        } else {
+          suppressWarnings(rm(".Random.seed", envir = globalenv()))
+        }
+      },
+      add = TRUE
+    )
+  }
+
+  # INLA takes threads as "A:B" but also accepts a bare count; anything else
+  # is a silent no-op inside its option parser, so reject it here instead.
+  if (!is.null(num_threads)) {
+    if (length(num_threads) != 1 || is.na(num_threads)) {
+      cli::cli_abort(
+        "{.arg num_threads} must be a single value such as {.val 1:1}, \\
+         or {.code NULL} to inherit INLA's global setting."
+      )
+    }
+    num_threads <- as.character(num_threads)
   }
 
   stopifnot(
@@ -355,7 +444,8 @@ bs_expected <- function(
       log_transform = log_transform,
       id_col = id_col,
       pop_col = pop_col,
-      seed = seed
+      seed = seed,
+      num_threads = num_threads
     )
     overdispersion <- cmp$recommendation$choice
     if (is.na(overdispersion)) {
@@ -710,6 +800,13 @@ bs_expected <- function(
 
   family <- if (overdispersion == "nb") "nbinomial" else "poisson"
 
+  # resolve NULL to INLA's own setting so the same value reaches both the fit
+  # and the sampler; passing NULL through would let them disagree, which is
+  # what makes a seeded run drift (see the Reproducibility section).
+  if (is.null(num_threads)) {
+    num_threads <- INLA::inla.getOption("num.threads")
+  }
+
   # silent = 2L mutes INLA's compiled-binary stdout (including the noisy
   # `vb.correction aborted` notes). debug = TRUE keeps INLA verbose so
   # users investigating fit issues can see everything.
@@ -726,6 +823,7 @@ bs_expected <- function(
         config = TRUE
       ),
       control.predictor = list(compute = TRUE, link = 1),
+      num.threads = num_threads,
       verbose = debug,
       silent = if (debug) 0L else 2L
     ),
@@ -769,13 +867,35 @@ bs_expected <- function(
     )
   }
 
+  # Seeding the sampler takes BOTH calls below, because it draws from two
+  # different RNGs and each covers a different half of the job:
+  #
+  #   set.seed()  -> R's RNG, which inla.posterior.sample() uses internally to
+  #                  pick WHICH hyperparameter configuration each draw comes
+  #                  from (a plain sample() over the stored configs).
+  #   seed = arg  -> the RNG inside INLA's compiled code, which draws the
+  #                  latent field WITHIN the chosen configuration. R's
+  #                  set.seed() does not reach it.
+  #
+  # Setting either one alone leaves the draws non-reproducible, and the drift
+  # is not cosmetic: it moves SPI and flips field-guide verdicts, including
+  # for districts whose own counts barely moved, since corroboration reads
+  # neighbouring districts' posteriors.
+  #
+  # INLA's convention: seed = 0L means "pick one at random", and any non-zero
+  # seed forces serial sampling, since parallel draws cannot be reproduced.
+  # Handing it the same num_threads the fit used keeps it from warning that it
+  # overrode a global setting we already agreed with.
+  # the caller's RNG state was stashed at entry and is restored on exit
   if (!is.null(seed)) {
     set.seed(seed)
   }
 
   post_samples <- INLA::inla.posterior.sample(
     n = n_draws,
-    result = model
+    result = model,
+    seed = if (is.null(seed)) 0L else seed,
+    num.threads = num_threads
   )
 
   # hoist predictor row indices out of the loop

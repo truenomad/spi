@@ -72,6 +72,14 @@ out-of-grid AFP orphan signal, so the AFP channel is \emph{not} independent of
 the guide here; the ES channel (\code{es_detected} / \code{es_covered}) is the
 genuinely separate corroborator. A real analysis would supply
 channel-separated detections.}
+\item{afp_timeliness}{Tibble, 2,360 x 5. District-year AFP timeliness
+counts. Columns: \code{adm2_guid}, \code{year}, \code{afp_cases}, \code{n_assessable} (cases
+with a usable onset date), \code{n_within_7d} (of those, notified inside the
+window). Onset-to-notification is the one conventional AFP indicator
+POLIS does not publish, so a reading has to build it from case data; this
+is the district-year aggregate such a percentage is computed from, and
+what \code{\link[=bs_field_guide_pager]{bs_field_guide_pager()}}'s \code{indicators_df} expects behind
+\code{onset_notify_pct} / \code{onset_notify_n}.}
 \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 \code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
 \code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),

@@ -89,14 +89,17 @@ found by the independent channel.
 \item \strong{corroborated / uncorroborated clear} -- \verb{No action}, AFP silent,
 ES negative or absent. A trustworthy silence, confirmed or unconfirmed.
 }
-\code{WATCH} verdicts take the parallel \verb{watch, *} labels.
+\code{REVIEW} and \code{WATCH} verdicts take the parallel \verb{review, *} and \verb{watch, *}
+labels. \verb{review, ES positive} is high priority on the same reasoning as
+\verb{watch, ES positive}; the other two review classes are medium.
 
 A detection can inflate NPAFP through the active case finding it triggers,
 which lifts SPI and makes the preceding verdict look retrospectively
 correct. Set \code{detection_lag} to align the verdict in year \emph{t} against
 detections in year \emph{t + detection_lag}, so the capacity read is taken
 before the response contaminated it. \code{flag_preceded} records, for detected
-district-years, whether that aligned verdict was already \code{FLAG} or \code{WATCH}.
+district-years, whether that aligned verdict was already \code{FLAG}, \code{REVIEW}
+or \code{WATCH}.
 
 District-years present in \code{field_guide} but absent from \code{detections} are
 read as no detection and no ES site. Detections here are confirmed

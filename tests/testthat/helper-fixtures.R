@@ -351,3 +351,95 @@ make_es <- function(id_col = "adm2_guid") {
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
+
+# --- a concordance with hand-set counts -----------------------------------
+# make_concordance() fixes expected_total at 12, which is well-powered; these
+# gates turn on the count basis, so they need districts specified case by case.
+# `spec` is a named list of list(spi=, q95=, observed=, expected=), years ending
+# 2024.
+make_count_concordance <- function(spec, spi_cut = 0.8,
+                                   id_col = "adm2_guid") {
+  rows <- lapply(names(spec), function(d) {
+    s <- spec[[d]]
+    n <- length(s$spi)
+    tibble::tibble(
+      !!id_col := d,
+      adm2_name = d,
+      adm1_name = "Province 1",
+      year = seq.int(2024 - n + 1, 2024),
+      observed = rep_len(s$observed, n),
+      expected_total = rep_len(s$expected, n),
+      spi_median = s$spi,
+      spi_q05 = pmax(s$spi - 0.15, 0),
+      spi_q95 = s$q95,
+      npafp_rate = 1.5,
+      npafp_adequate = FALSE
+    )
+  })
+  structure(
+    list(
+      district_year = dplyr::bind_rows(rows),
+      crosstab = NULL,
+      metrics = NULL,
+      by_stratum = NULL,
+      thresholds = list(spi = spi_cut, npafp = 3, multiplier = 1e5),
+      id_col = id_col,
+      call = quote(bs_concordance())
+    ),
+    class = "blindspot_concordance"
+  )
+}
+
+# --- a conventional AFP indicator panel ------------------------------------
+# Shaped as polished_indicators_adm2 plus the two columns that table does not
+# carry: onset_notify_pct (derived from the bundle's own AFP timeliness counts,
+# since POLIS publishes no such indicator, and it has no GPEI
+# threshold) and the assessable counts behind the timeliness percentages.
+# Percentages rest on the real case counts, so a district with no AFP cases
+# carries NA and a district with one or two carries a volatile figure -- which
+# is the case the pager's strip has to survive.
+make_indicators <- function(fg = synth_field_guide, seed = 20260725) {
+  withr::local_seed(seed)
+  dy <- fg$district_year
+  n <- nrow(dy)
+  afp <- as.integer(dy$observed) + stats::rbinom(n, size = 2, prob = 0.12)
+  pct_on <- function(k, p) {
+    out <- rep(NA_real_, length(k))
+    hit <- k > 0
+    out[hit] <- 100 *
+      stats::rbinom(sum(hit), size = k[hit], prob = p) / k[hit]
+    out
+  }
+  n_ni <- stats::rbinom(n, size = afp, prob = 0.86)
+  # onset-to-notification is the one indicator POLIS does not publish, so it is
+  # derived from the bundle's district-year timeliness counts, not simulated
+  tl <- synth_surveillance$afp_timeliness[
+    match(
+      paste(dy$adm2_guid, dy$year),
+      paste(
+        synth_surveillance$afp_timeliness$adm2_guid,
+        synth_surveillance$afp_timeliness$year
+      )
+    ),
+  ]
+  tibble::tibble(
+    country_iso3code = "HRD",
+    guid = dy$adm2_guid,
+    name = dy$adm2_name,
+    year = as.integer(dy$year),
+    afp_cases = afp,
+    npafp_cases = as.integer(dy$observed),
+    npafp_rate = dy$npafp_rate,
+    # EV isolation is an ES measure, so it is missing where there is no ES site
+    ev_rate = ifelse(
+      dy$adm2_guid %in% synth_surveillance$es_sites$adm2_guid, 58, NA_real_
+    ),
+    stool_adequacy_cond_pct = pct_on(afp, 0.72),
+    inv_timeliness_pct = pct_on(n_ni, 0.7),
+    onset_notify_pct = ifelse(
+      tl$n_assessable > 0, 100 * tl$n_within_7d / tl$n_assessable, NA_real_
+    ),
+    inv_timeliness_n = n_ni,
+    onset_notify_n = tl$n_assessable
+  )
+}

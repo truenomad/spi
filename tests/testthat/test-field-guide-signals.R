@@ -295,3 +295,172 @@ test_that("gt save dispatch checks the docx dependency", {
   bs_field_guide_table(fg, engine = "gt", layout = "scan", file = f_docx)
   expect_true(file.exists(f_docx) && file.info(f_docx)$size > 0)
 })
+
+# --- the two count-basis gates --------------------------------------------
+
+test_that("noise_alpha closes the gate a zero count opens for free", {
+  # observed 0 against 2 expected: SPI = 0 / expected_draw is identically 0, so
+  # the interval collapses to (0, 0) and clears one whatever the count basis
+  conc <- make_count_concordance(list(
+    ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
+                observed = c(1, 1, 0, 0, 0), expected = 2)
+  ))
+
+  base <- bs_field_guide(conc, verbose = FALSE)
+  f <- base$focal
+  expect_true(f$cri_excludes_1)
+  expect_true(f$gate_pass)
+  expect_identical(as.character(f$verdict), "FLAG")
+  # the tail is reported even with no gate asked for
+  expect_equal(f$noise_tail, stats::ppois(0, 2), tolerance = 1e-9)
+  expect_true(f$noise_plausible)
+
+  gated <- bs_field_guide(conc, noise_alpha = 0.05, verbose = FALSE)
+  g <- gated$focal
+  # the interval still excludes one -- it collapsed to (0, 0). What shut is the
+  # noise gate, and the two are reported apart so a reading can say which
+  expect_true(g$cri_excludes_1)
+  expect_false(g$gate_pass)
+  # below the cut with the gate shut is a watch, not a flag
+  expect_identical(as.character(g$verdict), "WATCH")
+
+  # a well-powered zero is untouched: P(X = 0 | 30) is vanishing
+  powered <- make_count_concordance(list(
+    ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
+                observed = c(1, 1, 0, 0, 0), expected = 30)
+  ))
+  p <- bs_field_guide(powered, noise_alpha = 0.05, verbose = FALSE)$focal
+  expect_false(p$noise_plausible)
+  expect_true(p$cri_excludes_1)
+  expect_true(p$gate_pass)
+})
+
+test_that("noise_alpha leaves cri_excludes_1 and the default read alone", {
+  # the regression that matters: `noise_plausible` is computed whether or not
+  # it gates, so folding it into `gate_pass` unconditionally would silently
+  # apply a 5% noise gate to the published spec.
+  conc <- make_concordance()
+  base <- bs_field_guide(conc, verbose = FALSE)$district_year
+
+  expect_identical(base$cri_excludes_1, base$spi_q95 < 1)
+  expect_identical(base$gate_pass, base$cri_excludes_1)
+  expect_true(any(base$noise_plausible))
+
+  gated <- bs_field_guide(conc, noise_alpha = 0.05,
+                          verbose = FALSE)$district_year
+  # the interval column is the same object either way; only the gate moves
+  expect_identical(gated$cri_excludes_1, base$cri_excludes_1)
+  expect_identical(gated$gate_pass, gated$cri_excludes_1 &
+                     !gated$noise_plausible)
+})
+
+test_that("a credible but uncorroborated shortfall reads REVIEW, not no-action",
+{
+  # below the cut, interval wholly below one, but flat and alone: nothing
+  # corroborates. That is stronger evidence than a WATCH, whose interval
+  # reaches one, so it cannot sort beneath it.
+  conc <- make_count_concordance(list(
+    LONE = list(spi = rep(0.60, 5), q95 = rep(0.70, 5),
+                observed = 6, expected = 10)
+  ))
+  f <- bs_field_guide(conc, min_corroborators = 2L, verbose = FALSE)$focal
+
+  expect_true(f$spi_below)
+  expect_true(f$gate_pass)
+  expect_lt(f$corroborators, 2L)
+  expect_identical(as.character(f$verdict), "REVIEW")
+
+  # and the tier sits between FLAG and WATCH, so `order()` triages correctly
+  expect_identical(
+    levels(f$verdict), c("FLAG", "REVIEW", "WATCH", "No action")
+  )
+})
+
+test_that("noise_alpha must be a probability", {
+  conc <- make_concordance()
+  expect_error(bs_field_guide(conc, noise_alpha = 0, verbose = FALSE),
+               "probability")
+  expect_error(bs_field_guide(conc, noise_alpha = 1.5, verbose = FALSE),
+               "probability")
+})
+
+test_that("persistence_basis chooses between a historical and a current run", {
+  # three sub-cut years, then recovery, then one sub-cut year: longest is 3,
+  # the run ending 2024 is 1
+  conc <- make_count_concordance(list(
+    STALE = list(spi = c(0.5, 0.5, 0.5, 1.1, 1.05, 0.7),
+                 q95 = c(0.6, 0.6, 0.6, 1.3, 1.25, 0.75),
+                 observed = 4, expected = 12)
+  ))
+
+  longest <- bs_field_guide(conc, verbose = FALSE)$focal
+  trailing <- bs_field_guide(
+    conc, persistence_basis = "trailing", verbose = FALSE
+  )$focal
+
+  # both runs are always reported, whichever gates
+  expect_equal(longest$longest_run_below, 3L)
+  expect_equal(longest$trailing_run_below, 1L)
+  expect_equal(trailing$longest_run_below, 3L)
+  expect_equal(trailing$trailing_run_below, 1L)
+
+  # run_below tracks the basis, and the corroborator follows it
+  expect_equal(longest$run_below, 3L)
+  expect_equal(trailing$run_below, 1L)
+  expect_gt(longest$corroborators, trailing$corroborators)
+})
+
+test_that("the defaults leave the published reading unchanged", {
+  conc <- make_concordance()
+  base <- bs_field_guide(conc, verbose = FALSE)
+  # longest basis, no noise gate
+  expect_identical(base$params$persistence_basis, "longest")
+  expect_null(base$params$noise_alpha)
+  expect_equal(base$focal$run_below, base$focal$longest_run_below)
+})
+
+test_that("detection_serotypes keeps ambiguous virus out of the channels", {
+  conc <- make_count_concordance(list(
+    D1 = list(spi = c(0.5, 0.5, 0.5), q95 = c(0.6, 0.6, 0.6),
+              observed = 4, expected = 12)
+  ))
+  g <- tibble::tibble(
+    adm2_guid = "D1",
+    year = c(2023L, 2024L),
+    serotype = c("aVDPV2", "cVDPV2")
+  )
+
+  # unfiltered, an ambiguous VDPV counts like any other row
+  all_in <- bs_field_guide(
+    conc, genomic = g, serotype_col = "serotype", verbose = FALSE
+  )$focal
+  expect_equal(all_in$orphan_serotypes, "aVDPV2, cVDPV2")
+  expect_equal(all_in$orphan_years, "2023, 2024")
+
+  # filtered, only the confirmed virus reaches the years, the flag and the
+  # serotype string, so all three agree
+  kept <- bs_field_guide(
+    conc, genomic = g, serotype_col = "serotype",
+    detection_serotypes = c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3"),
+    verbose = FALSE
+  )$focal
+  expect_equal(kept$orphan_serotypes, "cVDPV2")
+  expect_equal(kept$orphan_years, "2024")
+  expect_true(kept$genomic_orphan)
+
+  # filtering everything out leaves no detection at all
+  none <- bs_field_guide(
+    conc, genomic = g, serotype_col = "serotype",
+    detection_serotypes = "WPV1", verbose = FALSE
+  )$focal
+  expect_equal(none$orphan_years, "")
+  expect_false(none$genomic_orphan)
+
+  # and asking to filter without saying where the serotype lives is an error
+  expect_error(
+    bs_field_guide(
+      conc, genomic = g, detection_serotypes = "cVDPV2", verbose = FALSE
+    ),
+    "serotype_col"
+  )
+})

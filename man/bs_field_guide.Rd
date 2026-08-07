@@ -12,12 +12,16 @@ bs_field_guide(
   genomic_col = NULL,
   es = NULL,
   es_col = NULL,
+  serotype_col = NULL,
+  detection_serotypes = NULL,
   read_year = NULL,
   spi_cut = NULL,
   persistence = 3L,
+  persistence_basis = c("longest", "trailing"),
   traj_window = 5L,
   traj_tol = 0.01,
   traj_alpha = NULL,
+  noise_alpha = NULL,
   min_corroborators = 2L,
   dedupe_temporal = FALSE,
   detection_corroborates = FALSE,
@@ -53,6 +57,22 @@ count / flag column. Default: NULL.}
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
 
+\item{serotype_col}{Optional name of a serotype column in \code{genomic} and / or
+\code{es}, e.g. holding \code{"cVDPV2"}, \code{"WPV1"}. When given, the distinct serotypes
+seen up to each year are recorded as \code{orphan_serotypes} / \code{es_serotypes},
+so a reading can name what was actually found rather than assuming one
+serotype. Without it those columns are NA, which downstream reads as "not
+recorded" rather than "none found". Default: NULL.}
+
+\item{detection_serotypes}{Optional character vector of the serotypes that
+count as a detection, matched against \code{serotype_col}, e.g.
+\code{c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")}. An ambiguous VDPV is not a
+confirmed circulating virus, so a programme reading usually wants it out of
+the detection channels even though it sits in the line list. Rows outside
+the set are dropped before the detection years, flags and serotypes are
+computed, so all three stay consistent. Requires \code{serotype_col}. Default:
+NULL (whatever the input contains counts).}
+
 \item{read_year}{Integer focal year for \code{print()} and the default table /
 help rendering. Default: NULL (latest year present).}
 
@@ -61,6 +81,15 @@ help rendering. Default: NULL (latest year present).}
 
 \item{persistence}{Integer. Consecutive sub-cut years that corroborate a
 flag (persistence, P). Default: 3.}
+
+\item{persistence_basis}{Which run the persistence corroborator (P) counts.
+\code{"longest"} is the running maximum over the panel to date: it never falls
+back once earned, so a district that read short years ago still carries
+the run after recovering. \code{"trailing"} is the run ending at the year being
+read, so persistence speaks to that year. Both runs are always reported
+(\code{longest_run_below}, \code{trailing_run_below}); this chooses which one gates.
+Default: \code{"longest"}, reproducing the published flag counts.
+\code{"trailing"} is the recommended setting for an operational read.}
 
 \item{traj_window}{Integer. Trend regression window in years, ending
 at each year (trend, T). Default: 5.}
@@ -77,6 +106,24 @@ volatile year reading as a sustained trend. Default: NULL (the paper's
 slope-sign-and-tolerance trajectory, which reproduces the published flag
 counts). \code{0.1} is the recommended setting, improving specificity on
 volatile series.}
+
+\item{noise_alpha}{Optional numeric level for a sampling-noise gate on
+significance (S). The SPI credible interval is posterior uncertainty in
+the \emph{expected} count with the observed count held fixed, so it says
+nothing about sampling variation in the count itself. At \code{observed = 0}
+the ratio is identically zero in every draw, the interval collapses to
+\verb{(0, 0)}, and \code{cri_excludes_1} is TRUE whatever the expected count, so the
+interval alone does no work. When \code{noise_alpha} is set, \code{gate_pass}
+additionally requires the Poisson reference tail
+\eqn{P(X \le observed \mid \lambda = expected)} to be at or below it, so a
+shortfall that chance alone could produce cannot open the gate. This
+subsumes a minimum-expected-count floor: at a zero count, \code{0.05} implies
+roughly three expected cases. \code{cri_excludes_1} keeps its own meaning
+either way, so a reading can say which of the two conditions failed. The
+tail is always reported (\code{noise_tail}, \code{noise_plausible}) whether or not
+it gates. Default: NULL
+(no noise gate, reproducing the published flag counts); \code{0.05} is the
+recommended setting for an operational read.}
 
 \item{min_corroborators}{Integer. Corroborating signals required to flag.
 Default: 2.}
@@ -101,10 +148,15 @@ Default: TRUE.}
 An object of class \code{blindspot_field_guide}. A list with:
 \describe{
 \item{district_year}{Tibble, one row per district-year, carrying the
-inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1},
-\code{s1_discordance}, \code{longest_run_below}, \code{trajectory}, \code{neighbour_spi},
+inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1}
+(the interval alone), \code{gate_pass} (the significance gate the verdict
+turns on: the interval, and the noise tail when \code{noise_alpha} is set),
+\code{s1_discordance}, \code{noise_tail}, \code{noise_plausible},
+\code{longest_run_below}, \code{trailing_run_below}, \code{run_below} (whichever of the
+two \code{persistence_basis} gates on), \code{trajectory}, \code{neighbour_spi},
 \code{neighbour_discordant}, \code{neighbourhood_shortfall}, \code{seasonal},
-\code{orphan_years}, \code{genomic_orphan}, \code{es_years}, \code{es_detected}),
+\code{orphan_years}, \code{genomic_orphan}, \code{orphan_serotypes}, \code{es_years},
+\code{es_detected}, \code{es_serotypes}),
 \code{corroborators}, and \code{verdict} (factor).}
 \item{focal}{The \code{read_year} slice of \code{district_year}.}
 \item{reference}{The five-signal STEPS reference tibble (what each asks /
@@ -118,12 +170,12 @@ the matched call.}
 \description{
 Turns a \code{\link[=bs_concordance]{bs_concordance()}} result into an operational reading of every
 district-year: the five interpretation signals -- \strong{STEPS} (significance,
-trend, extent, persistence, surroundings) -- and a three-level verdict
-(\code{FLAG}, \code{WATCH}, \verb{No action}). It automates the paper's \emph{"Interpreting and
-acting on the SPI"} field guide, which separates a genuine, sustained
-detection shortfall from statistical noise or a low-expectation artefact
-using only the SPI and its credible interval; the reading rests on the
-signals' convergence.
+trend, extent, persistence, surroundings) -- and a four-level verdict
+(\code{FLAG}, \code{REVIEW}, \code{WATCH}, \verb{No action}). It automates the paper's
+\emph{"Interpreting and acting on the SPI"} field guide, which separates a
+genuine, sustained detection shortfall from statistical noise or a
+low-expectation artefact using only the SPI and its credible interval; the
+reading rests on the signals' convergence.
 
 The five STEPS signals, each ruling out a different alternative explanation:
 \itemize{
@@ -156,11 +208,16 @@ posterior median SPI is below \code{spi_cut}, the upper bound of the 90\%
 credible interval is below 1, and at least \code{min_corroborators} of three
 corroborating signals fire (a deteriorating \strong{trend}, sustained
 sub-threshold \strong{persistence}, or under-detection against healthy
-\strong{surroundings}). A district below the cut whose credible interval still
-reaches 1 is kept at \strong{watch} rather than flagged; everything else needs
-\strong{no action}. Significance is the entry point, not a corroborator; extent
-grades depth; seasonal and detection corroboration (AFP or ES) strengthen a
-flag from outside the grid but never enter the count, matching the paper.
+\strong{surroundings}). A district that meets the first two conditions but not
+the third is held at \strong{review}: the shortfall is credible, only the
+corroboration is thin. A district below the cut whose credible interval
+still reaches 1 -- or whose shortfall ordinary sampling noise could produce,
+where \code{noise_alpha} tests for it -- is kept at \strong{watch} rather than
+flagged, since there the evidence itself is what falls short. Everything
+else needs \strong{no action}. Significance is the entry point, not a
+corroborator; extent grades depth; seasonal and detection corroboration
+(AFP or ES) strengthen a flag from outside the grid but never enter the
+count, matching the paper.
 
 Three settings refine the reading; all are off by default, so the field
 guide reproduces the paper's published spec out of the box (bare slope-sign

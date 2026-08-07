@@ -459,9 +459,12 @@ bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 
 `bs_field_guide()` reads each district-year through five signals —
 **STEPS** (significance, trend, extent, persistence, surroundings) — and
-lands on a FLAG, WATCH, or No-action verdict. Significance is the entry
-point; trend, persistence and surroundings are the three corroborators
-(a flag needs at least two of them); extent grades depth. Surroundings
+lands on a FLAG, REVIEW, WATCH, or No-action verdict. Significance is
+the entry point; trend, persistence and surroundings are the three
+corroborators (a flag needs at least two of them); extent grades depth.
+A district that clears significance but not the corroborator count is
+held at REVIEW rather than dropped to No-action: the shortfall is
+credible, only the corroboration is thin. Surroundings
 uses the neighbour graph. Seasonal blindness (from the monthly SPI) and
 any poliovirus found there through the case-based (AFP) channel or
 environmental surveillance (ES) are computed as **out-of-grid
@@ -565,7 +568,7 @@ One-page field pager for a flagged district
      To restore, delete this comment wrapper and drop the `eval = FALSE` chunk
      options below.
 &#10;### 8. Triangulating the verdict against independent detection
-&#10;The field guide judges the *net*, not the *fish*: a FLAG says a silence is untrustworthy, not that the silence hid virus. Every signal it uses comes from the AFP stream itself, so it cannot corroborate its own verdict without arguing in a circle. `bs_triangulate()` crosses the verdict against the one largely-independent channel, environmental surveillance (ES), and against AFP detections, and sorts each district-year into a ten-class triage grid with a three-level priority.
+&#10;The field guide judges the *net*, not the *fish*: a FLAG says a silence is untrustworthy, not that the silence hid virus. Every signal it uses comes from the AFP stream itself, so it cannot corroborate its own verdict without arguing in a circle. `bs_triangulate()` crosses the verdict against the one largely-independent channel, environmental surveillance (ES), and against AFP detections, and sorts each district-year into a thirteen-class triage grid with a three-level priority.
 &#10;
 ``` r
 tri <- bs_triangulate(
@@ -574,17 +577,17 @@ tri <- bs_triangulate(
   detection_lag = 1L,
   verbose = FALSE
 )
-&#10;# the ten classes are a verdict x ES-status grid (AFP-detected sits off-grid)
+&#10;# the thirteen classes are a verdict x ES-status grid (AFP-detected is off-grid)
 tri$district_year |>
   dplyr::filter(!afp_hit) |>
   dplyr::mutate(
-    verdict = factor(verdict_chr, c("FLAG", "WATCH", "No action")),
+    verdict = factor(verdict_chr, c("FLAG", "REVIEW", "WATCH", "No action")),
     ES = factor(es_status, c("positive", "clear", "no site"))
   ) |>
   dplyr::count(verdict, ES, .drop = FALSE) |>
   tidyr::pivot_wider(names_from = ES, values_from = n, values_fill = 0)
 ```
-&#10;Read as a grid, the field-guide verdict runs down the rows and the independent ES read across the columns, so every cell is one triage class. `detection_lag = 1L` tests the year-*t* verdict against year *t + 1* detections, so the capacity read is taken before the detection's own case-finding could inflate it. The cells that carry the weight sit off the reassuring bottom-right: **FLAG × positive** (confirmed blindspots, where ES caught what AFP missed), **No action × positive** (possible false-adequates the guide waved through), and **FLAG × no site** (flagged with no ES site to check, the highest-value place to deploy ES or an active search). The district-years where AFP itself already detected virus sit outside the grid.
+&#10;Read as a grid, the field-guide verdict runs down the rows and the independent ES read across the columns, so every cell is one triage class. `detection_lag = 1L` tests the year-*t* verdict against year *t + 1* detections, so the capacity read is taken before the detection's own case-finding could inflate it. The cells that carry the weight sit off the reassuring bottom-right: **FLAG × positive** (confirmed blindspots, where ES caught what AFP missed), **No action × positive** (possible false-adequates the guide waved through), **FLAG × no site** (flagged with no ES site to check, the highest-value place to deploy ES or an active search), and **REVIEW × no site** (a credible shortfall, uncorroborated, with no independent channel to settle it). The district-years where AFP itself already detected virus sit outside the grid.
 &#10;
 ``` r
 bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2020)
@@ -607,7 +610,7 @@ bs_compare_overdispersion() # none vs IID vs negative-binomial diagnostic
 bs_spi()                    # surveillance performance index + posterior draws
 bs_concordance()            # cross-classify SPI vs the NPAFP-rate threshold
 bs_concordance_maps()       # three-panel concordance map (ggplot2/patchwork)
-bs_field_guide()            # read SPI to FLAG / WATCH / No-action verdicts
+bs_field_guide()            # read SPI to FLAG / REVIEW / WATCH / No-action
 bs_field_guide_table()      # render the field guide (gt / flextable)
 bs_field_guide_help()       # learn to read the field guide (worked example)
 bs_triangulate()            # cross the verdict with ES / AFP detection channels
@@ -623,8 +626,7 @@ useful, `summary` / `as_tibble`) methods; the `bs_spi()` and
 ## Citation
 
 ```r
-Yusuf MA (2026). blindspot: Bayesian spatiotemporal
-  surveillance quality monitoring. R package version 0.1.0. https://github.com/truenomad/blindspot
+Yusuf MA (2026). blindspot: Bayesian spatiotemporal surveillance quality monitoring. R package version 0.1.0. https://github.com/truenomad/blindspot
 ```
 
 ## Related packages

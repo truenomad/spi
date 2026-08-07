@@ -3,11 +3,11 @@
 #' @description
 #' Turns one district's [bs_field_guide()] reading into a self-contained,
 #' print-ready HTML "pager": a masthead with the verdict, an SPI-over-time
-#' chart of the district against its touching neighbours (with the 90%
-#' credible-interval ribbon and any orphan-poliovirus detections marked), the
-#' five-STEPS reading laid out as gate / magnitude / corroboration (with
-#' seasonal and detection corroboration read out of grid), and a verdict banner
-#' with the recommended action.
+#' chart for the district (with the 90% credible-interval ribbon and any
+#' orphan-poliovirus detections marked), the five-STEPS reading laid out as
+#' gate / magnitude / corroboration (with seasonal and detection corroboration
+#' read out of grid), and a verdict banner summarising what the reading rests
+#' on. The pager reports the reading; it recommends no follow-up.
 #'
 #' It is the single-district companion to [bs_field_guide_table()]: where the
 #' table scans many districts at once, the pager is the tear-sheet you hand to
@@ -19,11 +19,26 @@
 #' remote reference is a Google Fonts stylesheet, which degrades to system
 #' fonts offline). Every number is read from `x`; nothing is simulated.
 #'
-#' Pass `adjacency` (from [bs_adjacency()]) to draw each touching neighbour as
-#' its own muted line and to key the surroundings (S) reading off the same
-#' graph the field guide used. Without it the chart falls back to the single
-#' neighbour-median series already stored on the field guide, and the neighbour
-#' lines are omitted.
+#' The chart plots the focal district alone: its SPI line, the 90%
+#' credible-interval ribbon and any detection markers. Neighbours enter the
+#' page as the neighbour-median figure in the masthead and the surroundings (S)
+#' reading, both taken from the field guide, rather than as lines on the chart.
+#'
+#' Pass `boundaries` to draw the locator inset: the whole country in outline
+#' with its admin-1 divisions, and the focal district filled in the accent
+#' colour and ringed, so a reader can see where in the country it sits. There is
+#' no neighbour tier, because at badge size a district is only a few pixels
+#' across.
+#'
+#' Pass `indicators_df` to add conventional AFP and ES indicators to the context
+#' row below the chart: the non-polio AFP rate over the same years against its
+#' target, and tiles for stool adequacy, the two timeliness percentages and the
+#' EV rate (an ES measure, so it reads "no ES site" where the district has
+#' none). Its denominator is the case count, which in a flagged district is
+#' usually a handful, so a percentage on fewer than five assessable cases prints
+#' as a fraction and is not graded against a target. These indicators are
+#' supporting context from outside the five STEPS: they never enter the
+#' corroborator count and never change the verdict.
 #'
 #' The out-of-grid detection row reports poliovirus found there through either
 #' channel: the case-based (AFP) detections already carried by the field
@@ -33,23 +48,35 @@
 #' corroboration only; they never enter the STEPS count or change the verdict,
 #' matching the paper.
 #'
-#' The accent colour tracks the verdict: rose for a flag, amber for a watch,
-#' green for no action. A flag with an orphan-poliovirus detection is titled
-#' *"Flag, corroborated"*.
+#' The accent colour tracks the verdict: rose for a flag, plum for a review,
+#' amber for a watch, green for no action. A flag with an orphan-poliovirus
+#' detection is titled *"Flag, corroborated"*.
 #'
 #' @param x A [bs_field_guide()] result (class `blindspot_field_guide`).
 #' @param district District to profile: either an id (e.g. the admin-2 GUID)
 #'   in the id column, or a district name matched (case-insensitively) against
 #'   `name_col`. Ids are tried first, so an id is unambiguous.
-#' @param adjacency Optional spatial neighbour object from [bs_adjacency()]
-#'   (class `blindspot_nb`). Enables per-neighbour lines on the chart. Default:
-#'   NULL.
-#' @param boundaries Optional sf polygon layer keyed by `id_col`. Serves double
-#'   duty: when `adjacency` is NULL the neighbour graph is built from it with
-#'   [bs_adjacency()] (so the pager is self-contained -- field guide +
-#'   shapefile, no pre-built graph), and its real geometry draws a locator
-#'   inset on the chart, the focal district in the accent colour ringed by its
-#'   touching neighbours. Default: NULL (no inset).
+#' @param adjacency Deprecated and ignored. The locator inset places the focal
+#'   district in its country rather than among its neighbours, so the pager no
+#'   longer reads a neighbour graph. Default: NULL.
+#' @param boundaries Optional sf polygon layer keyed by `id_col`, covering the
+#'   whole country. Draws the locator inset from its real geometry. An
+#'   `adm1_name` column, if present, supplies the regional outlines; an
+#'   `adm0_name` column restricts a multi-country layer to the focal district's
+#'   own country. Default: NULL (no inset).
+#' @param indicators_df Optional district-year panel of conventional AFP and ES
+#'   indicators, keyed by `guid` (or `id_col`) and `year`. When supplied, a
+#'   strip below the chart shows the non-polio AFP rate over the same years
+#'   against its target, plus tiles for whichever of `stool_adequacy_cond_pct`,
+#'   `inv_timeliness_pct`, `onset_notify_pct` and `ev_rate` are present. Pass
+#'   the assessable counts (`inv_timeliness_n`, `onset_notify_n`) and they are
+#'   shown under each figure; a percentage on fewer than five cases prints as a
+#'   fraction instead, since a flagged district often has only a handful. These
+#'   indicators support the reading from outside the five STEPS: they never
+#'   enter the corroborator count and never change the verdict. Default NULL
+#'   (no strip).
+#' @param npafp_target Numeric non-polio AFP rate target for the strip's rate
+#'   panel, per 100,000 under 15. Default: NULL (`x$thresholds$npafp`).
 #' @param es Optional ad-hoc environmental-surveillance detections keyed by
 #'   `id_col` and `year`, overriding the field guide's own ES channel. Normally
 #'   ES is supplied once to [bs_field_guide()] (via its `es` argument) and read
@@ -59,8 +86,12 @@
 #' @param es_col Optional name of a count / logical column in `es`; only rows
 #'   with a positive count (or `TRUE`) count as detections. Default: NULL
 #'   (every row counts).
-#' @param detection_label Serotype label used in the out-of-grid detection
-#'   reading, e.g. `"cVDPV2"` or `"WPV1"`. Default: `"cVDPV2"`.
+#' @param detection_label What the detections in `x` and `es` actually are,
+#'   e.g. `"cVDPV2"` or `"WPV1"`. The field guide records only the years a
+#'   detection occurred, not its serotype, so this is your declaration of what
+#'   you filtered `genomic` / `es` down to when you built the guide. Leave it
+#'   NULL where the input mixes serotypes: the page then reads "poliovirus"
+#'   rather than naming one it was never told. Default: NULL.
 #' @param id_col District id column, shared by `adjacency` / `boundaries` /
 #'   `es`. Default: NULL (`x$id_col`).
 #' @param year Integer focal year for the reading. Default: NULL
@@ -83,8 +114,8 @@
 #'   on-page reading (e.g. "expected for the `unit_noun`", "A `unit_noun` is
 #'   flagged when..."). Set it to match `admin_label`, e.g. `"province"` for
 #'   admin-1 inputs. Default: `"district"`.
-#' @param note Provenance tag printed in the eyebrow and footer. Default:
-#'   `"illustrative"`.
+#' @param note Optional provenance tag printed in the eyebrow and footer, e.g.
+#'   `"illustrative"` for a worked example. Default: NULL (untagged).
 #' @param verbose Logical. Emit a cli summary on build. Default: TRUE.
 #'
 #' @return An object of class `blindspot_pager`: a list with the rendered
@@ -93,8 +124,8 @@
 #'   it reports the verdict and any written files. Recover the markup with
 #'   `as.character()`.
 #'
-#' @seealso [bs_field_guide()] for the reading, [bs_field_guide_table()] for
-#'   the multi-district table, and [bs_adjacency()] for the neighbour graph.
+#' @seealso [bs_field_guide()] for the reading and [bs_field_guide_table()] for
+#'   the multi-district table.
 #'
 #' @importFrom rlang %||%
 #' @export
@@ -103,9 +134,9 @@
 #' pager <- bs_field_guide_pager(fg, district = "Tirwen")
 #' pager
 #' \dontrun{
-#' # self-contained: hand it the shapefile and it builds the neighbour graph
-#' # itself, draws a locator inset, and reads both detection channels (AFP +
-#' # ES, already carried by the field guide) into the out-of-grid detection row
+#' # self-contained: hand it the shapefile and it draws the locator inset, and
+#' # reads both detection channels (AFP + ES, already carried by the field
+#' # guide) into the out-of-grid detection row
 #' bs_field_guide_pager(
 #'   fg,
 #'   district = "Tirwen",
@@ -119,9 +150,11 @@ bs_field_guide_pager <- function(
   district,
   adjacency = NULL,
   boundaries = NULL,
+  indicators_df = NULL,
+  npafp_target = NULL,
   es = NULL,
   es_col = NULL,
-  detection_label = "cVDPV2",
+  detection_label = NULL,
   year = NULL,
   path = NULL,
   file = NULL,
@@ -130,7 +163,7 @@ bs_field_guide_pager <- function(
   id_col = NULL,
   admin_label = "admin-2 district",
   unit_noun = "district",
-  note = "illustrative",
+  note = NULL,
   verbose = TRUE
 ) {
   .check_pkg(c("dplyr", "cli"), reason = "to render the SPI pager")
@@ -157,16 +190,14 @@ bs_field_guide_pager <- function(
     )
   }
 
-  # build the neighbour graph from the shapefile when no graph is supplied
-  if (is.null(adjacency) && !is.null(boundaries)) {
-    adjacency <- suppressMessages(
-      bs_adjacency(boundaries, id_col = id_col)
+  # the locator inset places the focal district in its country and draws no
+  # neighbour tier, so a neighbour graph is no longer read here at all
+  if (!is.null(adjacency) && verbose) {
+    cli::cli_alert_info(
+      "{.arg adjacency} no longer affects the pager and can be dropped; \\
+       the locator inset is drawn from {.arg boundaries}."
     )
   }
-  neighbours <- .pager_neighbours(
-    dy, adjacency, foc_id, id_col, series$year, name_col
-  )
-  nb_ids <- .pager_neighbour_ids(adjacency, foc_id, id_col)
 
   # AFP + ES detection years for the out-of-grid detection row; both channels
   # come from the field guide (orphan_years / es_years), with `es` an optional
@@ -181,25 +212,42 @@ bs_field_guide_pager <- function(
   )
 
   spi_cut <- x$thresholds$spi
+  npafp_target <- npafp_target %||% x$thresholds$npafp %||% 3
+  detection_label <- .pager_detection_label(detection_label)
+  indicators <- .pager_indicators(
+    indicators_df, foc_id, id_col, year, series$year
+  )
   has_detection <- length(detections$afp) > 0 || length(detections$es) > 0
   vstyle <- .pager_verdict_style(focal, corroborated = has_detection)
-  chart <- .pager_svg(
-    series, focal, neighbours, vstyle$accent, spi_cut, detections, name_col
-  )
+  # built before the chart: the badge overlays the chart's top-right corner, so
+  # the endpoint label has to know whether it is there
   locator <- if (!is.null(boundaries)) {
-    .pager_locator_svg(boundaries, foc_id, nb_ids, id_col, vstyle$accent)
+    .pager_locator_svg(boundaries, foc_id, id_col, vstyle$accent)
   } else {
     ""
   }
+  chart <- .pager_svg(
+    series, focal, vstyle$accent, spi_cut, detections, name_col,
+    has_locator = nzchar(locator), compact = !is.null(indicators)
+  )
+  # an ad-hoc `es` argument supplies the ES channel even when the guide lacked
+  # it, so mark it live before the reading distinguishes silent from unsupplied
+  active <- x$signals_active
+  if (!is.null(es) && !is.null(active) && "detect_es" %in% names(active)) {
+    active[["detect_es"]] <- TRUE
+  }
   signals <- .pager_signals(
-    focal, spi_cut, x$params, detections, detection_label, unit_noun
+    focal, series, spi_cut, x$params, detections, detection_label, unit_noun,
+    active
   )
 
   html <- .pager_html(
     focal = focal,
     series = series,
-    neighbours = neighbours,
     chart = chart,
+    indicators = indicators,
+    npafp_target = npafp_target,
+    active = active,
     locator = locator,
     signals = signals,
     vstyle = vstyle,
@@ -316,15 +364,16 @@ as.character.blindspot_pager <- function(x, ...) {
 # dropping any missing admin component.
 # @noRd
 .pager_autoname <- function(focal, name_col) {
+  # skip the parent level that *is* the unit rather than de-duplicating slugs:
+  # an adm2 sharing its parent's name is a different unit and needs a different
+  # file, or the two pagers collide the moment they share an output folder
   parts <- c(
-    focal$adm0_name %||% NA,
-    focal$adm1_name %||% NA,
+    if (identical(name_col, "adm0_name")) NA else focal[["adm0_name"]] %||% NA,
+    if (identical(name_col, "adm1_name")) NA else focal[["adm1_name"]] %||% NA,
     focal[[name_col]] %||% NA
   )
   parts <- .pager_slug(parts[!is.na(parts) & nzchar(parts)])
   parts <- parts[nzchar(parts)]
-  # adm1 data repeats the unit as both adm1 and name; keep each level once
-  parts <- parts[!duplicated(parts)]
   paste0("spi_", paste(parts, collapse = "_"), "_field_pager")
 }
 
@@ -361,62 +410,33 @@ as.character.blindspot_pager <- function(x, ...) {
   cli::cli_abort("cannot write {.val {ext}}; use {.val .html} or {.val .png}.")
 }
 
-# neighbour spi series aligned to `years`. with an adjacency graph, one series
-# per touching neighbour; without, the stored neighbour-median column.
+# locator inset: the focal district in accent, placed in the whole country so a
+# reader can see where in it the district sits. adm1 outlines carry the regional
+# context. There is deliberately no neighbour tier: at badge scale a district is
+# a few pixels across, so a second tone would not read, and the neighbour
+# comparison is already on the page as a figure in the masthead and in the
+# surroundings row.
 # @noRd
-.pager_neighbours <- function(dy, adjacency, foc_id, id_col, years, name_col) {
-  if (is.null(adjacency)) {
-    med <- dy[dy[[id_col]] == foc_id, c("year", "neighbour_spi")]
-    vals <- med$neighbour_spi[match(years, med$year)]
-    if (all(is.na(vals))) return(list())
-    return(list(list(name = "neighbour median", series = vals)))
-  }
-
-  ids <- attr(adjacency, "region.id")
-  if (is.null(ids)) ids <- as.character(seq_along(adjacency))
-  ids <- as.character(ids)
-  idx <- match(foc_id, ids)
-  if (is.na(idx)) return(list())
-  nb <- adjacency[[idx]]
-  if (length(nb) == 1L && nb == 0L) return(list())
-  nb_ids <- ids[nb]
-
-  has_name <- name_col %in% names(dy)
-  lapply(nb_ids, function(nid) {
-    cols <- c("year", "spi_median", if (has_name) name_col)
-    sub <- dy[dy[[id_col]] == nid, cols]
-    if (nrow(sub) == 0L) return(NULL)
-    label <- if (has_name) sub[[name_col]][1] %||% nid else nid
-    list(name = label, series = sub$spi_median[match(years, sub$year)])
-  }) |>
-    Filter(f = Negate(is.null))
-}
-
-# touching-neighbour ids for the focal district from the adjacency graph.
-# @noRd
-.pager_neighbour_ids <- function(adjacency, foc_id, id_col) {
-  if (is.null(adjacency)) return(character(0))
-  ids <- attr(adjacency, "region.id")
-  if (is.null(ids)) ids <- as.character(seq_along(adjacency))
-  ids <- as.character(ids)
-  idx <- match(as.character(foc_id), ids)
-  if (is.na(idx)) return(character(0))
-  nb <- adjacency[[idx]]
-  if (length(nb) == 1L && nb == 0L) return(character(0))
-  ids[nb]
-}
-
-# locator inset: the focal district (accent) ringed by its touching
-# neighbours (muted), drawn from real boundary geometry into a square viewBox.
-# @noRd
-.pager_locator_svg <- function(boundaries, foc_id, nb_ids, id_col, accent,
-                               size = 100, pad = 6) {
+.pager_locator_svg <- function(boundaries, foc_id, id_col, accent,
+                               size = 130, pad = 5) {
   .check_pkg("sf", reason = "to draw the locator inset")
   ids <- as.character(boundaries[[id_col]])
-  keep <- ids %in% as.character(c(foc_id, nb_ids))
-  if (!as.character(foc_id) %in% ids[keep]) return("")
-  sub <- boundaries[keep, , drop = FALSE]
-  geom <- sf::st_geometry(sub)
+  if (!as.character(foc_id) %in% ids) return("")
+  # a layer spanning several countries would otherwise scale the inset to all of
+  # them, shrinking the one country the reader needs
+  if ("adm0_name" %in% names(boundaries)) {
+    adm0 <- as.character(boundaries$adm0_name)
+    boundaries <- boundaries[
+      !is.na(adm0) & adm0 == adm0[match(as.character(foc_id), ids)], ,
+      drop = FALSE
+    ]
+    ids <- as.character(boundaries[[id_col]])
+  }
+  focal_i <- which(ids == as.character(foc_id))
+  # the inset is a flat drawing projected into a square viewBox, so planar is
+  # what is wanted; dropping the CRS says so and spares the reader an
+  # "assumes that they are planar" message per admin-1 union
+  geom <- sf::st_set_crs(sf::st_geometry(boundaries), NA)
 
   allm <- sf::st_coordinates(geom)
   xr <- range(allm[, "X"], na.rm = TRUE)
@@ -429,42 +449,77 @@ as.character.blindspot_pager <- function(x, ...) {
   tx <- function(x) ox + (x - xr[1]) * scale
   ty <- function(y) oy + (yr[2] - y) * scale
 
-  ring_polys <- function(i, fill, stroke, sw) {
-    m <- sf::st_coordinates(geom[i])
-    lcols <- setdiff(colnames(m), c("X", "Y"))
-    key <- do.call(paste, c(as.data.frame(m[, lcols, drop = FALSE]), sep = "-"))
-    parts <- lapply(split(seq_len(nrow(m)), key), function(idx) {
-      pts <- paste(
-        sprintf("%.1f,%.1f", tx(m[idx, "X"]), ty(m[idx, "Y"])),
-        collapse = " "
-      )
-      sprintf(
-        paste0("<polygon points=\"%s\" fill=\"%s\" stroke=\"%s\" ",
-               "stroke-width=\"%s\" stroke-linejoin=\"round\"/>"),
-        pts, fill, stroke, sw
-      )
-    })
-    paste(unlist(parts), collapse = "")
+  # the regional tier: admin-1 where the layer names it, else the raw districts.
+  # 30-odd provinces read at this size where several hundred districts blur.
+  tier <- if ("adm1_name" %in% names(boundaries)) {
+    lapply(
+      split(seq_along(geom), as.character(boundaries$adm1_name)),
+      function(i) sf::st_union(geom[i])
+    )
+  } else {
+    lapply(seq_along(geom), function(i) geom[i])
   }
-
-  sub_ids <- as.character(sub[[id_col]])
-  focal_i <- which(sub_ids == as.character(foc_id))
-  nb_i <- setdiff(seq_len(nrow(sub)), focal_i)
 
   s <- sprintf(
     "<svg viewBox=\"0 0 %d %d\" xmlns=\"http://www.w3.org/2000/svg\">",
     size, size
   )
-  for (i in nb_i) s <- paste0(s, ring_polys(i, "#eef0f4", "#b7bfcc", "0.7"))
-  for (i in focal_i) s <- paste0(s, ring_polys(i, accent, "#fffdf8", "1"))
-  paste0(s, "</svg>")
+  # country silhouette, the regional hairlines over it, then the focal district
+  s <- paste0(
+    s,
+    .pager_rings(sf::st_union(geom), tx, ty, "#eef0f4", "#8e99ab", "0.8")
+  )
+  for (g in tier) {
+    s <- paste0(s, .pager_rings(g, tx, ty, "none", "#c3cad6", "0.35"))
+  }
+  paste0(
+    s,
+    .pager_rings(geom[focal_i], tx, ty, accent, "#fffdf8", "0.8"),
+    .pager_focal_halo(geom[focal_i], tx, ty, accent),
+    "</svg>"
+  )
 }
 
-# naive english pluraliser for the unit noun in the legend (district ->
-# districts, province -> provinces, county -> counties).
+# one geometry as svg polygons, one per ring, projected through `tx` / `ty`.
 # @noRd
-.pager_plural <- function(x) {
-  if (grepl("[^aeiou]y$", x)) sub("y$", "ies", x) else paste0(x, "s")
+.pager_rings <- function(g, tx, ty, fill, stroke, sw) {
+  m <- sf::st_coordinates(g)
+  if (nrow(m) == 0L) return("")
+  lcols <- setdiff(colnames(m), c("X", "Y"))
+  key <- if (length(lcols) == 0L) {
+    rep("1", nrow(m))
+  } else {
+    do.call(paste, c(as.data.frame(m[, lcols, drop = FALSE]), sep = "-"))
+  }
+  parts <- lapply(split(seq_len(nrow(m)), key), function(idx) {
+    pts <- paste(
+      sprintf("%.1f,%.1f", tx(m[idx, "X"]), ty(m[idx, "Y"])),
+      collapse = " "
+    )
+    sprintf(
+      paste0("<polygon points=\"%s\" fill=\"%s\" stroke=\"%s\" ",
+             "stroke-width=\"%s\" stroke-linejoin=\"round\"/>"),
+      pts, fill, stroke, sw
+    )
+  })
+  paste(unlist(parts), collapse = "")
+}
+
+# ring around the focal district, so a district only a few pixels across at
+# country scale is still findable. sized off the district's own extent so it
+# always encloses it, with a floor that keeps a tiny district visible.
+# @noRd
+.pager_focal_halo <- function(g, tx, ty, accent) {
+  m <- sf::st_coordinates(g)
+  if (nrow(m) == 0L) return("")
+  px <- tx(m[, "X"])
+  py <- ty(m[, "Y"])
+  r <- max(6, max(diff(range(px)), diff(range(py))) / 2 + 3)
+  sprintf(
+    paste0("<circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"none\" ",
+           "stroke=\"%s\" stroke-width=\"1.1\" stroke-opacity=\"0.7\"/>"),
+    mean(range(px)), mean(range(py)), r, accent
+  )
 }
 
 # format a number with the pager's middle-dot decimal separator.
@@ -473,12 +528,15 @@ as.character.blindspot_pager <- function(x, ...) {
   gsub(".", "\u00b7", formatC(x, format = "f", digits = digits), fixed = TRUE)
 }
 
-# parse a cumulative "2021, 2022" detection-year string to integers.
+# parse a cumulative "2021, 2022" detection-year string to integers. an NA
+# string means the channel was never supplied, not that a detection happened in
+# an unknown year, so it must parse to no detections rather than to NA.
 # @noRd
 .pager_parse_years <- function(years_str) {
   s <- years_str %||% ""
-  if (!nzchar(s)) return(integer(0))
-  as.integer(strsplit(s, ",\\s*")[[1]])
+  if (length(s) != 1L || is.na(s) || !nzchar(s)) return(integer(0))
+  yrs <- suppressWarnings(as.integer(strsplit(s, ",\\s*")[[1]]))
+  yrs[!is.na(yrs)]
 }
 
 # environmental-surveillance positive years for one district, up to `year`.
@@ -499,24 +557,9 @@ as.character.blindspot_pager <- function(x, ...) {
   yrs[yrs <= year]
 }
 
-# out-of-grid / banner detection clause, e.g. "cVDPV2 detected in AFP (2021,
-# 2023) and ES (2022, 2024)"; "" when neither channel has a detection.
-# @noRd
-.pager_detection_phrase <- function(detections, label) {
-  afp <- detections$afp
-  es <- detections$es
-  parts <- character(0)
-  if (length(afp) > 0) {
-    parts <- c(parts, sprintf("AFP (%s)", paste(afp, collapse = ", ")))
-  }
-  if (length(es) > 0) {
-    parts <- c(parts, sprintf("ES (%s)", paste(es, collapse = ", ")))
-  }
-  if (length(parts) == 0) return("")
-  sprintf("%s detected in %s", label, paste(parts, collapse = " and "))
-}
-
-# verdict-driven accent colour, tag text and action for the masthead / banner.
+# verdict-driven accent colour, tag text and state line for the masthead. the
+# state line describes where the reading sits against the rule; the pager
+# deliberately prescribes no follow-up, so no action strings are carried.
 # @noRd
 .pager_verdict_style <- function(focal, corroborated = FALSE) {
   verdict <- as.character(focal$verdict)
@@ -526,34 +569,43 @@ as.character.blindspot_pager <- function(x, ...) {
       verdict = "FLAG",
       accent = "#c8102e",
       tag = if (corroborated) "Flag \u00b7 corroborated" else "Flag",
-      priority = "priority \u00b7 review and search",
-      action = c("Supervisory review", "active case search")
+      state = "below cut \u00b7 interval excludes 1"
+    ),
+    REVIEW = list(
+      verdict = "REVIEW",
+      accent = "#8c2f39",
+      tag = "Review",
+      state = "below cut \u00b7 not corroborated"
     ),
     WATCH = list(
       verdict = "WATCH",
       accent = "#e87722",
       tag = "Watch",
-      priority = "hold \u00b7 collect another year",
-      action = c("Watch", "collect another year")
+      # a watch can fail either half of the significance gate, and the page
+      # prints the interval bounds a few lines down, so naming the wrong half
+      # contradicts the numbers beside it
+      state = if (isTRUE(focal$cri_excludes_1)) {
+        "below cut \u00b7 noise not ruled out"
+      } else {
+        "below cut \u00b7 interval includes 1"
+      }
     ),
-    # No action splits: a genuinely adequate district (green, "Adequate") vs a
-    # sub-threshold district that simply lacked corroboration to flag (neutral
-    # slate, "No action") -- so green never overclaims adequacy below the cut
-    if (isTRUE(focal$spi_below)) {
+    # No action is now only ever a district at or above the cut: every
+    # sub-threshold reading lands in FLAG, REVIEW or WATCH. It still splits, so
+    # green never overclaims adequacy on a district whose interval sits below 1
+    if (.pager_short_of_expectation(focal)) {
       list(
         verdict = "No action",
         accent = "#5a6883",
-        tag = "No action",
-        priority = "sub-threshold \u00b7 monitor",
-        action = c("No action", "routine monitoring")
+        tag = "Below expectation",
+        state = "at cut \u00b7 interval below 1"
       )
     } else {
       list(
         verdict = "No action",
         accent = "#1f6f43",
         tag = "Adequate",
-        priority = "routine \u00b7 no action",
-        action = c("No action", "routine monitoring")
+        state = "at or above cut"
       )
     }
   )
@@ -561,10 +613,17 @@ as.character.blindspot_pager <- function(x, ...) {
 
 # ---- chart (inline svg, ported geometry) ----------------------------------
 
+# lowest chart-space y the locator badge reaches, in viewBox units: the badge is
+# 130px square and hangs 12px above the chart box, whose 10px top padding the
+# svg starts below, and the 734-unit viewBox renders about 708px wide. anything
+# above this would print under the badge.
+# @noRd
+.pager_locator_band <- 130
+
 # render the SPI-over-time chart as a static inline SVG string.
 # @noRd
-.pager_svg <- function(series, focal, neighbours, accent, spi_cut, detections,
-                       name_col) {
+.pager_svg <- function(series, focal, accent, spi_cut, detections, name_col,
+                       has_locator = FALSE, compact = FALSE) {
   years <- series$year
   n <- length(years)
   focal_series <- series$spi_median
@@ -573,18 +632,19 @@ as.character.blindspot_pager <- function(x, ...) {
   afp <- detections$afp
   es <- detections$es
 
-  nb_all <- unlist(lapply(neighbours, function(z) z$series))
-  line_top <- max(c(focal_series, nb_all, 1.0), na.rm = TRUE)
+  line_top <- max(c(focal_series, 1.0), na.rm = TRUE)
   ci_top <- max(c(hi, 1.0), na.rm = TRUE)
-  # flexible axis: always fit the focal and neighbour lines with headroom (the
-  # real clipping risk), and let the CI ribbon extend the panel too -- but cap
-  # its reach at ~1.5x the line range so one very wide small-denominator
-  # interval cannot blow the axis out and squash the operational zone. The
-  # ribbon clips at the frame top in that rare case.
+  # flexible axis: always fit the focal line with headroom (the real clipping
+  # risk), and let the CI ribbon extend the panel too -- but cap its reach at
+  # ~1.5x the line range so one very wide small-denominator interval cannot
+  # blow the axis out and squash the operational zone. The ribbon clips at the
+  # frame top in that rare case.
   y_max <- max(1.25, line_top * 1.08, min(ci_top, line_top * 1.5) * 1.02)
 
   w <- 734
-  h <- 400
+  # the indicator strip takes about a hundred pixels below the chart, and the
+  # page is a fixed A4, so the panel gives that back rather than overflowing
+  h <- if (compact) 322 else 400
   ml <- 44
   mr <- 138
   mt <- 22
@@ -644,15 +704,6 @@ as.character.blindspot_pager <- function(x, ...) {
     "\" fill-opacity=\"0.12\" stroke=\"none\"/>"
   )
 
-  # neighbour lines (muted, thin)
-  for (z in neighbours) {
-    s <- paste0(
-      s, "<polyline points=\"", poly(z$series),
-      "\" fill=\"none\" stroke=\"#94a0b3\" stroke-width=\"1.3\" ",
-      "opacity=\"0.75\"/>"
-    )
-  }
-
   # plot frame
   s <- paste0(
     s, "<rect x=\"", ml, "\" y=\"", mt, "\" width=\"", w - mr - ml,
@@ -667,21 +718,6 @@ as.character.blindspot_pager <- function(x, ...) {
       "\" text-anchor=\"middle\" font-family=\"Spline Sans Mono\" ",
       "font-size=\"8.5\" fill=\"#5a6883\">'",
       substr(as.character(years[i]), 3, 4), "</text>"
-    )
-  }
-
-  # neighbour cluster label, anchored to their last finite mean
-  if (length(neighbours) > 0) {
-    last_vals <- vapply(
-      neighbours,
-      function(z) z$series[max(which(is.finite(z$series)))],
-      numeric(1)
-    )
-    ny <- py(stats::median(last_vals, na.rm = TRUE))
-    s <- paste0(
-      s, "<text x=\"", fnum(w - mr + 8), "\" y=\"", fnum(ny + 3),
-      "\" font-family=\"Spline Sans Mono\" font-size=\"9\" ",
-      "fill=\"#94a0b3\">neighbours</text>"
     )
   }
 
@@ -728,21 +764,491 @@ as.character.blindspot_pager <- function(x, ...) {
   main <- if (length(paren) == 3L) paren[2] else lbl
   qual <- if (length(paren) == 3L) sprintf("(%s) \u00b7 ", paren[3]) else ""
   avail <- (w - 4) - (ex + 10)
-  name_size <- max(9, min(14.5, avail / (0.62 * max(nchar(main), 1L))))
+  fit <- .pager_label_lines(main, avail)
+  name_size <- fit$size
+  name_lines <- fit$lines
+  lh <- name_size * 1.05
+  extra <- (length(name_lines) - 1L) * lh
+  # the locator badge is absolutely positioned over the top-right of the chart
+  # box, so an endpoint high in the panel would print its label underneath it.
+  # drop the label clear of that band; the dot stays on the endpoint.
+  ly <- if (has_locator) max(ey, .pager_locator_band) else ey
+  # a wrapped name pushes the SPI sub-line down, so an endpoint low in the
+  # panel would print it over the x-axis. hold the whole block off the frame
+  # foot rather than only its first line.
+  ly <- min(ly, h - mb - 15 - extra)
   s <- paste0(
     s, "<circle cx=\"", fnum(ex), "\" cy=\"", fnum(ey),
     "\" r=\"3.6\" fill=\"", accent, "\" stroke=\"#fffdf8\" ",
     "stroke-width=\"1.6\"/>",
-    "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ey + 2),
-    "\" font-family=\"Archivo\" font-weight=\"900\" font-size=\"",
-    fnum(name_size), "\" fill=\"", accent, "\">", .pager_escape(main),
-    "</text>",
-    "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ey + 15),
+    paste(
+      vapply(
+        seq_along(name_lines),
+        function(i) {
+          paste0(
+            "<text x=\"", fnum(ex + 10), "\" y=\"",
+            fnum(ly + 2 + (i - 1L) * lh),
+            "\" font-family=\"Archivo\" font-weight=\"900\" font-size=\"",
+            fnum(name_size), "\" fill=\"", accent, "\">",
+            .pager_escape(name_lines[i]), "</text>"
+          )
+        },
+        character(1)
+      ),
+      collapse = ""
+    ),
+    "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ly + 15 + extra),
     "\" font-family=\"Spline Sans Mono\" font-size=\"9.5\" fill=\"", accent,
     "\">", .pager_escape(qual), "SPI ", .pager_dot(focal$spi_median, 2),
     "</text></svg>"
   )
   s
+}
+
+# the masthead is a flex row whose verdict column is flex-shrink:0, so a long
+# unit name pushes that column past the page edge instead of wrapping and the
+# sub-lines silently lose their last characters. Give the name only what the
+# row can spare. The 734 is the pad's content width and 22 the flex gap, both
+# set in the stylesheet; the ratios are per-character advance in em, and both
+# run a little high so the estimate errs towards a smaller name rather than a
+# clipped verdict.
+# @noRd
+.pager_unit_size <- function(name, tag, sub_lines, max_size = 46) {
+  # the tag is a padded pill, the sub-lines are plain mono text
+  tag_w <- nchar(tag) * (12 * 0.65 + 1.2) + 26
+  sub_w <- max(c(nchar(sub_lines), 0L)) * 10 * 0.65
+  avail <- 734 - 22 - max(tag_w, sub_w)
+  min(max_size, avail / (0.74 * max(nchar(name), 1L)))
+}
+
+# where a unit name may be broken: at whitespace, and after a solidus, which is
+# how names such as OGBA/EGBEMA/NDONI join their parts and the only place they
+# give. A solidus stays on the line it ends, the way the name reads.
+# @noRd
+.pager_label_atoms <- function(main) {
+  atoms <- regmatches(main, gregexpr("[^/[:space:]]+/*", main))[[1]]
+  atoms[nzchar(atoms)]
+}
+
+# rejoin atoms into one line, closing up after a solidus and spacing otherwise,
+# so a broken name reads exactly as the whole one did.
+# @noRd
+.pager_label_join <- function(atoms) {
+  Reduce(
+    function(acc, a) if (grepl("/$", acc)) paste0(acc, a) else paste(acc, a),
+    atoms
+  )
+}
+
+# fit the endpoint name to the right margin. Archivo at weight 900 runs about
+# 0.78em per uppercase character, which the old 0.62 estimate under-measured by
+# a fifth, so a name the arithmetic called a fit still ran off the frame. There
+# is deliberately no floor under the size: any floor is a size that does not
+# fit, and the masthead prints the name in full regardless. Wrapping at a space
+# holds a two-word name at a readable size where shrinking alone would squeeze
+# it, so it is preferred wherever the name has somewhere to break and one line
+# would not sit comfortably.
+# @noRd
+.pager_label_lines <- function(main, avail, max_size = 14.5, ratio = 0.78,
+                               comfortable = 12.5) {
+  size_of <- function(parts) {
+    min(max_size, avail / (ratio * max(nchar(parts), 1L)))
+  }
+  one <- size_of(main)
+  atoms <- .pager_label_atoms(main)
+  if (one >= comfortable || length(atoms) < 2L) {
+    return(list(lines = main, size = one))
+  }
+  # break at the point leaving the longest line shortest, so a name splits
+  # evenly rather than stranding one short piece on its own line
+  pairs <- lapply(
+    seq_len(length(atoms) - 1L),
+    function(k) {
+      c(
+        .pager_label_join(atoms[seq_len(k)]),
+        .pager_label_join(atoms[-seq_len(k)])
+      )
+    }
+  )
+  widest <- vapply(pairs, function(p) max(nchar(p)), numeric(1))
+  parts <- pairs[[which.min(widest)]]
+  two <- size_of(parts)
+  if (two > one) {
+    list(lines = parts, size = two)
+  } else {
+    list(lines = main, size = one)
+  }
+}
+
+# ---- conventional AFP indicators (out of grid) ----------------------------
+
+# the tiles, in render order. `n` names the column holding the assessable count
+# behind the percentage, falling back to afp_cases. `target` is NA where no
+# published threshold exists, so the tile states the figure without grading it.
+# @noRd
+# `fraction` marks the pass rates whose denominator really is the case count, so
+# a thin one can be spelled out as "1 of 2 cases". EV isolation is a proportion
+# of specimens rather than of cases, so counting cases would invent a numerator;
+# it names the cases behind it without claiming how many passed.
+# @noRd
+.pager_tile_spec <- list(
+  list(key = "stool_adequacy_cond_pct", label = "Stool adequacy",
+       target = 80, n = NA_character_, fraction = TRUE),
+  list(key = "inv_timeliness_pct", label = "Notify \u2192 invest \u22642d",
+       target = 80, n = "inv_timeliness_n", fraction = TRUE),
+  list(key = "onset_notify_pct", label = "Onset \u2192 notify \u22647d",
+       target = NA_real_, n = "onset_notify_n", fraction = TRUE),
+  list(key = "ev_rate", label = "EV rate (ES)",
+       target = 50, n = NA_character_, fraction = FALSE)
+)
+
+# pull one district's indicator rows: the focal-year values and the rate series.
+# matched on `guid` where the panel uses the polished-indicator name, else on
+# the pager's own id column. returns NULL when the district or year is absent,
+# so a panel that does not cover this district simply omits the strip.
+# @noRd
+.pager_indicators <- function(indicators, foc_id, id_col, year, years) {
+  if (is.null(indicators)) return(NULL)
+  stopifnot(is.data.frame(indicators))
+  key <- intersect(c(id_col, "guid"), names(indicators))[1]
+  if (is.na(key) || !"year" %in% names(indicators)) {
+    cli::cli_abort(
+      "{.arg indicators_df} needs a {.field year} column and either \\
+       {.field {id_col}} or {.field guid}."
+    )
+  }
+  d <- indicators[
+    as.character(indicators[[key]]) == as.character(foc_id), ,
+    drop = FALSE
+  ]
+  if (nrow(d) == 0L) return(NULL)
+  d <- d[order(as.integer(d$year)), , drop = FALSE]
+  focal <- d[as.integer(d$year) == year, , drop = FALSE]
+  if (nrow(focal) == 0L) return(NULL)
+  list(
+    focal = as.list(focal[1L, , drop = FALSE]),
+    rate = d$npafp_rate[match(years, as.integer(d$year))]
+  )
+}
+
+# every one of these indicators is a pass rate: the share of the district's AFP
+# cases meeting the criterion. So the value stays the percentage, and the count
+# behind it goes underneath, where a rate resting on two cases can be seen for
+# what it is rather than read as a settled figure.
+# @noRd
+.pager_tile_value <- function(pct, n, floor = 5L) {
+  if (!isTRUE(is.finite(pct))) {
+    return(list(value = "--", state = "miss"))
+  }
+  thin <- isTRUE(is.finite(n)) && n > 0 && n < floor
+  list(
+    value = sprintf("%.0f%%", pct),
+    state = if (thin) "thin" else "ok"
+  )
+}
+
+# clears the operational cut, yet the whole posterior sits below one: adequate
+# by the rule, short of expectation in fact. Bound to one predicate so the chip,
+# the banner, the caption and the significance row cannot drift apart.
+# @noRd
+.pager_short_of_expectation <- function(r) {
+  !isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)
+}
+
+# can this figure be held to its target? only where there is a target, a value,
+# and enough cases behind it to mean anything. Shared by the wording and the
+# colouring so the two cannot drift apart.
+# @noRd
+.pager_tile_gradeable <- function(pct, target, state) {
+  isTRUE(is.finite(target)) && isTRUE(is.finite(pct)) && identical(state, "ok")
+}
+
+# the meta line under a tile value: what the figure rests on, and how it reads
+# against its target where it has one.
+# @noRd
+.pager_tile_meta <- function(pct, n, target, state, fraction = TRUE,
+                             missing = NULL) {
+  # spell the rate out as cases where the denominator is the case count and is
+  # small enough that the reader should see it: "1 of 2 cases", not a bare 50%
+  base <- if (identical(state, "miss") && !is.null(missing)) {
+    missing
+  } else if (!isTRUE(is.finite(n))) {
+    ""
+  } else if (n == 0) {
+    "none assessable"
+  } else if (isTRUE(fraction) && identical(state, "thin")) {
+    sprintf(
+      "%d of %d case%s", as.integer(round(pct / 100 * n)), as.integer(n),
+      if (n == 1) "" else "s"
+    )
+  } else {
+    sprintf("of %d cases", as.integer(n))
+  }
+  # grading a figure that rests on a handful of cases against a target asserts
+  # the same false precision the fraction form exists to avoid
+  gradeable <- .pager_tile_gradeable(pct, target, state)
+  grade <- if (gradeable) {
+    sprintf(if (pct >= target) "meets %g%%" else "under %g%%", target)
+  } else if (isTRUE(is.finite(target)) && state == "ok") {
+    sprintf("target %g%%", target)
+  } else {
+    ""
+  }
+  paste(Filter(nzchar, c(base, grade)), collapse = " \u00b7 ")
+}
+
+# the four indicator tiles as html.
+# @noRd
+.pager_tiles_html <- function(r, es_seen = FALSE) {
+  cells <- vapply(.pager_tile_spec, function(t) {
+    pct <- suppressWarnings(as.numeric(r[[t$key]] %||% NA))
+    # only the case-based pass rates fall back to the case count; EV isolation
+    # is measured off environmental samples, so counting cases behind it would
+    # attach the wrong denominator
+    n <- if (!is.na(t$n)) {
+      suppressWarnings(as.numeric(r[[t$n]] %||% NA))
+    } else if (isTRUE(t$fraction)) {
+      suppressWarnings(as.numeric(r$afp_cases %||% NA))
+    } else {
+      NA_real_
+    }
+    v <- .pager_tile_value(pct, n)
+    # a missing EV rate means no ES site only where the district has no ES
+    # detection on record either; virus found there proves a site exists, and
+    # the rate is simply unreported. The genuine gap is called out in red.
+    miss <- t$missing
+    gap <- FALSE
+    if (identical(t$key, "ev_rate") && identical(v$state, "miss")) {
+      if (isTRUE(es_seen)) {
+        miss <- "rate not reported"
+      } else {
+        miss <- "No ES site"
+        gap <- TRUE
+      }
+    }
+    # a graded figure that misses its target reads in the blind-spot red, as
+    # does a district with no ES site at all
+    fail <- .pager_tile_gradeable(pct, t$target, v$state) && pct < t$target
+    cls <- paste(
+      c(v$state, if (fail) "fail", if (gap) "gap"), collapse = " "
+    )
+    sprintf(
+      paste0("<div class=\"itile %s\"><div class=\"k\">%s</div>",
+             "<div class=\"v\">%s</div><div class=\"m\">%s</div></div>"),
+      cls,
+      .pager_escape(t$label), v$value,
+      .pager_escape(
+        .pager_tile_meta(pct, n, t$target, v$state, t$fraction, miss)
+      )
+    )
+  }, character(1))
+  paste0("<div class=\"itiles\">", paste(cells, collapse = ""), "</div>")
+}
+
+# the non-polio AFP rate over the same years as the SPI chart, against its
+# target. the rate's denominator is population rather than the case count, so
+# unlike the tiles it stays meaningful in a district detecting almost nothing.
+# @noRd
+.pager_rate_svg <- function(rate, years, target, accent) {
+  n <- length(years)
+  w <- 300
+  # tall enough to fill the panel the tile column sets, so the rate's shape is
+  # readable rather than a flat squiggle in a half-empty box
+  h <- 96
+  ml <- 26
+  mr <- 34
+  mt <- 10
+  mb <- 14
+  top <- max(c(rate, target), na.rm = TRUE) * 1.15
+  if (!is.finite(top) || top <= 0) top <- target * 1.5
+  px <- function(i) ml + (i / max(n - 1, 1)) * (w - ml - mr)
+  py <- function(v) mt + (1 - v / top) * (h - mt - mb)
+  fnum <- function(v) sprintf("%.1f", v)
+
+  s <- sprintf(
+    "<svg viewBox=\"0 0 %d %d\" width=\"100%%\" height=\"%d\">", w, h, h
+  )
+  # the target line, and the frame
+  s <- paste0(
+    s,
+    sprintf(
+      paste0("<line x1=\"%d\" y1=\"%s\" x2=\"%d\" y2=\"%s\" ",
+             "stroke=\"#15233b\" stroke-width=\"1\" ",
+             "stroke-dasharray=\"4 3\" opacity=\"0.6\"/>"),
+      ml, fnum(py(target)), w - mr, fnum(py(target))
+    ),
+    sprintf(
+      paste0("<text x=\"%d\" y=\"%s\" text-anchor=\"end\" ",
+             "font-family=\"Spline Sans Mono\" font-size=\"7.5\" ",
+             "fill=\"#5a6883\">%g</text>"),
+      ml - 4, fnum(py(target) + 2.5), target
+    ),
+    sprintf(
+      paste0("<line x1=\"%d\" y1=\"%s\" x2=\"%d\" y2=\"%s\" ",
+             "stroke=\"#15233b\" stroke-width=\"1\"/>"),
+      ml, fnum(py(0)), w - mr, fnum(py(0))
+    )
+  )
+  pts <- vapply(
+    which(is.finite(rate)),
+    function(i) paste0(fnum(px(i - 1)), ",", fnum(py(rate[i]))),
+    character(1)
+  )
+  if (length(pts) > 1L) {
+    s <- paste0(
+      s, "<polyline points=\"", paste(pts, collapse = " "),
+      "\" fill=\"none\" stroke=\"", accent,
+      "\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>"
+    )
+  }
+  last <- utils::tail(which(is.finite(rate)), 1)
+  if (length(last) == 1L) {
+    s <- paste0(
+      s,
+      sprintf(
+        "<circle cx=\"%s\" cy=\"%s\" r=\"2.4\" fill=\"%s\"/>",
+        fnum(px(last - 1)), fnum(py(rate[last])), accent
+      ),
+      sprintf(
+        paste0("<text x=\"%s\" y=\"%s\" font-family=\"Spline Sans Mono\" ",
+               "font-size=\"9\" font-weight=\"600\" fill=\"%s\">%s</text>"),
+        fnum(px(last - 1) + 6), fnum(py(rate[last]) + 3), accent,
+        .pager_dot(rate[last], 1)
+      )
+    )
+  }
+  paste0(s, "</svg>")
+}
+
+# how the district reads through its expected seasonal peak, distinguishing a
+# channel that was never supplied from one that was and found nothing.
+# @noRd
+.pager_season_word <- function(r, active) {
+  if (!is.null(active) && !isTRUE(unname(active["seasonal"]))) return("")
+  switch(
+    r$seasonal %||% "not assessed",
+    blind = "Blind through the expected peak",
+    muted = "Muted through the expected peak",
+    # detecting through the peak is worth saying only where the district still
+    # reads short: it is then a district that looks and still finds too little
+    present = if (isTRUE(r$spi_below)) {
+      "Detects through the expected peak, yet still reads short"
+    } else {
+      ""
+    },
+    ""
+  )
+}
+
+# the serotype to name in the detection wording. The guide carries detection
+# years but not serotypes, so an unset label must not be filled in with a guess:
+# it falls back to the generic term instead.
+# @noRd
+.pager_detection_label <- function(label) {
+  label <- if (is.null(label)) "" else trimws(as.character(label)[1])
+  if (nzchar(label) && !is.na(label)) label else "poliovirus"
+}
+
+# the two detection boxes, one per channel. A channel that was never supplied
+# says so rather than reading as a district that was searched and found clean.
+# @noRd
+.pager_detection_boxes <- function(detections, label, active,
+                                   serotypes = list()) {
+  on <- function(nm) is.null(active) || isTRUE(unname(active[nm]))
+  box <- function(title, years, supplied, found) {
+    if (!supplied) {
+      v <- "--"
+      m <- "channel not supplied"
+      cls <- "miss"
+    } else if (length(years) == 0L) {
+      v <- "none"
+      m <- "no detections"
+      cls <- "quiet"
+    } else {
+      # `years` holds distinct years, not detections: a district with four
+      # isolations in one year appears once. Count the years and say so -- the
+      # guide never carries a detection count, so "4 detections" would be a
+      # number the data cannot support. The chart still marks which years.
+      # Name the serotypes the guide actually recorded; fall back to the
+      # caller's declaration, and to nothing at all where neither is known.
+      v <- sprintf(
+        "%d year%s", length(years), if (length(years) == 1L) "" else "s"
+      )
+      what <- if (length(found) > 0L) {
+        paste(found, collapse = ", ")
+      } else {
+        label
+      }
+      m <- paste(
+        c(what[nzchar(what)], sprintf("latest %d", max(years))),
+        collapse = " \u00b7 "
+      )
+      cls <- "hit"
+    }
+    sprintf(
+      paste0("<div class=\"itile det %s\"><div class=\"k\">%s</div>",
+             "<div class=\"v\">%s</div><div class=\"m\">%s</div></div>"),
+      cls, title, .pager_escape(v), .pager_escape(m)
+    )
+  }
+  paste0(
+    "<div class=\"idets\">",
+    box("AFP detection", detections$afp, on("detect_afp"), serotypes$afp),
+    box("ES detection", detections$es, on("detect_es"), serotypes$es),
+    "</div>"
+  )
+}
+
+# serotypes the guide recorded for this district-year, per channel. An NA column
+# means the guide was built without `serotype_col`, so nothing is named and the
+# caller's `detection_label` stands in.
+# @noRd
+.pager_serotypes <- function(focal) {
+  pull <- function(x) {
+    x <- x %||% NA_character_
+    if (length(x) != 1L || is.na(x) || !nzchar(x)) return(character(0))
+    trimws(strsplit(x, ",\\s*")[[1]])
+  }
+  list(afp = pull(focal$orphan_serotypes), es = pull(focal$es_serotypes))
+}
+
+# the whole out-of-grid indicator strip. Deliberately its own block below the
+# chart, with no role chip: these indicators support the reading from outside
+# the five STEPS and never enter the corroborator count or the verdict.
+# @noRd
+.pager_strip_html <- function(ind, years, npafp_target, accent, focal,
+                              detections, detection_label, active) {
+  season <- .pager_season_word(focal, active)
+  dets <- .pager_detection_boxes(
+    detections, detection_label, active, .pager_serotypes(focal)
+  )
+  # the indicator half is optional; the detection half always has something to
+  # say, so the row renders either way
+  left <- if (is.null(ind)) {
+    ""
+  } else {
+    paste0(
+      "<div class=\"ipanel\">",
+      "<div class=\"ilab\">Non-polio AFP rate per 100,000 under 15 \u00b7 ",
+      "target ", npafp_target, "</div>",
+      .pager_rate_svg(ind$rate, years, npafp_target, accent),
+      "</div>",
+      .pager_tiles_html(ind$focal, es_seen = length(detections$es) > 0)
+    )
+  }
+  paste0(
+    "<div class=\"istrip\">",
+    "<div class=\"sectlab\"><span>Context \u2014 conventional AFP and ES ",
+    "indicators and detections</span>",
+    if (nzchar(season)) {
+      paste0("<span>", .pager_escape(season), "</span>")
+    } else {
+      ""
+    },
+    "</div>",
+    "<div class=\"igrid", if (is.null(ind)) " dets-only" else "", "\">",
+    left, dets, "</div></div>"
+  )
 }
 
 # ---- STEPS reading rows ---------------------------------------------------
@@ -751,25 +1257,47 @@ as.character.blindspot_pager <- function(x, ...) {
 # name, reading, role) for the focal year.
 # @noRd
 .pager_signals <- function(
-  focal, spi_cut, params, detections, detection_label, unit_noun = "district"
+  focal, series, spi_cut, params, detections, detection_label,
+  unit_noun = "district", active = NULL
 ) {
   r <- as.list(focal)
   spi <- .pager_dot(r$spi_median, 2)
   q05 <- .pager_dot(r$spi_q05, 2)
   q95 <- .pager_dot(r$spi_q95, 2)
   npafp <- .pager_dot(r$npafp_rate, 1)
-  run <- as.integer(r$longest_run_below)
   obs <- as.integer(round(r$observed))
-  exp <- round(r$expected_total)
+  exp <- .pager_count(r$expected_total)
   nb <- if (is.na(r$neighbour_spi)) NA else .pager_dot(r$neighbour_spi, 2)
   win <- as.integer(params$traj_window)
   persistence <- as.integer(params$persistence)
+  # runs are measured off the plotted series rather than read from the guide, so
+  # a guide built before `trailing_run_below` existed still reads correctly. the
+  # counted run comes from the guide when it carries one, so the chip can never
+  # disagree with the verdict it was computed under.
+  runs <- .pager_runs(series$spi_median < spi_cut, series$year)
+  run <- as.integer(
+    r$run_below %||% if (identical(params$persistence_basis, "trailing")) {
+      runs$trailing
+    } else {
+      runs$longest
+    }
+  )
+  # a zero count makes the interval degenerate: SPI = 0 / expected_draw is
+  # identically 0, so (q05, q95) collapses to (0, 0) and carries no evidence
+  zero_count <- isTRUE(obs == 0L)
 
   s1 <- if (isTRUE(r$s1_discordance)) {
     sprintf(
       paste0("Rate %s is adequate, yet SPI %s with a 90%% interval whose ",
              "upper bound (%s) excludes one."),
       npafp, spi, q95
+    )
+  } else if (.pager_short_of_expectation(r)) {
+    sprintf(
+      paste0("SPI %s clears the adequacy cut, but its 90%% interval (%s to ",
+             "%s) lies wholly below one; the gate stays shut on the cut ",
+             "alone."),
+      spi, q05, q95
     )
   } else if (!isTRUE(r$spi_below)) {
     sprintf("SPI %s sits at or above the adequacy cut; the gate stays shut.",
@@ -780,12 +1308,31 @@ as.character.blindspot_pager <- function(x, ...) {
              "still includes one."),
       spi, q05, q95
     )
-  } else {
+  } else if (!.fg_gate_pass(r)) {
+    # the interval cleared and the noise gate did not, so the bounds printed
+    # here are both below one. Saying "includes one" would be contradicted by
+    # the two numbers in the same sentence.
     sprintf(
-      paste0("SPI %s with its 90%% interval (%s to %s) wholly below one is a ",
-             "credible shortfall; the conventional rate is also short, so not ",
-             "the special discordance case."),
+      paste0("SPI %s sits below the cut with its 90%% interval (%s to %s) ",
+             "wholly below one, but a count this small could fall this short ",
+             "by chance alone."),
       spi, q05, q95
+    )
+  } else if (zero_count) {
+    # never present a point mass at zero as an inference that survived anything
+    sprintf(
+      paste0("An empty count against %s expected, so the SPI is zero by ",
+             "construction and the interval carries no evidence.%s"),
+      exp, .pager_noise_note(r, params)
+    )
+  } else {
+    # the interval is posterior uncertainty in the expected count with the
+    # observed count fixed, so say what it clears, not that the gap is
+    # "unlikely to be noise", which it cannot establish at small counts
+    sprintf(
+      paste0("SPI %s with its 90%% interval (%s to %s) wholly below one: the ",
+             "shortfall holds against uncertainty in the expected level.%s"),
+      spi, q05, q95, .pager_noise_note(r, params)
     )
   }
 
@@ -800,11 +1347,15 @@ as.character.blindspot_pager <- function(x, ...) {
   } else {
     "a moderate shortfall"
   }
+  detected <- if (zero_count) {
+    "no cases detected"
+  } else {
+    sprintf("about %d case%s detected", obs, if (obs == 1L) "" else "s")
+  }
   extent <- sprintf(
-    paste0("A posterior median SPI of %s, %s: about %d case%s detected ",
-           "against roughly %d expected for the %s."),
-    spi, extent_depth, obs, if (obs == 1L) "" else "s", as.integer(exp),
-    unit_noun
+    paste0("A posterior median SPI of %s, %s: %s against roughly %s expected ",
+           "for the %s."),
+    spi, extent_depth, detected, exp, unit_noun
   )
 
   s4 <- switch(
@@ -814,12 +1365,12 @@ as.character.blindspot_pager <- function(x, ...) {
     sprintf("Detection has held roughly flat over the last %d years.", win)
   )
 
-  s5 <- if (run == 0L) {
-    "No consecutive run below the adequacy cut."
-  } else {
-    sprintf("%d consecutive year%s reading below expectation.", run,
-            if (run == 1L) "" else "s")
-  }
+  # persistence (P) counts the longest run in the panel to date by default,
+  # which never falls back once earned, so a district that has recovered can
+  # still carry a run that ended years ago. name the run ending at the read
+  # year, and say separately when the counted run is older than that, rather
+  # than letting a historical run read as current.
+  s5 <- .pager_persistence(runs, as.integer(r$year), params)
 
   s6 <- if (isTRUE(r$island)) {
     sprintf("No adjacent %s to compare against.", unit_noun)
@@ -832,10 +1383,18 @@ as.character.blindspot_pager <- function(x, ...) {
       spi, nb
     )
   } else if (isTRUE(r$spi_below)) {
+    # compare on the printed values, so the prose cannot contradict the number
+    # on the page: a neighbour median of 0.796 prints as 0.80 and must not be
+    # called "below the cut" against a cut that also prints as 0.80
+    nb_rel <- if (round(r$neighbour_spi, 2) < round(spi_cut, 2)) {
+      "itself below the cut"
+    } else {
+      "itself level with the cut"
+    }
     sprintf(
-      paste0("%s against a neighbour median of %s, itself below the cut: a ",
-             "region-wide shortfall rather than a local gap."),
-      spi, nb
+      paste0("%s against a neighbour median of %s, %s: a region-wide ",
+             "shortfall rather than a local gap."),
+      spi, nb, nb_rel
     )
   } else {
     sprintf(
@@ -845,45 +1404,12 @@ as.character.blindspot_pager <- function(x, ...) {
     )
   }
 
-  seasonal_word <- switch(
-    r$seasonal %||% "not assessed",
-    blind = "Blind through the expected peak",
-    muted = "Muted through the expected peak",
-    present = "Detects through the expected peak",
-    "Season not assessable"
-  )
-  detection <- .pager_detection_phrase(detections, detection_label)
-  s7 <- if (nzchar(detection)) {
-    sprintf("%s, with %s.", seasonal_word, detection)
-  } else {
-    sprintf("%s, with no poliovirus detected there.", seasonal_word)
-  }
-
   falling <- r$trajectory == "falling"
   persistent <- run >= persistence
   discordant <- isTRUE(r$neighbour_discordant)
-  # seasonal blindness and any detection are out-of-grid: never one of the
-  # three STEPS corroborators. a detection is counted only when the guide was
-  # built with detection_corroborates, otherwise it corroborates from outside
-  # the grid and is flagged "external", so a reader counting the corroborating
-  # chips does not over-count against the flag rule
-  detected <- length(detections$afp) > 0 || length(detections$es) > 0
-  detection_counts <- isTRUE(params$detection_corroborates) && detected
-  det_role <- if (detection_counts) {
-    "corr"
-  } else if (detected) {
-    "external"
-  } else {
-    "quiet"
-  }
-  det_label <- if (detection_counts) {
-    "corroborates"
-  } else if (detected) {
-    "external"
-  } else {
-    "quiet"
-  }
 
+  # season and detections are out-of-grid; they are read in the context row
+  # below the chart, not as a sixth STEPS line
   list(
     list(code = "S", name = "Significance", reading = s1,
          role = "gate", label = "gate"),
@@ -897,9 +1423,7 @@ as.character.blindspot_pager <- function(x, ...) {
          label = if (persistent) "supports" else "quiet"),
     list(code = "S", name = "Surroundings", reading = s6,
          role = if (discordant) "corr" else "quiet",
-         label = if (discordant) "corroborates" else "quiet"),
-    list(code = "+", name = "Seasonal & detections", reading = s7,
-         role = det_role, label = det_label)
+         label = if (discordant) "corroborates" else "quiet")
   )
 }
 
@@ -913,36 +1437,182 @@ as.character.blindspot_pager <- function(x, ...) {
   gsub(">", "&gt;", x, fixed = TRUE)
 }
 
-# one-sentence caption describing the reading for this verdict.
+# could ordinary sampling variation in the observed count produce a shortfall
+# this deep on its own? the SPI credible interval cannot answer this: it carries
+# posterior uncertainty in the *expected* count with the observed count held
+# fixed, so at small expected counts it can be wholly below one while a single
+# extra case would lift the ratio across the cut. this is the reference tail
+# P(X <= observed | lambda = expected) under a Poisson, which understates the
+# spread of the negative-binomial likelihood the model actually fits, so the
+# caveat fires less often than a fully propagated interval would warrant.
+# read from the guide when it carries the column, else computed here, so a guide
+# built before `noise_alpha` existed still reads correctly.
 # @noRd
-.pager_caption <- function(focal, name) {
+.pager_noise_tail <- function(r) {
+  carried <- suppressWarnings(as.numeric(r$noise_tail %||% NA))
+  if (isTRUE(is.finite(carried))) return(carried)
+  obs <- suppressWarnings(as.numeric(r$observed))
+  exp <- suppressWarnings(as.numeric(r$expected_total))
+  if (!isTRUE(is.finite(obs) && is.finite(exp) && exp > 0)) return(NA_real_)
+  stats::ppois(obs, lambda = exp)
+}
+
+# @noRd
+.pager_noise_plausible <- function(focal, alpha = 0.05) {
+  tail <- .pager_noise_tail(as.list(focal))
+  isTRUE(tail > alpha)
+}
+
+# significance-row clause on sampling noise: whether the gate tested it, said
+# only when it changes the reading.
+# @noRd
+.pager_noise_note <- function(r, params) {
+  alpha <- params$noise_alpha
+  tail <- .pager_noise_tail(r)
+  if (!is.finite(tail)) return("")
+  if (!is.null(alpha)) {
+    # only a gate that actually passed can claim the noise was ruled out. The
+    # gate being switched on is not the same as it having cleared
+    if (!isTRUE(tail <= alpha)) return("")
+    return(sprintf(
+      " Sampling noise ruled out at %s%% too.",
+      formatC(alpha * 100, format = "g")
+    ))
+  }
+  if (tail > 0.05) " Sampling noise untested." else ""
+}
+
+# sub-cut runs in a district's series: the run ending at the last year, the
+# longest run anywhere in the panel, and the year that longest run ended.
+# @noRd
+.pager_runs <- function(below, years) {
+  below <- !is.na(below) & below
+  cur <- 0L
+  best <- 0L
+  best_end <- NA_integer_
+  for (i in seq_along(below)) {
+    cur <- if (below[i]) cur + 1L else 0L
+    if (cur > best) {
+      best <- cur
+      best_end <- as.integer(years[i])
+    }
+  }
+  list(trailing = cur, longest = best, longest_end = best_end)
+}
+
+# persistence (P) reading. names the run ending at the read year, and adds the
+# panel's longest run separately when that is what the corroborator counted and
+# it ended earlier, so a run from years ago never reads as current.
+# @noRd
+.pager_persistence <- function(runs, year, params) {
+  yrs <- function(n) {
+    sprintf("%d consecutive year%s", n, if (n == 1L) "" else "s")
+  }
+  trailing <- runs$trailing
+  longest <- runs$longest
+  counted <- if (identical(params$persistence_basis, "trailing")) {
+    trailing
+  } else {
+    longest
+  }
+  if (counted == 0L) return("No consecutive run below the adequacy cut.")
+  base <- if (trailing > 0L) {
+    sprintf("%s below the adequacy cut to %d.", yrs(trailing), year)
+  } else {
+    sprintf("Reads at or above the adequacy cut in %d.", year)
+  }
+  stale <- longest > trailing &&
+    !identical(params$persistence_basis, "trailing")
+  if (stale && is.finite(runs$longest_end)) {
+    return(sprintf(
+      "%s The counted run is the panel's longest, %s to %d.",
+      base, yrs(longest), runs$longest_end
+    ))
+  }
+  base
+}
+
+# format a model-expected count: whole cases once there are enough of them to
+# round without distorting the ratio, one decimal below that, so a district
+# with 1.9 expected never prints as "2" beside a stated SPI it contradicts.
+# @noRd
+.pager_count <- function(x) {
+  if (!isTRUE(is.finite(x))) return("--")
+  if (abs(x) >= 10) format(round(x), big.mark = ",") else .pager_dot(x, 1)
+}
+
+# one- or two-sentence caption describing the reading for this verdict.
+# @noRd
+.pager_caption <- function(focal, name, params = list()) {
   verdict <- as.character(focal$verdict)
   discordant <- isTRUE(focal$neighbour_discordant)
   if (verdict == "FLAG") {
     tail <- if (discordant) {
-      " and the gap widens while its neighbours read adequately"
+      ", and the gap widens while its neighbours read adequately"
     } else {
       ""
     }
-    sprintf(
-      paste0("%s detects fewer non-polio AFP cases than its size, place and ",
-             "season lead the model to expect%s. Its 90%% credible interval ",
-             "sits wholly below the expected level, so the shortfall is ",
-             "unlikely to be noise."),
-      name, tail
-    )
-  } else if (verdict == "WATCH") {
+    obs <- as.integer(round(focal$observed))
+    exp <- .pager_count(focal$expected_total)
+    zero <- isTRUE(obs == 0L)
+    # the caption says what was observed; what the interval does and does not
+    # establish belongs to the significance row, and saying it in both places
+    # was the same claim twice
+    seen <- if (zero) {
+      sprintf(
+        paste0("%s detected no non-polio AFP cases at all against the %s the ",
+               "model expects for its size, place and season%s."),
+        name, exp, tail
+      )
+    } else {
+      sprintf(
+        paste0("%s detects fewer non-polio AFP cases than its size, place and ",
+               "season lead the model to expect: %d against %s%s."),
+        name, obs, exp, tail
+      )
+    }
+    # the interval speaks to uncertainty in the expectation, never to sampling
+    # variability in the count. Name the latter when the count is small
+    # enough for chance alone to produce the shortfall, unless the guide was
+    # built with a noise gate that already ruled it out
+    caveat <- if (!is.null(params$noise_alpha)) {
+      ""
+    } else if (!.pager_noise_plausible(focal)) {
+      ""
+    } else if (zero) {
+      " A count this small could come up empty by chance alone."
+    } else {
+      " A count this small could fall this short by chance alone."
+    }
+    paste0(seen, caveat)
+  } else if (verdict == "WATCH" && !isTRUE(focal$cri_excludes_1)) {
     sprintf(
       paste0("%s reads below the adequacy cut, but its 90%% credible interval ",
-             "still reaches the expected level, so another year of data is ",
-             "needed before the shortfall can be called real."),
+             "still reaches one, so uncertainty in the expected level alone ",
+             "could account for the gap."),
       name
     )
-  } else if (isTRUE(focal$spi_below)) {
+  } else if (verdict == "WATCH") {
+    # the interval is wholly below one here; it is the noise gate that held the
+    # reading back. The old wording named the interval and the chart above it
+    # printed the contradiction
+    sprintf(
+      paste0("%s reads below the adequacy cut and its 90%% credible interval ",
+             "lies wholly below one, but the count is small enough that ",
+             "ordinary sampling variation alone could produce the shortfall."),
+      name
+    )
+  } else if (verdict == "REVIEW") {
     sprintf(
       paste0("%s reads below the adequacy cut with a credible shortfall, but ",
-             "too few signals corroborate to flag it, so it is kept under ",
-             "routine monitoring rather than flagged."),
+             "too few signals corroborate to meet the flag rule."),
+      name
+    )
+  } else if (.pager_short_of_expectation(focal)) {
+    sprintf(
+      paste0("%s clears the adequacy cut, but its 90%% credible interval lies ",
+             "wholly below one: it detects measurably fewer non-polio AFP ",
+             "cases than the model expects for its size, place and season."),
       name
     )
   } else {
@@ -955,27 +1625,62 @@ as.character.blindspot_pager <- function(x, ...) {
   }
 }
 
+# the banner label sits in an auto-width grid column, so a qualified tag like
+# "Flag . corroborated" takes a quarter of the banner off the reading beside
+# it. Break it at the separator so the qualifier stacks under the verdict. The
+# masthead pill is unaffected: it has a line to itself and reads better whole.
+# @noRd
+.pager_tag_stacked <- function(tag) {
+  sub(" \u00b7 ", "<br>", tag, fixed = TRUE)
+}
+
 # verdict-banner narrative summarising the fired corroborators.
 # @noRd
 .pager_banner_reading <- function(focal, spi_cut, params, detections, label) {
   verdict <- as.character(focal$verdict)
   if (verdict != "FLAG") {
     if (verdict == "WATCH") {
+      # which half of the significance gate shut. The banner sits under a chart
+      # that draws the interval, so naming the wrong half is visible on the page
+      if (!isTRUE(focal$cri_excludes_1)) {
+        return(paste0(
+          "The SPI sits below the cut but its 90% interval still reaches one, ",
+          "so the reading is held at watch, not flagged."
+        ))
+      }
       return(paste0(
-        "The SPI sits below the cut but its 90% interval still reaches the ",
-        "expected level, so the reading is held at watch, not flagged."
+        "The SPI sits below the cut and its 90% interval lies wholly below ",
+        "one, but a count this small could fall this short by chance alone, ",
+        "so the reading is held at watch, not flagged."
       ))
     }
-    if (isTRUE(focal$spi_below)) {
+    if (verdict == "REVIEW") {
+      # at a zero count the interval is (0, 0) by construction, so citing it as
+      # what the reading rests on contradicts the significance row above, which
+      # says it carries no evidence. Rest the sentence on the count instead
+      if (isTRUE(as.integer(round(focal$observed)) == 0L)) {
+        return(paste0(
+          "The district detected nothing at all against the count the model ",
+          "expects, but fewer than the required signals corroborate, so the ",
+          "reading is held at review, not flagged."
+        ))
+      }
       return(paste0(
-        "The SPI sits below the cut and its 90% interval excludes one, but ",
-        "fewer than the required signals corroborate, so it is held at ",
-        "no-action, not flagged."
+        "The SPI sits below the cut and its 90% interval lies wholly below ",
+        "one, but fewer than the required signals corroborate, so the reading ",
+        "is held at review, not flagged."
+      ))
+    }
+    if (.pager_short_of_expectation(focal)) {
+      return(paste0(
+        "The SPI clears the adequacy cut, but its 90% interval lies wholly ",
+        "below one: the district detects measurably less than expected, and ",
+        "the flag rule does not reach it."
       ))
     }
     return(paste0(
-      "The SPI sits at or above the adequacy cut, with no corroborating ",
-      "signal firing; no action is warranted."
+      "The SPI sits at or above the adequacy cut, so the significance gate ",
+      "never opens and the reading is no-action."
     ))
   }
   # concise, bounded summary: the counted corroborators as a count (the STEPS
@@ -991,9 +1696,27 @@ as.character.blindspot_pager <- function(x, ...) {
   } else {
     sprintf("%d of %d signals", n_corr, n_axes)
   }
+  # the tiles name the serotypes per channel. Pooling them into one list here
+  # would credit each channel with the other's finds -- ES reading one serotype
+  # where AFP read five -- so the banner names the channels and leaves the
+  # naming to the tiles, which is also the only part of this sentence whose
+  # length the data controls.
+  # detections are cumulative to the read year, so an undated claim can rest on
+  # virus found five years ago. Name the year the tiles already name -- and name
+  # it per channel: pooling the years credits the quieter channel with the
+  # other's most recent find, reading as an AFP detection in a year only ES
+  # reached.
+  channel <- function(nm, years) {
+    if (length(years) == 0L) return(NULL)
+    if (length(years) == 1L) {
+      sprintf("%s (%d)", nm, years)
+    } else {
+      sprintf("%s (latest %d)", nm, max(years))
+    }
+  }
   channels <- c(
-    if (length(detections$afp) > 0) "AFP" else NULL,
-    if (length(detections$es) > 0) "ES" else NULL
+    channel("AFP", detections$afp),
+    channel("ES", detections$es)
   )
   detection <- if (length(channels) > 0) {
     sprintf(
@@ -1003,8 +1726,8 @@ as.character.blindspot_pager <- function(x, ...) {
     ""
   }
   sprintf(
-    paste0("Both the SPI and its 90%% interval sit below the cut, ",
-           "corroborated by %s%s."),
+    paste0("The SPI sits below the cut and its 90%% interval lies wholly ",
+           "below one, corroborated by %s%s."),
     corr, detection
   )
 }
@@ -1012,19 +1735,25 @@ as.character.blindspot_pager <- function(x, ...) {
 # assemble the full self-contained html document.
 # @noRd
 .pager_html <- function(
-  focal, series, neighbours, chart, locator, signals, vstyle, spi_cut, params,
+  focal, series, chart, locator, signals, vstyle, spi_cut, params,
   detections, detection_label, year, name_col, id_col, admin_label,
-  unit_noun = "district", note
+  unit_noun = "district", note = NULL, indicators = NULL, npafp_target = 3,
+  active = NULL
 ) {
+  # `[[` rather than `$`: a tibble warns on an absent column accessed with `$`,
+  # and an admin level the caller simply does not carry is not a fault
   name <- .pager_escape(as.character(focal[[name_col]]))
-  adm1 <- .pager_escape(as.character(focal$adm1_name %||% ""))
-  adm0 <- .pager_escape(as.character(focal$adm0_name %||% ""))
-  # drop any parent level that is the unit itself (adm1 data labels the unit
-  # by adm1_name, so it would otherwise repeat in the hierarchy line)
+  adm1 <- .pager_escape(as.character(focal[["adm1_name"]] %||% ""))
+  adm0 <- .pager_escape(as.character(focal[["adm0_name"]] %||% ""))
+  # drop the parent level that *is* the unit (adm1 data labels the unit by
+  # adm1_name, so it would otherwise repeat in the hierarchy line). Keyed on
+  # which column names the unit, not on the strings matching: an LGA that
+  # shares its state's name is still inside that state, and dropping the
+  # parent there left the page indistinguishable from the state's own.
   parent <- paste(
     c(
-      adm1[nzchar(adm1) & adm1 != name],
-      adm0[nzchar(adm0) & adm0 != name],
+      adm1[nzchar(adm1) & !identical(name_col, "adm1_name")],
+      adm0[nzchar(adm0) & !identical(name_col, "adm0_name")],
       admin_label
     ),
     collapse = " \u00b7 "
@@ -1036,18 +1765,24 @@ as.character.blindspot_pager <- function(x, ...) {
   } else {
     sprintf(" \u00b7 neighbours %s", .pager_dot(focal$neighbour_spi, 2))
   }
-
-  legend_neighbour <- if (length(neighbours) == 0L) {
-    ""
-  } else if (length(neighbours) == 1L && neighbours[[1]]$name ==
-             "neighbour median") {
-    "<span><span class=\"lk n\"></span> neighbour median</span>"
-  } else {
-    paste0(
-      "<span><span class=\"lk n\"></span> neighbouring ",
-      .pager_plural(unit_noun), "</span>"
+  # the under-15 denominator the expected count is built on. Without it a reader
+  # cannot tell whether an expectation of 1.9 cases belongs to a district of
+  # twenty thousand children or two hundred thousand.
+  pop <- suppressWarnings(as.numeric(focal$pop_u15 %||% NA))
+  pop_txt <- if (isTRUE(is.finite(pop))) {
+    sprintf(
+      "<br>pop u15 %s", formatC(round(pop), format = "d", big.mark = ",")
     )
+  } else {
+    ""
   }
+
+  # the sub-lines as they read, so the name is sized against the column they
+  # actually need rather than a worst case
+  unit_size <- sprintf("%.1f", .pager_unit_size(
+    name, vstyle$tag,
+    c(vstyle$state, paste0("SPI ", spi, nb_txt), sub("^<br>", "", pop_txt))
+  ))
 
   rows <- vapply(signals, function(s) {
     sprintf(
@@ -1074,7 +1809,7 @@ as.character.blindspot_pager <- function(x, ...) {
   detect_clause <- if (detection_counts) {
     "."
   } else {
-    "; season and detections corroborate from outside this count."
+    "; season and detections are read as context above, never in this count."
   }
   rule <- sprintf(
     paste0("A %s is flagged when its SPI sits below the %s adequacy cut, its ",
@@ -1083,11 +1818,10 @@ as.character.blindspot_pager <- function(x, ...) {
     unit_noun, .pager_dot(spi_cut, 2), as.integer(params$min_corroborators),
     n_axes, paste(axes, collapse = ", "), detect_clause
   )
-  caption <- .pager_escape(.pager_caption(focal, name))
+  caption <- .pager_escape(.pager_caption(focal, name, params))
   banner_reading <- .pager_escape(
     .pager_banner_reading(focal, spi_cut, params, detections, detection_label)
   )
-  action <- paste(vstyle$action, collapse = " \u00b7<br>")
   legend_detect <- paste0(
     if (length(detections$afp) > 0) {
       "<span><span class=\"ld\"></span> AFP detection</span>"
@@ -1100,8 +1834,16 @@ as.character.blindspot_pager <- function(x, ...) {
       ""
     }
   )
-  eyebrow <- sprintf("blindspot \u00b7 SPI reading \u00b7 %s %d \u00b7 %s",
-                     adm0, year, note)
+  # the provenance tag is opt-in: eyebrow and footer carry it only when `note`
+  # is supplied, so a reading is never stamped with a placeholder by default
+  note <- if (is.null(note)) "" else trimws(as.character(note)[1])
+  note_tag <- if (nzchar(note)) {
+    paste0(" \u00b7 ", .pager_escape(note))
+  } else {
+    ""
+  }
+  eyebrow <- sprintf("blindspot \u00b7 SPI reading \u00b7 %s %d%s",
+                     adm0, year, note_tag)
 
   paste0(
     .pager_head(name, year, vstyle$accent),
@@ -1110,15 +1852,15 @@ as.character.blindspot_pager <- function(x, ...) {
     # masthead
     "<div class=\"mast\"><div>",
     "<div class=\"eyebrow\">", eyebrow, "</div>",
-    "<div class=\"unit\">", name, "</div>",
+    "<div class=\"unit\" style=\"font-size:", unit_size, "px\">",
+    name, "</div>",
     "<div class=\"parent\">", parent, "</div></div>",
     "<div class=\"verdict\"><span class=\"tag\">", vstyle$tag, "</span>",
-    "<div class=\"sub\">", vstyle$priority, "<br>SPI <b>", spi, "</b>",
-    nb_txt, "</div></div></div>",
+    "<div class=\"sub\">", vstyle$state, "<br>SPI <b>", spi, "</b>",
+    nb_txt, pop_txt, "</div></div></div>",
     # body
     "<div class=\"body\"><div class=\"cgroup\">",
-    "<div class=\"sectlab\"><span>SPI over time \u2014 ", name,
-    " against its touching neighbours</span>",
+    "<div class=\"sectlab\"><span>SPI over time \u2014 ", name, "</span>",
     "<span>observed \u00f7 model-expected non-polio AFP</span></div>",
     "<div class=\"caption\">", caption, "</div>",
     "<div class=\"chartbox\"><div class=\"ts\">", chart, "</div>",
@@ -1132,23 +1874,28 @@ as.character.blindspot_pager <- function(x, ...) {
     "<div class=\"legend\">",
     "<span><span class=\"lk\"></span> ", name, "</span>",
     "<span><span class=\"lband\"></span> 90% credible interval</span>",
-    legend_neighbour,
     "<span><span class=\"lk exp\"></span> 1\u00b70, expected detection</span>",
     legend_detect,
-    "</div></div>",
+    "</div>",
+    .pager_strip_html(
+      indicators, series$year, npafp_target, vstyle$accent, focal,
+      detections, detection_label, active
+    ),
+    "</div>",
     # reading
     "<div class=\"reading\"><div class=\"sectlab\" ",
-    "style=\"margin-bottom:6px\"><span>The reading \u2014 the five STEPS for ",
+    "style=\"margin-bottom:6px\"><span>Reading the SPI \u2014 the five STEPS ",
+    "for ",
     name, "</span><span>gate \u00b7 magnitude \u00b7 corroboration</span></div>",
     "<div class=\"rrule\">", rule, "</div>",
     "<div>", rows, "</div></div>",
     # verdict banner
-    "<div class=\"vbanner\"><div class=\"vt\">", vstyle$tag, "</div>",
-    "<div class=\"vw\">", banner_reading, "</div>",
-    "<div class=\"va\">", action, "</div></div>",
+    "<div class=\"vbanner\"><div class=\"vt\">",
+    .pager_tag_stacked(vstyle$tag), "</div>",
+    "<div class=\"vw\">", banner_reading, "</div></div>",
     "</div>",
     # footer
-    "<div class=\"foot\"><div>computed from bs_spi() posterior \u00b7 ", note,
+    "<div class=\"foot\"><div>", sub("^ \u00b7 ", "", note_tag),
     "</div><div>verify against source systems before operational use</div>",
     "</div></div></div></body></html>"
   )
@@ -1167,7 +1914,7 @@ as.character.blindspot_pager <- function(x, ...) {
 
 # the pager stylesheet (design tokens + layout), verbatim from the field
 # guide's tear-sheet design plus a muted "quiet" role chip. `accent` drives
-# the verdict colour (rose flag / amber watch / green no-action).
+# the verdict colour (rose flag / plum review / amber watch / green no-action).
 # @noRd
 .pager_css <- function(accent) {
   paste0(
@@ -1176,7 +1923,7 @@ as.character.blindspot_pager <- function(x, ...) {
     "Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,",
     "400;1,6..72,500&display=swap');",
     ":root{--ink:#15233b;--ink-soft:#5a6883;--paper:#fbf7f0;--line:#e4ddd0;",
-    "--grid:#efe9dd;--nbr:#94a0b3;--blind:#c8102e;--buildup:#e87722;",
+    "--grid:#efe9dd;--blind:#c8102e;--buildup:#e87722;",
     "--watch:#2f9e8f;--assured:#1f6f43;--accent:", accent, "}",
     "*{margin:0;padding:0;box-sizing:border-box}",
     "body{background:#cfc6b6;font-family:'Archivo',sans-serif;padding:30px;",
@@ -1212,11 +1959,13 @@ as.character.blindspot_pager <- function(x, ...) {
     "margin:16px 0 4px}",
     ".caption{font-family:'Newsreader',serif;font-size:13px;line-height:1.45;",
     "color:var(--ink);max-width:735px}",
-    ".chartbox{flex-shrink:0;margin-top:8px;background:#fffdf8;border:1px ",
+    # the locator badge hangs 12px above the chart box, so the box needs more
+    # than that above it or the badge collides with the caption
+    ".chartbox{flex-shrink:0;margin-top:24px;background:#fffdf8;border:1px ",
     "solid var(--line);padding:10px 12px 6px;position:relative}",
     ".ts{width:100%}.ts svg{width:100%;height:auto;display:block}",
-    ".locbadge{position:absolute;top:-12px;right:-11px;width:112px;",
-    "height:112px;background:#fffdf8;border:1px solid var(--line);",
+    ".locbadge{position:absolute;top:-12px;right:-11px;width:130px;",
+    "height:130px;background:#fffdf8;border:1px solid var(--line);",
     "box-shadow:0 10px 22px -8px rgba(21,35,59,.42);padding:7px;display:flex;",
     "align-items:center}",
     ".locbadge .lbmap{width:100%}",
@@ -1226,7 +1975,6 @@ as.character.blindspot_pager <- function(x, ...) {
     "align-items:center}",
     ".legend span{display:inline-flex;align-items:center;gap:6px}",
     ".lk{width:20px;height:0;border-top:3px solid var(--accent)}",
-    ".lk.n{border-top:1.4px solid var(--nbr)}",
     ".lk.exp{border-top:1.4px dashed var(--ink)}",
     ".lband{width:18px;height:11px;background:var(--accent);opacity:.16;",
     "border-radius:2px}",
@@ -1234,6 +1982,32 @@ as.character.blindspot_pager <- function(x, ...) {
     "transform:rotate(45deg)}",
     ".lo{width:9px;height:9px;border:1.6px solid var(--accent);",
     "border-radius:50%;box-sizing:border-box}",
+    ".istrip{flex-shrink:0;margin-top:20px}",
+    ".igrid{display:grid;grid-template-columns:1fr 274px 120px;gap:8px}",
+    ".igrid.dets-only{grid-template-columns:1fr}",
+    ".idets{display:grid;grid-template-rows:1fr 1fr;gap:6px}",
+    ".itile.det .v{font-size:13px;letter-spacing:-.01em;word-break:break-word}",
+    ".itile.det.hit .v{color:var(--accent)}",
+    ".ipanel{background:#fffdf8;border:1px solid var(--line);",
+    "padding:6px 9px 2px}",
+    ".ilab{font-family:'Spline Sans Mono',monospace;font-size:8px;",
+    "letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);",
+    "margin-bottom:7px}",
+    ".ipanel svg{width:100%;height:auto;display:block}",
+    ".itiles{display:grid;grid-template-columns:1fr 1fr;gap:6px}",
+    ".itile{background:#fffdf8;border:1px solid var(--line);",
+    "padding:4px 8px 5px;",
+    "display:flex;flex-direction:column;justify-content:center}",
+    ".itile .k{font-family:'Spline Sans Mono',monospace;font-size:7.5px;",
+    "letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft)}",
+    ".itile .v{font-size:18px;font-weight:800;letter-spacing:-.025em;",
+    "line-height:1.15;margin-top:5px}",
+    ".itile .m{font-family:'Spline Sans Mono',monospace;font-size:7.5px;",
+    "color:var(--ink-soft);line-height:1.3;margin-top:2px}",
+    ".itile.thin .v,.itile.miss .v{font-size:13px;color:var(--ink-soft)}",
+    ".itile.fail .v,.itile.fail .m,.itile.gap .v,.itile.gap .m{",
+    "color:var(--blind)}",
+    ".itile.gap .m{font-weight:600}",
     ".body{flex:1;display:flex;flex-direction:column;justify-content:",
     "space-between;min-height:0}",
     ".cgroup{flex-shrink:0}.reading{margin-top:0;flex-shrink:0}",
@@ -1256,15 +2030,19 @@ as.character.blindspot_pager <- function(x, ...) {
     ".role.quiet{color:var(--ink-soft);border:1px solid var(--line);",
     "opacity:.55}",
     ".role.external{color:var(--accent);border:1px dashed var(--accent)}",
-    ".vbanner{display:grid;grid-template-columns:auto 1fr auto;gap:16px;",
+    ".vbanner{display:grid;grid-template-columns:auto 1fr;gap:16px;",
     "align-items:center;background:var(--accent);color:#fff;padding:9px 15px;",
     "margin-top:9px}",
     ".vbanner .vt{font-family:'Spline Sans Mono',monospace;font-weight:600;",
-    "font-size:12px;letter-spacing:.09em;text-transform:uppercase}",
+    "font-size:12px;letter-spacing:.09em;text-transform:uppercase;",
+    "line-height:1.35}",
+    # `pretty`, not `balance`: balance equalises the line lengths, so on a
+    # two-line reading it holds the first line short and leaves a gap down the
+    # right of the banner. Fill the first line and let the last one fall where
+    # it does -- pretty still avoids breaking to a one-word last line, which is
+    # the fault balance was there to prevent.
     ".vbanner .vw{font-family:'Newsreader',serif;font-size:12.5px;",
-    "line-height:1.4;color:rgba(255,255,255,.9)}",
-    ".vbanner .va{font-family:'Spline Sans Mono',monospace;font-size:11px;",
-    "font-weight:600;letter-spacing:.02em;text-align:right;line-height:1.4}",
+    "line-height:1.4;color:rgba(255,255,255,.9);text-wrap:pretty}",
     ".foot{display:flex;justify-content:space-between;align-items:center;",
     "margin-top:10px;padding-top:11px;border-top:1px solid var(--line);",
     "flex-shrink:0;font-family:'Spline Sans Mono',monospace;font-size:9px;",

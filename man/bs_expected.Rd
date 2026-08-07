@@ -23,7 +23,8 @@ bs_expected(
   verbose = TRUE,
   check = TRUE,
   debug = FALSE,
-  seed = 42L
+  seed = 42L,
+  num_threads = if (is.null(seed)) NULL else "1:1"
 )
 }
 \arguments{
@@ -123,9 +124,19 @@ observed count), and skips muting INLA's compiled-binary messages.
 Use when results look off or when investigating convergence. Default:
 FALSE.}
 
-\item{seed}{Integer. Random seed for \code{inla.posterior.sample()}, so posterior
-draws are reproducible across runs. Pass \code{NULL} to draw a fresh random
-seed each call. Default: 42L.}
+\item{seed}{Integer. Random seed forwarded to \code{inla.posterior.sample()},
+which pins the posterior draws. Must be a single non-negative whole
+number; \code{NULL} draws a fresh seed each call. Seeding alone is \emph{not}
+sufficient for run-to-run reproducibility -- see the Reproducibility
+section. Default: 42L.}
+
+\item{num_threads}{Threads for the INLA fit, passed to \code{INLA::inla()} and
+\code{inla.posterior.sample()} as \code{num.threads} (INLA's \code{"A:B"} form, e.g.
+\code{"1:1"} or \code{"12:1"}). Defaults to \code{"1:1"} whenever \code{seed} is set, because
+a multithreaded fit is not bit-reproducible even at a fixed seed; pass
+\code{NULL} to inherit \code{INLA::inla.getOption("num.threads")} and regain
+parallel speed at the cost of determinism. Ignored when \code{seed = NULL}
+unless given explicitly.}
 }
 \value{
 Object of class \code{blindspot_expected}. A list containing:
@@ -256,6 +267,38 @@ DHIS2 reporting completeness \tab none or rw2     \cr
 These are starting points, not prescriptions -- always verify against the
 monthly-average plot for your data and country, since seasonality varies by
 climate zone and surveillance system.
+}
+
+\section{Reproducibility}{
+
+Three separate things have to be pinned before two runs of the same code
+agree, and \code{seed} on its own covers only one of them:
+\enumerate{
+\item \strong{Which posterior configuration each draw comes from.}
+\code{inla.posterior.sample()} picks this with R's own RNG, so \code{set.seed()}
+governs it.
+\item \strong{The latent field drawn within that configuration.} This comes from an
+RNG inside INLA's compiled code that R's \code{set.seed()} cannot reach, so
+the seed has to be handed to INLA directly.
+\item \strong{The fit itself.} \code{INLA::inla()} is not bit-reproducible when it runs
+multithreaded: the hyperparameter mode and integration points shift with
+thread scheduling, so the draws are taken from a slightly different
+posterior. \code{num_threads} governs this.
+}
+
+\code{bs_expected()} handles (1) and (2) whenever \code{seed} is non-NULL, restoring
+the caller's RNG state afterwards. (3) is why \code{num_threads} defaults to
+\code{"1:1"} alongside a seed.
+
+Leaving any one of them loose does not merely perturb the last decimal: it
+moves SPI values and flips field-guide verdicts, and it can do so for a
+district whose own numbers barely moved, because corroboration reads
+\emph{neighbouring} districts' posteriors, which drift too.
+
+The defaults are therefore reproducible but serial, which costs wall clock
+against a multithreaded fit. For exploratory work where determinism does
+not matter, pass \code{num_threads = NULL} to inherit INLA's global thread
+setting, or \code{seed = NULL} to opt out entirely.
 }
 
 \examples{

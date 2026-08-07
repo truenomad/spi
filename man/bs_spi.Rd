@@ -76,7 +76,8 @@ fit <- bs_expected(
   overdispersion = "nb"
 )
 
-spi_dy <- bs_spi(expected = fit, level = "district_year")
+# pass boundaries to carry adm1/adm2 names next to the district id
+spi_dy <- bs_spi(fit, level = "district_year", boundaries = boundaries)
 print(spi_dy)
 }
 }

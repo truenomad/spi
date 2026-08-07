@@ -9,9 +9,11 @@ bs_field_guide_pager(
   district,
   adjacency = NULL,
   boundaries = NULL,
+  indicators_df = NULL,
+  npafp_target = NULL,
   es = NULL,
   es_col = NULL,
-  detection_label = "cVDPV2",
+  detection_label = NULL,
   year = NULL,
   path = NULL,
   file = NULL,
@@ -20,7 +22,7 @@ bs_field_guide_pager(
   id_col = NULL,
   admin_label = "admin-2 district",
   unit_noun = "district",
-  note = "illustrative",
+  note = NULL,
   verbose = TRUE
 )
 }
@@ -31,16 +33,30 @@ bs_field_guide_pager(
 in the id column, or a district name matched (case-insensitively) against
 \code{name_col}. Ids are tried first, so an id is unambiguous.}
 
-\item{adjacency}{Optional spatial neighbour object from \code{\link[=bs_adjacency]{bs_adjacency()}}
-(class \code{blindspot_nb}). Enables per-neighbour lines on the chart. Default:
-NULL.}
+\item{adjacency}{Deprecated and ignored. The locator inset places the focal
+district in its country rather than among its neighbours, so the pager no
+longer reads a neighbour graph. Default: NULL.}
 
-\item{boundaries}{Optional sf polygon layer keyed by \code{id_col}. Serves double
-duty: when \code{adjacency} is NULL the neighbour graph is built from it with
-\code{\link[=bs_adjacency]{bs_adjacency()}} (so the pager is self-contained -- field guide +
-shapefile, no pre-built graph), and its real geometry draws a locator
-inset on the chart, the focal district in the accent colour ringed by its
-touching neighbours. Default: NULL (no inset).}
+\item{boundaries}{Optional sf polygon layer keyed by \code{id_col}, covering the
+whole country. Draws the locator inset from its real geometry. An
+\code{adm1_name} column, if present, supplies the regional outlines; an
+\code{adm0_name} column restricts a multi-country layer to the focal district's
+own country. Default: NULL (no inset).}
+
+\item{indicators_df}{Optional district-year panel of conventional AFP and ES
+indicators, keyed by \code{guid} (or \code{id_col}) and \code{year}. When supplied, a
+strip below the chart shows the non-polio AFP rate over the same years
+against its target, plus tiles for whichever of \code{stool_adequacy_cond_pct},
+\code{inv_timeliness_pct}, \code{onset_notify_pct} and \code{ev_rate} are present. Pass
+the assessable counts (\code{inv_timeliness_n}, \code{onset_notify_n}) and they are
+shown under each figure; a percentage on fewer than five cases prints as a
+fraction instead, since a flagged district often has only a handful. These
+indicators support the reading from outside the five STEPS: they never
+enter the corroborator count and never change the verdict. Default NULL
+(no strip).}
+
+\item{npafp_target}{Numeric non-polio AFP rate target for the strip's rate
+panel, per 100,000 under 15. Default: NULL (\code{x$thresholds$npafp}).}
 
 \item{es}{Optional ad-hoc environmental-surveillance detections keyed by
 \code{id_col} and \code{year}, overriding the field guide's own ES channel. Normally
@@ -53,8 +69,12 @@ Each row (or each \code{es_col}-positive row) is an ES positive. Default: NULL
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
 
-\item{detection_label}{Serotype label used in the out-of-grid detection
-reading, e.g. \code{"cVDPV2"} or \code{"WPV1"}. Default: \code{"cVDPV2"}.}
+\item{detection_label}{What the detections in \code{x} and \code{es} actually are,
+e.g. \code{"cVDPV2"} or \code{"WPV1"}. The field guide records only the years a
+detection occurred, not its serotype, so this is your declaration of what
+you filtered \code{genomic} / \code{es} down to when you built the guide. Leave it
+NULL where the input mixes serotypes: the page then reads "poliovirus"
+rather than naming one it was never told. Default: NULL.}
 
 \item{year}{Integer focal year for the reading. Default: NULL
 (\code{x$read_year}).}
@@ -86,8 +106,8 @@ on-page reading (e.g. "expected for the \code{unit_noun}", "A \code{unit_noun} i
 flagged when..."). Set it to match \code{admin_label}, e.g. \code{"province"} for
 admin-1 inputs. Default: \code{"district"}.}
 
-\item{note}{Provenance tag printed in the eyebrow and footer. Default:
-\code{"illustrative"}.}
+\item{note}{Optional provenance tag printed in the eyebrow and footer, e.g.
+\code{"illustrative"} for a worked example. Default: NULL (untagged).}
 
 \item{verbose}{Logical. Emit a cli summary on build. Default: TRUE.}
 }
@@ -101,11 +121,11 @@ it reports the verdict and any written files. Recover the markup with
 \description{
 Turns one district's \code{\link[=bs_field_guide]{bs_field_guide()}} reading into a self-contained,
 print-ready HTML "pager": a masthead with the verdict, an SPI-over-time
-chart of the district against its touching neighbours (with the 90\%
-credible-interval ribbon and any orphan-poliovirus detections marked), the
-five-STEPS reading laid out as gate / magnitude / corroboration (with
-seasonal and detection corroboration read out of grid), and a verdict banner
-with the recommended action.
+chart for the district (with the 90\% credible-interval ribbon and any
+orphan-poliovirus detections marked), the five-STEPS reading laid out as
+gate / magnitude / corroboration (with seasonal and detection corroboration
+read out of grid), and a verdict banner summarising what the reading rests
+on. The pager reports the reading; it recommends no follow-up.
 
 It is the single-district companion to \code{\link[=bs_field_guide_table]{bs_field_guide_table()}}: where the
 table scans many districts at once, the pager is the tear-sheet you hand to
@@ -117,11 +137,26 @@ so the output file needs no JavaScript and no network access (the only
 remote reference is a Google Fonts stylesheet, which degrades to system
 fonts offline). Every number is read from \code{x}; nothing is simulated.
 
-Pass \code{adjacency} (from \code{\link[=bs_adjacency]{bs_adjacency()}}) to draw each touching neighbour as
-its own muted line and to key the surroundings (S) reading off the same
-graph the field guide used. Without it the chart falls back to the single
-neighbour-median series already stored on the field guide, and the neighbour
-lines are omitted.
+The chart plots the focal district alone: its SPI line, the 90\%
+credible-interval ribbon and any detection markers. Neighbours enter the
+page as the neighbour-median figure in the masthead and the surroundings (S)
+reading, both taken from the field guide, rather than as lines on the chart.
+
+Pass \code{boundaries} to draw the locator inset: the whole country in outline
+with its admin-1 divisions, and the focal district filled in the accent
+colour and ringed, so a reader can see where in the country it sits. There is
+no neighbour tier, because at badge size a district is only a few pixels
+across.
+
+Pass \code{indicators_df} to add conventional AFP and ES indicators to the context
+row below the chart: the non-polio AFP rate over the same years against its
+target, and tiles for stool adequacy, the two timeliness percentages and the
+EV rate (an ES measure, so it reads "no ES site" where the district has
+none). Its denominator is the case count, which in a flagged district is
+usually a handful, so a percentage on fewer than five assessable cases prints
+as a fraction and is not graded against a target. These indicators are
+supporting context from outside the five STEPS: they never enter the
+corroborator count and never change the verdict.
 
 The out-of-grid detection row reports poliovirus found there through either
 channel: the case-based (AFP) detections already carried by the field
@@ -131,18 +166,18 @@ a hollow ring) and named in the reading. Detections are narrative
 corroboration only; they never enter the STEPS count or change the verdict,
 matching the paper.
 
-The accent colour tracks the verdict: rose for a flag, amber for a watch,
-green for no action. A flag with an orphan-poliovirus detection is titled
-\emph{"Flag, corroborated"}.
+The accent colour tracks the verdict: rose for a flag, plum for a review,
+amber for a watch, green for no action. A flag with an orphan-poliovirus
+detection is titled \emph{"Flag, corroborated"}.
 }
 \examples{
 fg <- synth_field_guide
 pager <- bs_field_guide_pager(fg, district = "Tirwen")
 pager
 \dontrun{
-# self-contained: hand it the shapefile and it builds the neighbour graph
-# itself, draws a locator inset, and reads both detection channels (AFP +
-# ES, already carried by the field guide) into the out-of-grid detection row
+# self-contained: hand it the shapefile and it draws the locator inset, and
+# reads both detection channels (AFP + ES, already carried by the field
+# guide) into the out-of-grid detection row
 bs_field_guide_pager(
   fg,
   district = "Tirwen",
@@ -153,6 +188,6 @@ bs_field_guide_pager(
 }
 }
 \seealso{
-\code{\link[=bs_field_guide]{bs_field_guide()}} for the reading, \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} for
-the multi-district table, and \code{\link[=bs_adjacency]{bs_adjacency()}} for the neighbour graph.
+\code{\link[=bs_field_guide]{bs_field_guide()}} for the reading and \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} for
+the multi-district table.
 }

@@ -1,14 +1,28 @@
+# verdict tiers, strongest first. Every renderer, legend and summary orders off
+# this, so a new tier reaches all of them at once.
+# @noRd
+.FG_VERDICT_LEVELS <- c("FLAG", "REVIEW", "WATCH", "No action")
+
+# the significance gate as the guide recorded it. A guide built before the gate
+# was split from the interval carries it under `cri_excludes_1`, which is what
+# that column meant at the time, so a saved object still reads correctly
+# instead of reporting an open gate on a row where the gate shut.
+# @noRd
+.fg_gate_pass <- function(r) {
+  isTRUE(r$gate_pass %||% r$cri_excludes_1)
+}
+
 #' Read a low SPI through the five-signal STEPS field guide
 #'
 #' @description
 #' Turns a [bs_concordance()] result into an operational reading of every
 #' district-year: the five interpretation signals -- **STEPS** (significance,
-#' trend, extent, persistence, surroundings) -- and a three-level verdict
-#' (`FLAG`, `WATCH`, `No action`). It automates the paper's *"Interpreting and
-#' acting on the SPI"* field guide, which separates a genuine, sustained
-#' detection shortfall from statistical noise or a low-expectation artefact
-#' using only the SPI and its credible interval; the reading rests on the
-#' signals' convergence.
+#' trend, extent, persistence, surroundings) -- and a four-level verdict
+#' (`FLAG`, `REVIEW`, `WATCH`, `No action`). It automates the paper's
+#' *"Interpreting and acting on the SPI"* field guide, which separates a
+#' genuine, sustained detection shortfall from statistical noise or a
+#' low-expectation artefact using only the SPI and its credible interval; the
+#' reading rests on the signals' convergence.
 #'
 #' The five STEPS signals, each ruling out a different alternative explanation:
 #' \itemize{
@@ -41,11 +55,16 @@
 #' credible interval is below 1, and at least `min_corroborators` of three
 #' corroborating signals fire (a deteriorating **trend**, sustained
 #' sub-threshold **persistence**, or under-detection against healthy
-#' **surroundings**). A district below the cut whose credible interval still
-#' reaches 1 is kept at **watch** rather than flagged; everything else needs
-#' **no action**. Significance is the entry point, not a corroborator; extent
-#' grades depth; seasonal and detection corroboration (AFP or ES) strengthen a
-#' flag from outside the grid but never enter the count, matching the paper.
+#' **surroundings**). A district that meets the first two conditions but not
+#' the third is held at **review**: the shortfall is credible, only the
+#' corroboration is thin. A district below the cut whose credible interval
+#' still reaches 1 -- or whose shortfall ordinary sampling noise could produce,
+#' where `noise_alpha` tests for it -- is kept at **watch** rather than
+#' flagged, since there the evidence itself is what falls short. Everything
+#' else needs **no action**. Significance is the entry point, not a
+#' corroborator; extent grades depth; seasonal and detection corroboration
+#' (AFP or ES) strengthen a flag from outside the grid but never enter the
+#' count, matching the paper.
 #'
 #' Three settings refine the reading; all are off by default, so the field
 #' guide reproduces the paper's published spec out of the box (bare slope-sign
@@ -88,6 +107,14 @@
 #'   `concordance$thresholds$spi`).
 #' @param persistence Integer. Consecutive sub-cut years that corroborate a
 #'   flag (persistence, P). Default: 3.
+#' @param persistence_basis Which run the persistence corroborator (P) counts.
+#'   `"longest"` is the running maximum over the panel to date: it never falls
+#'   back once earned, so a district that read short years ago still carries
+#'   the run after recovering. `"trailing"` is the run ending at the year being
+#'   read, so persistence speaks to that year. Both runs are always reported
+#'   (`longest_run_below`, `trailing_run_below`); this chooses which one gates.
+#'   Default: `"longest"`, reproducing the published flag counts.
+#'   `"trailing"` is the recommended setting for an operational read.
 #' @param traj_window Integer. Trend regression window in years, ending
 #'   at each year (trend, T). Default: 5.
 #' @param traj_tol Numeric slope dead-band per year below which a trend
@@ -101,6 +128,37 @@
 #'   slope-sign-and-tolerance trajectory, which reproduces the published flag
 #'   counts). `0.1` is the recommended setting, improving specificity on
 #'   volatile series.
+#' @param noise_alpha Optional numeric level for a sampling-noise gate on
+#'   significance (S). The SPI credible interval is posterior uncertainty in
+#'   the *expected* count with the observed count held fixed, so it says
+#'   nothing about sampling variation in the count itself. At `observed = 0`
+#'   the ratio is identically zero in every draw, the interval collapses to
+#'   `(0, 0)`, and `cri_excludes_1` is TRUE whatever the expected count, so the
+#'   interval alone does no work. When `noise_alpha` is set, `gate_pass`
+#'   additionally requires the Poisson reference tail
+#'   \eqn{P(X \le observed \mid \lambda = expected)} to be at or below it, so a
+#'   shortfall that chance alone could produce cannot open the gate. This
+#'   subsumes a minimum-expected-count floor: at a zero count, `0.05` implies
+#'   roughly three expected cases. `cri_excludes_1` keeps its own meaning
+#'   either way, so a reading can say which of the two conditions failed. The
+#'   tail is always reported (`noise_tail`, `noise_plausible`) whether or not
+#'   it gates. Default: NULL
+#'   (no noise gate, reproducing the published flag counts); `0.05` is the
+#'   recommended setting for an operational read.
+#' @param serotype_col Optional name of a serotype column in `genomic` and / or
+#'   `es`, e.g. holding `"cVDPV2"`, `"WPV1"`. When given, the distinct serotypes
+#'   seen up to each year are recorded as `orphan_serotypes` / `es_serotypes`,
+#'   so a reading can name what was actually found rather than assuming one
+#'   serotype. Without it those columns are NA, which downstream reads as "not
+#'   recorded" rather than "none found". Default: NULL.
+#' @param detection_serotypes Optional character vector of the serotypes that
+#'   count as a detection, matched against `serotype_col`, e.g.
+#'   `c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")`. An ambiguous VDPV is not a
+#'   confirmed circulating virus, so a programme reading usually wants it out of
+#'   the detection channels even though it sits in the line list. Rows outside
+#'   the set are dropped before the detection years, flags and serotypes are
+#'   computed, so all three stay consistent. Requires `serotype_col`. Default:
+#'   NULL (whatever the input contains counts).
 #' @param min_corroborators Integer. Corroborating signals required to flag.
 #'   Default: 2.
 #' @param dedupe_temporal Logical. Count a falling trend (T) and a persistent
@@ -119,10 +177,15 @@
 #' @return An object of class `blindspot_field_guide`. A list with:
 #' \describe{
 #'   \item{district_year}{Tibble, one row per district-year, carrying the
-#'     inputs plus every signal value (`spi_below`, `cri_excludes_1`,
-#'     `s1_discordance`, `longest_run_below`, `trajectory`, `neighbour_spi`,
+#'     inputs plus every signal value (`spi_below`, `cri_excludes_1`
+#'     (the interval alone), `gate_pass` (the significance gate the verdict
+#'     turns on: the interval, and the noise tail when `noise_alpha` is set),
+#'     `s1_discordance`, `noise_tail`, `noise_plausible`,
+#'     `longest_run_below`, `trailing_run_below`, `run_below` (whichever of the
+#'     two `persistence_basis` gates on), `trajectory`, `neighbour_spi`,
 #'     `neighbour_discordant`, `neighbourhood_shortfall`, `seasonal`,
-#'     `orphan_years`, `genomic_orphan`, `es_years`, `es_detected`),
+#'     `orphan_years`, `genomic_orphan`, `orphan_serotypes`, `es_years`,
+#'     `es_detected`, `es_serotypes`),
 #'     `corroborators`, and `verdict` (factor).}
 #'   \item{focal}{The `read_year` slice of `district_year`.}
 #'   \item{reference}{The five-signal STEPS reference tibble (what each asks /
@@ -175,12 +238,16 @@ bs_field_guide <- function(
   genomic_col = NULL,
   es = NULL,
   es_col = NULL,
+  serotype_col = NULL,
+  detection_serotypes = NULL,
   read_year = NULL,
   spi_cut = NULL,
   persistence = 3L,
+  persistence_basis = c("longest", "trailing"),
   traj_window = 5L,
   traj_tol = 0.01,
   traj_alpha = NULL,
+  noise_alpha = NULL,
   min_corroborators = 2L,
   dedupe_temporal = FALSE,
   detection_corroborates = FALSE,
@@ -217,14 +284,46 @@ bs_field_guide <- function(
     )
   }
 
+  persistence_basis <- match.arg(persistence_basis)
+  if (!is.null(noise_alpha)) {
+    noise_alpha <- as.numeric(noise_alpha)[1]
+    if (!is.finite(noise_alpha) || noise_alpha <= 0 || noise_alpha >= 1) {
+      cli::cli_abort("{.arg noise_alpha} must be a probability in (0, 1).")
+    }
+  }
+
   # --- year-invariant flags -------------------------------------------
+  # `noise_plausible` asks the question the credible interval cannot: could
+  # ordinary sampling variation in the *observed* count produce a shortfall
+  # this deep on its own? SPI = observed / expected_draws, so the interval is
+  # posterior uncertainty in the expectation with the observed count held
+  # fixed. At observed = 0 the ratio is identically 0 in every draw, the
+  # interval collapses to (0, 0), and `cri_excludes_1` is TRUE whatever the
+  # expected count, so the gate does no work at all on a zero. The Poisson
+  # reference tail closes that hole. It understates the spread of the
+  # negative-binomial likelihood actually fitted, so it is the conservative
+  # choice: it calls fewer readings noise-plausible than a fully propagated
+  # posterior predictive interval would.
   dy <- dy |>
     dplyr::mutate(
       conventional_pass = .data$npafp_adequate,
       spi_below = .data$spi_median < spi_cut,
+      noise_tail = .fg_noise_tail(.data$observed, .data$expected_total),
+      noise_plausible = !is.na(.data$noise_tail) &
+        .data$noise_tail > (noise_alpha %||% 0.05),
+      # `cri_excludes_1` says only what its name says, whatever else gates.
+      # `gate_pass` is the significance gate the verdict actually turns on: the
+      # interval, plus the noise tail when `noise_alpha` asks for it. Keeping
+      # the two apart lets a reading say which condition failed instead of
+      # reporting a closed noise gate as an interval that reaches 1.
       cri_excludes_1 = .data$spi_q95 < 1,
+      gate_pass = if (is.null(noise_alpha)) {
+        .data$spi_q95 < 1
+      } else {
+        .data$spi_q95 < 1 & !.data$noise_plausible
+      },
       s1_discordance = .data$conventional_pass & .data$spi_below &
-        .data$cri_excludes_1
+        .data$gate_pass
     )
 
   # --- persistence (P) + trend (T) (per district, cumulative in year) ---
@@ -262,17 +361,23 @@ bs_field_guide <- function(
   # both are narrative corroboration; neither enters the corroborator count
   have_genomic <- !is.null(genomic)
   if (have_genomic) {
-    dy <- .fg_add_genomic(dy, genomic, id_col, genomic_col)
+    dy <- .fg_add_genomic(
+      dy, genomic, id_col, genomic_col, serotype_col, detection_serotypes
+    )
   } else {
     dy$orphan_years <- NA_character_
     dy$genomic_orphan <- NA
+    dy$orphan_serotypes <- NA_character_
   }
   have_es <- !is.null(es)
   if (have_es) {
-    dy <- .fg_add_es(dy, es, id_col, es_col)
+    dy <- .fg_add_es(
+      dy, es, id_col, es_col, serotype_col, detection_serotypes
+    )
   } else {
     dy$es_years <- NA_character_
     dy$es_detected <- NA
+    dy$es_serotypes <- NA_character_
   }
 
   # --- corroborators + verdict ----------------------------------------
@@ -282,7 +387,19 @@ bs_field_guide <- function(
   # (trend falling, persistence) is one corroborator when deduped, since over a
   # short window the two can re-read the same decline, and two otherwise.
   temporal_falling <- dy$trajectory == "falling"
-  temporal_persistent <- dy$longest_run_below >= persistence
+  # which run counts as persistence. "longest" is the running maximum over the
+  # panel to date, so it never falls back once earned: a district that read
+  # short years ago still carries the run after recovering, which is why the
+  # published counts use it. "trailing" is the run ending at the read year, so
+  # persistence speaks to the year being read.
+  # carried as a column so every reading, table and shading shows the run that
+  # actually gates, not whichever one happens to be larger
+  dy$run_below <- if (identical(persistence_basis, "trailing")) {
+    dy$trailing_run_below
+  } else {
+    dy$longest_run_below
+  }
+  temporal_persistent <- dy$run_below >= persistence
   temporal <- if (dedupe_temporal) {
     as.integer(temporal_falling | temporal_persistent)
   } else {
@@ -296,14 +413,21 @@ bs_field_guide <- function(
   dy$corroborators <- temporal +
     as.integer(is_true(dy$neighbour_discordant)) +
     detection_corr
+  # four tiers, ordered by how much of the rule the reading met. REVIEW is the
+  # tier the three-level taxonomy had nowhere to put: the significance gate is
+  # open -- a credible shortfall, noise ruled out where it was tested -- and
+  # only the corroborator count falls short. That is stronger evidence than
+  # WATCH, whose defining property is that the gate never opened, so it cannot
+  # sit below it.
   dy$verdict <- factor(
     dplyr::case_when(
-      dy$spi_below & dy$cri_excludes_1 &
+      dy$spi_below & dy$gate_pass &
         dy$corroborators >= min_corroborators ~ "FLAG",
-      dy$spi_below & !dy$cri_excludes_1 ~ "WATCH",
+      dy$spi_below & dy$gate_pass ~ "REVIEW",
+      dy$spi_below & !dy$gate_pass ~ "WATCH",
       TRUE ~ "No action"
     ),
-    levels = c("FLAG", "WATCH", "No action")
+    levels = .FG_VERDICT_LEVELS
   )
 
   signals_active <- c(
@@ -333,6 +457,7 @@ bs_field_guide <- function(
     cli::cli_alert_success(
       "Field guide read for {.val {read_year}}: \\
        {sum(foc$verdict == 'FLAG')} flag, \\
+       {sum(foc$verdict == 'REVIEW')} review, \\
        {sum(foc$verdict == 'WATCH')} watch, \\
        {sum(foc$verdict == 'No action')} no-action."
     )
@@ -347,9 +472,11 @@ bs_field_guide <- function(
       thresholds = list(spi = spi_cut, npafp = npafp_target),
       params = list(
         persistence = as.integer(persistence),
+        persistence_basis = persistence_basis,
         traj_window = as.integer(traj_window),
         traj_tol = traj_tol,
         traj_alpha = traj_alpha,
+        noise_alpha = noise_alpha,
         min_corroborators = as.integer(min_corroborators),
         dedupe_temporal = dedupe_temporal,
         detection_corroborates = detection_corroborates
@@ -374,9 +501,47 @@ bs_field_guide <- function(
     dplyr::group_by(dplyr::across(dplyr::all_of(id_col))) |>
     dplyr::arrange(.data$year, .by_group = TRUE) |>
     dplyr::mutate(
-      longest_run_below = .fg_cum_max_run(.data$spi_median < spi_cut)
+      longest_run_below = .fg_cum_max_run(.data$spi_median < spi_cut),
+      trailing_run_below = .fg_trailing_run(.data$spi_median < spi_cut)
     ) |>
     dplyr::ungroup()
+}
+
+# Poisson tail P(X <= observed | lambda = expected): the chance that sampling
+# variation alone yields a count this low or lower against the model's
+# expectation. Deliberately Poisson rather than negative-binomial. It
+# understates the true spread, so gating on it errs towards keeping flags.
+# @noRd
+.fg_noise_tail <- function(observed, expected) {
+  ok <- is.finite(observed) & is.finite(expected) & expected > 0
+  out <- rep(NA_real_, length(observed))
+  out[ok] <- stats::ppois(observed[ok], lambda = expected[ok])
+  out
+}
+
+# consecutive-TRUE run ending at each year (NA treated as FALSE). unlike the
+# running maximum this falls back to zero when a district recovers, so it can
+# say whether the run is current rather than merely historical.
+# @noRd
+.fg_trailing_run <- function(below) {
+  below <- as.integer(below)
+  below[is.na(below)] <- 0L
+  out <- integer(length(below))
+  cur <- 0L
+  for (i in seq_along(below)) {
+    cur <- if (below[i] == 1L) cur + 1L else 0L
+    out[i] <- cur
+  }
+  out
+}
+
+# `run_below`, whichever run `persistence_basis` gated on, is carried on the
+# guide. Backfill it for an object built before it existed, so an older saved
+# guide still summarises, tables and narrates.
+# @noRd
+.fg_backfill_run <- function(df) {
+  if (!"run_below" %in% names(df)) df$run_below <- df$longest_run_below
+  df
 }
 
 # running maximum consecutive-TRUE run length (NA treated as FALSE).
@@ -548,7 +713,8 @@ bs_field_guide <- function(
 
 # out-of-grid genomic: orphan detection years up to and including each year.
 # @noRd
-.fg_add_genomic <- function(dy, genomic, id_col, genomic_col) {
+.fg_add_genomic <- function(dy, genomic, id_col, genomic_col,
+                           serotype_col = NULL, keep_serotypes = NULL) {
   stopifnot(
     is.data.frame(genomic),
     id_col %in% names(genomic),
@@ -563,6 +729,7 @@ bs_field_guide <- function(
     }
     g <- g[as.logical(g[[genomic_col]]) %in% TRUE, , drop = FALSE]
   }
+  g <- .fg_keep_serotypes(g, serotype_col, keep_serotypes, "genomic")
   orphan_map <- split(as.integer(g$year), as.character(g[[id_col]]))
   ids <- as.character(dy[[id_col]])
   yrs <- as.integer(dy$year)
@@ -573,14 +740,62 @@ bs_field_guide <- function(
     if (length(y) == 0L) "" else paste(y, collapse = ", ")
   }, character(1))
   dy$genomic_orphan <- nzchar(dy$orphan_years)
+  dy$orphan_serotypes <- .fg_serotypes_to(g, id_col, serotype_col, ids, yrs)
   dy
+}
+
+# keep only the serotypes that count as a detection. An ambiguous VDPV is not a
+# confirmed circulating virus, so a programme reading usually wants WPV and
+# cVDPV only; leaving this NULL counts whatever the input contains.
+# @noRd
+.fg_keep_serotypes <- function(g, serotype_col, keep, arg) {
+  if (is.null(keep)) return(g)
+  if (is.null(serotype_col)) {
+    cli::cli_abort(
+      "{.arg detection_serotypes} needs {.arg serotype_col} so the serotype \\
+       of each detection is known."
+    )
+  }
+  if (!serotype_col %in% names(g)) {
+    cli::cli_abort(
+      "{.arg serotype_col} {.val {serotype_col}} not in {.arg {arg}}."
+    )
+  }
+  g[as.character(g[[serotype_col]]) %in% as.character(keep), , drop = FALSE]
+}
+
+# the distinct serotypes seen in a district up to and including each year, as a
+# comma-joined string. NA throughout where the input names no serotype, so a
+# reader downstream can tell "not recorded" from "none found".
+# @noRd
+.fg_serotypes_to <- function(g, id_col, serotype_col, ids, yrs) {
+  if (is.null(serotype_col) || !serotype_col %in% names(g)) {
+    return(rep(NA_character_, length(ids)))
+  }
+  keep <- !is.na(g[[serotype_col]]) & nzchar(as.character(g[[serotype_col]]))
+  g <- g[keep, , drop = FALSE]
+  by_id <- split(
+    data.frame(
+      year = as.integer(g$year),
+      serotype = as.character(g[[serotype_col]]),
+      stringsAsFactors = FALSE
+    ),
+    as.character(g[[id_col]])
+  )
+  vapply(seq_along(ids), function(i) {
+    d <- by_id[[ids[i]]]
+    if (is.null(d)) return("")
+    v <- sort(unique(d$serotype[d$year <= yrs[i]]))
+    if (length(v) == 0L) "" else paste(v, collapse = ", ")
+  }, character(1))
 }
 
 # out-of-grid ES: environmental-surveillance positive years up to and including
 # each year. `es_col`, when given, is a count (>0) or logical (TRUE) positive
 # flag.
 # @noRd
-.fg_add_es <- function(dy, es, id_col, es_col) {
+.fg_add_es <- function(dy, es, id_col, es_col, serotype_col = NULL,
+                      keep_serotypes = NULL) {
   stopifnot(
     is.data.frame(es),
     id_col %in% names(es),
@@ -595,6 +810,7 @@ bs_field_guide <- function(
     keep <- if (is.logical(v)) v %in% TRUE else as.numeric(v) > 0
     g <- g[keep, , drop = FALSE]
   }
+  g <- .fg_keep_serotypes(g, serotype_col, keep_serotypes, "es")
   es_map <- split(as.integer(g$year), as.character(g[[id_col]]))
   ids <- as.character(dy[[id_col]])
   yrs <- as.integer(dy$year)
@@ -605,6 +821,7 @@ bs_field_guide <- function(
     if (length(y) == 0L) "" else paste(y, collapse = ", ")
   }, character(1))
   dy$es_detected <- nzchar(dy$es_years)
+  dy$es_serotypes <- .fg_serotypes_to(g, id_col, serotype_col, ids, yrs)
   dy
 }
 
@@ -679,15 +896,17 @@ print.blindspot_field_guide <- function(x, ...) {
     "Optional signals active: {.val {active_str}}{inactive_str}"
   )
 
-  foc <- x$focal
+  foc <- .fg_backfill_run(x$focal)
   cli::cli_h2("Verdicts for {x$read_year}")
+  n <- vapply(
+    .FG_VERDICT_LEVELS,
+    function(v) sum(foc$verdict == v),
+    integer(1)
+  )
   verdict_tbl <- tibble::tibble(
-    verdict = c("FLAG", "WATCH", "No action"),
-    n = c(sum(foc$verdict == "FLAG"), sum(foc$verdict == "WATCH"),
-          sum(foc$verdict == "No action")),
-    pct = round(100 * c(sum(foc$verdict == "FLAG"),
-                        sum(foc$verdict == "WATCH"),
-                        sum(foc$verdict == "No action")) / nrow(foc), 1)
+    verdict = .FG_VERDICT_LEVELS,
+    n = unname(n),
+    pct = round(100 * unname(n) / nrow(foc), 1)
   )
   print(verdict_tbl)
 
@@ -707,7 +926,7 @@ print.blindspot_field_guide <- function(x, ...) {
 #' @export
 summary.blindspot_field_guide <- function(object, ...) {
   print(object, ...)
-  foc <- object$focal
+  foc <- .fg_backfill_run(object$focal)
   cli::cli_h2("Signal fire counts for {object$read_year}")
   detection <- (foc$genomic_orphan %in% TRUE) | (foc$es_detected %in% TRUE)
   fires <- tibble::tibble(
@@ -717,7 +936,7 @@ summary.blindspot_field_guide <- function(object, ...) {
     n = c(
       sum(foc$s1_discordance, na.rm = TRUE),
       sum(foc$trajectory == "falling", na.rm = TRUE),
-      sum(foc$longest_run_below >= object$params$persistence, na.rm = TRUE),
+      sum(foc$run_below >= object$params$persistence, na.rm = TRUE),
       sum(foc$neighbour_discordant, na.rm = TRUE),
       sum(foc$seasonally_blind, na.rm = TRUE),
       sum(detection, na.rm = TRUE)
@@ -747,12 +966,14 @@ as_tibble.blindspot_field_guide <- function(x, ...) {
     spi = round(foc$spi_median, 2),
     cri = sprintf("%.2f-%.2f", foc$spi_q05, foc$spi_q95),
     npafp = round(foc$npafp_rate, 1),
-    run = foc$longest_run_below,
+    run = foc$run_below,
     traj = foc$trajectory,
     corrob = foc$corroborators,
     verdict = as.character(foc$verdict)
   )
-  out[order(out$verdict != "FLAG", out$spi), ]
+  # by tier, then depth within it. Ranking FLAG against everything else would
+  # now sort a credible-but-uncorroborated shortfall in among the no-actions
+  out[order(factor(out$verdict, levels = .FG_VERDICT_LEVELS), out$spi), ]
 }
 
 
@@ -827,7 +1048,7 @@ bs_field_guide_help <- function(
   if ("verdict" %in% topic) {
     cli::cli_h2("The flag rule")
     cli::cli_text(
-      "Each district-year gets one of three verdicts. The rule is \\
+      "Each district-year gets one of four verdicts. The rule is \\
        deliberately conservative: uncertainty is half the signal."
     )
     cli::cli_ul()
@@ -839,11 +1060,17 @@ bs_field_guide_help <- function(
        Warrants supervisory review and active case search."
     )
     cli::cli_li(
-      "{.strong WATCH} -- below the cut, but the credible interval still \\
-       reaches 1. Kept under watch, not flagged; collect another year of data."
+      "{.strong REVIEW} -- the shortfall is credible on the same terms as a \\
+       flag, but too few corroborators fire. The evidence holds; only the \\
+       convergence is missing. Worth a look before the next read."
     )
     cli::cli_li(
-      "{.strong No action} -- neither condition holds. No follow-up needed."
+      "{.strong WATCH} -- below the cut, but the evidence itself falls \\
+       short: the credible interval still reaches 1, or sampling noise alone \\
+       could produce the gap. Collect another year of data."
+    )
+    cli::cli_li(
+      "{.strong No action} -- at or above the cut. No follow-up needed."
     )
     cli::cli_end()
     cli::cli_text(
@@ -870,8 +1097,9 @@ bs_field_guide_help <- function(
     guide <- guide %||% .fg_load_synth()
     stopifnot(inherits(guide, "blindspot_field_guide"))
     year <- as.integer(year %||% guide$read_year)
-    foc <- guide$district_year[guide$district_year$year == year, ,
-                               drop = FALSE]
+    foc <- .fg_backfill_run(
+      guide$district_year[guide$district_year$year == year, , drop = FALSE]
+    )
     id_col <- guide$id_col
     name_col <- intersect(c("adm2_name", "adm1_name"), names(foc))[1] %||%
       id_col
@@ -919,7 +1147,7 @@ bs_field_guide_help <- function(
   spi <- sprintf("%.2f", r$spi_median)
   q05 <- sprintf("%.2f", r$spi_q05)
   q95 <- sprintf("%.2f", r$spi_q95)
-  run <- as.integer(r$longest_run_below)
+  run <- as.integer(r$run_below)
   exp <- sprintf("%.1f", r$expected_total)
 
   switch(
@@ -963,6 +1191,7 @@ bs_field_guide_help <- function(
   switch(
     v,
     FLAG = "supervisory review and active case search.",
+    REVIEW = "review the shortfall; corroboration is thin, not absent.",
     WATCH = "collect another year of data before acting.",
     "no follow-up needed."
   )
@@ -1044,7 +1273,9 @@ bs_field_guide_table <- function(
   )
 
   year <- as.integer(year %||% x$read_year)
-  foc <- x$district_year[x$district_year$year == year, , drop = FALSE]
+  foc <- .fg_backfill_run(
+    x$district_year[x$district_year$year == year, , drop = FALSE]
+  )
   if (nrow(foc) == 0L) {
     cli::cli_abort("no district-year rows for {.arg year} = {.val {year}}.")
   }
@@ -1084,7 +1315,7 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_verdict_class <- function(verdict) {
   vapply(as.character(verdict), function(v) {
-    switch(v, FLAG = "warm", WATCH = "amber", "cool")
+    switch(v, FLAG = "warm", REVIEW = "warm", WATCH = "amber", "cool")
   }, character(1))
 }
 
@@ -1095,7 +1326,13 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_build_scan <- function(foc, engine, id_col, name_col, spi_cut, year,
                            shade, max_rows) {
-  foc <- foc[order(foc$verdict != "FLAG", foc$spi_median), , drop = FALSE]
+  # by tier, then depth within it, so `max_rows` truncates from the bottom of
+  # the triage rather than cutting across it
+  foc <- foc[
+    order(factor(as.character(foc$verdict), levels = .FG_VERDICT_LEVELS),
+          foc$spi_median), ,
+    drop = FALSE
+  ]
   if (nrow(foc) > max_rows) foc <- foc[seq_len(max_rows), , drop = FALSE]
 
   df <- tibble::tibble(
@@ -1104,7 +1341,7 @@ FG_CLASS_FILL <- c(
     `90% CrI` = sprintf("%.2f-%.2f", foc$spi_q05, foc$spi_q95),
     NPAFP = round(foc$npafp_rate, 1),
     Trend = tools::toTitleCase(foc$trajectory),
-    `Run (yr)` = as.integer(foc$longest_run_below),
+    `Run (yr)` = as.integer(foc$run_below),
     Seasonal = .fg_seasonal_word(foc$seasonal),
     Corrob = as.integer(foc$corroborators),
     Verdict = as.character(foc$verdict)
@@ -1274,7 +1511,7 @@ FG_CLASS_FILL <- c(
     dplyr::filter(
       remaining(),
       .data$conventional_pass, .data$verdict == "No action",
-      .data$spi_q05 >= spi_cut, .data$longest_run_below == 0L
+      .data$spi_q05 >= spi_cut, .data$run_below == 0L
     ),
     dplyr::desc(.data$expected_total)
   )
@@ -1320,7 +1557,7 @@ FG_CLASS_FILL <- c(
   if (is.null(corrob)) {
     corrob <- pick(
       dplyr::filter(remaining(), .data$verdict == "FLAG"),
-      dplyr::desc(.data$longest_run_below), .data$spi_median
+      dplyr::desc(.data$run_below), .data$spi_median
     )
     corrob_label <- "Flag, persistent"
   }
@@ -1351,9 +1588,17 @@ FG_CLASS_FILL <- c(
     significance = if (isTRUE(r$s1_discordance)) {
       sprintf("Fires: rate %.1f adequate, SPI %.2f, 90%% CrI upper %.2f",
               r$npafp_rate, r$spi_median, r$spi_q95)
-    } else if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) {
+    } else if (isTRUE(r$spi_below) && .fg_gate_pass(r)) {
       sprintf("Fires: SPI %.2f, 90%% CrI upper %.2f below one",
               r$spi_median, r$spi_q95)
+    } else if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) {
+      # the interval cleared; it was the noise tail that shut the gate. Saying
+      # "includes 1" here would contradict the bounds printed beside it
+      sprintf(
+        paste0("Does not fire: 90%% CrI (%.2f to %.2f) below 1, ",
+               "noise not ruled out"),
+        r$spi_q05, r$spi_q95
+      )
     } else if (isTRUE(r$spi_below)) {
       sprintf("Does not fire: 90%% CrI (%.2f to %.2f) includes 1",
               r$spi_q05, r$spi_q95)
@@ -1365,8 +1610,8 @@ FG_CLASS_FILL <- c(
                      r$spi_median, as.integer(round(r$observed)),
                      r$expected_total),
     persistence = sprintf("%d consecutive yr%s",
-                          as.integer(r$longest_run_below),
-                          if (as.integer(r$longest_run_below) == 1L) "" else
+                          as.integer(r$run_below),
+                          if (as.integer(r$run_below) == 1L) "" else
                             "s"),
     surroundings = .fg_s6_cell(r),
     verdict = .fg_verdict_reason(r, spi_cut)
@@ -1376,21 +1621,22 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_cell_classes <- function(r, spi_cut = 0.80) {
   c(
-    significance = if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) "warm"
+    significance = if (isTRUE(r$spi_below) && .fg_gate_pass(r)) "warm"
                    else if (isTRUE(r$spi_below)) "amber" else "cool",
     trend = switch(r$trajectory, falling = "warm", flat = "amber",
                    rising = "cool", "amber"),
     extent = if (!isTRUE(r$spi_below)) "cool"
              else if ((spi_cut - r$spi_median) >= 0.15) "warm" else "amber",
-    persistence = if (r$longest_run_below >= 3L) "warm"
-                  else if (r$longest_run_below >= 1L) "amber" else "cool",
+    persistence = if (r$run_below >= 3L) "warm"
+                  else if (r$run_below >= 1L) "amber" else "cool",
     surroundings = if (isTRUE(r$island) || is.na(r$neighbour_spi)) "none"
                    else if (isTRUE(r$neighbour_discordant)) "warm"
                    else if (!isTRUE(r$spi_below) && r$neighbour_spi >= 0.80)
                      "cool"
                    else "amber",
-    verdict = switch(as.character(r$verdict), FLAG = "warm", WATCH = "amber",
-                     "cool")
+    # unname: vapply keeps the verdict string as the element name, which would
+    # otherwise reach the caller as "verdict.FLAG"
+    verdict = unname(.fg_verdict_class(r$verdict))
   )
 }
 
@@ -1418,7 +1664,17 @@ FG_CLASS_FILL <- c(
       "Flag: SPI < %.2f, 90%% CrI excludes 1, %d corroborating signals",
       spi_cut, as.integer(r$corroborators)
     ),
-    WATCH = sprintf("Watch: SPI < %.2f but 90%% CrI includes 1", spi_cut),
+    REVIEW = sprintf(
+      paste0("Review: SPI < %.2f, 90%% CrI excludes 1, but only %d ",
+             "corroborating signal%s"),
+      spi_cut, as.integer(r$corroborators),
+      if (as.integer(r$corroborators) == 1L) "" else "s"
+    ),
+    WATCH = if (isTRUE(r$cri_excludes_1)) {
+      sprintf("Watch: SPI < %.2f but sampling noise could explain it", spi_cut)
+    } else {
+      sprintf("Watch: SPI < %.2f but 90%% CrI includes 1", spi_cut)
+    },
     "No action"
   )
 }

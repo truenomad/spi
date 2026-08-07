@@ -11,7 +11,7 @@
 #   bs_spi                    surveillance performance index (3 grains)
 #   bs_concordance            SPI vs conventional NPAFP threshold (+ strata)
 #   bs_concordance_maps       three-panel choropleth
-#   bs_field_guide            seven-signal reading -> FLAG / WATCH / No action
+#   bs_field_guide            seven-signal reading -> FLAG / REVIEW / WATCH / No action
 #   bs_field_guide_help       learn to read the verdict
 #   bs_field_guide_table      publication-ready gt / flextable
 #   as_tibble / print / summary / plot methods
@@ -374,8 +374,8 @@ if (interactive()) {
 ## ---------------------------------------------------------------------------##
 
 # Reads every district-year through the seven signals (S1-S7) and assigns a
-# FLAG / WATCH / No-action verdict. S6 needs the adjacency graph, S7 needs the
-# monthly SPI (seasonal) and an orphan-poliovirus table (genomic).
+# FLAG / REVIEW / WATCH / No-action verdict. S6 needs the adjacency graph, S7
+# needs the monthly SPI (seasonal) and an orphan-poliovirus table (genomic).
 
 cli::cli_h2("SPI field guide")
 
