@@ -18,7 +18,10 @@ test_that("synth_field_guide has the expected structure", {
       "genomic_orphan") %in% names(dy)
   ))
   expect_s3_class(dy$verdict, "factor")
-  expect_setequal(levels(dy$verdict), c("FLAG", "WATCH", "No action"))
+  expect_setequal(levels(dy$verdict), c("FLAG", "REVIEW", "WATCH",
+                                        "No action"))
+  # the interval and the gate it feeds are recorded apart
+  expect_true(all(c("cri_excludes_1", "gate_pass") %in% names(dy)))
   # all optional signals active in the shipped object
   expect_true(all(synth_field_guide$signals_active))
   # focal is the read-year slice, one row per district

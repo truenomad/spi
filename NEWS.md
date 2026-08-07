@@ -1,5 +1,42 @@
 # blindspot 0.1.0.9000
 
+* **`cri_excludes_1` meant two things.** With `noise_alpha` set it was silently
+  the interval *and* the noise tail, while every string built from it said only
+  "the credible interval excludes 1". It now means `spi_q95 < 1`, always; the
+  composite the verdict turns on is the new `gate_pass`. On the default path
+  the two are identical, so published FLAG and WATCH counts are unchanged and a
+  regression test pins that. The cost was visible: with `noise_alpha = 0.05` a
+  WATCH page printed an interval whose upper bound was below 1 and captioned it
+  "still includes one" — chip, significance row, caption and banner, all four
+  now branching on which half of the gate shut. `bs_field_guide_table()`
+  carried the same wrong cell text.
+* **New `REVIEW` verdict, between `FLAG` and `WATCH`.** A credible shortfall
+  with too few corroborators used to fall to `No action`, beneath `WATCH`,
+  whose defining property is that the evidence itself falls short. It is now
+  its own tier: tables order by tier rather than flag-versus-rest, and
+  `bs_triangulate()` grows from ten classes to thirteen (`review, ES positive`
+  high, the other two medium). `No action` now means only "at or above the cut".
+* **Detection tiles counted years and called them detections.** The guide
+  records distinct years, never a count, so five ES-positive years read
+  "5 detections" — a number the data cannot support. Now "5 years".
+* **A unit sharing its parent's name lost the parent.** The hierarchy line
+  dropped any admin level whose string matched the unit, so an LGA named after
+  its state rendered as `BAUCHI · NIGERIA · district (admin-2)`,
+  indistinguishable from the state's own page; the auto file name collided the
+  same way. Both now key on which column names the unit.
+* **The flag banner dated both channels by whichever found virus last.** "by
+  AFP and ES, latest 2025" read as an AFP detection in 2025 when only ES
+  reached it. Now "by AFP (2022) and ES (latest 2025)". Relatedly, "Sampling
+  noise ruled out at 5%" fired whenever `noise_alpha` was set rather than when
+  the tail cleared it.
+* **The verdict banner held its first line short.** `text-wrap: balance`
+  equalises line lengths, leaving a gap down the right; `pretty` fills the
+  first line and still avoids a one-word last line.
+* **`synth_field_guide` regenerated.** It predated the `bs_expected(seed = )`
+  fix below, so it never matched its own build script; SPI moves by up to 0.12.
+  It now carries `gate_pass` and the four-level verdict. Guides saved by an
+  earlier version still render, falling back to `cri_excludes_1`.
+
 * **`bs_expected(seed = ...)` now actually makes a fit reproducible, and
   gained `num_threads`.** The seed was applied with `set.seed()` alone. That
   reaches only R's RNG, which decides *which* posterior configuration each

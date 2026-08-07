@@ -309,6 +309,7 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
   base <- bs_field_guide(conc, verbose = FALSE)
   f <- base$focal
   expect_true(f$cri_excludes_1)
+  expect_true(f$gate_pass)
   expect_identical(as.character(f$verdict), "FLAG")
   # the tail is reported even with no gate asked for
   expect_equal(f$noise_tail, stats::ppois(0, 2), tolerance = 1e-9)
@@ -316,7 +317,10 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
 
   gated <- bs_field_guide(conc, noise_alpha = 0.05, verbose = FALSE)
   g <- gated$focal
-  expect_false(g$cri_excludes_1)
+  # the interval still excludes one -- it collapsed to (0, 0). What shut is the
+  # noise gate, and the two are reported apart so a reading can say which
+  expect_true(g$cri_excludes_1)
+  expect_false(g$gate_pass)
   # below the cut with the gate shut is a watch, not a flag
   expect_identical(as.character(g$verdict), "WATCH")
 
@@ -328,6 +332,48 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
   p <- bs_field_guide(powered, noise_alpha = 0.05, verbose = FALSE)$focal
   expect_false(p$noise_plausible)
   expect_true(p$cri_excludes_1)
+  expect_true(p$gate_pass)
+})
+
+test_that("noise_alpha leaves cri_excludes_1 and the default read alone", {
+  # the regression that matters: `noise_plausible` is computed whether or not
+  # it gates, so folding it into `gate_pass` unconditionally would silently
+  # apply a 5% noise gate to the published spec.
+  conc <- make_concordance()
+  base <- bs_field_guide(conc, verbose = FALSE)$district_year
+
+  expect_identical(base$cri_excludes_1, base$spi_q95 < 1)
+  expect_identical(base$gate_pass, base$cri_excludes_1)
+  expect_true(any(base$noise_plausible))
+
+  gated <- bs_field_guide(conc, noise_alpha = 0.05,
+                          verbose = FALSE)$district_year
+  # the interval column is the same object either way; only the gate moves
+  expect_identical(gated$cri_excludes_1, base$cri_excludes_1)
+  expect_identical(gated$gate_pass, gated$cri_excludes_1 &
+                     !gated$noise_plausible)
+})
+
+test_that("a credible but uncorroborated shortfall reads REVIEW, not no-action",
+{
+  # below the cut, interval wholly below one, but flat and alone: nothing
+  # corroborates. That is stronger evidence than a WATCH, whose interval
+  # reaches one, so it cannot sort beneath it.
+  conc <- make_count_concordance(list(
+    LONE = list(spi = rep(0.60, 5), q95 = rep(0.70, 5),
+                observed = 6, expected = 10)
+  ))
+  f <- bs_field_guide(conc, min_corroborators = 2L, verbose = FALSE)$focal
+
+  expect_true(f$spi_below)
+  expect_true(f$gate_pass)
+  expect_lt(f$corroborators, 2L)
+  expect_identical(as.character(f$verdict), "REVIEW")
+
+  # and the tier sits between FLAG and WATCH, so `order()` triages correctly
+  expect_identical(
+    levels(f$verdict), c("FLAG", "REVIEW", "WATCH", "No action")
+  )
 })
 
 test_that("noise_alpha must be a probability", {

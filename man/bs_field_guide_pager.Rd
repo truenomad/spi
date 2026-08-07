@@ -166,9 +166,9 @@ a hollow ring) and named in the reading. Detections are narrative
 corroboration only; they never enter the STEPS count or change the verdict,
 matching the paper.
 
-The accent colour tracks the verdict: rose for a flag, amber for a watch,
-green for no action. A flag with an orphan-poliovirus detection is titled
-\emph{"Flag, corroborated"}.
+The accent colour tracks the verdict: rose for a flag, plum for a review,
+amber for a watch, green for no action. A flag with an orphan-poliovirus
+detection is titled \emph{"Flag, corroborated"}.
 }
 \examples{
 fg <- synth_field_guide

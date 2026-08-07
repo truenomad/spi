@@ -32,14 +32,17 @@
 #'   \item **corroborated / uncorroborated clear** -- `No action`, AFP silent,
 #'     ES negative or absent. A trustworthy silence, confirmed or unconfirmed.
 #' }
-#' `WATCH` verdicts take the parallel `watch, *` labels.
+#' `REVIEW` and `WATCH` verdicts take the parallel `review, *` and `watch, *`
+#' labels. `review, ES positive` is high priority on the same reasoning as
+#' `watch, ES positive`; the other two review classes are medium.
 #'
 #' A detection can inflate NPAFP through the active case finding it triggers,
 #' which lifts SPI and makes the preceding verdict look retrospectively
 #' correct. Set `detection_lag` to align the verdict in year *t* against
 #' detections in year *t + detection_lag*, so the capacity read is taken
 #' before the response contaminated it. `flag_preceded` records, for detected
-#' district-years, whether that aligned verdict was already `FLAG` or `WATCH`.
+#' district-years, whether that aligned verdict was already `FLAG`, `REVIEW`
+#' or `WATCH`.
 #'
 #' District-years present in `field_guide` but absent from `detections` are
 #' read as no detection and no ES site. Detections here are confirmed
@@ -204,8 +207,9 @@ bs_triangulate <- function(
 
 # @noRd
 .tri_levels <- c(
-  "confirmed blindspot", "blind, unverified", "watch, ES positive",
-  "adequate, ES positive", "flagged, ES clear", "watch, ES clear",
+  "confirmed blindspot", "blind, unverified", "review, ES positive",
+  "review, unverified", "watch, ES positive", "adequate, ES positive",
+  "flagged, ES clear", "review, ES clear", "watch, ES clear",
   "watch, unverified", "corroborated clear", "uncorroborated clear",
   "detected"
 )
@@ -225,6 +229,12 @@ bs_triangulate <- function(
           "flagged, ES clear",
         .data$verdict_chr == "FLAG" & .data$es_status == "no site" ~
           "blind, unverified",
+        .data$verdict_chr == "REVIEW" & .data$es_status == "positive" ~
+          "review, ES positive",
+        .data$verdict_chr == "REVIEW" & .data$es_status == "clear" ~
+          "review, ES clear",
+        .data$verdict_chr == "REVIEW" & .data$es_status == "no site" ~
+          "review, unverified",
         .data$verdict_chr == "WATCH" & .data$es_status == "positive" ~
           "watch, ES positive",
         .data$verdict_chr == "WATCH" & .data$es_status == "clear" ~
@@ -243,16 +253,21 @@ bs_triangulate <- function(
       priority = dplyr::case_when(
         .data$triangulation == "detected" ~ "resolved",
         .data$triangulation %in% c(
-          "confirmed blindspot", "blind, unverified", "watch, ES positive"
+          "confirmed blindspot", "blind, unverified", "review, ES positive",
+          "watch, ES positive"
         ) ~ "high",
         # "adequate, ES positive" is the expected subclinical floor, not a
         # false-adequate: AFP only sees the paralytic fraction (~1/200
         # infections), so an adequate system misses most circulation by design
         # and ES picking it up is normal. Medium, not high, so it does not
         # outweigh confirmed blind spots in the triage.
+        # the review classes sit at medium alongside their watch counterparts
+        # rather than with the flags. The verdict already records that the
+        # shortfall is credible; promoting them to high as well would double-
+        # count that and swamp the confirmed blind spots in the triage.
         .data$triangulation %in% c(
-          "flagged, ES clear", "watch, ES clear", "watch, unverified",
-          "adequate, ES positive"
+          "flagged, ES clear", "review, ES clear", "review, unverified",
+          "watch, ES clear", "watch, unverified", "adequate, ES positive"
         ) ~ "medium",
         .data$triangulation %in% c(
           "corroborated clear", "uncorroborated clear"
@@ -262,7 +277,7 @@ bs_triangulate <- function(
       priority = factor(.data$priority, levels = .tri_priority_levels),
       flag_preceded = dplyr::if_else(
         .data$afp_hit,
-        .data$verdict_chr %in% c("FLAG", "WATCH"),
+        .data$verdict_chr %in% c("FLAG", "REVIEW", "WATCH"),
         NA
       )
     )
@@ -296,6 +311,15 @@ bs_triangulate <- function(
     "adequate, ES positive",
     "Verdict said adequate, yet ES found virus: a possible false-adequate.",
     "Review why an adequate district missed a detected circulation.",
+    "review, ES positive",
+    "Credible but uncorroborated shortfall with an independent ES detection.",
+    "Escalate toward flag; the ES hit supplies the missing corroboration.",
+    "review, ES clear",
+    "Credible but uncorroborated shortfall; the ES site found nothing.",
+    "Review at lower urgency; the shortfall stands, corroboration does not.",
+    "review, unverified",
+    "Credible but uncorroborated shortfall with no ES site to check it.",
+    "High-value deployment: ES would settle whether the shortfall hid virus.",
     "watch, ES positive",
     "Borderline verdict with an independent ES detection.",
     "Escalate toward flag; treat as a live signal.",
@@ -491,14 +515,19 @@ bs_triangulate_table <- function(
 # choropleth (mirrors bs_concordance_maps, single panel)
 # ---------------------------------------------------------------------------
 
-# ten-class triage palette; keys match .tri_levels exactly.
+# thirteen-class triage palette; keys match .tri_levels exactly. Built for the
+# legend and the table, not the map: the map defaults to priority precisely
+# because this many categorical fills collide on small polygons.
 # @noRd
 TRI_CLASS_FILL <- c(
   "confirmed blindspot" = "#B71C1C", # deep red: ES caught what AFP missed
   "blind, unverified" = "#AD1457", # magenta: flagged, no channel to check
+  "review, ES positive" = "#BF360C", # rust: credible shortfall + ES hit
+  "review, unverified" = "#D81B60", # light magenta: review, no channel
   "watch, ES positive" = "#E65100", # orange-red: borderline + ES hit
   "adequate, ES positive" = "#8E24AA", # purple: possible false-adequate
   "flagged, ES clear" = "#F9A825", # amber
+  "review, ES clear" = "#FB8C00", # orange: review, ES quiet
   "watch, ES clear" = "#FBC02D", # amber-yellow
   "watch, unverified" = "#FDD835", # yellow
   "corroborated clear" = "#2E7D32", # green: trustworthy, confirmed silence

@@ -1,14 +1,28 @@
+# verdict tiers, strongest first. Every renderer, legend and summary orders off
+# this, so a new tier reaches all of them at once.
+# @noRd
+.FG_VERDICT_LEVELS <- c("FLAG", "REVIEW", "WATCH", "No action")
+
+# the significance gate as the guide recorded it. A guide built before the gate
+# was split from the interval carries it under `cri_excludes_1`, which is what
+# that column meant at the time, so a saved object still reads correctly
+# instead of reporting an open gate on a row where the gate shut.
+# @noRd
+.fg_gate_pass <- function(r) {
+  isTRUE(r$gate_pass %||% r$cri_excludes_1)
+}
+
 #' Read a low SPI through the five-signal STEPS field guide
 #'
 #' @description
 #' Turns a [bs_concordance()] result into an operational reading of every
 #' district-year: the five interpretation signals -- **STEPS** (significance,
-#' trend, extent, persistence, surroundings) -- and a three-level verdict
-#' (`FLAG`, `WATCH`, `No action`). It automates the paper's *"Interpreting and
-#' acting on the SPI"* field guide, which separates a genuine, sustained
-#' detection shortfall from statistical noise or a low-expectation artefact
-#' using only the SPI and its credible interval; the reading rests on the
-#' signals' convergence.
+#' trend, extent, persistence, surroundings) -- and a four-level verdict
+#' (`FLAG`, `REVIEW`, `WATCH`, `No action`). It automates the paper's
+#' *"Interpreting and acting on the SPI"* field guide, which separates a
+#' genuine, sustained detection shortfall from statistical noise or a
+#' low-expectation artefact using only the SPI and its credible interval; the
+#' reading rests on the signals' convergence.
 #'
 #' The five STEPS signals, each ruling out a different alternative explanation:
 #' \itemize{
@@ -41,11 +55,16 @@
 #' credible interval is below 1, and at least `min_corroborators` of three
 #' corroborating signals fire (a deteriorating **trend**, sustained
 #' sub-threshold **persistence**, or under-detection against healthy
-#' **surroundings**). A district below the cut whose credible interval still
-#' reaches 1 is kept at **watch** rather than flagged; everything else needs
-#' **no action**. Significance is the entry point, not a corroborator; extent
-#' grades depth; seasonal and detection corroboration (AFP or ES) strengthen a
-#' flag from outside the grid but never enter the count, matching the paper.
+#' **surroundings**). A district that meets the first two conditions but not
+#' the third is held at **review**: the shortfall is credible, only the
+#' corroboration is thin. A district below the cut whose credible interval
+#' still reaches 1 -- or whose shortfall ordinary sampling noise could produce,
+#' where `noise_alpha` tests for it -- is kept at **watch** rather than
+#' flagged, since there the evidence itself is what falls short. Everything
+#' else needs **no action**. Significance is the entry point, not a
+#' corroborator; extent grades depth; seasonal and detection corroboration
+#' (AFP or ES) strengthen a flag from outside the grid but never enter the
+#' count, matching the paper.
 #'
 #' Three settings refine the reading; all are off by default, so the field
 #' guide reproduces the paper's published spec out of the box (bare slope-sign
@@ -115,13 +134,15 @@
 #'   nothing about sampling variation in the count itself. At `observed = 0`
 #'   the ratio is identically zero in every draw, the interval collapses to
 #'   `(0, 0)`, and `cri_excludes_1` is TRUE whatever the expected count, so the
-#'   gate does no work. When `noise_alpha` is set, the gate additionally
-#'   requires the Poisson reference tail
+#'   interval alone does no work. When `noise_alpha` is set, `gate_pass`
+#'   additionally requires the Poisson reference tail
 #'   \eqn{P(X \le observed \mid \lambda = expected)} to be at or below it, so a
 #'   shortfall that chance alone could produce cannot open the gate. This
 #'   subsumes a minimum-expected-count floor: at a zero count, `0.05` implies
-#'   roughly three expected cases. The tail is always reported
-#'   (`noise_tail`, `noise_plausible`) whether or not it gates. Default: NULL
+#'   roughly three expected cases. `cri_excludes_1` keeps its own meaning
+#'   either way, so a reading can say which of the two conditions failed. The
+#'   tail is always reported (`noise_tail`, `noise_plausible`) whether or not
+#'   it gates. Default: NULL
 #'   (no noise gate, reproducing the published flag counts); `0.05` is the
 #'   recommended setting for an operational read.
 #' @param serotype_col Optional name of a serotype column in `genomic` and / or
@@ -156,7 +177,9 @@
 #' @return An object of class `blindspot_field_guide`. A list with:
 #' \describe{
 #'   \item{district_year}{Tibble, one row per district-year, carrying the
-#'     inputs plus every signal value (`spi_below`, `cri_excludes_1`,
+#'     inputs plus every signal value (`spi_below`, `cri_excludes_1`
+#'     (the interval alone), `gate_pass` (the significance gate the verdict
+#'     turns on: the interval, and the noise tail when `noise_alpha` is set),
 #'     `s1_discordance`, `noise_tail`, `noise_plausible`,
 #'     `longest_run_below`, `trailing_run_below`, `run_below` (whichever of the
 #'     two `persistence_basis` gates on), `trajectory`, `neighbour_spi`,
@@ -288,13 +311,19 @@ bs_field_guide <- function(
       noise_tail = .fg_noise_tail(.data$observed, .data$expected_total),
       noise_plausible = !is.na(.data$noise_tail) &
         .data$noise_tail > (noise_alpha %||% 0.05),
-      cri_excludes_1 = if (is.null(noise_alpha)) {
+      # `cri_excludes_1` says only what its name says, whatever else gates.
+      # `gate_pass` is the significance gate the verdict actually turns on: the
+      # interval, plus the noise tail when `noise_alpha` asks for it. Keeping
+      # the two apart lets a reading say which condition failed instead of
+      # reporting a closed noise gate as an interval that reaches 1.
+      cri_excludes_1 = .data$spi_q95 < 1,
+      gate_pass = if (is.null(noise_alpha)) {
         .data$spi_q95 < 1
       } else {
         .data$spi_q95 < 1 & !.data$noise_plausible
       },
       s1_discordance = .data$conventional_pass & .data$spi_below &
-        .data$cri_excludes_1
+        .data$gate_pass
     )
 
   # --- persistence (P) + trend (T) (per district, cumulative in year) ---
@@ -384,14 +413,21 @@ bs_field_guide <- function(
   dy$corroborators <- temporal +
     as.integer(is_true(dy$neighbour_discordant)) +
     detection_corr
+  # four tiers, ordered by how much of the rule the reading met. REVIEW is the
+  # tier the three-level taxonomy had nowhere to put: the significance gate is
+  # open -- a credible shortfall, noise ruled out where it was tested -- and
+  # only the corroborator count falls short. That is stronger evidence than
+  # WATCH, whose defining property is that the gate never opened, so it cannot
+  # sit below it.
   dy$verdict <- factor(
     dplyr::case_when(
-      dy$spi_below & dy$cri_excludes_1 &
+      dy$spi_below & dy$gate_pass &
         dy$corroborators >= min_corroborators ~ "FLAG",
-      dy$spi_below & !dy$cri_excludes_1 ~ "WATCH",
+      dy$spi_below & dy$gate_pass ~ "REVIEW",
+      dy$spi_below & !dy$gate_pass ~ "WATCH",
       TRUE ~ "No action"
     ),
-    levels = c("FLAG", "WATCH", "No action")
+    levels = .FG_VERDICT_LEVELS
   )
 
   signals_active <- c(
@@ -421,6 +457,7 @@ bs_field_guide <- function(
     cli::cli_alert_success(
       "Field guide read for {.val {read_year}}: \\
        {sum(foc$verdict == 'FLAG')} flag, \\
+       {sum(foc$verdict == 'REVIEW')} review, \\
        {sum(foc$verdict == 'WATCH')} watch, \\
        {sum(foc$verdict == 'No action')} no-action."
     )
@@ -861,13 +898,15 @@ print.blindspot_field_guide <- function(x, ...) {
 
   foc <- .fg_backfill_run(x$focal)
   cli::cli_h2("Verdicts for {x$read_year}")
+  n <- vapply(
+    .FG_VERDICT_LEVELS,
+    function(v) sum(foc$verdict == v),
+    integer(1)
+  )
   verdict_tbl <- tibble::tibble(
-    verdict = c("FLAG", "WATCH", "No action"),
-    n = c(sum(foc$verdict == "FLAG"), sum(foc$verdict == "WATCH"),
-          sum(foc$verdict == "No action")),
-    pct = round(100 * c(sum(foc$verdict == "FLAG"),
-                        sum(foc$verdict == "WATCH"),
-                        sum(foc$verdict == "No action")) / nrow(foc), 1)
+    verdict = .FG_VERDICT_LEVELS,
+    n = unname(n),
+    pct = round(100 * unname(n) / nrow(foc), 1)
   )
   print(verdict_tbl)
 
@@ -932,7 +971,9 @@ as_tibble.blindspot_field_guide <- function(x, ...) {
     corrob = foc$corroborators,
     verdict = as.character(foc$verdict)
   )
-  out[order(out$verdict != "FLAG", out$spi), ]
+  # by tier, then depth within it. Ranking FLAG against everything else would
+  # now sort a credible-but-uncorroborated shortfall in among the no-actions
+  out[order(factor(out$verdict, levels = .FG_VERDICT_LEVELS), out$spi), ]
 }
 
 
@@ -1007,7 +1048,7 @@ bs_field_guide_help <- function(
   if ("verdict" %in% topic) {
     cli::cli_h2("The flag rule")
     cli::cli_text(
-      "Each district-year gets one of three verdicts. The rule is \\
+      "Each district-year gets one of four verdicts. The rule is \\
        deliberately conservative: uncertainty is half the signal."
     )
     cli::cli_ul()
@@ -1019,11 +1060,17 @@ bs_field_guide_help <- function(
        Warrants supervisory review and active case search."
     )
     cli::cli_li(
-      "{.strong WATCH} -- below the cut, but the credible interval still \\
-       reaches 1. Kept under watch, not flagged; collect another year of data."
+      "{.strong REVIEW} -- the shortfall is credible on the same terms as a \\
+       flag, but too few corroborators fire. The evidence holds; only the \\
+       convergence is missing. Worth a look before the next read."
     )
     cli::cli_li(
-      "{.strong No action} -- neither condition holds. No follow-up needed."
+      "{.strong WATCH} -- below the cut, but the evidence itself falls \\
+       short: the credible interval still reaches 1, or sampling noise alone \\
+       could produce the gap. Collect another year of data."
+    )
+    cli::cli_li(
+      "{.strong No action} -- at or above the cut. No follow-up needed."
     )
     cli::cli_end()
     cli::cli_text(
@@ -1144,6 +1191,7 @@ bs_field_guide_help <- function(
   switch(
     v,
     FLAG = "supervisory review and active case search.",
+    REVIEW = "review the shortfall; corroboration is thin, not absent.",
     WATCH = "collect another year of data before acting.",
     "no follow-up needed."
   )
@@ -1267,7 +1315,7 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_verdict_class <- function(verdict) {
   vapply(as.character(verdict), function(v) {
-    switch(v, FLAG = "warm", WATCH = "amber", "cool")
+    switch(v, FLAG = "warm", REVIEW = "warm", WATCH = "amber", "cool")
   }, character(1))
 }
 
@@ -1278,7 +1326,13 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_build_scan <- function(foc, engine, id_col, name_col, spi_cut, year,
                            shade, max_rows) {
-  foc <- foc[order(foc$verdict != "FLAG", foc$spi_median), , drop = FALSE]
+  # by tier, then depth within it, so `max_rows` truncates from the bottom of
+  # the triage rather than cutting across it
+  foc <- foc[
+    order(factor(as.character(foc$verdict), levels = .FG_VERDICT_LEVELS),
+          foc$spi_median), ,
+    drop = FALSE
+  ]
   if (nrow(foc) > max_rows) foc <- foc[seq_len(max_rows), , drop = FALSE]
 
   df <- tibble::tibble(
@@ -1534,9 +1588,17 @@ FG_CLASS_FILL <- c(
     significance = if (isTRUE(r$s1_discordance)) {
       sprintf("Fires: rate %.1f adequate, SPI %.2f, 90%% CrI upper %.2f",
               r$npafp_rate, r$spi_median, r$spi_q95)
-    } else if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) {
+    } else if (isTRUE(r$spi_below) && .fg_gate_pass(r)) {
       sprintf("Fires: SPI %.2f, 90%% CrI upper %.2f below one",
               r$spi_median, r$spi_q95)
+    } else if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) {
+      # the interval cleared; it was the noise tail that shut the gate. Saying
+      # "includes 1" here would contradict the bounds printed beside it
+      sprintf(
+        paste0("Does not fire: 90%% CrI (%.2f to %.2f) below 1, ",
+               "noise not ruled out"),
+        r$spi_q05, r$spi_q95
+      )
     } else if (isTRUE(r$spi_below)) {
       sprintf("Does not fire: 90%% CrI (%.2f to %.2f) includes 1",
               r$spi_q05, r$spi_q95)
@@ -1559,7 +1621,7 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_cell_classes <- function(r, spi_cut = 0.80) {
   c(
-    significance = if (isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)) "warm"
+    significance = if (isTRUE(r$spi_below) && .fg_gate_pass(r)) "warm"
                    else if (isTRUE(r$spi_below)) "amber" else "cool",
     trend = switch(r$trajectory, falling = "warm", flat = "amber",
                    rising = "cool", "amber"),
@@ -1572,8 +1634,9 @@ FG_CLASS_FILL <- c(
                    else if (!isTRUE(r$spi_below) && r$neighbour_spi >= 0.80)
                      "cool"
                    else "amber",
-    verdict = switch(as.character(r$verdict), FLAG = "warm", WATCH = "amber",
-                     "cool")
+    # unname: vapply keeps the verdict string as the element name, which would
+    # otherwise reach the caller as "verdict.FLAG"
+    verdict = unname(.fg_verdict_class(r$verdict))
   )
 }
 
@@ -1601,7 +1664,17 @@ FG_CLASS_FILL <- c(
       "Flag: SPI < %.2f, 90%% CrI excludes 1, %d corroborating signals",
       spi_cut, as.integer(r$corroborators)
     ),
-    WATCH = sprintf("Watch: SPI < %.2f but 90%% CrI includes 1", spi_cut),
+    REVIEW = sprintf(
+      paste0("Review: SPI < %.2f, 90%% CrI excludes 1, but only %d ",
+             "corroborating signal%s"),
+      spi_cut, as.integer(r$corroborators),
+      if (as.integer(r$corroborators) == 1L) "" else "s"
+    ),
+    WATCH = if (isTRUE(r$cri_excludes_1)) {
+      sprintf("Watch: SPI < %.2f but sampling noise could explain it", spi_cut)
+    } else {
+      sprintf("Watch: SPI < %.2f but 90%% CrI includes 1", spi_cut)
+    },
     "No action"
   )
 }

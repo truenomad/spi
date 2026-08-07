@@ -368,8 +368,8 @@ as.character.blindspot_pager <- function(x, ...) {
   # an adm2 sharing its parent's name is a different unit and needs a different
   # file, or the two pagers collide the moment they share an output folder
   parts <- c(
-    if (identical(name_col, "adm0_name")) NA else focal$adm0_name %||% NA,
-    if (identical(name_col, "adm1_name")) NA else focal$adm1_name %||% NA,
+    if (identical(name_col, "adm0_name")) NA else focal[["adm0_name"]] %||% NA,
+    if (identical(name_col, "adm1_name")) NA else focal[["adm1_name"]] %||% NA,
     focal[[name_col]] %||% NA
   )
   parts <- .pager_slug(parts[!is.na(parts) & nzchar(parts)])
@@ -1308,7 +1308,7 @@ as.character.blindspot_pager <- function(x, ...) {
              "still includes one."),
       spi, q05, q95
     )
-  } else if (!isTRUE(r$gate_pass)) {
+  } else if (!.fg_gate_pass(r)) {
     # the interval cleared and the noise gate did not, so the bounds printed
     # here are both below one. Saying "includes one" would be contradicted by
     # the two numbers in the same sentence.
@@ -1655,6 +1655,16 @@ as.character.blindspot_pager <- function(x, ...) {
       ))
     }
     if (verdict == "REVIEW") {
+      # at a zero count the interval is (0, 0) by construction, so citing it as
+      # what the reading rests on contradicts the significance row above, which
+      # says it carries no evidence. Rest the sentence on the count instead
+      if (isTRUE(as.integer(round(focal$observed)) == 0L)) {
+        return(paste0(
+          "The district detected nothing at all against the count the model ",
+          "expects, but fewer than the required signals corroborate, so the ",
+          "reading is held at review, not flagged."
+        ))
+      }
       return(paste0(
         "The SPI sits below the cut and its 90% interval lies wholly below ",
         "one, but fewer than the required signals corroborate, so the reading ",
@@ -1730,9 +1740,11 @@ as.character.blindspot_pager <- function(x, ...) {
   unit_noun = "district", note = NULL, indicators = NULL, npafp_target = 3,
   active = NULL
 ) {
+  # `[[` rather than `$`: a tibble warns on an absent column accessed with `$`,
+  # and an admin level the caller simply does not carry is not a fault
   name <- .pager_escape(as.character(focal[[name_col]]))
-  adm1 <- .pager_escape(as.character(focal$adm1_name %||% ""))
-  adm0 <- .pager_escape(as.character(focal$adm0_name %||% ""))
+  adm1 <- .pager_escape(as.character(focal[["adm1_name"]] %||% ""))
+  adm0 <- .pager_escape(as.character(focal[["adm0_name"]] %||% ""))
   # drop the parent level that *is* the unit (adm1 data labels the unit by
   # adm1_name, so it would otherwise repeat in the hierarchy line). Keyed on
   # which column names the unit, not on the strings matching: an LGA that
@@ -2024,10 +2036,13 @@ as.character.blindspot_pager <- function(x, ...) {
     ".vbanner .vt{font-family:'Spline Sans Mono',monospace;font-weight:600;",
     "font-size:12px;letter-spacing:.09em;text-transform:uppercase;",
     "line-height:1.35}",
-    # balance stops the reading breaking to a one-word last line, which reads
-    # as a fault in a banner this shallow
+    # `pretty`, not `balance`: balance equalises the line lengths, so on a
+    # two-line reading it holds the first line short and leaves a gap down the
+    # right of the banner. Fill the first line and let the last one fall where
+    # it does -- pretty still avoids breaking to a one-word last line, which is
+    # the fault balance was there to prevent.
     ".vbanner .vw{font-family:'Newsreader',serif;font-size:12.5px;",
-    "line-height:1.4;color:rgba(255,255,255,.9);text-wrap:balance}",
+    "line-height:1.4;color:rgba(255,255,255,.9);text-wrap:pretty}",
     ".foot{display:flex;justify-content:space-between;align-items:center;",
     "margin-top:10px;padding-top:11px;border-top:1px solid var(--line);",
     "flex-shrink:0;font-family:'Spline Sans Mono',monospace;font-size:9px;",

@@ -16,10 +16,9 @@ adequate_district <- function(fg) {
   ok[["adm2_name"]][1]
 }
 
-below_cut_no_action_district <- function(fg) {
+review_district <- function(fg) {
   foc <- fg$focal
-  ok <- foc[foc$verdict == "No action" & foc$spi_below, ]
-  ok[["adm2_name"]][1]
+  foc[foc$verdict == "REVIEW", ][["adm2_name"]][1]
 }
 
 test_that("a flag district renders a well-formed pager object", {
@@ -55,19 +54,52 @@ test_that("an adequate district switches the accent to green", {
   expect_match(p$html, "gate stays shut", fixed = TRUE)
 })
 
-test_that("a below-cut no-action district is not called adequate", {
+test_that("a credible but uncorroborated shortfall renders as review", {
   fg <- synth_field_guide
-  d <- below_cut_no_action_district(fg)
+  d <- review_district(fg)
   skip_if(is.na(d))
 
   p <- bs_field_guide_pager(fg, district = d, verbose = FALSE)
-  expect_identical(p$verdict, "No action")
+  expect_identical(p$verdict, "REVIEW")
   h <- p$html
-  # neutral slate, not green; tag is not "Adequate"
-  expect_match(h, "--accent:#5a6883", fixed = TRUE)
+  # its own tier, not the no-action slate and not green
+  expect_match(h, "--accent:#8c2f39", fixed = TRUE)
+  expect_match(h, "class=\"tag\">Review", fixed = TRUE)
   expect_no_match(h, "class=\"tag\">Adequate", fixed = TRUE)
   # honest caption: credible shortfall, too few corroborators
   expect_match(h, "too few signals corroborate", fixed = TRUE)
+  expect_match(h, "held at review, not flagged", fixed = TRUE)
+})
+
+test_that("a watch names the half of the gate that actually shut", {
+  # a zero count against a small expectation: the interval collapses to (0, 0),
+  # so it excludes one and the noise gate is what holds the reading at watch.
+  # Saying "includes one" here contradicts the bounds printed beside it.
+  conc <- make_count_concordance(list(
+    ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
+                observed = c(1, 1, 0, 0, 0), expected = 2)
+  ))
+  fg <- bs_field_guide(conc, noise_alpha = 0.05, verbose = FALSE)
+  expect_identical(as.character(fg$focal$verdict), "WATCH")
+
+  h <- bs_field_guide_pager(fg, district = "ZERO", verbose = FALSE)$html
+  expect_no_match(h, "includes one", fixed = TRUE)
+  expect_no_match(h, "interval includes 1", fixed = TRUE)
+  expect_no_match(h, "still reaches one", fixed = TRUE)
+  expect_match(h, "noise not ruled out", fixed = TRUE)
+  expect_match(h, "by chance alone", fixed = TRUE)
+
+  # the ordinary watch -- interval genuinely reaching one -- keeps its wording
+  wide <- make_count_concordance(list(
+    WIDE = list(spi = rep(0.6, 5), q95 = rep(1.2, 5),
+                observed = 6, expected = 10)
+  ))
+  fgw <- bs_field_guide(wide, verbose = FALSE)
+  expect_identical(as.character(fgw$focal$verdict), "WATCH")
+  hw <- bs_field_guide_pager(fgw, district = "WIDE", verbose = FALSE)$html
+  expect_match(hw, "interval includes 1", fixed = TRUE)
+  expect_match(hw, "still reaches one", fixed = TRUE)
+  expect_no_match(hw, "noise not ruled out", fixed = TRUE)
 })
 
 test_that("a detection is context, never a counted STEPS signal", {
@@ -129,9 +161,9 @@ test_that("the banner dates the detection it corroborates on", {
   banner <- regmatches(h, regexpr("(?<=class=\"vw\">).*?(?=</div>)", h,
                                   perl = TRUE))
   # detections are cumulative to the read year, so an undated claim can rest on
-  # virus found years ago
+  # virus found years ago. The date rides the channel that found it
   expect_match(banner, "detected by")
-  expect_match(banner, "(in|latest) [0-9]{4}")
+  expect_match(banner, "(AFP|ES) \\((latest )?[0-9]{4}\\)")
 })
 
 test_that("the onset tile rests on the bundle's own timeliness counts", {
@@ -171,12 +203,27 @@ test_that("the pager prescribes no follow-up action", {
 
 test_that("a flag does not claim the interval rules out sampling noise", {
   fg <- synth_field_guide
-  d <- flag_district(fg)
-  skip_if(is.na(d))
+  foc <- fg$focal
+  # the general significance wording, so not the rate-discordance branch and
+  # not the empty-count one, both of which say something else entirely
+  cand <- foc[
+    foc$verdict == "FLAG" & !foc$s1_discordance & foc$observed > 0,
+  ]
+  skip_if(nrow(cand) == 0)
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- bs_field_guide_pager(
+    fg, district = cand[["adm2_name"]][1], verbose = FALSE
+  )$html
   expect_no_match(h, "unlikely to be noise", fixed = TRUE)
   expect_match(h, "uncertainty in the expected level", fixed = TRUE)
+
+  # and no flag anywhere claims it, whichever branch it takes
+  for (nm in foc[foc$verdict == "FLAG", ][["adm2_name"]]) {
+    expect_no_match(
+      bs_field_guide_pager(fg, district = nm, verbose = FALSE)$html,
+      "unlikely to be noise", fixed = TRUE
+    )
+  }
 })
 
 test_that("a small-count flag names the sampling-variability caveat", {
@@ -929,4 +976,95 @@ test_that("detection_label controls the serotype wording", {
   es <- synth_surveillance$es_district_year
   skip_if_not(any(es$adm2_guid == gid & es$n_positive > 0))
   expect_match(h, "WPV1 detected", fixed = TRUE)
+})
+
+test_that("the detection tile counts years and says years", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  # a district whose detections span more than one year, so a year count and a
+  # detection count could not be mistaken for each other
+  yrs <- vapply(
+    foc$es_years %||% rep(NA_character_, nrow(foc)),
+    function(s) if (is.na(s) || !nzchar(s)) 0L else
+      length(strsplit(s, ",\\s*")[[1]]),
+    integer(1)
+  )
+  cand <- foc[yrs > 1, ]
+  skip_if(nrow(cand) == 0)
+  n <- max(yrs)
+
+  h <- bs_field_guide_pager(
+    fg, district = cand[["adm2_name"]][which.max(yrs[yrs > 1])],
+    verbose = FALSE
+  )$html
+  # the guide records distinct years, never a detection count, so the tile
+  # must not present the one as the other
+  expect_no_match(h, "detections</div>", fixed = TRUE)
+  expect_match(h, "years</div>")
+})
+
+test_that("a unit sharing its parent's name keeps the parent", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  d <- foc[["adm2_name"]][1]
+  parent <- foc[["adm1_name"]][1]
+
+  # rename the adm2 to its own adm1: a real collision in Nigeria, where an LGA
+  # often carries its state's name
+  clash <- fg
+  clash$focal[["adm2_name"]][1] <- parent
+  clash$district_year[["adm2_name"]][
+    clash$district_year[["adm2_guid"]] == foc[["adm2_guid"]][1]
+  ] <- parent
+
+  h <- bs_field_guide_pager(clash, district = parent, verbose = FALSE)$html
+  hier <- regmatches(h, regexpr("(?<=class=\"parent\">).*?(?=</div>)", h,
+                                perl = TRUE))
+  # the LGA is still inside its state; dropping the state left the page
+  # indistinguishable from the state's own pager
+  expect_match(hier, parent, fixed = TRUE)
+  expect_match(hier, "district", fixed = TRUE)
+})
+
+test_that("two levels sharing a name get two file names", {
+  row <- tibble::tibble(
+    adm0_name = "Nigeria", adm1_name = "Bauchi", adm2_name = "Bauchi"
+  )
+  state <- blindspot:::.pager_autoname(row, "adm1_name")
+  lga <- blindspot:::.pager_autoname(row, "adm2_name")
+
+  expect_identical(state, "spi_nigeria_bauchi_field_pager")
+  expect_identical(lga, "spi_nigeria_bauchi_bauchi_field_pager")
+  # same folder, two units: the names have to differ or one overwrites the other
+  expect_false(identical(state, lga))
+})
+
+test_that("the banner dates each detection channel separately", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  # both channels firing, with different latest years: a pooled "latest" would
+  # credit the quieter channel with the other's most recent find
+  afp <- lapply(foc$orphan_years, function(s)
+    if (is.na(s) || !nzchar(s)) integer(0) else
+      as.integer(strsplit(s, ",\\s*")[[1]]))
+  es <- lapply(foc$es_years, function(s)
+    if (is.na(s) || !nzchar(s)) integer(0) else
+      as.integer(strsplit(s, ",\\s*")[[1]]))
+  ok <- vapply(seq_len(nrow(foc)), function(i) {
+    length(afp[[i]]) > 0 && length(es[[i]]) > 0 &&
+      max(afp[[i]]) != max(es[[i]]) && foc$verdict[i] == "FLAG"
+  }, logical(1))
+  skip_if(!any(ok))
+
+  i <- which(ok)[1]
+  h <- bs_field_guide_pager(
+    fg, district = foc[["adm2_name"]][i], verbose = FALSE
+  )$html
+  banner <- regmatches(h, regexpr("(?<=class=\"vw\">).*?(?=</div>)", h,
+                                  perl = TRUE))
+  expect_match(banner, "AFP \\((latest )?[0-9]{4}\\)")
+  expect_match(banner, "ES \\((latest )?[0-9]{4}\\)")
+  # the older channel must not be dated by the newer one
+  expect_match(banner, sprintf("AFP \\((latest )?%d\\)", max(afp[[i]])))
+  expect_match(banner, sprintf("ES \\((latest )?%d\\)", max(es[[i]])))
 })

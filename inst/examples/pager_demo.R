@@ -112,9 +112,8 @@ gen_hit <- foc$genomic_orphan %in% TRUE
 # regeneration of the synthetic bundle. these are the four accent states the
 # pager can show:
 #  - FLAG, corroborated -- the deepest flag with a virus detection (rose)
-#  - WATCH -- below the cut but the interval still reaches one (amber)
-#  - No action, below cut -- a credible shortfall with too few corroborators
-#    to flag, kept under monitoring (slate)
+#  - REVIEW -- a credible shortfall with too few corroborators to flag (plum)
+#  - WATCH -- below the cut but the evidence itself falls short (amber)
 #  - Adequate -- a large district clearly above the cut (green)
 deepest <- function(keep) {
   if (!any(keep, na.rm = TRUE)) return(character(0))
@@ -127,8 +126,8 @@ largest <- function(keep) {
 
 districts <- unique(c(
   deepest(foc$verdict == "FLAG" & (gen_hit | es_hit)),
+  deepest(foc$verdict == "REVIEW"),
   deepest(foc$verdict == "WATCH"),
-  deepest(foc$verdict == "No action" & foc$spi_below),
   largest(foc$verdict == "No action" & foc$spi_median >= cut)
 ))
 
