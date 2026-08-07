@@ -792,8 +792,14 @@ test_that("the detection boxes name whatever serotypes were recorded", {
     hm, regexpr("<div class=\"k\">AFP detection.*?</div></div>", hm)
   )
   expect_match(afp_m, "cVDPV2, WPV1", fixed = TRUE)
-  # and the banner follows the record, not the caller's assumption
-  expect_match(hm, "cVDPV2, WPV1 detected by", fixed = TRUE)
+  # the tiles hold the serotypes per channel, so the banner must not pool them
+  # into one list: AFP recorded two here and ES recorded none, and the pooled
+  # list read as "detected by AFP and ES" credits ES with both
+  banner <- regmatches(
+    hm, regexpr("(?<=class=\"vw\">).*?(?=</div>)", hm, perl = TRUE)
+  )
+  expect_match(banner, "detected by", fixed = TRUE)
+  expect_no_match(banner, "WPV1", fixed = TRUE)
 
   # a guide built without a serotype column falls back to the declared label
   none <- fg
@@ -805,6 +811,42 @@ test_that("the detection boxes name whatever serotypes were recorded", {
     none, district = d, detection_label = "WPV3", verbose = FALSE
   )$html
   expect_match(hn, "WPV3", fixed = TRUE)
+})
+
+test_that("a long unit name is fitted rather than run off the page", {
+  fg <- synth_field_guide
+  d <- flag_district(fg)
+  skip_if(is.na(d))
+  # names of this shape are real: Nigerian LGAs such as OGBA/EGBEMA/NDONI join
+  # their parts with a solidus and have no space to break at
+  long <- "OGBA/EGBEMA/NDONI"
+  renamed <- fg
+  for (df in c("district_year", "focal")) {
+    hit <- renamed[[df]][["adm2_name"]] == d
+    renamed[[df]][["adm2_name"]][hit] <- long
+  }
+  h <- bs_field_guide_pager(renamed, district = long, verbose = FALSE)$html
+
+  # the endpoint label breaks after a solidus instead of running past the
+  # frame, and every piece of the name survives the break
+  ends <- regmatches(h, gregexpr("font-weight=\"900\"[^>]*>[^<]*<", h))[[1]]
+  expect_gt(length(ends), 1L)
+  expect_equal(
+    paste(gsub(".*>([^<]*)<", "\\1", ends), collapse = ""), long
+  )
+  # and the masthead gives the name only what the verdict column can spare
+  unit <- regmatches(h, regexpr("class=\"unit\"[^>]*", h))
+  size <- as.numeric(sub(".*font-size:([0-9.]+)px.*", "\\1", unit))
+  expect_lt(size, 46)
+  expect_gt(size, 20)
+
+  # a short name is left at full size and on one line
+  hs <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  short <- regmatches(hs, regexpr("class=\"unit\"[^>]*", hs))
+  expect_match(short, "font-size:46.0px", fixed = TRUE)
+  expect_length(
+    regmatches(hs, gregexpr("font-weight=\"900\"", hs))[[1]], 1L
+  )
 })
 
 test_that("a failed indicator target reads in the blind-spot red", {

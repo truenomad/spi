@@ -79,6 +79,24 @@
   counts as a detection at all: an ambiguous VDPV is not a confirmed circulating
   virus, so `c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")` keeps it out of the years,
   the flags and the serotype string together. Both default NULL.
+* **The verdict banner no longer pools the serotypes across channels.** It
+  named the union of what AFP and ES recorded and attributed it to both, so a
+  district where AFP found five serotypes and ES found one read as "aVDPV2,
+  cVDPV2, cVDPV3, VDPV2, VDPV3 detected by AFP and ES" — crediting ES with
+  four it never saw. The tiles already name them per channel and remain the
+  place to read them; the banner names the channels and the year. That also
+  takes the one data-length-driven clause out of a fixed-width banner, and the
+  label stacks the qualifier under the verdict instead of taking a quarter of
+  the row from the reading.
+* **A long unit name is fitted to the page instead of running off it.** Two
+  places assumed a short one. The masthead is a flex row whose verdict column
+  cannot shrink, so a name like KOLOKUMA/OPOKUMA pushed that column past the
+  page edge and the sub-lines silently lost their last characters ("pop u15
+  63,59"); the name is now sized to what the row can spare. The chart's endpoint
+  label estimated Archivo at weight 900 a fifth narrower than it renders, so a
+  name the arithmetic called a fit was still clipped ("OGBA/EGBEMA/NDC"); it now
+  measures correctly and breaks the name over two lines, at a space or after a
+  solidus, which is the only place names of that shape give.
 * The verdict banner dates the detection it corroborates on. Detections are
   cumulative to the read year, so "with WPV1 detected by AFP" could rest on
   virus found five years earlier; it now reads "in 2020" or "latest 2022", as

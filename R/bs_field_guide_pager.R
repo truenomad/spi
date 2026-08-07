@@ -48,9 +48,9 @@
 #' corroboration only; they never enter the STEPS count or change the verdict,
 #' matching the paper.
 #'
-#' The accent colour tracks the verdict: rose for a flag, amber for a watch,
-#' green for no action. A flag with an orphan-poliovirus detection is titled
-#' *"Flag, corroborated"*.
+#' The accent colour tracks the verdict: rose for a flag, plum for a review,
+#' amber for a watch, green for no action. A flag with an orphan-poliovirus
+#' detection is titled *"Flag, corroborated"*.
 #'
 #' @param x A [bs_field_guide()] result (class `blindspot_field_guide`).
 #' @param district District to profile: either an id (e.g. the admin-2 GUID)
@@ -364,15 +364,16 @@ as.character.blindspot_pager <- function(x, ...) {
 # dropping any missing admin component.
 # @noRd
 .pager_autoname <- function(focal, name_col) {
+  # skip the parent level that *is* the unit rather than de-duplicating slugs:
+  # an adm2 sharing its parent's name is a different unit and needs a different
+  # file, or the two pagers collide the moment they share an output folder
   parts <- c(
-    focal$adm0_name %||% NA,
-    focal$adm1_name %||% NA,
+    if (identical(name_col, "adm0_name")) NA else focal$adm0_name %||% NA,
+    if (identical(name_col, "adm1_name")) NA else focal$adm1_name %||% NA,
     focal[[name_col]] %||% NA
   )
   parts <- .pager_slug(parts[!is.na(parts) & nzchar(parts)])
   parts <- parts[nzchar(parts)]
-  # adm1 data repeats the unit as both adm1 and name; keep each level once
-  parts <- parts[!duplicated(parts)]
   paste0("spi_", paste(parts, collapse = "_"), "_field_pager")
 }
 
@@ -570,23 +571,29 @@ as.character.blindspot_pager <- function(x, ...) {
       tag = if (corroborated) "Flag \u00b7 corroborated" else "Flag",
       state = "below cut \u00b7 interval excludes 1"
     ),
+    REVIEW = list(
+      verdict = "REVIEW",
+      accent = "#8c2f39",
+      tag = "Review",
+      state = "below cut \u00b7 not corroborated"
+    ),
     WATCH = list(
       verdict = "WATCH",
       accent = "#e87722",
       tag = "Watch",
-      state = "below cut \u00b7 interval includes 1"
+      # a watch can fail either half of the significance gate, and the page
+      # prints the interval bounds a few lines down, so naming the wrong half
+      # contradicts the numbers beside it
+      state = if (isTRUE(focal$cri_excludes_1)) {
+        "below cut \u00b7 noise not ruled out"
+      } else {
+        "below cut \u00b7 interval includes 1"
+      }
     ),
-    # No action splits: a genuinely adequate district (green, "Adequate") vs a
-    # sub-threshold district that simply lacked corroboration to flag (neutral
-    # slate, "No action") -- so green never overclaims adequacy below the cut
-    if (isTRUE(focal$spi_below)) {
-      list(
-        verdict = "No action",
-        accent = "#5a6883",
-        tag = "No action",
-        state = "below cut \u00b7 not corroborated"
-      )
-    } else if (.pager_short_of_expectation(focal)) {
+    # No action is now only ever a district at or above the cut: every
+    # sub-threshold reading lands in FLAG, REVIEW or WATCH. It still splits, so
+    # green never overclaims adequacy on a district whose interval sits below 1
+    if (.pager_short_of_expectation(focal)) {
       list(
         verdict = "No action",
         accent = "#5a6883",
@@ -757,25 +764,120 @@ as.character.blindspot_pager <- function(x, ...) {
   main <- if (length(paren) == 3L) paren[2] else lbl
   qual <- if (length(paren) == 3L) sprintf("(%s) \u00b7 ", paren[3]) else ""
   avail <- (w - 4) - (ex + 10)
-  name_size <- max(9, min(14.5, avail / (0.62 * max(nchar(main), 1L))))
+  fit <- .pager_label_lines(main, avail)
+  name_size <- fit$size
+  name_lines <- fit$lines
+  lh <- name_size * 1.05
+  extra <- (length(name_lines) - 1L) * lh
   # the locator badge is absolutely positioned over the top-right of the chart
   # box, so an endpoint high in the panel would print its label underneath it.
   # drop the label clear of that band; the dot stays on the endpoint.
   ly <- if (has_locator) max(ey, .pager_locator_band) else ey
+  # a wrapped name pushes the SPI sub-line down, so an endpoint low in the
+  # panel would print it over the x-axis. hold the whole block off the frame
+  # foot rather than only its first line.
+  ly <- min(ly, h - mb - 15 - extra)
   s <- paste0(
     s, "<circle cx=\"", fnum(ex), "\" cy=\"", fnum(ey),
     "\" r=\"3.6\" fill=\"", accent, "\" stroke=\"#fffdf8\" ",
     "stroke-width=\"1.6\"/>",
-    "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ly + 2),
-    "\" font-family=\"Archivo\" font-weight=\"900\" font-size=\"",
-    fnum(name_size), "\" fill=\"", accent, "\">", .pager_escape(main),
-    "</text>",
-    "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ly + 15),
+    paste(
+      vapply(
+        seq_along(name_lines),
+        function(i) {
+          paste0(
+            "<text x=\"", fnum(ex + 10), "\" y=\"",
+            fnum(ly + 2 + (i - 1L) * lh),
+            "\" font-family=\"Archivo\" font-weight=\"900\" font-size=\"",
+            fnum(name_size), "\" fill=\"", accent, "\">",
+            .pager_escape(name_lines[i]), "</text>"
+          )
+        },
+        character(1)
+      ),
+      collapse = ""
+    ),
+    "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ly + 15 + extra),
     "\" font-family=\"Spline Sans Mono\" font-size=\"9.5\" fill=\"", accent,
     "\">", .pager_escape(qual), "SPI ", .pager_dot(focal$spi_median, 2),
     "</text></svg>"
   )
   s
+}
+
+# the masthead is a flex row whose verdict column is flex-shrink:0, so a long
+# unit name pushes that column past the page edge instead of wrapping and the
+# sub-lines silently lose their last characters. Give the name only what the
+# row can spare. The 734 is the pad's content width and 22 the flex gap, both
+# set in the stylesheet; the ratios are per-character advance in em, and both
+# run a little high so the estimate errs towards a smaller name rather than a
+# clipped verdict.
+# @noRd
+.pager_unit_size <- function(name, tag, sub_lines, max_size = 46) {
+  # the tag is a padded pill, the sub-lines are plain mono text
+  tag_w <- nchar(tag) * (12 * 0.65 + 1.2) + 26
+  sub_w <- max(c(nchar(sub_lines), 0L)) * 10 * 0.65
+  avail <- 734 - 22 - max(tag_w, sub_w)
+  min(max_size, avail / (0.74 * max(nchar(name), 1L)))
+}
+
+# where a unit name may be broken: at whitespace, and after a solidus, which is
+# how names such as OGBA/EGBEMA/NDONI join their parts and the only place they
+# give. A solidus stays on the line it ends, the way the name reads.
+# @noRd
+.pager_label_atoms <- function(main) {
+  atoms <- regmatches(main, gregexpr("[^/[:space:]]+/*", main))[[1]]
+  atoms[nzchar(atoms)]
+}
+
+# rejoin atoms into one line, closing up after a solidus and spacing otherwise,
+# so a broken name reads exactly as the whole one did.
+# @noRd
+.pager_label_join <- function(atoms) {
+  Reduce(
+    function(acc, a) if (grepl("/$", acc)) paste0(acc, a) else paste(acc, a),
+    atoms
+  )
+}
+
+# fit the endpoint name to the right margin. Archivo at weight 900 runs about
+# 0.78em per uppercase character, which the old 0.62 estimate under-measured by
+# a fifth, so a name the arithmetic called a fit still ran off the frame. There
+# is deliberately no floor under the size: any floor is a size that does not
+# fit, and the masthead prints the name in full regardless. Wrapping at a space
+# holds a two-word name at a readable size where shrinking alone would squeeze
+# it, so it is preferred wherever the name has somewhere to break and one line
+# would not sit comfortably.
+# @noRd
+.pager_label_lines <- function(main, avail, max_size = 14.5, ratio = 0.78,
+                               comfortable = 12.5) {
+  size_of <- function(parts) {
+    min(max_size, avail / (ratio * max(nchar(parts), 1L)))
+  }
+  one <- size_of(main)
+  atoms <- .pager_label_atoms(main)
+  if (one >= comfortable || length(atoms) < 2L) {
+    return(list(lines = main, size = one))
+  }
+  # break at the point leaving the longest line shortest, so a name splits
+  # evenly rather than stranding one short piece on its own line
+  pairs <- lapply(
+    seq_len(length(atoms) - 1L),
+    function(k) {
+      c(
+        .pager_label_join(atoms[seq_len(k)]),
+        .pager_label_join(atoms[-seq_len(k)])
+      )
+    }
+  )
+  widest <- vapply(pairs, function(p) max(nchar(p)), numeric(1))
+  parts <- pairs[[which.min(widest)]]
+  two <- size_of(parts)
+  if (two > one) {
+    list(lines = parts, size = two)
+  } else {
+    list(lines = main, size = one)
+  }
 }
 
 # ---- conventional AFP indicators (out of grid) ----------------------------
@@ -1063,11 +1165,14 @@ as.character.blindspot_pager <- function(x, ...) {
       m <- "no detections"
       cls <- "quiet"
     } else {
-      # the count, not the years: the chart already marks which years. Name the
-      # serotypes the guide actually recorded; fall back to the caller's
-      # declaration, and to nothing at all where neither is known.
+      # `years` holds distinct years, not detections: a district with four
+      # isolations in one year appears once. Count the years and say so -- the
+      # guide never carries a detection count, so "4 detections" would be a
+      # number the data cannot support. The chart still marks which years.
+      # Name the serotypes the guide actually recorded; fall back to the
+      # caller's declaration, and to nothing at all where neither is known.
       v <- sprintf(
-        "%d detection%s", length(years), if (length(years) == 1L) "" else "s"
+        "%d year%s", length(years), if (length(years) == 1L) "" else "s"
       )
       what <- if (length(found) > 0L) {
         paste(found, collapse = ", ")
@@ -1201,6 +1306,16 @@ as.character.blindspot_pager <- function(x, ...) {
     sprintf(
       paste0("SPI %s sits below the cut, but its 90%% interval (%s to %s) ",
              "still includes one."),
+      spi, q05, q95
+    )
+  } else if (!isTRUE(r$gate_pass)) {
+    # the interval cleared and the noise gate did not, so the bounds printed
+    # here are both below one. Saying "includes one" would be contradicted by
+    # the two numbers in the same sentence.
+    sprintf(
+      paste0("SPI %s sits below the cut with its 90%% interval (%s to %s) ",
+             "wholly below one, but a count this small could fall this short ",
+             "by chance alone."),
       spi, q05, q95
     )
   } else if (zero_count) {
@@ -1356,6 +1471,9 @@ as.character.blindspot_pager <- function(x, ...) {
   tail <- .pager_noise_tail(r)
   if (!is.finite(tail)) return("")
   if (!is.null(alpha)) {
+    # only a gate that actually passed can claim the noise was ruled out. The
+    # gate being switched on is not the same as it having cleared
+    if (!isTRUE(tail <= alpha)) return("")
     return(sprintf(
       " Sampling noise ruled out at %s%% too.",
       formatC(alpha * 100, format = "g")
@@ -1467,14 +1585,24 @@ as.character.blindspot_pager <- function(x, ...) {
       " A count this small could fall this short by chance alone."
     }
     paste0(seen, caveat)
-  } else if (verdict == "WATCH") {
+  } else if (verdict == "WATCH" && !isTRUE(focal$cri_excludes_1)) {
     sprintf(
       paste0("%s reads below the adequacy cut, but its 90%% credible interval ",
              "still reaches one, so uncertainty in the expected level alone ",
              "could account for the gap."),
       name
     )
-  } else if (isTRUE(focal$spi_below)) {
+  } else if (verdict == "WATCH") {
+    # the interval is wholly below one here; it is the noise gate that held the
+    # reading back. The old wording named the interval and the chart above it
+    # printed the contradiction
+    sprintf(
+      paste0("%s reads below the adequacy cut and its 90%% credible interval ",
+             "lies wholly below one, but the count is small enough that ",
+             "ordinary sampling variation alone could produce the shortfall."),
+      name
+    )
+  } else if (verdict == "REVIEW") {
     sprintf(
       paste0("%s reads below the adequacy cut with a credible shortfall, but ",
              "too few signals corroborate to meet the flag rule."),
@@ -1497,22 +1625,40 @@ as.character.blindspot_pager <- function(x, ...) {
   }
 }
 
+# the banner label sits in an auto-width grid column, so a qualified tag like
+# "Flag . corroborated" takes a quarter of the banner off the reading beside
+# it. Break it at the separator so the qualifier stacks under the verdict. The
+# masthead pill is unaffected: it has a line to itself and reads better whole.
+# @noRd
+.pager_tag_stacked <- function(tag) {
+  sub(" \u00b7 ", "<br>", tag, fixed = TRUE)
+}
+
 # verdict-banner narrative summarising the fired corroborators.
 # @noRd
 .pager_banner_reading <- function(focal, spi_cut, params, detections, label) {
   verdict <- as.character(focal$verdict)
   if (verdict != "FLAG") {
     if (verdict == "WATCH") {
+      # which half of the significance gate shut. The banner sits under a chart
+      # that draws the interval, so naming the wrong half is visible on the page
+      if (!isTRUE(focal$cri_excludes_1)) {
+        return(paste0(
+          "The SPI sits below the cut but its 90% interval still reaches one, ",
+          "so the reading is held at watch, not flagged."
+        ))
+      }
       return(paste0(
-        "The SPI sits below the cut but its 90% interval still reaches one, ",
+        "The SPI sits below the cut and its 90% interval lies wholly below ",
+        "one, but a count this small could fall this short by chance alone, ",
         "so the reading is held at watch, not flagged."
       ))
     }
-    if (isTRUE(focal$spi_below)) {
+    if (verdict == "REVIEW") {
       return(paste0(
         "The SPI sits below the cut and its 90% interval lies wholly below ",
         "one, but fewer than the required signals corroborate, so the reading ",
-        "is held at no-action, not flagged."
+        "is held at review, not flagged."
       ))
     }
     if (.pager_short_of_expectation(focal)) {
@@ -1540,25 +1686,31 @@ as.character.blindspot_pager <- function(x, ...) {
   } else {
     sprintf("%d of %d signals", n_corr, n_axes)
   }
-  channels <- c(
-    if (length(detections$afp) > 0) "AFP" else NULL,
-    if (length(detections$es) > 0) "ES" else NULL
-  )
-  # the guide already sorted these when it recorded them; re-sorting here would
-  # order them by locale and disagree with the detection boxes
-  found <- unique(unlist(.pager_serotypes(focal), use.names = FALSE))
-  what <- if (length(found) > 0L) paste(found, collapse = ", ") else label
+  # the tiles name the serotypes per channel. Pooling them into one list here
+  # would credit each channel with the other's finds -- ES reading one serotype
+  # where AFP read five -- so the banner names the channels and leaves the
+  # naming to the tiles, which is also the only part of this sentence whose
+  # length the data controls.
   # detections are cumulative to the read year, so an undated claim can rest on
-  # virus found five years ago. Name the year the tiles already name.
-  years <- c(detections$afp, detections$es)
+  # virus found five years ago. Name the year the tiles already name -- and name
+  # it per channel: pooling the years credits the quieter channel with the
+  # other's most recent find, reading as an AFP detection in a year only ES
+  # reached.
+  channel <- function(nm, years) {
+    if (length(years) == 0L) return(NULL)
+    if (length(years) == 1L) {
+      sprintf("%s (%d)", nm, years)
+    } else {
+      sprintf("%s (latest %d)", nm, max(years))
+    }
+  }
+  channels <- c(
+    channel("AFP", detections$afp),
+    channel("ES", detections$es)
+  )
   detection <- if (length(channels) > 0) {
     sprintf(
-      ", with %s detected by %s%s", what, paste(channels, collapse = " and "),
-      if (length(years) == 1L) {
-        sprintf(" in %d", years)
-      } else {
-        sprintf(", latest %d", max(years))
-      }
+      ", with %s detected by %s", label, paste(channels, collapse = " and ")
     )
   } else {
     ""
@@ -1581,12 +1733,15 @@ as.character.blindspot_pager <- function(x, ...) {
   name <- .pager_escape(as.character(focal[[name_col]]))
   adm1 <- .pager_escape(as.character(focal$adm1_name %||% ""))
   adm0 <- .pager_escape(as.character(focal$adm0_name %||% ""))
-  # drop any parent level that is the unit itself (adm1 data labels the unit
-  # by adm1_name, so it would otherwise repeat in the hierarchy line)
+  # drop the parent level that *is* the unit (adm1 data labels the unit by
+  # adm1_name, so it would otherwise repeat in the hierarchy line). Keyed on
+  # which column names the unit, not on the strings matching: an LGA that
+  # shares its state's name is still inside that state, and dropping the
+  # parent there left the page indistinguishable from the state's own.
   parent <- paste(
     c(
-      adm1[nzchar(adm1) & adm1 != name],
-      adm0[nzchar(adm0) & adm0 != name],
+      adm1[nzchar(adm1) & !identical(name_col, "adm1_name")],
+      adm0[nzchar(adm0) & !identical(name_col, "adm0_name")],
       admin_label
     ),
     collapse = " \u00b7 "
@@ -1609,6 +1764,13 @@ as.character.blindspot_pager <- function(x, ...) {
   } else {
     ""
   }
+
+  # the sub-lines as they read, so the name is sized against the column they
+  # actually need rather than a worst case
+  unit_size <- sprintf("%.1f", .pager_unit_size(
+    name, vstyle$tag,
+    c(vstyle$state, paste0("SPI ", spi, nb_txt), sub("^<br>", "", pop_txt))
+  ))
 
   rows <- vapply(signals, function(s) {
     sprintf(
@@ -1678,7 +1840,8 @@ as.character.blindspot_pager <- function(x, ...) {
     # masthead
     "<div class=\"mast\"><div>",
     "<div class=\"eyebrow\">", eyebrow, "</div>",
-    "<div class=\"unit\">", name, "</div>",
+    "<div class=\"unit\" style=\"font-size:", unit_size, "px\">",
+    name, "</div>",
     "<div class=\"parent\">", parent, "</div></div>",
     "<div class=\"verdict\"><span class=\"tag\">", vstyle$tag, "</span>",
     "<div class=\"sub\">", vstyle$state, "<br>SPI <b>", spi, "</b>",
@@ -1715,7 +1878,8 @@ as.character.blindspot_pager <- function(x, ...) {
     "<div class=\"rrule\">", rule, "</div>",
     "<div>", rows, "</div></div>",
     # verdict banner
-    "<div class=\"vbanner\"><div class=\"vt\">", vstyle$tag, "</div>",
+    "<div class=\"vbanner\"><div class=\"vt\">",
+    .pager_tag_stacked(vstyle$tag), "</div>",
     "<div class=\"vw\">", banner_reading, "</div></div>",
     "</div>",
     # footer
@@ -1738,7 +1902,7 @@ as.character.blindspot_pager <- function(x, ...) {
 
 # the pager stylesheet (design tokens + layout), verbatim from the field
 # guide's tear-sheet design plus a muted "quiet" role chip. `accent` drives
-# the verdict colour (rose flag / amber watch / green no-action).
+# the verdict colour (rose flag / plum review / amber watch / green no-action).
 # @noRd
 .pager_css <- function(accent) {
   paste0(
@@ -1858,9 +2022,12 @@ as.character.blindspot_pager <- function(x, ...) {
     "align-items:center;background:var(--accent);color:#fff;padding:9px 15px;",
     "margin-top:9px}",
     ".vbanner .vt{font-family:'Spline Sans Mono',monospace;font-weight:600;",
-    "font-size:12px;letter-spacing:.09em;text-transform:uppercase}",
+    "font-size:12px;letter-spacing:.09em;text-transform:uppercase;",
+    "line-height:1.35}",
+    # balance stops the reading breaking to a one-word last line, which reads
+    # as a fault in a banner this shallow
     ".vbanner .vw{font-family:'Newsreader',serif;font-size:12.5px;",
-    "line-height:1.4;color:rgba(255,255,255,.9)}",
+    "line-height:1.4;color:rgba(255,255,255,.9);text-wrap:balance}",
     ".foot{display:flex;justify-content:space-between;align-items:center;",
     "margin-top:10px;padding-top:11px;border-top:1px solid var(--line);",
     "flex-shrink:0;font-family:'Spline Sans Mono',monospace;font-size:9px;",
