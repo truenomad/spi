@@ -106,7 +106,7 @@ on-page reading (e.g. "expected for the \code{unit_noun}", "A \code{unit_noun} i
 flagged when..."). Set it to match \code{admin_label}, e.g. \code{"province"} for
 admin-1 inputs. Default: \code{"district"}.}
 
-\item{note}{Optional provenance tag printed in the eyebrow and footer, e.g.
+\item{note}{Optional provenance tag printed in the footer, e.g.
 \code{"illustrative"} for a worked example. Default: NULL (untagged).}
 
 \item{verbose}{Logical. Emit a cli summary on build. Default: TRUE.}

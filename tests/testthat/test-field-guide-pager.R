@@ -420,10 +420,17 @@ test_that("note is untagged by default and opt-in when supplied", {
   tagged <- bs_field_guide_pager(
     fg, district = d, note = "illustrative", verbose = FALSE
   )$html
-  # eyebrow and footer both carry it
+  # the footer carries it, once
   expect_equal(
-    lengths(regmatches(tagged, gregexpr("illustrative", tagged))), 2L
+    lengths(regmatches(tagged, gregexpr("illustrative", tagged))), 1L
   )
+  foot <- regmatches(tagged, regexpr("(?<=class=\"foot\">).*?(?=</div></div>)",
+                                     tagged, perl = TRUE))
+  expect_match(foot, "illustrative", fixed = TRUE)
+  # and not the eyebrow: a long note there wraps and crowds the unit name
+  eyebrow <- regmatches(tagged, regexpr("(?<=class=\"eyebrow\">).*?(?=</div>)",
+                                        tagged, perl = TRUE))
+  expect_no_match(eyebrow, "illustrative", fixed = TRUE)
 })
 
 test_that("indicators_df is off by default and out of the STEPS grid", {

@@ -29,6 +29,11 @@
   reached it. Now "by AFP (2022) and ES (latest 2025)". Relatedly, "Sampling
   noise ruled out at 5%" fired whenever `noise_alpha` was set rather than when
   the tail cleared it.
+* **`note` no longer prints in the eyebrow.** It is caller-supplied and can be
+  long, and the eyebrow sits directly above the unit name at wide tracking, so
+  a note like `"period Jun 2025 - May 2026"` wrapped to a second line and
+  crowded the name. It now appears in the footer only, which has the width and
+  is where provenance belongs.
 * **The verdict banner held its first line short.** `text-wrap: balance`
   equalises line lengths, leaving a gap down the right; `pretty` fills the
   first line and still avoids a one-word last line.

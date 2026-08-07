@@ -114,7 +114,7 @@
 #'   on-page reading (e.g. "expected for the `unit_noun`", "A `unit_noun` is
 #'   flagged when..."). Set it to match `admin_label`, e.g. `"province"` for
 #'   admin-1 inputs. Default: `"district"`.
-#' @param note Optional provenance tag printed in the eyebrow and footer, e.g.
+#' @param note Optional provenance tag printed in the footer, e.g.
 #'   `"illustrative"` for a worked example. Default: NULL (untagged).
 #' @param verbose Logical. Emit a cli summary on build. Default: TRUE.
 #'
@@ -1834,16 +1834,20 @@ as.character.blindspot_pager <- function(x, ...) {
       ""
     }
   )
-  # the provenance tag is opt-in: eyebrow and footer carry it only when `note`
-  # is supplied, so a reading is never stamped with a placeholder by default
+  # the provenance tag is opt-in: the footer carries it only when `note` is
+  # supplied, so a reading is never stamped with a placeholder by default
   note <- if (is.null(note)) "" else trimws(as.character(note)[1])
   note_tag <- if (nzchar(note)) {
     paste0(" \u00b7 ", .pager_escape(note))
   } else {
     ""
   }
-  eyebrow <- sprintf("blindspot \u00b7 SPI reading \u00b7 %s %d%s",
-                     adm0, year, note_tag)
+  # The note stays OFF the eyebrow and appears only in the footer. It is
+  # caller-supplied and can be long, and the eyebrow sits directly above the
+  # unit name at .2em tracking -- so a long note wraps and crowds the name,
+  # worst for exactly the units with long admin names. The footer has the width
+  # for it and is where provenance belongs anyway.
+  eyebrow <- sprintf("blindspot \u00b7 SPI reading \u00b7 %s %d", adm0, year)
 
   paste0(
     .pager_head(name, year, vstyle$accent),
