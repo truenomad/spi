@@ -284,6 +284,30 @@ bs_expected <- function(
   seed = 42L,
   num_threads = if (is.null(seed)) NULL else "1:1"
 ) {
+  # a seed only buys reproducibility if INLA can use it verbatim: negative
+  # values mean "reuse whatever RNG state is lying around" and 0 means "pick
+  # one at random", so neither keeps the promise the argument advertises.
+  # Checked ahead of the package check: a malformed argument is the caller's
+  # to fix either way, and telling them to install INLA first would send them
+  # after the wrong problem.
+  if (!is.null(seed)) {
+    if (
+      !is.numeric(seed) ||
+        length(seed) != 1 ||
+        is.na(seed) ||
+        seed < 0 ||
+        !isTRUE(seed == round(seed))
+    ) {
+      cli::cli_abort(c(
+        "{.arg seed} must be a single non-negative whole number, \\
+         or {.code NULL}.",
+        "x" = "Got {.val {seed}}.",
+        "i" = "{.code NULL} draws a fresh seed each call."
+      ))
+    }
+    seed <- as.integer(seed)
+  }
+
   # --- check required packages --------------------------
   .check_pkg(
     c(
@@ -329,26 +353,8 @@ bs_expected <- function(
     )
   }
 
-  # a seed only buys reproducibility if INLA can use it verbatim: negative
-  # values mean "reuse whatever RNG state is lying around" and 0 means "pick
-  # one at random", so neither keeps the promise the argument advertises.
+  # `seed` is already validated and coerced above, before the package check
   if (!is.null(seed)) {
-    if (
-      !is.numeric(seed) ||
-        length(seed) != 1 ||
-        is.na(seed) ||
-        seed < 0 ||
-        !isTRUE(seed == round(seed))
-    ) {
-      cli::cli_abort(c(
-        "{.arg seed} must be a single non-negative whole number, \\
-         or {.code NULL}.",
-        "x" = "Got {.val {seed}}.",
-        "i" = "{.code NULL} draws a fresh seed each call."
-      ))
-    }
-    seed <- as.integer(seed)
-
     # Capture the caller's RNG here, at entry, rather than next to the
     # set.seed() further down: spdep and INLA both draw from R's RNG while
     # building the graph and fitting, so a later capture would restore a

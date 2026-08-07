@@ -56,8 +56,9 @@
   whenever `seed` is set, which makes the default call reproducible at the cost
   of a serial fit; pass `num_threads = NULL` to inherit INLA's global thread
   setting and trade determinism back for speed. `seed` is now validated (a
-  single non-negative whole number, or `NULL`), and the caller's RNG state is
-  restored on exit instead of being left displaced.
+  single non-negative whole number, or `NULL`) ahead of the INLA availability
+  check, so a malformed argument is not reported as a missing package, and the
+  caller's RNG state is restored on exit instead of being left displaced.
 * **`bs_field_guide()` gained `noise_alpha`.** The SPI credible interval holds
   the observed count fixed, so at `observed = 0` it collapses to `(0, 0)` and
   `cri_excludes_1` is TRUE whatever the expected count. Setting `noise_alpha`
