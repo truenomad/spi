@@ -29,7 +29,7 @@
 #'   calendar year in which it closes, so May 2024 to April 2025 reads as 2025.
 #'   Only the aggregation changes; the fitted model is untouched, and the
 #'   monthly offset still uses the calendar-year denominator it was fitted on.
-#'   The first and last windows of a series are usually incomplete, so the
+#'   The first and last windows of a series are usually partial, so the
 #'   summary carries `n_months` and those rows should normally be dropped.
 #'   Ignored at every other level. Default: 12 (calendar years).
 #' @param min_expected Numeric. Districts or district-periods with total
@@ -336,7 +336,7 @@ bs_spi <- function(
   base$observed <- groups$obs_sum
   base$pop_u15 <- groups$pop_u15
   # incomplete windows are kept but marked, since the first and last rolling
-  # year of a series are almost always partial
+  # year of a series are usually partial
   base$n_months <- groups$n_months
 
   summary_tbl <- dplyr::bind_cols(

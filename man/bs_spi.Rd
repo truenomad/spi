@@ -45,7 +45,7 @@ actually taken rather than on 31 December. Each window is labelled by the
 calendar year in which it closes, so May 2024 to April 2025 reads as 2025.
 Only the aggregation changes; the fitted model is untouched, and the
 monthly offset still uses the calendar-year denominator it was fitted on.
-The first and last windows of a series are usually incomplete, so the
+The first and last windows of a series are usually partial, so the
 summary carries \code{n_months} and those rows should normally be dropped.
 Ignored at every other level. Default: 12 (calendar years).}
 

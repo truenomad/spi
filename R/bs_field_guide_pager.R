@@ -67,23 +67,22 @@
 #' @param prob_under Optional posterior probability that observed **non-polio
 #'   AFP detection** fell below the model expectation, i.e. `P(SPI < 1)`, as a
 #'   single number on the 0 to 1 scale. It is appended to the significance
-#'   line as a percentage; the tails print as "over 99%" and "under 1%" rather
-#'   than a rounded 100% or 0%, which would claim a certainty the draws do not
-#'   carry. It states the strength of the same evidence the significance gate
-#'   tests, which is otherwise only pass or fail. It is a statement about
-#'   case-finding, not about virus: it is not the probability that poliovirus
-#'   is present, nor that the district is a blind spot. Default: NULL (not
+#'   line as a percentage, with the tails printed as "over 99%" and "under 1%"
+#'   so the line reports only the certainty the draws support. It states the
+#'   strength of the same evidence the significance gate tests, which is
+#'   otherwise only pass or fail. Read it as a system signal, not a virus
+#'   signal: it measures case-finding against expectation. Default: NULL (not
 #'   shown).
-#' @param year_label Optional label for the reading period, shown in the
-#'   masthead in place of the bare year. Use it when the review window is not a
-#'   calendar year, e.g. `"rolling year to Apr 2025"`. Default: NULL (the year).
+#' @param year_label Optional label for the reading year, shown in the masthead
+#'   in place of the bare year. Use it when the window is not a calendar year,
+#'   e.g. `"rolling year to Apr 2025"`. Default: NULL (the year).
 #' @param region Optional regional context for the header, as a named list or
 #'   one-row data frame. Recognised fields: `name` (or `region`/`adm1`), `rank`
 #'   (or `region_rank`), `n` (or `n_regions`) and `spi` (or `region_spi`). It
-#'   renders as a header line such as `region SUD-OUEST . SPI 0.70 . rank 1 of
-#'   22`. The rank is context for triage only: it orders regions that are
-#'   already short and never enters the verdict, since a rank exists whether or
-#'   not anything is wrong. Default: NULL (no regional line).
+#'   renders as a header line reading `region SUD-OUEST`, `SPI 0.70` and
+#'   `worst rank 1 of 22`, joined by middle dots. The rank orders regions that
+#'   are already short and stays out of the verdict, since a rank exists
+#'   whether or not anything is wrong. Default: NULL (no regional line).
 #' @param indicators_df Optional district-year panel of conventional AFP and ES
 #'   indicators, keyed by `guid` (or `id_col`) and `year`. When supplied, a
 #'   strip below the chart shows the non-polio AFP rate over the same years

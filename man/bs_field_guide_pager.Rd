@@ -49,23 +49,23 @@ own country. Default: NULL (no inset).}
 \item{region}{Optional regional context for the header, as a named list or
 one-row data frame. Recognised fields: \code{name} (or \code{region}/\code{adm1}), \code{rank}
 (or \code{region_rank}), \code{n} (or \code{n_regions}) and \code{spi} (or \code{region_spi}). It
-renders as a header line such as \verb{region SUD-OUEST . SPI 0.70 . rank 1 of 22}. The rank is context for triage only: it orders regions that are
-already short and never enters the verdict, since a rank exists whether or
-not anything is wrong. Default: NULL (no regional line).}
+renders as a header line reading \verb{region SUD-OUEST}, \verb{SPI 0.70} and
+\verb{worst rank 1 of 22}, joined by middle dots. The rank orders regions that
+are already short and stays out of the verdict, since a rank exists
+whether or not anything is wrong. Default: NULL (no regional line).}
 
-\item{year_label}{Optional label for the reading period, shown in the
-masthead in place of the bare year. Use it when the review window is not a
-calendar year, e.g. \code{"rolling year to Apr 2025"}. Default: NULL (the year).}
+\item{year_label}{Optional label for the reading year, shown in the masthead
+in place of the bare year. Use it when the window is not a calendar year,
+e.g. \code{"rolling year to Apr 2025"}. Default: NULL (the year).}
 
 \item{prob_under}{Optional posterior probability that observed \strong{non-polio
 AFP detection} fell below the model expectation, i.e. \code{P(SPI < 1)}, as a
 single number on the 0 to 1 scale. It is appended to the significance
-line as a percentage; the tails print as "over 99\%" and "under 1\%" rather
-than a rounded 100\% or 0\%, which would claim a certainty the draws do not
-carry. It states the strength of the same evidence the significance gate
-tests, which is otherwise only pass or fail. It is a statement about
-case-finding, not about virus: it is not the probability that poliovirus
-is present, nor that the district is a blind spot. Default: NULL (not
+line as a percentage, with the tails printed as "over 99\%" and "under 1\%"
+so the line reports only the certainty the draws support. It states the
+strength of the same evidence the significance gate tests, which is
+otherwise only pass or fail. Read it as a system signal, not a virus
+signal: it measures case-finding against expectation. Default: NULL (not
 shown).}
 
 \item{indicators_df}{Optional district-year panel of conventional AFP and ES

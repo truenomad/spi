@@ -411,15 +411,14 @@ bs_field_guide <- function(
   detection <- is_true(dy$genomic_orphan) | is_true(dy$es_detected)
   detection_corr <- if (detection_corroborates) as.integer(detection) else 0L
   # Surroundings is satisfied two ways, and contributes at most one either way.
-  # The original rung fired only on a contrast, a short district against
-  # healthy neighbours, which is a local gap. But a district short inside an
-  # equally short neighbourhood is the harder problem, not the easier one:
-  # there is no nearby well-performing district whose detections could act as a
-  # sentinel, and the spatial model absorbs an area-wide shortfall into the
-  # expectation, so the index understates it. Firing on a contrast alone left
-  # the rung silent exactly where the blind spot was widest. Capping the pair
-  # at one keeps the corroborator scale unchanged and avoids counting the same
-  # spatial evidence twice.
+  # The signal originally fired only on a contrast, a short district against
+  # healthy neighbours, which is a local gap. A district short inside an
+  # equally short neighbourhood is the harder problem: there is no nearby
+  # well-performing district whose detections could act as a sentinel, and the
+  # spatial model absorbs an area-wide shortfall into the expectation, so the
+  # index understates it. Firing on a contrast alone left S silent on the
+  # widest gaps. Capping the pair at one keeps the corroborator scale
+  # unchanged and counts the same spatial evidence once.
   surroundings_corr <- as.integer(
     is_true(dy$neighbour_discordant) | is_true(dy$neighbourhood_shortfall)
   )
