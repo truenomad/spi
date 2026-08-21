@@ -50,14 +50,14 @@ blindspot estimates, for each district in each month, how many cases a surveilla
 
 **Designed for polio AFP surveillance. Applicable to any case-based VPD surveillance system.**
 
-The expected count comes from a negative-binomial model of each district-month, and the SPI is the observed count over that expectation:
+The expected count comes from a Bayesian spatiotemporal count model of each district-month, and the SPI is the observed count over that expectation:
 
 $$
-Y_{it} \sim \text{NegBin}(\mu_{it}, \theta), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}
+Y_{it} \sim \text{Poisson}(\mu_{it}), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}
 $$
 
 $$
-\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + x_{it}^{\top}\beta
+\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + \epsilon_{it} + x_{it}^{\top}\beta
 $$
 
 where
@@ -67,7 +67,10 @@ where
 - $f(\text{month}_t)$ is harmonic seasonality (12- and 6-month periodicity)
 - $\gamma_{y(t)}$ is an exchangeable year effect
 - $u_i + v_i$ is a BYM2 spatial random effect (Riebler et al. 2016)
+- $\epsilon_{it}$ is the observation-level overdispersion term, the default `overdispersion = "iid"`
 - $x_{it}^{\top}\beta$ is the optional district-covariate term (DTP3 coverage, urbanicity, travel time to care)
+
+`overdispersion = "nb"` swaps the Poisson likelihood and $\epsilon_{it}$ for a negative binomial, and `"none"` drops the term; `bs_compare_overdispersion()` scores the three so the choice is justified rather than assumed.
 
 <details>
 <summary><b>Method notes — estimand, model, and what the SPI is for</b> (click to expand)</summary>
@@ -76,7 +79,7 @@ where
 
 <img src="man/figures/spi-dag.png" width="100%" alt="Directed acyclic graph of the SPI estimand" />
 
-The observed count is the product of two unobserved processes (true non-polio AFP incidence and detection probability), modelled as a negative-binomial count. Fitted to the data, the model estimates an **expected count** (the level prevailing across comparable districts) from a population offset and spatial, seasonal, and annual terms, with context covariates as an optional refinement; the **SPI is observed ÷ expected**. Poliovirus circulation has no path into the model, so the SPI is diagnostic of *surveillance performance* and does not estimate transmission; it enters only as an independent reference for external validation.
+The observed count is the product of two unobserved processes (true non-polio AFP incidence and detection probability), modelled as an overdispersed count. Fitted to the data, the model estimates an **expected count** (the level prevailing across comparable districts) from a population offset and spatial, seasonal, and annual terms, with context covariates as an optional refinement; the **SPI is observed ÷ expected**. Poliovirus circulation has no path into the model, so the SPI is diagnostic of *surveillance performance* and does not estimate transmission; it enters only as an independent reference for external validation.
 
 **Why a Bayesian spatial model.** District-month AFP counts are small and noisy, so a raw rate is unstable and a single zero-count month can look like a collapse. The BYM2 spatial effect borrows strength across space, pulling each district toward its neighbours in proportion to how little its own data can say, and returns a full posterior, so the SPI carries a credible interval rather than a bare point estimate. Fitting is by INLA rather than MCMC: for latent Gaussian spatial models of this size, approximate-Bayesian inference is accurate and finishes in seconds to minutes.
 
@@ -262,6 +265,8 @@ head(as_tibble(spi_dy)[, c(
 
 **Why the yearly SPI is the one we act on.** The index is defined at any grain, but the verdict is annual. In most districts the monthly AFP count is 0 or 1, so the monthly SPI is mostly structural zeros with credible intervals too wide to act on, and reacting to it spends trust on noise. The sample size only settles over a full year, so the year is the unit we classify. We keep the monthly series to read the trend, and to feed the seasonal signal in the field guide.
 
+The reading year does not have to be a calendar year. `bs_spi(level = "district_year", year_end_month = 4)` groups May through April, so a review can close on the month the decision was actually taken; each window is labelled by the calendar year it closes in, and the returned `n_months` marks the partial windows at either end of the series, which should normally be dropped.
+
 The `plot()` method gives four diagnostic views (`distribution`, `funnel`, `caterpillar`, `calibration`). The funnel plots each district-year against its expected count (the paper's Figure 3): detection scatters around 1, and the spread narrows as the expected count grows, so a low SPI at a high expected count is a genuine shortfall rather than small-number noise.
 
 ```{r spi-funnel, fig.width = 8, fig.height = 4.5}
@@ -310,9 +315,9 @@ bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 
 ### 7. The five-signal STEPS field guide
 
-`bs_field_guide()` reads each district-year through five signals — **STEPS** (significance, trend, extent, persistence, surroundings) — and lands on a FLAG, REVIEW, WATCH, or No-action verdict. Significance is the entry point; trend, persistence and surroundings are the three corroborators (a flag needs at least two of them); extent grades depth. A district that clears significance but not the corroborator count is held at REVIEW rather than dropped to No-action: the shortfall is credible, only the corroboration is thin. Surroundings uses the neighbour graph. Seasonal blindness (from the monthly SPI) and any poliovirus found there through the case-based (AFP) channel or environmental surveillance (ES) are computed as **out-of-grid corroboration**: they strengthen a flag but are never one of the five STEPS.
+`bs_field_guide()` reads each district-year through five signals — **STEPS** (significance, trend, extent, persistence, surroundings) — and lands on a FLAG, REVIEW, WATCH, or No-action verdict. Significance is the entry point; trend, persistence and surroundings are the three corroborators (a flag needs at least two of them); extent grades depth. A district that clears significance but not the corroborator count is held at REVIEW rather than dropped to No-action: the shortfall is credible, only the corroboration is thin. Surroundings uses the neighbour graph, and fires either on a contrast against healthier neighbours or on a shortfall shared across the whole neighbourhood, the case where there is no healthy neighbour left to contrast against. Seasonal blindness (from the monthly SPI) and any poliovirus found there through the case-based (AFP) channel or environmental surveillance (ES) are computed as **out-of-grid corroboration**: they strengthen a flag but are never one of the five STEPS.
 
-The `genomic` and `es` arguments are those two independent detection channels: `genomic` is the district-years where the toy's virus-outcome sheet recorded a cVDPV2 (`any_cvdpv2 == 1`), and `es` is the ES district-year table where a positive sewage sample was found (`n_positive > 0`). Neither comes from the AFP stream the guide is grading, so the out-of-grid detection can ask whether a flagged silence also had poliovirus surface there, evidence of a genuine blindspot rather than a false alarm. Detections corroborate the reading from outside the grid but never enter the STEPS count or change the verdict.
+The `genomic` and `es` arguments are those two independent detection channels: `genomic` is the district-years where the toy's virus-outcome sheet recorded a cVDPV2 (`any_cvdpv2 == 1`), and `es` is the ES district-year table where a positive sewage sample was found (`n_positive > 0`). Neither comes from the AFP stream the guide is grading, so the out-of-grid detection can ask whether a flagged silence also had poliovirus surface there, evidence of a genuine blindspot rather than a false alarm. Detections corroborate the reading from outside the grid and never enter the STEPS count; by default they leave the verdict untouched too, though `detection_corroborates = TRUE` promotes a detection to a corroborator.
 
 ```{r field-guide}
 genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
@@ -344,7 +349,7 @@ gt::gtsave(fg_tbl, "man/figures/README-fg-table.png", expand = 5)
 knitr::include_graphics("man/figures/README-fg-table.png")
 ```
 
-For the one district you are about to investigate, `bs_field_guide_pager()` renders a single-district **field pager**: a self-contained, print-ready A4 tear-sheet. Hand it the field guide and the shapefile and it builds the neighbour graph itself, so it is self-contained. The masthead carries the verdict; the chart plots the district's own SPI (with the 90% credible-interval ribbon and AFP / ES detection markers) and a locator inset drawn from the real geometry, with the neighbour median read out as a figure rather than a line; the five STEPS read out as gate, magnitude, and corroboration (with seasonal and detection corroboration out of grid); and a verdict banner states what the reading rests on. The pager reports the reading and recommends no follow-up, and it is explicit about the limits of the credible interval: that interval carries uncertainty in the *expected* count, not sampling variability in the observed one, so a flag resting on a handful of cases says so on its face. `path` writes an auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`.
+For the one district you are about to investigate, `bs_field_guide_pager()` renders a single-district **field pager**: a self-contained, print-ready A4 tear-sheet. Hand it the field guide and the shapefile and it draws everything it needs from those two, with no adjacency object required. The masthead carries the verdict; the chart plots the district's own SPI (with the 90% credible-interval ribbon and AFP / ES detection markers) and a locator inset drawn from the real geometry, with the neighbour median read out as a figure rather than a line; the five STEPS read out as gate, magnitude, and corroboration (with seasonal and detection corroboration out of grid); and a verdict banner states what the reading rests on. The pager reports the reading and recommends no follow-up, and it is explicit about the limits of the credible interval: that interval carries uncertainty in the *expected* count, not sampling variability in the observed one, so a flag resting on a handful of cases says so on its face. `path` writes an auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`. Three optional arguments add context the field guide does not carry itself: `region` places the district in its region with a rank that is triage only, `year_label` names a reading window that is not a calendar year, and `prob_under` prints the posterior `P(SPI < 1)` on the significance line, which is otherwise only pass or fail.
 
 ```{r pager-code, eval = FALSE}
 bs_field_guide_pager(
@@ -424,6 +429,7 @@ bs_concordance()            # cross-classify SPI vs the NPAFP-rate threshold
 bs_concordance_maps()       # three-panel concordance map (ggplot2/patchwork)
 bs_field_guide()            # read SPI to FLAG / REVIEW / WATCH / No-action
 bs_field_guide_table()      # render the field guide (gt / flextable)
+bs_field_guide_pager()      # one-district A4 field pager (html / png)
 bs_field_guide_help()       # learn to read the field guide (worked example)
 bs_triangulate()            # cross the verdict with ES / AFP detection channels
 bs_triangulate_table()      # render the triangulation panel (gt / flextable)
@@ -439,7 +445,7 @@ also have a `plot()` method.
 
 ```r
 Yusuf MA (2026). blindspot: Bayesian spatiotemporal
-  surveillance quality monitoring. R package version 0.1.0.
+  surveillance quality monitoring. R package version 0.1.0.9000.
   https://github.com/truenomad/blindspot
 ```
 
