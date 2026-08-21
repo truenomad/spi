@@ -64,6 +64,26 @@
 #'   `adm1_name` column, if present, supplies the regional outlines; an
 #'   `adm0_name` column restricts a multi-country layer to the focal district's
 #'   own country. Default: NULL (no inset).
+#' @param prob_under Optional posterior probability that observed **non-polio
+#'   AFP detection** fell below the model expectation, i.e. `P(SPI < 1)`, as a
+#'   single number on the 0 to 1 scale. It is appended to the significance
+#'   line as a percentage; the tails print as "over 99%" and "under 1%" rather
+#'   than a rounded 100% or 0%, which would claim a certainty the draws do not
+#'   carry. It states the strength of the same evidence the significance gate
+#'   tests, which is otherwise only pass or fail. It is a statement about
+#'   case-finding, not about virus: it is not the probability that poliovirus
+#'   is present, nor that the district is a blind spot. Default: NULL (not
+#'   shown).
+#' @param year_label Optional label for the reading period, shown in the
+#'   masthead in place of the bare year. Use it when the review window is not a
+#'   calendar year, e.g. `"rolling year to Apr 2025"`. Default: NULL (the year).
+#' @param region Optional regional context for the header, as a named list or
+#'   one-row data frame. Recognised fields: `name` (or `region`/`adm1`), `rank`
+#'   (or `region_rank`), `n` (or `n_regions`) and `spi` (or `region_spi`). It
+#'   renders as a header line such as `region SUD-OUEST . SPI 0.70 . rank 1 of
+#'   22`. The rank is context for triage only: it orders regions that are
+#'   already short and never enters the verdict, since a rank exists whether or
+#'   not anything is wrong. Default: NULL (no regional line).
 #' @param indicators_df Optional district-year panel of conventional AFP and ES
 #'   indicators, keyed by `guid` (or `id_col`) and `year`. When supplied, a
 #'   strip below the chart shows the non-polio AFP rate over the same years
@@ -150,6 +170,9 @@ bs_field_guide_pager <- function(
   district,
   adjacency = NULL,
   boundaries = NULL,
+  region = NULL,
+  year_label = NULL,
+  prob_under = NULL,
   indicators_df = NULL,
   npafp_target = NULL,
   es = NULL,
@@ -238,7 +261,7 @@ bs_field_guide_pager <- function(
   }
   signals <- .pager_signals(
     focal, series, spi_cut, x$params, detections, detection_label, unit_noun,
-    active
+    active, prob_under = prob_under
   )
 
   html <- .pager_html(
@@ -260,7 +283,9 @@ bs_field_guide_pager <- function(
     id_col = id_col,
     admin_label = admin_label,
     unit_noun = unit_noun,
-    note = note
+    note = note,
+    region = region,
+    year_label = year_label
   )
 
   targets <- .pager_targets(focal, name_col, path, file, format)
@@ -1258,7 +1283,7 @@ as.character.blindspot_pager <- function(x, ...) {
 # @noRd
 .pager_signals <- function(
   focal, series, spi_cut, params, detections, detection_label,
-  unit_noun = "district", active = NULL
+  unit_noun = "district", active = NULL, prob_under = NULL
 ) {
   r <- as.list(focal)
   spi <- .pager_dot(r$spi_median, 2)
@@ -1404,9 +1429,30 @@ as.character.blindspot_pager <- function(x, ...) {
     )
   }
 
+  # the gate is pass or fail, so the posterior probability that observed
+  # non-polio AFP fell short of expectation is appended: it says how decisively
+  # the gate was cleared, which the bounds alone do not.
+  pu_s <- suppressWarnings(as.numeric(prob_under %||% NA))
+  if (isTRUE(is.finite(pu_s))) {
+    # the tails are named rather than rounded, so the line cannot print a
+    # certainty of 100% or 0% that the draws do not carry
+    pu_lab <- if (pu_s >= 0.995) {
+      "over 99%"
+    } else if (pu_s <= 0.005) {
+      "under 1%"
+    } else {
+      sprintf("%.0f%%", 100 * pu_s)
+    }
+    s1 <- paste0(s1, sprintf(" Chance AFP below expected %s.", pu_lab))
+  }
+
   falling <- r$trajectory == "falling"
   persistent <- run >= persistence
-  discordant <- isTRUE(r$neighbour_discordant)
+  # surroundings is satisfied either by a contrast against healthy neighbours
+  # or by a shortfall shared across the neighbourhood, matching the rule the
+  # corroborator count uses
+  discordant <- isTRUE(r$neighbour_discordant) ||
+    isTRUE(r$neighbourhood_shortfall)
 
   # season and detections are out-of-grid; they are read in the context row
   # below the chart, not as a sixth STEPS line
@@ -1738,7 +1784,7 @@ as.character.blindspot_pager <- function(x, ...) {
   focal, series, chart, locator, signals, vstyle, spi_cut, params,
   detections, detection_label, year, name_col, id_col, admin_label,
   unit_noun = "district", note = NULL, indicators = NULL, npafp_target = 3,
-  active = NULL
+  active = NULL, region = NULL, year_label = NULL
 ) {
   # `[[` rather than `$`: a tibble warns on an absent column accessed with `$`,
   # and an admin level the caller simply does not carry is not a fault
@@ -1777,11 +1823,42 @@ as.character.blindspot_pager <- function(x, ...) {
     ""
   }
 
+  # prob_under is deliberately not read here: the masthead is already five
+  # lines deep, and the number is the strength of the evidence the
+  # significance gate tests, so it belongs on that STEPS line instead. See
+  # .pager_signals().
+
+  # regional context. The rank orders regions that are already short so a reader
+  # can see whether an unremarkable district sits inside a badly performing
+  # region; it is triage, never part of the verdict.
+  region_txt <- ""
+  if (!is.null(region)) {
+    r <- as.list(region)
+    r_name <- r$name %||% r$region %||% r$adm1 %||% NA_character_
+    r_rank <- suppressWarnings(as.integer(r$rank %||% r$region_rank %||% NA))
+    r_n <- suppressWarnings(as.integer(r$n %||% r$n_regions %||% NA))
+    r_spi <- suppressWarnings(as.numeric(r$spi %||% r$region_spi %||% NA))
+    bits <- character(0)
+    if (length(r_name) == 1L && !is.na(r_name) && nzchar(r_name)) {
+      bits <- c(bits, sprintf("region %s", r_name))
+    }
+    if (isTRUE(is.finite(r_spi))) {
+      bits <- c(bits, sprintf("SPI %s", .pager_dot(r_spi, 2)))
+    }
+    if (isTRUE(is.finite(r_rank)) && isTRUE(is.finite(r_n))) {
+      bits <- c(bits, sprintf("worst rank %d of %d", r_rank, r_n))
+    }
+    if (length(bits) > 0L) {
+      region_txt <- paste0("<br>", paste(bits, collapse = " \u00b7 "))
+    }
+  }
+
   # the sub-lines as they read, so the name is sized against the column they
   # actually need rather than a worst case
   unit_size <- sprintf("%.1f", .pager_unit_size(
     name, vstyle$tag,
-    c(vstyle$state, paste0("SPI ", spi, nb_txt), sub("^<br>", "", pop_txt))
+    c(vstyle$state, paste0("SPI ", spi, nb_txt),
+      sub("^<br>", "", pop_txt), sub("^<br>", "", region_txt))
   ))
 
   rows <- vapply(signals, function(s) {
@@ -1847,7 +1924,15 @@ as.character.blindspot_pager <- function(x, ...) {
   # unit name at .2em tracking -- so a long note wraps and crowds the name,
   # worst for exactly the units with long admin names. The footer has the width
   # for it and is where provenance belongs anyway.
-  eyebrow <- sprintf("blindspot \u00b7 SPI reading \u00b7 %s %d", adm0, year)
+  yr_lbl <- if (is.null(year_label)) {
+    sprintf("%d", year)
+  } else {
+    as.character(year_label)
+  }
+  eyebrow <- paste(
+    c("blindspot", "SPI reading", adm0[nzchar(adm0)], yr_lbl),
+    collapse = " \u00b7 "
+  )
 
   paste0(
     .pager_head(name, year, vstyle$accent),
@@ -1861,7 +1946,7 @@ as.character.blindspot_pager <- function(x, ...) {
     "<div class=\"parent\">", parent, "</div></div>",
     "<div class=\"verdict\"><span class=\"tag\">", vstyle$tag, "</span>",
     "<div class=\"sub\">", vstyle$state, "<br>SPI <b>", spi, "</b>",
-    nb_txt, pop_txt, "</div></div></div>",
+    nb_txt, pop_txt, region_txt, "</div></div></div>",
     # body
     "<div class=\"body\"><div class=\"cgroup\">",
     "<div class=\"sectlab\"><span>SPI over time \u2014 ", name, "</span>",
@@ -1932,8 +2017,9 @@ as.character.blindspot_pager <- function(x, ...) {
     "*{margin:0;padding:0;box-sizing:border-box}",
     "body{background:#cfc6b6;font-family:'Archivo',sans-serif;padding:30px;",
     "display:flex;flex-direction:column;align-items:center;color:var(--ink)}",
-    ".page{width:794px;height:1123px;background:var(--paper);position:",
-    "relative;overflow:hidden;box-shadow:0 30px 70px -25px rgba(21,35,59,.45);",
+    ".page{width:794px;min-height:1123px;height:auto;background:var(--paper);",
+    "position:relative;overflow:hidden;",
+    "box-shadow:0 30px 70px -25px rgba(21,35,59,.45);",
     "display:flex;flex-direction:column}",
     ".corridor{height:7px;flex-shrink:0;background:linear-gradient(90deg,",
     "var(--assured) 0%,var(--watch) 34%,var(--buildup) 66%,var(--blind) ",

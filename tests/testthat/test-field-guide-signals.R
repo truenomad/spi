@@ -46,18 +46,26 @@ test_that("genomic_col filters detections and validates its name", {
 })
 
 test_that("dedupe_temporal collapses the trajectory + persistence pair", {
+  fg1 <- function(fg) fg$focal[fg$focal$adm2_guid == "FG1", ]
+
+  # FG1 is falling and persistent, and sits in a short neighbourhood, so with
+  # adjacency supplied it carries both temporal signals plus surroundings.
+  # Deduping the temporal pair costs it exactly one corroborator.
   base <- build_full_guide()
   dedup <- build_full_guide(dedupe_temporal = TRUE)
-
-  # FG1 flags on a falling, persistent trajectory with quiet neighbours/season,
-  # so its two temporal signals are the whole corroboration
-  fg1 <- function(fg) fg$focal[fg$focal$adm2_guid == "FG1", ]
-  expect_equal(fg1(base)$corroborators, 2L)
-  expect_identical(as.character(fg1(base)$verdict), "FLAG")
-  # counted once, the temporal pair no longer clears the 2-of-N rule
-  expect_equal(fg1(dedup)$corroborators, 1L)
-  expect_false(as.character(fg1(dedup)$verdict) == "FLAG")
+  expect_equal(fg1(base)$corroborators, 3L)
+  expect_equal(fg1(dedup)$corroborators, 2L)
   expect_true(dedup$params$dedupe_temporal)
+
+  # with no adjacency, surroundings is not assessed and the temporal pair is
+  # the whole corroboration, so collapsing it drops FG1 below the 2-of-N rule
+  bare <- bs_field_guide(make_concordance(), verbose = FALSE)
+  bare_dedup <- bs_field_guide(make_concordance(), dedupe_temporal = TRUE,
+                               verbose = FALSE)
+  expect_equal(fg1(bare)$corroborators, 2L)
+  expect_identical(as.character(fg1(bare)$verdict), "FLAG")
+  expect_equal(fg1(bare_dedup)$corroborators, 1L)
+  expect_false(as.character(fg1(bare_dedup)$verdict) == "FLAG")
 })
 
 test_that("traj_alpha gates a volatile slope to flat, not falling", {

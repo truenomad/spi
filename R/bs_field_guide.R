@@ -410,9 +410,20 @@ bs_field_guide <- function(
   # only when detection_corroborates is a detection counted as an extra signal.
   detection <- is_true(dy$genomic_orphan) | is_true(dy$es_detected)
   detection_corr <- if (detection_corroborates) as.integer(detection) else 0L
-  dy$corroborators <- temporal +
-    as.integer(is_true(dy$neighbour_discordant)) +
-    detection_corr
+  # Surroundings is satisfied two ways, and contributes at most one either way.
+  # The original rung fired only on a contrast, a short district against
+  # healthy neighbours, which is a local gap. But a district short inside an
+  # equally short neighbourhood is the harder problem, not the easier one:
+  # there is no nearby well-performing district whose detections could act as a
+  # sentinel, and the spatial model absorbs an area-wide shortfall into the
+  # expectation, so the index understates it. Firing on a contrast alone left
+  # the rung silent exactly where the blind spot was widest. Capping the pair
+  # at one keeps the corroborator scale unchanged and avoids counting the same
+  # spatial evidence twice.
+  surroundings_corr <- as.integer(
+    is_true(dy$neighbour_discordant) | is_true(dy$neighbourhood_shortfall)
+  )
+  dy$corroborators <- temporal + surroundings_corr + detection_corr
   # four tiers, ordered by how much of the rule the reading met. REVIEW is the
   # tier the three-level taxonomy had nowhere to put: the significance gate is
   # open -- a credible shortfall, noise ruled out where it was tested -- and

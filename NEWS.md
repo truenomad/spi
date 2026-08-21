@@ -1,5 +1,15 @@
 # blindspot 0.1.0.9000
 
+* **Surroundings stayed silent where the gap was widest.** The S rung counted
+  `neighbour_discordant` alone — a short district against healthy neighbours,
+  which is a local gap. But a district short inside an equally short
+  neighbourhood is the harder case, not the easier one: no nearby
+  well-performing district can act as a sentinel, and the spatial model absorbs
+  an area-wide shortfall into the expectation, so the index understates it. The
+  rung now fires on `neighbourhood_shortfall` too, with the pair capped at one
+  corroborator, so the corroborator scale is unchanged and the same spatial
+  evidence is not counted twice. The pager's surroundings line reads by the
+  same rule.
 * **`bs_spi(year_end_month = )`, for a reading year that is not a calendar
   year.** `level = "district_year"` always grouped January to December, so a
   review closing in April had to be reported against a window it had not used.
@@ -8,6 +18,15 @@
   and the monthly offset still uses the calendar-year denominator it was fitted
   on. The summary now carries `n_months`, because the first and last windows of
   a series are almost always partial and should normally be dropped.
+* **`bs_field_guide_pager()` gains `region`, `year_label` and `prob_under`.**
+  `region` adds a header line placing the district in its region, with an
+  optional rank among regions — triage only, never part of the verdict, since a
+  rank exists whether or not anything is wrong. `year_label` replaces the bare
+  year in the masthead when the window is not a calendar year. `prob_under`
+  appends the posterior `P(SPI < 1)` to the significance line, which is
+  otherwise only pass or fail; its tails print as "over 99%" and "under 1%"
+  rather than a certainty the draws do not carry. The page now grows past one
+  sheet instead of clipping when these lines push it over.
 * **Empty concordance levels drew blank legend keys.** `geom_sf` takes its key
   glyph from the data, so a fill level no district fell into rendered as an
   empty swatch beside its label. Each map now pads its frame with one empty
