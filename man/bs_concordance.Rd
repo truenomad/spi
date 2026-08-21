@@ -8,6 +8,7 @@ bs_concordance(
   spi,
   cases = NULL,
   population,
+  year_end_month = 12L,
   spi_threshold = 0.8,
   npafp_target = 3,
   npafp_multiplier = 100000L,
@@ -27,6 +28,11 @@ NULL (use \code{spi$data}).}
 
 \item{population}{Tibble with the district id column, \code{year} (integer),
 and the population denominator column (see \code{pop_col}). Required.}
+
+\item{year_end_month}{Integer 1 to 12. Month in which the reading year
+closes, matching the \code{year_end_month} the SPI was computed with. The
+conventional rate is grouped on the same rolling year, so the two sides of
+the comparison cover the same months. Default: 12 (calendar years).}
 
 \item{spi_threshold}{Numeric. SPI median below this = "fail". Paper
 uses 0.80. Default: 0.80.}

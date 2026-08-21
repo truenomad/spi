@@ -30,6 +30,10 @@
 #'   NULL (use `spi$data`).
 #' @param population Tibble with the district id column, `year` (integer),
 #'   and the population denominator column (see `pop_col`). Required.
+#' @param year_end_month Integer 1 to 12. Month in which the reading year
+#'   closes, matching the `year_end_month` the SPI was computed with. The
+#'   conventional rate is grouped on the same rolling year, so the two sides of
+#'   the comparison cover the same months. Default: 12 (calendar years).
 #' @param spi_threshold Numeric. SPI median below this = "fail". Paper
 #'   uses 0.80. Default: 0.80.
 #' @param npafp_target Numeric. NPAFP rate below this per `npafp_multiplier`
@@ -94,6 +98,7 @@ bs_concordance <- function(
   spi,
   cases = NULL,
   population,
+  year_end_month = 12L,
   spi_threshold = 0.80,
   npafp_target = 3,
   npafp_multiplier = 100000L,
@@ -153,12 +158,26 @@ bs_concordance <- function(
       "{.arg cases} must have columns {.val {id_col}} and {.val count}."
     )
   }
+  # The conventional rate must be grouped on the SAME years as the index. When
+  # the SPI is read on a rolling year, grouping cases on calendar years counts
+  # only part of the window against a whole-year denominator, which drives the
+  # conventional rate down and turns the comparison into nonsense. Derive the
+  # year from the month whenever a rolling window is in force.
+  year_end_month <- as.integer(year_end_month)
+  if (length(year_end_month) != 1L || is.na(year_end_month) ||
+        year_end_month < 1L || year_end_month > 12L) {
+    cli::cli_abort("{.arg year_end_month} must be a single month, 1 to 12.")
+  }
   cases_annual <- cases_src |>
     dplyr::mutate(
-      year = if ("year" %in% names(cases_src)) {
+      year = if ("year" %in% names(cases_src) && year_end_month == 12L) {
         as.integer(cases_src$year)
-      } else {
+      } else if (year_end_month == 12L) {
         as.integer(format(cases_src$month, "%Y"))
+      } else {
+        as.integer(lubridate::year(lubridate::add_with_rollback(
+          cases_src$month, months(12L - year_end_month)
+        )))
       }
     ) |>
     dplyr::group_by(dplyr::across(dplyr::all_of(c(id_col, "year")))) |>

@@ -66,6 +66,38 @@ test_that("bs_concordance honours thresholds, strata, and case override", {
   expect_true(all(cm$district_year$count_annual == 4L))
 })
 
+test_that("bs_concordance groups cases on the SPI's reading year", {
+  spi <- make_spi_dy()
+  pop <- make_population()
+
+  # June 2015 and February 2016 are separate calendar years, but one rolling
+  # year once the window closes in April: both fall in the year labelled 2016.
+  cases_m <- tibble::tibble(
+    district_id = rep(c("A", "B", "C", "D"), each = 2),
+    month = rep(as.Date(c("2015-06-01", "2016-02-01")), times = 4),
+    count = rep(c(3L, 4L), times = 4)
+  )
+
+  cal <- bs_concordance(spi, cases = cases_m, population = pop,
+                        verbose = FALSE)
+  expect_setequal(cal$district_year$year, c(2015L, 2016L))
+  expect_equal(
+    cal$district_year$count_annual[cal$district_year$year == 2016L],
+    rep(4L, 4L)
+  )
+
+  rol <- bs_concordance(spi, cases = cases_m, population = pop,
+                        year_end_month = 4, verbose = FALSE)
+  expect_equal(unique(rol$district_year$year), 2016L)
+  expect_equal(rol$district_year$count_annual, rep(7L, 4L))
+
+  expect_error(
+    bs_concordance(spi, population = pop, year_end_month = 13,
+                   verbose = FALSE),
+    "year_end_month"
+  )
+})
+
 test_that("bs_concordance joins boundary strata (sf and plain frames)", {
   spi <- make_spi_dy(id_col = "adm2_guid")
   pop <- make_population(id_col = "adm2_guid")

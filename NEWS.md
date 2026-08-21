@@ -69,6 +69,10 @@
 * `bs_spi()` gained `year_end_month`, so a reading year can close on the month a
   review closes. `year_end_month = 4` groups May through April, labelled by the
   year it closes in; `n_months` marks the partial window at each end.
+* `bs_concordance()` gained `year_end_month` too. Pass the same value the SPI
+  was computed with and the conventional NPAFP rate is grouped on the same
+  rolling year; left at the calendar default against a rolling SPI, it counted
+  part of the window against a whole-year denominator and understated the rate.
 * `bs_spi()` gained `boundaries`, joining admin names immediately before the
   district id. `bs_concordance()` places its own name columns the same way.
 * Concordance maps draw a legend key for a fill level no district fell into,
