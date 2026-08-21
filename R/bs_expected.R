@@ -240,6 +240,14 @@
 #' not matter, pass `num_threads = NULL` to inherit INLA's global thread
 #' setting, or `seed = NULL` to opt out entirely.
 #'
+#' One caveat on how far this goes: the guarantee is agreement to numerical
+#' tolerance, not bit-identity. INLA's mode-finding is not bit-stable even
+#' pinned to one thread, so two seeded fits of the same data can still differ
+#' in the sixth significant figure, measured at up to `1.6e-6` relative. That
+#' is orders of magnitude smaller than anything that could move an SPI
+#' classification, and four orders below the drift described above, which a
+#' loose seed makes large enough to change a verdict.
+#'
 #' @references
 #' Riebler A, et al. (2016). An intuitive Bayesian spatial model for disease
 #' mapping that accounts for scaling. Statistical Methods in Medical Research,

@@ -299,6 +299,14 @@ The defaults are therefore reproducible but serial, which costs wall clock
 against a multithreaded fit. For exploratory work where determinism does
 not matter, pass \code{num_threads = NULL} to inherit INLA's global thread
 setting, or \code{seed = NULL} to opt out entirely.
+
+One caveat on how far this goes: the guarantee is agreement to numerical
+tolerance, not bit-identity. INLA's mode-finding is not bit-stable even
+pinned to one thread, so two seeded fits of the same data can still differ
+in the sixth significant figure, measured at up to \code{1.6e-6} relative. That
+is orders of magnitude smaller than anything that could move an SPI
+classification, and four orders below the drift described above, which a
+loose seed makes large enough to change a verdict.
 }
 
 \examples{

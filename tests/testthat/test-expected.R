@@ -500,9 +500,23 @@ test_that("a seeded fit is reproducible and leaves the caller's RNG alone", {
   expect_identical(.Random.seed, before)
 
   b <- run()
-  expect_identical(a$summary$expected_mean, b$summary$expected_mean)
-  expect_identical(a$summary$expected_median, b$summary$expected_median)
-  expect_identical(a$draws, b$draws)
+  # Agreement to tolerance, not bit-identity. INLA's mode-finding is not
+  # bit-stable even pinned to one thread: two seeded fits of the same data in
+  # the same session disagree in the sixth significant figure, measured at up
+  # to 1.6e-6 relative over repeated runs, which made an expect_identical here
+  # fail about one run in three.
+  #
+  # 1e-4 is two orders of magnitude above that observed drift and four below
+  # the ~1e-2 scale at which the unseeded bug moved SPI and flipped verdicts,
+  # so it still catches a regression of that bug with room to spare while
+  # sitting far inside anything that could move a reading off the 0.80 or 1.0
+  # cuts. Tightening it to 1e-6 reintroduces the flake.
+  tol <- 1e-4
+  expect_equal(a$summary$expected_mean, b$summary$expected_mean,
+               tolerance = tol)
+  expect_equal(a$summary$expected_median, b$summary$expected_median,
+               tolerance = tol)
+  expect_equal(a$draws, b$draws, tolerance = tol)
   # the fit is pinned to one thread alongside a seed, else it drifts too
   expect_identical(a$model$.args$num.threads, "1:1")
 })
