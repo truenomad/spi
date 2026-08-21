@@ -27,6 +27,51 @@ test_that("bs_spi computes every aggregation level", {
   expect_equal(dy$level, "district_year")
 })
 
+test_that("year_end_month rolls the reading year and marks partial windows", {
+  # the fixture runs Jan 2015 to Dec 2016: two whole calendar years
+  fit <- make_expected()
+
+  cal <- bs_spi(fit, level = "district_year", verbose = FALSE)
+  rol <- bs_spi(fit, level = "district_year", year_end_month = 4,
+                verbose = FALSE)
+
+  # closing in April cuts three windows out of the same 24 months -- Jan-Apr
+  # 2015, May 2015-Apr 2016, May-Dec 2016 -- each labelled by the year it
+  # closes in, so the series starts and ends on a partial one
+  expect_equal(nrow(cal$summary), 24L * 2L)
+  expect_equal(nrow(rol$summary), 24L * 3L)
+  expect_equal(sort(unique(rol$summary$year)), c(2015, 2016, 2017))
+  expect_equal(unique(cal$summary$n_months), 12L)
+  expect_equal(
+    vapply(split(rol$summary$n_months, rol$summary$year), unique, integer(1)),
+    c("2015" = 4L, "2016" = 12L, "2017" = 8L)
+  )
+
+  # only the grouping moves: no observation is gained or lost
+  expect_equal(sum(rol$summary$observed), sum(cal$summary$observed))
+
+  # 12 is the default and means calendar years
+  expect_equal(
+    bs_spi(fit, level = "district_year", year_end_month = 12,
+           verbose = FALSE)$summary$observed,
+    cal$summary$observed
+  )
+
+  # ignored with a note at every other level, and rejected if not a month
+  expect_message(
+    bs_spi(fit, level = "district_total", year_end_month = 4, verbose = FALSE),
+    "district_year"
+  )
+  expect_error(
+    bs_spi(fit, level = "district_year", year_end_month = 13, verbose = FALSE),
+    "year_end_month"
+  )
+  expect_error(
+    bs_spi(fit, level = "district_year", year_end_month = NA, verbose = FALSE),
+    "year_end_month"
+  )
+})
+
 test_that("bs_spi attaches admin names just before the id column", {
   fit <- make_expected()
   id <- fit$id_col

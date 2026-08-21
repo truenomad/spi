@@ -10,6 +10,7 @@ bs_spi(
   boundaries = NULL,
   level = c("district_year", "district_month", "district_quarter", "district_total"),
   min_expected = 1,
+  year_end_month = 12L,
   verbose = TRUE
 )
 }
@@ -35,6 +36,18 @@ district), "district_year" (annual SPI per district, default),
 \item{min_expected}{Numeric. Districts or district-periods with total
 expected count below this threshold are flagged as low-information. SPI
 is still computed but unreliable. Default: 1.}
+
+\item{year_end_month}{Integer 1 to 12. Month in which the reading year
+closes, for \code{level = "district_year"}. The default, 12, gives calendar
+years. Any other value gives a rolling year: \code{year_end_month = 4} groups
+May through April, so a review can close on the month the decision was
+actually taken rather than on 31 December. Each window is labelled by the
+calendar year in which it closes, so May 2024 to April 2025 reads as 2025.
+Only the aggregation changes; the fitted model is untouched, and the
+monthly offset still uses the calendar-year denominator it was fitted on.
+The first and last windows of a series are usually incomplete, so the
+summary carries \code{n_months} and those rows should normally be dropped.
+Ignored at every other level. Default: 12 (calendar years).}
 
 \item{verbose}{Logical. Progress messages via cli. Default: TRUE.}
 }

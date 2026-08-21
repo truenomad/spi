@@ -21,6 +21,17 @@
 #'   temporal resolution), "district_quarter" (calendar-quarter SPI per
 #'   district), "district_year" (annual SPI per district, default),
 #'   "district_total" (single SPI per district over the full study period).
+#' @param year_end_month Integer 1 to 12. Month in which the reading year
+#'   closes, for `level = "district_year"`. The default, 12, gives calendar
+#'   years. Any other value gives a rolling year: `year_end_month = 4` groups
+#'   May through April, so a review can close on the month the decision was
+#'   actually taken rather than on 31 December. Each window is labelled by the
+#'   calendar year in which it closes, so May 2024 to April 2025 reads as 2025.
+#'   Only the aggregation changes; the fitted model is untouched, and the
+#'   monthly offset still uses the calendar-year denominator it was fitted on.
+#'   The first and last windows of a series are usually incomplete, so the
+#'   summary carries `n_months` and those rows should normally be dropped.
+#'   Ignored at every other level. Default: 12 (calendar years).
 #' @param min_expected Numeric. Districts or district-periods with total
 #'   expected count below this threshold are flagged as low-information. SPI
 #'   is still computed but unreliable. Default: 1.
@@ -75,6 +86,7 @@ bs_spi <- function(
     "district_total"
   ),
   min_expected = 1,
+  year_end_month = 12L,
   verbose = TRUE
 ) {
   # --- check required packages --------------------------
@@ -90,6 +102,16 @@ bs_spi <- function(
     min_expected >= 0
   )
   level <- match.arg(level)
+  year_end_month <- as.integer(year_end_month)
+  if (length(year_end_month) != 1L || is.na(year_end_month) ||
+        year_end_month < 1L || year_end_month > 12L) {
+    cli::cli_abort("{.arg year_end_month} must be a single month, 1 to 12.")
+  }
+  if (year_end_month != 12L && level != "district_year") {
+    cli::cli_alert_warning(
+      "{.arg year_end_month} only applies to {.val district_year}; ignored."
+    )
+  }
 
   if (is.null(expected$draws)) {
     cli::cli_abort(
@@ -150,7 +172,9 @@ bs_spi <- function(
     district_quarter = .spi_district_quarter(
       draws, observed, fit_data, id_col
     ),
-    district_year = .spi_district_year(draws, observed, fit_data, id_col),
+    district_year = .spi_district_year(
+      draws, observed, fit_data, id_col, year_end_month
+    ),
     district_total = .spi_district_total(draws, observed, fit_data, id_col)
   )
 
@@ -281,8 +305,19 @@ bs_spi <- function(
 
 # SPI at district-year level
 # @noRd
-.spi_district_year <- function(draws, observed, fit_data, id_col) {
-  fit_data$year <- lubridate::year(fit_data$month)
+.spi_district_year <- function(draws, observed, fit_data, id_col,
+                               year_end_month = 12L) {
+  # A rolling year is the calendar year of the month shifted forward so the
+  # window closes on `year_end_month`: with 4, April 2025 moves to December
+  # 2025 and May 2024 to January 2025, so the two fall in one group labelled
+  # 2025. Only the grouping moves; the draws and the fit are untouched.
+  shift <- 12L - as.integer(year_end_month)
+  ref_month <- if (shift == 0L) {
+    fit_data$month
+  } else {
+    lubridate::add_with_rollback(fit_data$month, months(shift))
+  }
+  fit_data$year <- lubridate::year(ref_month)
 
   groups <- fit_data |>
     dplyr::group_by(dplyr::across(dplyr::all_of(c(id_col, "year")))) |>
@@ -290,6 +325,7 @@ bs_spi <- function(
       cols = list(.data$col_idx),
       obs_sum = sum(.env$observed[.data$col_idx]),
       pop_u15 = mean(.data$pop),
+      n_months = dplyr::n(),
       .groups = "drop"
     )
 
@@ -299,6 +335,9 @@ bs_spi <- function(
   base <- groups[, c(id_col, "year")]
   base$observed <- groups$obs_sum
   base$pop_u15 <- groups$pop_u15
+  # incomplete windows are kept but marked, since the first and last rolling
+  # year of a series are almost always partial
+  base$n_months <- groups$n_months
 
   summary_tbl <- dplyr::bind_cols(
     tibble::as_tibble(base),

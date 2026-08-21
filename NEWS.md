@@ -1,5 +1,13 @@
 # blindspot 0.1.0.9000
 
+* **`bs_spi(year_end_month = )`, for a reading year that is not a calendar
+  year.** `level = "district_year"` always grouped January to December, so a
+  review closing in April had to be reported against a window it had not used.
+  `year_end_month = 4` groups May through April and labels each window by the
+  calendar year it closes in. Only the aggregation moves: the fit is untouched,
+  and the monthly offset still uses the calendar-year denominator it was fitted
+  on. The summary now carries `n_months`, because the first and last windows of
+  a series are almost always partial and should normally be dropped.
 * **Empty concordance levels drew blank legend keys.** `geom_sf` takes its key
   glyph from the data, so a fill level no district fell into rendered as an
   empty swatch beside its label. Each map now pads its frame with one empty
