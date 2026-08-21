@@ -492,6 +492,23 @@ plot.blindspot_concordance <- function(x, ...) {
 # ============================================================================
 # Concordance maps  (three-panel choropleth)
 
+# A discrete fill level with no rows draws a blank legend key, because geom_sf
+# takes its key glyph from the data. Padding the frame with one empty geometry
+# per missing level gives every level a row, so its key renders in its own
+# colour while nothing is added to the map.
+# @noRd
+.pad_fill_levels <- function(d, col) {
+  lv <- levels(d[[col]])
+  miss <- setdiff(lv, unique(as.character(d[[col]])))
+  if (length(miss) == 0L) return(d)
+  pad <- d[rep(1L, length(miss)), , drop = FALSE]
+  pad[[col]] <- factor(miss, levels = lv)
+  sf::st_geometry(pad) <- sf::st_sfc(
+    rep(list(sf::st_polygon()), length(miss)), crs = sf::st_crs(d)
+  )
+  rbind(d, pad)
+}
+
 #' Three-panel concordance map (NPAFP | SPI | disagreement)
 #'
 #' @description
@@ -709,12 +726,13 @@ bs_concordance_maps <- function(
       legend.spacing.y = grid::unit(0.1, "lines")
     )
 
-  p_a <- ggplot2::ggplot(bnd_slice) +
+  p_a <- ggplot2::ggplot(.pad_fill_levels(bnd_slice, "npafp_cat")) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$npafp_cat), colour = "grey82",
                      linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
-      values = pal_a, drop = FALSE, na.value = "grey85",
+      values = pal_a, drop = FALSE, limits = names(pal_a),
+      na.value = "grey85",
       name = .wrap_lines(sprintf(
         "NPAFP per 100 000 u15 (%d); red = below conventional threshold", yr
       ))
@@ -732,12 +750,13 @@ bs_concordance_maps <- function(
         labels = spi_labels, right = FALSE, include.lowest = TRUE),
     levels = spi_labels
   )
-  p_b <- ggplot2::ggplot(bnd_slice) +
+  p_b <- ggplot2::ggplot(.pad_fill_levels(bnd_slice, "spi_cat")) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$spi_cat), colour = "grey82",
                      linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
-      values = pal_b, drop = FALSE, na.value = "grey85",
+      values = pal_b, drop = FALSE, limits = names(pal_b),
+      na.value = "grey85",
       name = .wrap_lines(sprintf(
         "Posterior median SPI (%d); red = below adequacy of %g",
         yr, spi_threshold
@@ -756,12 +775,13 @@ bs_concordance_maps <- function(
     legend_lookup[as.character(bnd_slice$concordance)],
     levels = names(c_labels)
   )
-  p_c <- ggplot2::ggplot(bnd_slice) +
+  p_c <- ggplot2::ggplot(.pad_fill_levels(bnd_slice, "concordance_legend")) +
     ggplot2::geom_sf(ggplot2::aes(fill = .data$concordance_legend),
                      colour = "grey82", linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
-      values = pal_c, drop = FALSE, na.value = "grey85",
+      values = pal_c, drop = FALSE, limits = names(pal_c),
+      na.value = "grey85",
       name = .wrap_lines("Per-LGA agreement (conventional NPAFP x SPI)")
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(

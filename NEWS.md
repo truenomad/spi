@@ -1,5 +1,10 @@
 # blindspot 0.1.0.9000
 
+* **Empty concordance levels drew blank legend keys.** `geom_sf` takes its key
+  glyph from the data, so a fill level no district fell into rendered as an
+  empty swatch beside its label. Each map now pads its frame with one empty
+  geometry per missing level, so every key draws in its own colour while
+  nothing is added to the map.
 * **`cri_excludes_1` meant two things.** With `noise_alpha` set it was silently
   the interval *and* the noise tail, while every string built from it said only
   "the credible interval excludes 1". It now means `spi_q95 < 1`, always; the
