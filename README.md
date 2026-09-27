@@ -611,12 +611,18 @@ spi_field_guide_table(fg, engine = "gt", layout = "worked")
 <img src="man/figures/README-fg-table.png" alt="Field guide table: five STEPS components for four districts, cells shaded green for reassuring, amber for intermediate, and rose where the finding adds to concern." width="100%" />
 
 Create an A4 report for one district, with its SPI trend, map, STEPS
-findings, and detection context. Set `path` to save HTML and PNG files:
+findings, and detection context. Pass `indicators_df` to add the NPAFP
+rate over time and tiles for stool adequacy, timeliness, and EV rate.
+The example table below simulates the notify-to-investigation and EV
+rate figures. Set `path` to save HTML and PNG files:
 
 ``` r
+source(system.file("examples", "pager_indicators.R", package = "spi"))
+indicators <- example_indicators(fg)
+
 spi_field_guide_pager(
   fg, district = "Tirwen", boundaries = synth$boundaries,
-  id_col = "adm2_guid", path = "reports/"
+  id_col = "adm2_guid", indicators_df = indicators, path = "reports/"
 )
 ```
 
@@ -627,7 +633,7 @@ spi_field_guide_pager(
 One-page field pager for a review priority district
 </summary>
 
-<img src="man/figures/README-pager.png" alt="One-page SPI field pager: review label, an SPI chart with a credible interval and a location map, the five STEPS components, and a judgement banner." width="100%" />
+<img src="man/figures/README-pager.png" alt="One-page SPI field pager: review label, an SPI chart with a credible interval and a location map, conventional AFP and ES indicators, the five STEPS components, and a judgement banner." width="100%" />
 
 </details>
 

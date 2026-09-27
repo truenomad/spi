@@ -436,27 +436,33 @@ gt::gtsave(fg_tbl, "man/figures/README-fg-table.png", expand = 5)
 knitr::include_graphics("man/figures/README-fg-table.png")
 ```
 
-Create an A4 report for one district, with its SPI trend, map, STEPS findings, and detection context. Set `path` to save HTML and PNG files:
+Create an A4 report for one district, with its SPI trend, map, STEPS findings, and detection context. Pass `indicators_df` to add the NPAFP rate over time and tiles for stool adequacy, timeliness, and EV rate. The example table below simulates the notify-to-investigation and EV rate figures. Set `path` to save HTML and PNG files:
 
 ```{r pager-code, eval = FALSE, cache = FALSE}
+source(system.file("examples", "pager_indicators.R", package = "spi"))
+indicators <- example_indicators(fg)
+
 spi_field_guide_pager(
   fg, district = "Tirwen", boundaries = synth$boundaries,
-  id_col = "adm2_guid", path = "reports/"
+  id_col = "adm2_guid", indicators_df = indicators, path = "reports/"
 )
 ```
 
 <details>
 <summary>One-page field pager for a review priority district</summary>
 
-```{r pager-img, cache = FALSE, echo = FALSE, fig.alt = "One-page SPI field pager: review label, an SPI chart with a credible interval and a location map, the five STEPS components, and a judgement banner."}
+```{r pager-img, cache = FALSE, echo = FALSE, fig.alt = "One-page SPI field pager: review label, an SPI chart with a credible interval and a location map, conventional AFP and ES indicators, the five STEPS components, and a judgement banner."}
+source("inst/examples/pager_indicators.R")
+indicators <- example_indicators(fg, synth)
+
 pager_id <- fg$focal |>
   dplyr::filter(verdict == "Review priority", observed > 0) |>
   dplyr::slice_min(spi_median, n = 1, with_ties = FALSE) |>
   dplyr::pull(adm2_guid)
 spi_field_guide_pager(
   fg, district = pager_id, boundaries = synth$boundaries,
-  id_col = "adm2_guid", file = "man/figures/README-pager.png",
-  verbose = FALSE
+  id_col = "adm2_guid", indicators_df = indicators,
+  file = "man/figures/README-pager.png", verbose = FALSE
 )
 knitr::include_graphics("man/figures/README-pager.png")
 ```
