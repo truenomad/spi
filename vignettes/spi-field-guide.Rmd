@@ -16,7 +16,7 @@ The STEPS field guide combines SPI with timeliness, stool adequacy, and findings
 
 ## From SPI to review
 
-The field guide starts from a concordance object, which compares each district-year's SPI with the conventional NPAFP target. This code fits the model, calculates annual and monthly SPI, and builds the concordance. [Getting started with SPI](spi-getting-started.html) explains the first two steps.
+The field guide starts from a `spi_compare_npafp()` result, which classifies each district-year by its SPI and the conventional NPAFP target. This code fits the model, calculates annual and monthly SPI, and builds that comparison. [Getting started with SPI](spi-getting-started.html) explains the first two steps.
 
 
 ``` r
@@ -37,11 +37,11 @@ spi_year <- spi_index(fit, level = "district_year")
 spi_month <- spi_index(fit, level = "district_month")
 ```
 
-Compare each district-year's SPI with the NPAFP target used here: 3 non-polio AFP cases per 100,000 under-15 person-years, matching the study definition. Programmes should use the target that applies in their setting. The four categories show where the two measures agree or differ. The `"SPI only"` category identifies districts that meet the NPAFP target but have an SPI below 1.
+Compare each district-year's SPI with the NPAFP target used here: 3 non-polio AFP cases per 100,000 under-15 person-years, matching the study definition. Programmes should use the target that applies in their setting. The four categories show where the two measures agree or differ. The `"SPI below threshold only"` category identifies districts that meet the NPAFP target but have an SPI below 1.
 
 
 ``` r
-conc <- spi_concordance(
+comparison <- spi_compare_npafp(
   spi = spi_year,
   cases = synth$cases,
   population = synth$population,
@@ -57,25 +57,25 @@ Count the district-years in each category:
 
 
 ``` r
-conc$district_year |>
-  dplyr::count(concordance, name = "district_years", .drop = FALSE)
+comparison$district_year |>
+  dplyr::count(category, name = "district_years", .drop = FALSE)
 #> # A tibble: 4 x 2
-#>   concordance     district_years
-#>   <fct>                    <int>
-#> 1 Neither flagged            975
-#> 2 SPI only                  1057
-#> 3 NPAFP only                  74
-#> 4 Both flagged               254
+#>   category                 district_years
+#>   <fct>                             <int>
+#> 1 Neither below                       975
+#> 2 SPI below threshold only           1057
+#> 3 NPAFP below target only              74
+#> 4 Both below                          254
 ```
 
-Three panels for one year show the conventional NPAFP rate, the posterior median SPI, and where the two disagree:
+Three panels for one year show the conventional NPAFP rate, the posterior median SPI, and the SPI and NPAFP category of each district:
 
 
 ``` r
-spi_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
+spi_compare_npafp_maps(comparison, boundaries = synth$boundaries, year = 2023)
 ```
 
-<img src="figures/field-guide-maps-1.png" alt="Three maps of Harad districts for 2023: the NPAFP rate, the posterior median SPI, and the concordance category of each district." width="100%" />
+<img src="figures/field-guide-maps-1.png" alt="Three maps of Harad districts for 2023: the NPAFP rate, the posterior median SPI, and the SPI and NPAFP category of each district." width="100%" />
 
 ## The five STEPS components
 
@@ -119,11 +119,11 @@ Supply AFP process counts through `process`. Optional `adjacency`, `spi_month`, 
 ``` r
 # optional AFP poliovirus detection records, used only as supporting context
 detections <- synth$virus_outcome |>
-  dplyr::filter(any_cvdpv2 == 1) |>
+  dplyr::filter(any_virus == 1) |>
   dplyr::select(adm2_guid, year)
 
 fg <- spi_field_guide(
-  concordance = conc,
+  comparison = comparison,
   process = synth$afp_process,
   adjacency = fit$adjacency,
   spi_month = spi_month,
@@ -136,25 +136,25 @@ fg <- spi_field_guide(
 
 fg
 #> # A tibble: 3 x 3
-#>   verdict               n   pct
-#>   <chr>             <int> <dbl>
-#> 1 Review priority      84  35.6
-#> 2 Monitor              58  24.6
-#> 3 No SPI indication    94  39.8
-#> # A tibble: 84 x 11
+#>   verdict                 n   pct
+#>   <chr>               <int> <dbl>
+#> 1 Priority for review    85  36  
+#> 2 Monitor                57  24.2
+#> 3 No SPI indication      94  39.8
+#> # A tibble: 85 x 11
 #>    district   obs   exp   spi cri       npafp extent persist transport adequacy
 #>    <chr>    <int> <dbl> <dbl> <chr>     <dbl> <lgl>  <lgl>       <dbl>    <dbl>
 #>  1 Khandor      0   2.4  0    0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  2 Vasheth      0   0.8  0    0.00-0.00   0   TRUE   FALSE          NA       NA
 #>  3 Arddor       0   1.7  0    0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  4 Ardor        0   1.2  0    0.00-0.00   0   TRUE   TRUE           NA       NA
-#>  5 Doloth       0   1.2  0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  5 Doloth       0   1.1  0    0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  6 Raenan       0   1.1  0    0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  7 Chakis       0   1.9  0    0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  8 Vashoth      0   2.3  0    0.00-0.00   0   TRUE   TRUE           NA       NA
-#>  9 Suzil        1   8.6  0.11 0.09-0.14   1.6 TRUE   TRUE          100      100
+#>  9 Suzil        1   8.5  0.11 0.09-0.14   1.6 TRUE   TRUE          100      100
 #> 10 Nentha       2  16.4  0.12 0.10-0.14   2   TRUE   FALSE         100      100
-#> # i 74 more rows
+#> # i 75 more rows
 #> # i 1 more variable: verdict <chr>
 ```
 
@@ -162,8 +162,8 @@ fg
 
 The field guide generates three review labels:
 
-- **Review priority:** the SPI is below the cutoff, its 90% interval is entirely below 1, and extent or persistence raises concern. If `noise_alpha` is set, the sampling-noise check must also pass.
-- **Monitor:** the SPI is below the cutoff, but the conditions for `Review priority` are not all met.
+- **Priority for review:** the SPI is below the cutoff, its 90% interval is entirely below 1, and extent or persistence raises concern.
+- **Monitor:** the SPI is below the cutoff, but the conditions for `Priority for review` are not all met.
 - **No SPI indication:** the SPI is at or above the cutoff. Routine surveillance and review based on other indicators continue.
 
 The meaning of `No SPI indication` depends on the SPI rule. Under the default median rule, it means the SPI median is at or above the cutoff. Under the interval rule, described below, it also includes district-years whose 90% interval includes 1.
@@ -185,15 +185,15 @@ Set `spi_cut` to `0.80`, `0.60`, or `0.40` to focus on progressively larger rela
 
 This table assumes `centre = "national"`, the default. With `centre = "none"`, the same cutoffs apply to the uncentred district O:E. These cutoffs help focus review; they are not validated boundaries between adequate and inadequate surveillance. Continue to review concerns from timeliness, stool adequacy, or other indicators even when a district is above the chosen SPI cutoff.
 
-Changing `spi_cut` changes which district-years enter review and how extent and persistence are assessed. The strength check still compares the 90% credible interval with 1. To use the same cutoff in the concordance table, also set `spi_threshold` in `spi_concordance()`. Record the cutoff with the results.
+Changing `spi_cut` changes which district-years enter review and how extent and persistence are assessed. The strength check still compares the 90% credible interval with 1. To use the same cutoff in the comparison, also set `spi_threshold` in `spi_compare_npafp()`. Record the cutoff with the results.
 
 The labels for the latest year at three cutoffs show the effect. The context inputs do not affect the label, so they are left out here:
 
 
 ``` r
-label_counts <- function(concordance, cut = 1) {
+label_counts <- function(comparison, cut = 1) {
   guide <- spi_field_guide(
-    concordance = concordance,
+    comparison = comparison,
     process = synth$afp_process,
     spi_cut = cut,
     verbose = FALSE
@@ -203,37 +203,37 @@ label_counts <- function(concordance, cut = 1) {
 }
 
 purrr::map(c(1, 0.8, 0.6), function(cut) {
-  label_counts(conc, cut) |>
+  label_counts(comparison, cut) |>
     dplyr::mutate(spi_cut = cut)
 }) |>
   purrr::list_rbind() |>
   dplyr::arrange(dplyr::desc(spi_cut), verdict)
 #> # A tibble: 9 x 3
-#>   verdict           district_years spi_cut
-#>   <fct>                      <int>   <dbl>
-#> 1 Review priority               84     1  
-#> 2 Monitor                       58     1  
-#> 3 No SPI indication             94     1  
-#> 4 Review priority               57     0.8
-#> 5 Monitor                       31     0.8
-#> 6 No SPI indication            148     0.8
-#> 7 Review priority               34     0.6
-#> 8 Monitor                       17     0.6
-#> 9 No SPI indication            185     0.6
+#>   verdict             district_years spi_cut
+#>   <fct>                        <int>   <dbl>
+#> 1 Priority for review             85     1  
+#> 2 Monitor                         57     1  
+#> 3 No SPI indication               94     1  
+#> 4 Priority for review             57     0.8
+#> 5 Monitor                         31     0.8
+#> 6 No SPI indication              148     0.8
+#> 7 Priority for review             33     0.6
+#> 8 Monitor                         17     0.6
+#> 9 No SPI indication              186     0.6
 ```
 
 ## Changing the classification rule
 
 `spi_rule` decides which district-years count as having an SPI below the threshold:
 
-- `spi_rule = "median"`, the default in `spi_concordance()`, uses `spi_median` alone.
+- `spi_rule = "median"`, the default in `spi_compare_npafp()`, uses `spi_median` alone.
 - `spi_rule = "interval"` also requires the upper bound of the 90% credible interval, `spi_q95`, to be below 1.
 
-`spi_field_guide()` takes the rule from the concordance unless its own `spi_rule` argument is set. Under the interval rule, a district-year whose interval includes 1 receives `No SPI indication` rather than `Monitor`. Extent and persistence still use the median. Record the rule with the results.
+`spi_field_guide()` takes the rule from the comparison unless its own `spi_rule` argument is set. Under the interval rule, a district-year whose interval includes 1 receives `No SPI indication` rather than `Monitor`. Extent and persistence still use the median. Record the rule with the results.
 
 
 ``` r
-conc_interval <- spi_concordance(
+comparison_interval <- spi_compare_npafp(
   spi = spi_year,
   cases = synth$cases,
   population = synth$population,
@@ -245,38 +245,38 @@ conc_interval <- spi_concordance(
 )
 
 dplyr::bind_rows(
-  median = dplyr::count(conc$district_year, concordance, .drop = FALSE),
+  median = dplyr::count(comparison$district_year, category, .drop = FALSE),
   interval = dplyr::count(
-    conc_interval$district_year, concordance, .drop = FALSE
+    comparison_interval$district_year, category, .drop = FALSE
   ),
   .id = "spi_rule"
 )
 #> # A tibble: 8 x 3
-#>   spi_rule concordance         n
-#>   <chr>    <fct>           <int>
-#> 1 median   Neither flagged   975
-#> 2 median   SPI only         1057
-#> 3 median   NPAFP only         74
-#> 4 median   Both flagged      254
-#> 5 interval Neither flagged  1254
-#> 6 interval SPI only          778
-#> 7 interval NPAFP only         99
-#> 8 interval Both flagged      229
+#>   spi_rule category                     n
+#>   <chr>    <fct>                    <int>
+#> 1 median   Neither below              975
+#> 2 median   SPI below threshold only  1057
+#> 3 median   NPAFP below target only     74
+#> 4 median   Both below                 254
+#> 5 interval Neither below             1250
+#> 6 interval SPI below threshold only   782
+#> 7 interval NPAFP below target only     98
+#> 8 interval Both below                 230
 
 dplyr::bind_rows(
-  median = label_counts(conc),
-  interval = label_counts(conc_interval),
+  median = label_counts(comparison),
+  interval = label_counts(comparison_interval),
   .id = "spi_rule"
 )
 #> # A tibble: 6 x 3
-#>   spi_rule verdict           district_years
-#>   <chr>    <fct>                      <int>
-#> 1 median   Review priority               84
-#> 2 median   Monitor                       58
-#> 3 median   No SPI indication             94
-#> 4 interval Review priority               84
-#> 5 interval Monitor                       21
-#> 6 interval No SPI indication            131
+#>   spi_rule verdict             district_years
+#>   <chr>    <fct>                        <int>
+#> 1 median   Priority for review             85
+#> 2 median   Monitor                         57
+#> 3 median   No SPI indication               94
+#> 4 interval Priority for review             85
+#> 5 interval Monitor                         22
+#> 6 interval No SPI indication              129
 ```
 
 ## Field guide table
@@ -305,7 +305,7 @@ spi_field_guide_pager(
 )
 ```
 
-The report below shows the district with the lowest non-zero SPI among those labelled `Review priority` in the latest year:
+The report below shows the district with the lowest non-zero SPI among those labelled `Priority for review` in the latest year:
 
 <img src="figures/field-guide-pager.png" alt="One-page SPI field pager: review label, an SPI chart with a credible interval and a location map, conventional AFP and ES indicators, the five STEPS components, and a review summary." width="100%" />
 

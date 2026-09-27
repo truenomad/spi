@@ -198,7 +198,7 @@ compare |>
 #> # A tibble: 1 x 6
 #>   district_years pearson spearman below_1_retro below_1_prosp change_side
 #>            <int>   <dbl>    <dbl>         <int>         <int>       <int>
-#> 1           1416   0.958    0.970           816           818          98
+#> 1           1416   0.957    0.970           816           814          94
 ```
 
 
@@ -242,7 +242,7 @@ ggplot2::ggplot(compare_plot, ggplot2::aes(spi_retro, spi_prosp)) +
 
 <img src="figures/model-options-compare-plot-1.png" alt="Scatter of prospective against retrospective SPI for the same district-years, both on log scales, with dotted lines at 1 and a dashed line of equal values." width="80%" />
 
-The Pearson correlation between the two is 0.96 and the Spearman rank correlation is 0.97, but 98 of 1416 district-years fall on different sides of 1 depending on the fit.
+The Pearson correlation between the two is 0.96 and the Spearman rank correlation is 0.97, but 94 of 1416 district-years fall on different sides of 1 depending on the fit.
 
 In the retrospective fit, each assessed year contributes to its own expectation, so part of a decline in that year is absorbed into the expected count. In the prospective fit, the expectation for each year comes only from earlier years. Retrospective SPI describes the full fitted period; prospective SPI is designed for assessing each year against the information available before it. The accompanying study uses prospective assessment for this reason. Do not mix the two in one series.
 
@@ -277,10 +277,10 @@ dplyr::bind_rows(
 #> # A tibble: 5 x 3
 #>   setting      district_years below_1
 #>   <chr>                 <int>   <int>
-#> 1 default                2360    1316
-#> 2 centre_none            2360    1304
-#> 3 may_to_april           2124    1159
-#> 4 covariates             2360    1311
+#> 1 default                2360    1315
+#> 2 centre_none            2360    1302
+#> 3 may_to_april           2124    1168
+#> 4 covariates             2360    1310
 #> 5 poisson_iid            2360    1301
 ```
 
