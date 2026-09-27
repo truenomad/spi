@@ -70,6 +70,10 @@
 #'     based on other indicators continue.
 #' }
 #'
+#' With `spi_rule = "interval"`, a district-year whose 90% credible interval
+#' includes 1 is labelled `No SPI indication` rather than `Monitor`, so only
+#' shortfalls whose interval lies entirely below 1 are labelled.
+#'
 #' Extent compares the share of the other districts in the same `extent_col`
 #' area with an SPI below the cut against the national share in the same year,
 #' and raises concern when the area share is higher. Timeliness and stool
@@ -136,6 +140,12 @@
 #'   credible-interval check still compares with 1. A district above a lower
 #'   cutoff may still need review based on other surveillance indicators.
 #'   Default: 1.
+#' @param spi_rule Character, `"median"` or `"interval"`. `"median"` labels
+#'   every district-year with an SPI below `spi_cut`. `"interval"` also
+#'   requires the 90% upper bound (`spi_q95`) to be below 1, so a district-year
+#'   whose interval includes 1 is labelled `No SPI indication`. Extent and
+#'   persistence still use the median. Default: NULL (the `spi_rule` given to
+#'   [spi_concordance()]).
 #' @param traj_window Integer. Trend regression window in years, ending at
 #'   each year (context). Default: 5.
 #' @param traj_tol Numeric slope dead-band per year below which a trend is
@@ -181,7 +191,7 @@
 #'   \item{reference}{The STEPS reference tibble (what each component asks
 #'     and how to interpret it).}
 #'   \item{read_year, thresholds, params, signals_active, id_col, call}{
-#'     Metadata: focal year, `spi_cut` / `npafp_target`, the tuning
+#'     Metadata: focal year, `spi_cut` / `npafp_target` / `spi_rule`, the tuning
 #'     parameters, which optional components and context signals were
 #'     computed, the id column, and the matched call.}
 #' }
@@ -240,6 +250,7 @@ spi_field_guide <- function(
   detection_serotypes = NULL,
   read_year = NULL,
   spi_cut = 1,
+  spi_rule = NULL,
   traj_window = 5L,
   traj_tol = 0.01,
   traj_alpha = NULL,
@@ -256,6 +267,8 @@ spi_field_guide <- function(
 
   id_col <- id_col %||% concordance$id_col %||% "district_id"
   npafp_target <- concordance$thresholds$npafp
+  spi_rule <- spi_rule %||% concordance$thresholds$rule %||% "median"
+  spi_rule <- match.arg(spi_rule, c("median", "interval"))
 
   dy <- concordance$district_year
   required <- c(id_col, "year", "observed", "expected_total", "spi_median",
@@ -405,10 +418,14 @@ spi_field_guide <- function(
   # judgement.
   is_true <- function(x) !is.na(x) & x
   corroborated <- is_true(dy$extent_concern) | is_true(dy$persistence_concern)
+  # under the interval rule a shortfall whose interval includes 1 is not
+  # labelled, so monitor holds only the certain but uncorroborated ones
+  labelled <- dy$spi_below &
+    (spi_rule == "median" | is_true(dy$cri_excludes_1))
   dy$verdict <- factor(
     dplyr::case_when(
       dy$spi_below & dy$gate_pass & corroborated ~ "Review priority",
-      dy$spi_below ~ "Monitor",
+      labelled ~ "Monitor",
       TRUE ~ "No SPI indication"
     ),
     levels = .FG_VERDICT_LEVELS
@@ -446,7 +463,7 @@ spi_field_guide <- function(
       focal = tibble::as_tibble(dy[dy$year == read_year, ]),
       reference = .fg_reference(spi_cut),
       read_year = read_year,
-      thresholds = list(spi = spi_cut, npafp = npafp_target),
+      thresholds = list(spi = spi_cut, npafp = npafp_target, rule = spi_rule),
       params = list(
         extent_col = extent_col,
         process_target = process_target,
@@ -954,6 +971,7 @@ print.spi_field_guide <- function(x, ...) {
   cli::cli_inform(c(
     "Read year: {.val {x$read_year}} \\
      | STEPS applied below SPI {.val {x$thresholds$spi}} \\
+     ({x$thresholds$rule %||% 'median'} rule) \\
      | review priority: 90% CrI below 1, corroborated by extent or \\
      persistence"
   ))
@@ -1152,6 +1170,12 @@ spi_field_guide_help <- function(
        continue."
     )
     cli::cli_end()
+    if (identical(guide$thresholds$rule, "interval")) {
+      cli::cli_text(
+        "This guide uses the interval rule: a district-year whose 90% \\
+         credible interval includes 1 receives no SPI indication."
+      )
+    }
     cli::cli_text(
       "Timeliness and stool adequacy are reported beside the judgement but \\
        never change it. Trend, neighbouring-district context, seasonal patterns and \\
@@ -1267,13 +1291,20 @@ spi_field_guide_help <- function(
       ),
       "The SPI provides no current indication for additional review."
     ),
-    "Uncertain shortfall" = sprintf(
-      paste0("SPI %s, and its 90%% credible interval extends to %.2f, so ",
-             "reporting at the expected level remains compatible with the ",
-             "data and model. %s, and %s. The uncertain strength ",
-             "supports monitoring and reassessment rather than immediate ",
-             "priority."),
-      spi, r$spi_q95, persist_cap, extent
+    "Uncertain shortfall" = paste0(
+      sprintf(
+        paste0("SPI %s, and its 90%% credible interval extends to %.2f, so ",
+               "reporting at the expected level remains compatible with the ",
+               "data and model. %s, and %s. "),
+        spi, r$spi_q95, persist_cap, extent
+      ),
+      if (identical(as.character(r$verdict), "Monitor")) {
+        paste0("The uncertain strength supports monitoring and reassessment ",
+               "rather than immediate priority.")
+      } else {
+        paste0("Under the interval rule, a shortfall whose interval includes ",
+               "1 receives no SPI indication.")
+      }
     ),
     "Large, corroborated shortfall" = sprintf(
       paste0("NPAFP rate %.1f, yet %d cases reported against %.1f expected, ",
@@ -1650,12 +1681,16 @@ FG_CLASS_FILL <- c(
   good <- pick(
     dplyr::filter(
       remaining(),
-      .data$verdict == "No SPI indication", .data$conventional_pass
+      .data$verdict == "No SPI indication", !is_true(.data$spi_below),
+      .data$conventional_pass
     ),
     dplyr::desc(.data$expected_total)
   )
   good <- good %||% pick(
-    dplyr::filter(remaining(), .data$verdict == "No SPI indication"),
+    dplyr::filter(
+      remaining(),
+      .data$verdict == "No SPI indication", !is_true(.data$spi_below)
+    ),
     dplyr::desc(.data$spi_median)
   )
   if (!is.null(good)) used <- c(used, good[[id_col]])

@@ -17,6 +17,11 @@
   detection records, not genetic data. They remain optional supporting
   context and do not affect SPI or the STEPS review label.
 
+* `spi_field_guide()` gains `spi_rule`. With `"interval"`, a district-year
+  whose 90% credible interval includes 1 is labelled `No SPI indication`
+  rather than `Monitor`. It defaults to the `spi_rule` given to
+  `spi_concordance()`, and the pager, table and help follow the field guide.
+
 * STEPS now follows the SPI field guide: strength, timeliness, extent,
   persistence and stool adequacy, applied to districts with an SPI below 1.
   `spi_cut` defaults to 1 rather than the concordance cut. Extent compares the

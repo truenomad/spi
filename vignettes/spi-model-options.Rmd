@@ -1,0 +1,79 @@
+---
+title: "Model options"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Model options}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE, collapse = TRUE, comment = "#>")
+```
+
+The default SPI model uses no covariates and negative binomial overdispersion. This guide shows optional covariate adjustment and comparisons with alternative observation models. These options can support sensitivity analyses or other applications; they are not additional components of the default SPI used in the accompanying study.
+
+The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes. The fitting code is shown here for you to run in R.
+
+```{r data}
+library(spi)
+synth <- synth_surveillance
+```
+
+## Adjusting for covariates
+
+Covariates are optional and are not part of the default SPI used in the accompanying study. Pass district-year covariates to `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
+
+```{r covariates}
+synth$covariates |>
+  dplyr::slice_head(n = 6)
+```
+
+Pass them in, log-transforming the skewed travel-time column:
+
+```{r fit-adjusted}
+fit_adj <- spi_expected(
+  cases = synth$cases,
+  population = synth$population,
+  adjacency = synth$boundaries,
+  covariates = synth$covariates,
+  log_transform = "travel_time_min",
+  id_col = "adm2_guid",
+  n_draws = 500,
+  seed = 42,
+  verbose = FALSE
+)
+```
+
+Effects are reported as rate ratios per standard deviation of the covariate. The model standardises covariates internally. Here are the three covariate effects, excluding the seasonal terms:
+
+```{r fit-adjusted-show}
+summary(fit_adj)$effects |>
+  dplyr::filter(covariate %in% c("dtp3", "urban_prop", "travel_time_min")) |>
+  dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
+```
+
+Optional covariates can be used for sensitivity analyses or alternative applications; the default SPI does not require them.
+
+## Compare overdispersion options
+
+Compare Poisson, Poisson with an observation-level random effect, and negative binomial models:
+
+```{r overdispersion}
+od <- spi_compare_overdispersion(
+  cases = synth$cases,
+  population = synth$population,
+  adjacency = synth$boundaries,
+  id_col = "adm2_guid",
+  specs = c("none", "iid", "nb"),
+  n_draws = 100,
+  verbose = FALSE
+)
+```
+
+```{r overdispersion-show}
+od$summary
+```
+
+To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same comparison internally and refits with the recommended model.
+

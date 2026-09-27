@@ -1012,3 +1012,15 @@ test_that("two levels sharing a name get two file names", {
   expect_false(identical(state, lga))
 })
 
+
+test_that("the pager names a shortfall the interval rule leaves unlabelled", {
+  fg <- spi_field_guide(
+    make_concordance(), spi_rule = "interval", verbose = FALSE
+  )
+  h <- spi_field_guide_pager(fg, district = "FG3", verbose = FALSE)$html
+
+  expect_match(h, "--accent:#5a6883", fixed = TRUE)
+  expect_match(h, "below cut \u00b7 interval includes 1", fixed = TRUE)
+  expect_match(h, "Under the interval rule", fixed = TRUE)
+  expect_no_match(h, "at or above cut", fixed = TRUE)
+})

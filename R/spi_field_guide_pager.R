@@ -574,9 +574,17 @@ as.character.spi_pager <- function(x, ...) {
         "below cut \u00b7 not corroborated"
       }
     ),
-    # at or above the cut. It still splits, so green never overclaims on a
+    # at or above the cut, or below it with an interval that includes 1 under
+    # the interval rule. It still splits, so green never overclaims on a
     # district whose interval sits below 1 under a cut set below 1
-    if (.pager_short_of_expectation(focal)) {
+    if (isTRUE(focal$spi_below)) {
+      list(
+        verdict = verdict,
+        accent = "#5a6883",
+        tag = "No SPI indication",
+        state = "below cut \u00b7 interval includes 1"
+      )
+    } else if (.pager_short_of_expectation(focal)) {
       list(
         verdict = verdict,
         accent = "#5a6883",
@@ -1568,6 +1576,13 @@ as.character.spi_pager <- function(x, ...) {
         reason
       ),
       process_txt
+    ))
+  }
+  if (isTRUE(focal$spi_below)) {
+    return(paste0(
+      "Reporting is below expectation, but the 90% interval still includes ",
+      "one. Under the interval rule, a shortfall receives a review label ",
+      "only when its interval lies wholly below one."
     ))
   }
   if (.pager_short_of_expectation(focal)) {

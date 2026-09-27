@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 700" font-family="Arial, DejaVu Sans, sans-serif">
+<defs><marker id="ah" markerWidth="12" markerHeight="10" refX="9" refY="3.4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L10,3.4 L0,6.8 z" fill="#222222"/></marker></defs>
+<rect x="0" y="0" width="1600" height="700" fill="white"/>
+<rect x="40" y="40" width="270" height="100" rx="2" fill="#D9D9D9" stroke="#222222" stroke-width="1.6"/>
+<text x="175" y="78" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Population younger</text>
+<text x="175" y="104" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">than 15 years</text>
+<rect x="40" y="180" width="270" height="100" rx="2" fill="#D9D9D9" stroke="#222222" stroke-width="1.6"/>
+<text x="175" y="214" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Preceding NPAFP</text>
+<text x="175" y="240" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">reporting</text>
+<text x="175" y="264" font-size="15" fill="#666666" font-style="italic" text-anchor="middle" dominant-baseline="middle">training years only</text>
+<ellipse cx="250" cy="415" rx="210" ry="58" fill="white" stroke="#222222" stroke-width="1.6"/>
+<text x="250" y="400" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Underlying NPAFP incidence</text>
+<text x="250" y="432" text-anchor="middle" dominant-baseline="middle" fill="#888888" font-style="italic"><tspan font-size="17" dy="0">&#955;</tspan><tspan font-size="13" dy="4">i,t</tspan><tspan font-size="15" dy="-4"> &#183; not observed</tspan></text>
+<ellipse cx="250" cy="560" rx="210" ry="62" fill="white" stroke="#222222" stroke-width="1.6"/>
+<text x="250" y="540" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Case finding and reporting</text>
+<text x="250" y="566" font-size="15" fill="#444444" font-style="italic" text-anchor="middle" dominant-baseline="middle">by the surveillance system</text>
+<text x="250" y="592" text-anchor="middle" dominant-baseline="middle" fill="#888888" font-style="italic"><tspan font-size="17" dy="0">p</tspan><tspan font-size="13" dy="4">i,t</tspan><tspan font-size="15" dy="-4"> &#183; not observed</tspan></text>
+<rect x="380" y="95" width="290" height="130" rx="2" fill="white" stroke="#222222" stroke-width="1.6"/>
+<text x="525" y="135" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Expected-count model</text>
+<text x="525" y="167" font-size="15" fill="#666666" font-style="italic" text-anchor="middle" dominant-baseline="middle">negative binomial; BYM2 district</text>
+<text x="525" y="189" font-size="15" fill="#666666" font-style="italic" text-anchor="middle" dominant-baseline="middle">effect, season and year effects</text>
+<rect x="740" y="110" width="240" height="100" rx="2" fill="white" stroke="#222222" stroke-width="1.6"/>
+<text x="860" y="148" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Expected count</text>
+<text x="860" y="178" font-size="15" fill="#666666" font-style="italic" text-anchor="middle" dominant-baseline="middle">assessment year</text>
+<rect x="740" y="435" width="240" height="110" rx="2" fill="#D9D9D9" stroke="#222222" stroke-width="1.6"/>
+<text x="860" y="472" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">Reported NPAFP</text>
+<text x="860" y="498" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">count</text>
+<text x="860" y="524" font-size="15" fill="#666666" font-style="italic" text-anchor="middle" dominant-baseline="middle">assessment year</text>
+<rect x="1050" y="105" width="260" height="110" rx="2" fill="white" stroke="#222222" stroke-width="1.6"/>
+<text x="1180" y="141" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">District observed-</text>
+<text x="1180" y="167" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">to-expected ratio</text>
+<text x="1180" y="193" font-size="15" fill="#666666" font-style="italic" text-anchor="middle" dominant-baseline="middle">reported &#247; expected</text>
+<rect x="1050" y="435" width="260" height="110" rx="2" fill="white" stroke="#222222" stroke-width="1.6"/>
+<text x="1180" y="471" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">National observed-</text>
+<text x="1180" y="497" font-size="19" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">to-expected ratio</text>
+<text x="1180" y="523" font-size="15" fill="#666666" font-style="italic" text-anchor="middle" dominant-baseline="middle">sum reported &#247; sum expected</text>
+<rect x="1380" y="260" width="200" height="130" rx="2" fill="white" stroke="#222222" stroke-width="1.6"/>
+<rect x="1386" y="266" width="188" height="118" fill="none" stroke="#222222" stroke-width="1.1"/>
+<text x="1480" y="300" font-size="25" fill="#222222" font-weight="bold" text-anchor="middle" dominant-baseline="middle">SPI</text>
+<text x="1480" y="334" font-size="15" fill="#444444" font-style="italic" text-anchor="middle" dominant-baseline="middle">district ratio &#247;</text>
+<text x="1480" y="356" font-size="15" fill="#444444" font-style="italic" text-anchor="middle" dominant-baseline="middle">national ratio</text>
+<path d="M310,90 L375,135" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M310,230 L375,185" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M670,160 L735,160" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M460,430 L735,470" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M458,545 L735,510" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M980,150 L1045,150" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M980,195 L1045,450" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M980,450 L1045,200" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M980,500 L1045,500" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M1310,165 L1375,290" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<path d="M1310,485 L1375,360" fill="none" stroke="#222222" stroke-width="1.7" marker-end="url(#ah)"/>
+<rect x="60" y="655" width="34" height="22" fill="#D9D9D9" stroke="#222222" stroke-width="1"/><text x="105" y="666" font-size="15" fill="#222222" text-anchor="start" dominant-baseline="middle">input data</text>
+<rect x="260" y="655" width="34" height="22" fill="white" stroke="#222222" stroke-width="1"/><text x="305" y="666" font-size="15" fill="#222222" text-anchor="start" dominant-baseline="middle">model or derived quantity</text>
+<rect x="560" y="655" width="34" height="22" fill="white" stroke="#222222" stroke-width="1"/><rect x="565" y="660" width="24" height="12" fill="none" stroke="#222222" stroke-width="0.8"/><text x="605" y="666" font-size="15" fill="#222222" text-anchor="start" dominant-baseline="middle">index</text>
+<ellipse cx="730" cy="666" rx="22" ry="13" fill="white" stroke="#222222" stroke-width="1"/><text x="762" y="666" font-size="15" fill="#222222" text-anchor="start" dominant-baseline="middle">latent process</text>
+</svg>

@@ -55,6 +55,7 @@ Suggests:
     scales
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable/
+VignetteBuilder: knitr
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)

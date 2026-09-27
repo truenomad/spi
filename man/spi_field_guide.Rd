@@ -20,6 +20,7 @@ spi_field_guide(
   detection_serotypes = NULL,
   read_year = NULL,
   spi_cut = 1,
+  spi_rule = NULL,
   traj_window = 5L,
   traj_tol = 0.01,
   traj_alpha = NULL,
@@ -100,6 +101,13 @@ credible-interval check still compares with 1. A district above a lower
 cutoff may still need review based on other surveillance indicators.
 Default: 1.}
 
+\item{spi_rule}{Character, \code{"median"} or \code{"interval"}. \code{"median"} labels
+every district-year with an SPI below \code{spi_cut}. \code{"interval"} also
+requires the 90\% upper bound (\code{spi_q95}) to be below 1, so a district-year
+whose interval includes 1 is labelled \verb{No SPI indication}. Extent and
+persistence still use the median. Default: NULL (the \code{spi_rule} given to
+\code{\link[=spi_concordance]{spi_concordance()}}).}
+
 \item{traj_window}{Integer. Trend regression window in years, ending at
 each year (context). Default: 5.}
 
@@ -151,7 +159,7 @@ stool adequacy (\code{n_cases}, \code{n_adequate}, \code{pct_adequate},
 \item{reference}{The STEPS reference tibble (what each component asks
 and how to interpret it).}
 \item{read_year, thresholds, params, signals_active, id_col, call}{
-Metadata: focal year, \code{spi_cut} / \code{npafp_target}, the tuning
+Metadata: focal year, \code{spi_cut} / \code{npafp_target} / \code{spi_rule}, the tuning
 parameters, which optional components and context signals were
 computed, the id column, and the matched call.}
 }
@@ -211,6 +219,10 @@ available.
 no SPI indication for additional review; routine surveillance and review
 based on other indicators continue.
 }
+
+With \code{spi_rule = "interval"}, a district-year whose 90\% credible interval
+includes 1 is labelled \verb{No SPI indication} rather than \code{Monitor}, so only
+shortfalls whose interval lies entirely below 1 are labelled.
 
 Extent compares the share of the other districts in the same \code{extent_col}
 area with an SPI below the cut against the national share in the same year,

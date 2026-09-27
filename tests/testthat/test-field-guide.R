@@ -61,6 +61,30 @@ test_that("the review rule matches the verdict column", {
   )
 })
 
+test_that("the interval rule relabels shortfalls whose interval includes 1", {
+  conc <- make_concordance()
+  fg_med <- spi_field_guide(conc, verbose = FALSE)
+  fg_int <- spi_field_guide(conc, spi_rule = "interval", verbose = FALSE)
+  med <- as.character(fg_med$district_year$verdict)
+  int <- as.character(fg_int$district_year$verdict)
+  dy <- fg_int$district_year
+  uncertain <- dy$spi_below & dy$spi_q95 >= 1
+
+  expect_true(any(uncertain & med == "Monitor"))
+  expect_true(all(int[uncertain] == "No SPI indication"))
+  expect_equal(int[!uncertain], med[!uncertain])
+  expect_identical(fg_med$thresholds$rule, "median")
+  expect_identical(fg_int$thresholds$rule, "interval")
+
+  # the rule given to spi_concordance() carries through by default
+  conc$thresholds$rule <- "interval"
+  expect_equal(
+    spi_field_guide(conc, verbose = FALSE)$district_year$verdict,
+    fg_int$district_year$verdict
+  )
+  expect_error(spi_field_guide(conc, spi_rule = "mean", verbose = FALSE))
+})
+
 test_that("timeliness and stool adequacy never move the judgement", {
   fg <- synth_field_guide
   dy <- fg$district_year
