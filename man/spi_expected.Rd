@@ -33,7 +33,7 @@ character), \code{month} (Date), \code{count} (integer). One row per district-mo
 Zero-count rows must be present explicitly.}
 
 \item{population}{Tibble with the district identifier and \code{pop} (double).
-Granularity is auto-detected: if \code{month} (Date) is present, population is
+The time unit is inferred: if \code{month} (Date) is present, population is
 joined month-by-month and the offset is \code{log(pop)}; otherwise \code{year}
 (integer) is required and the offset is \code{log(pop / 12)}.}
 
@@ -43,8 +43,9 @@ must match those in \code{cases}.}
 
 \item{covariates}{Tibble with columns: the district identifier (see
 \code{id_col}), \code{month} (Date) OR \code{year} (int), plus one or more numeric
-covariate columns. If NULL, model uses offset + intercept + season +
-spatial. Covariates are standardised internally (mean=0, sd=1). Default:
+covariate columns. If NULL, the model uses population, spatial, seasonal,
+and year terms according to the selected settings. Covariates are
+standardised internally (mean = 0, sd = 1). Default:
 NULL.}
 
 \item{season}{Character. Seasonal specification: "harmonic" (1st + 2nd order
@@ -53,25 +54,24 @@ sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),
 component). Default: "harmonic".}
 
 \item{year_effect}{Character. Optional between-year random effect to
-absorb changes in baseline detection that no within-year term
-can capture (e.g. surveillance disruption from insecurity, transition,
-or pandemic). "iid" (default) lets each year find its own level
+account for differences in reported counts between years (e.g. changes
+during insecurity, programme transitions, or a pandemic). "iid" (default) estimates each year's effect
 independently; this is the paper specification, and is recommended
 when the between-year pattern is non-monotonic, such as a U shape.
-"none" preserves the original specification, with no year effect;
-"rw1" borrows strength smoothly across adjacent years.}
+"none" omits the year effect; "rw1" smooths effects across adjacent
+years.}
 
 \item{overdispersion}{Character. Overdispersion mechanism: "nb" (negative
 binomial likelihood, default, the paper specification), "iid"
 (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month),
 "none" (plain Poisson, not recommended for sparse data), or "auto" (fit
-all three and pick the recommended spec via
+all three and select a model using
 \code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}}, then refit it at the requested
 \code{n_draws}). Default: "nb".}
 
 \item{prior_phi}{Named list with elements \code{U} and \code{alpha} giving the BYM2
 mixing parameter PC prior \code{P(phi < U) = alpha}. Default:
-\code{list(U = 0.5, alpha = 0.5)} (agnostic, 50\% chance phi below 0.5).}
+\code{list(U = 0.5, alpha = 0.5)} (50\% prior probability that phi is below 0.5).}
 
 \item{prior_precision}{Named list with elements \code{U} and \code{alpha} giving the
 marginal SD PC prior \code{P(1/sqrt(tau) > U) = alpha}. Default:
@@ -80,11 +80,11 @@ marginal SD PC prior \code{P(1/sqrt(tau) > U) = alpha}. Default:
 \item{prior_precision_year}{Named list with elements \code{U} and \code{alpha}
 giving the PC prior for the year random effect precision. Default
 \code{list(U = 1, alpha = 0.01)} matches the BYM2 spatial-precision prior:
-weak shrinkage that lets the data dominate. Ignored when
+a 1\% prior probability that the log-scale SD exceeds 1. Ignored when
 \code{year_effect = "none"}.}
 
 \item{n_draws}{Integer. Posterior draws from joint latent field, used for
-SPI uncertainty propagation downstream. Use 1000 for analysis, 100 for
+credible intervals for SPI. Use 1000 for analysis, 100 for
 quick checks. Default: 1000L.}
 
 \item{log_transform}{Character vector. Covariate column names to
@@ -155,7 +155,7 @@ Object of class \code{spi_expected}. A list containing:
 \item{hyperparameters}{Tibble with posterior summaries of tau, phi, sigma.}
 \item{priors}{List of prior specs used.}
 \item{cov_params}{Named list of \verb{(mean, sd)} used to standardise each
-covariate, for round-tripping in downstream \code{predict()}.}
+covariate, used by \code{predict()}.}
 \item{data}{Input data tibble (for downstream functions).}
 \item{id_col}{The id column name, echoed for downstream use.}
 \item{call}{Matched call.}
@@ -172,8 +172,7 @@ with:
 \itemize{
 \item Log person-time offset
 \item BYM2 spatial random effects (Riebler et al. 2016)
-\item Optional seasonal component
-\item Optional overdispersion (iid or negative binomial)
+\item Seasonal and year effects, controlled by \code{season} and \code{year_effect}
 \item Optional covariates
 }
 
@@ -200,8 +199,9 @@ with:
 \item \verb{vb.correction aborted} / \verb{iterative process seems to diverge} --
 INLA's variational Bayes correction is an \emph{optional} refinement on
 top of the Laplace approximation. When it fails to converge, INLA
-returns the Laplace result, which is a valid (slightly less
-accurate) posterior. This message is informational, not an error.
+may return the Laplace approximation. Review convergence and other
+diagnostics before relying on the fit; this message alone does not
+establish whether the approximation is adequate.
 \item \verb{Matrix is not positive definite} \emph{during fitting} -- usually means
 the BYM2 precision matrix is singular; check that the adjacency
 graph is symmetric and that disconnected components are handled
@@ -210,9 +210,9 @@ graph is symmetric and that disconnected components are handled
 
 \strong{CPO / PIT and \code{overdispersion = "iid"}.} When the model has an iid
 effect per observation, conditional predictive ordinate (CPO) and the
-probability integral transform (PIT) are structurally unreliable --
-INLA flags most observations as \code{failure = 1}. This is an artifact of
-the model spec, not a sign of poor fit. For CPO-based diagnostics, use
+probability integral transform (PIT) can be unreliable. INLA may flag
+many observations as \code{failure = 1}. This can follow from the model
+specification and does not by itself establish poor fit. For CPO-based diagnostics, use
 the default \code{overdispersion = "nb"} or \code{overdispersion = "none"}.
 }
 \section{Paper specification}{
@@ -246,8 +246,7 @@ cases |>
 Use for aseasonal outcomes (e.g. neonatal tetanus, DHIS2 reporting
 completeness when administratively driven).
 \item \emph{"harmonic"} (default, 4 terms: sin/cos at 12 and 6 month periods)
--- one or two smooth peaks per year. Good for most VPDs. Most
-parsimonious option that still captures seasonality.
+-- one or two smooth peaks per year, using four coefficients.
 \item \emph{"rw2"} -- cyclic 2nd-order random walk over 12 months. Smooth but
 arbitrary shape; lets the prior do the smoothing rather than imposing a
 sinusoid. Use when seasonality is real but asymmetric or multi-modal
@@ -257,9 +256,9 @@ Most flexible, no smoothing. Use only with plentiful data (~3+ years
 across most districts); otherwise monthly effects absorb noise.
 }
 
-\strong{If unsure, compare.} Fit two specifications and pick the lower DIC /
-WAIC (printed in the verbose run). Differences > ~5 on either criterion are
-meaningful; smaller is noise.
+\strong{Compare plausible choices.} Examine the fitted seasonal pattern,
+diagnostics, and DIC or WAIC together. Small differences in a single
+criterion may not distinguish the models clearly.
 
 \strong{Disease-specific starting points} (acute case-based surveillance):
 \tabular{ll}{

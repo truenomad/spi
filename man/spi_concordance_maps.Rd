@@ -56,20 +56,19 @@ edge-matched layer the dissolve can leave sliver artefacts, so set \code{FALSE}.
 A \code{patchwork} object plotting the three panels side by side.
 }
 \description{
-Reproduces the paper's three-panel choropleth for a single year:
+Maps the NPAFP rate, SPI, and their agreement for one year:
 \itemize{
 \item \strong{Panel A} -- conventional NPAFP rate per 100,000 under-15
-person-years, categorised on the canonical POLIS breaks
-(\verb{<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24}). Values below the WHO
-conventional target are drawn on the red end of the palette.
+person-years, grouped into the reporting bands
+(\verb{<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24}). Values below the
+selected NPAFP target are drawn on the red end of the palette.
 \item \strong{Panel B} -- posterior median SPI, categorised on breaks
-symmetric on the log scale around the paper's cut of 1 (default
+approximately symmetric on the log scale around the reference of 1 (default
 \verb{-Inf, 0.5, 0.75, 1, 1.33, 2, Inf}). Bins at or below the SPI
 threshold are warm; the rest are cool.
-\item \strong{Panel C} -- where the two indicators disagree. LGAs are
+\item \strong{Panel C} -- agreement between the two indicators. Districts are
 coloured by the four concordance cells (\verb{Neither flagged},
-\verb{Both flagged}, \verb{SPI only}, \verb{NPAFP only}). This is where the
-SPI-vs-conventional refinement lives visually.
+\verb{Both flagged}, \verb{SPI only}, \verb{NPAFP only}).
 }
 
 The panels are composed via \code{patchwork} so the returned object plots

@@ -49,8 +49,8 @@ to a review priority / monitor / no SPI indication review label. These labels do
 \section{Main functions}{
 
 \itemize{
-\item \code{\link[=spi_adjacency]{spi_adjacency()}}: Build spatial neighbour matrix
-\item \code{\link[=spi_expected]{spi_expected()}}: Fit BYM2 expected rate model
+\item \code{\link[=spi_adjacency]{spi_adjacency()}}: Build a neighbour graph
+\item \code{\link[=spi_expected]{spi_expected()}}: Fit expected case counts
 \item \code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}}: Compare Poisson vs negative-binomial fits
 \item \code{\link[=spi_index]{spi_index()}}: Compute surveillance performance index
 \item \code{\link[=spi_concordance]{spi_concordance()}}: Cross-classify SPI against the NPAFP-rate threshold
@@ -62,15 +62,9 @@ to a review priority / monitor / no SPI indication review label. These labels do
 
 \section{Applications}{
 
-Designed for AFP/polio surveillance but applicable to any case-based
-disease surveillance system:
-\itemize{
-\item Acute flaccid paralysis (AFP) surveillance
-\item Measles discard surveillance
-\item Neonatal tetanus reporting
-\item DHIS2 completeness monitoring
-\item AEFI pharmacovigilance
-}
+Designed for acute flaccid paralysis surveillance. Other case-based
+surveillance applications need suitable counts, population denominators,
+and model settings.
 }
 
 \section{Dependencies}{
@@ -108,6 +102,7 @@ shortfall or shows whether poliovirus is present.
 Useful links:
 \itemize{
   \item \url{https://github.com/truenomad/spi}
+  \item \url{https://truenomad.github.io/spi/}
   \item \url{https://truenomad.r-universe.dev/spi}
   \item Report bugs at \url{https://github.com/truenomad/spi/issues}
 }
@@ -116,6 +111,7 @@ Useful links:
 Useful links:
 \itemize{
   \item \url{https://github.com/truenomad/spi}
+  \item \url{https://truenomad.github.io/spi/}
   \item \url{https://truenomad.r-universe.dev/spi}
   \item Report bugs at \url{https://github.com/truenomad/spi/issues}
 }

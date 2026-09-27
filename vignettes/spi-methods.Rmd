@@ -1,13 +1,13 @@
 ---
-title: "How does SPI work?"
+title: "How SPI works"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{How does SPI work?}
+  %\VignetteIndexEntry{How SPI works}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-This article describes the model behind the expected counts, how SPI is centred on the national pattern, and the limitations that follow. [Getting started with SPI](spi-getting-started.html) shows how to produce the estimates.
+SPI compares reported counts with modelled expectations and, by default, divides that ratio by the national ratio. This article describes the model and its limits. [Getting started with SPI](spi-getting-started.html) shows how to produce the estimates.
 
 ## Building blocks
 
@@ -48,7 +48,7 @@ Optional covariates add $x_{it}^{\top}\beta$ to the linear predictor. They are n
 
 `overdispersion = "iid"` uses a Poisson model with an observation-level term $\epsilon_{it}$ in the linear predictor. `"none"` fits a Poisson model without overdispersion. Use `spi_compare_overdispersion()` to compare the three options.
 
-<img src="figures/spi-dag.svg" width="100%" alt="Directed acyclic graph of the SPI estimand" />
+<img src="figures/spi-dag.svg" width="100%" alt="Diagram of the SPI model and observed-to-expected comparison" />
 
 Reported counts reflect both underlying NPAFP incidence and surveillance reporting. For annually updated SPI, `spi_prospective()` uses preceding years only; retrospective fits use all supplied years.
 

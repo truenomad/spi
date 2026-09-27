@@ -20,13 +20,13 @@ spi_check_inputs(
 
 \item{population}{Tibble with the district identifier, the denominator
 column (see \code{pop_col}), and either a \code{month} (Date) or \code{year} (integer)
-column. Granularity is auto-detected.}
+column. The time unit is inferred from these columns.}
 
 \item{shapefile}{An \code{sf} object of district polygons, or a pre-built \code{nb}
 neighbour object. Geometry validity is only checked for \code{sf} input.}
 
 \item{covariates}{Optional tibble of district covariates. Only its ids are
-reconciled against the case panel.}
+compared with the district IDs in the case data.}
 
 \item{id_col}{Character. Name of the district identifier column, shared by
 \code{cases}, \code{population}, \code{covariates}, and \code{shapefile}. Default
@@ -39,8 +39,8 @@ Default \code{"pop_u15"} (the under-15 at-risk population used for AFP).}
 }
 \value{
 A \code{spi_input_check} object: a list with \code{issues} (a tibble of
-graded findings, one row each with \code{severity}, \code{code}, \code{message}, and the
-offending \code{ids}), \code{gaps} (a \code{district_id} x \code{month} tibble of missing
+findings by severity, one row each with \code{severity}, \code{code}, \code{message}, and the
+affected \code{ids}), \code{gaps} (a \code{district_id} x \code{month} tibble of missing
 district-months), \code{n_error} / \code{n_warning} /
 \code{n_note} counts, \code{ok} (\code{TRUE} when there are no error-level issues), and
 the panel dimensions. Has a \code{print} method.
@@ -69,7 +69,8 @@ to review warnings before fitting.
 rpt <- spi_check_inputs(
   cases = synth_surveillance$cases,
   population = synth_surveillance$population,
-  shapefile = synth_surveillance$boundaries
+  shapefile = synth_surveillance$boundaries,
+  id_col = "adm2_guid"
 )
 rpt
 rpt$gaps

@@ -2,7 +2,7 @@
 #'
 #' @description
 #' Computes a district-year Surveillance Performance Index in which each
-#' assessment year is scored by a model that has not seen that year's counts.
+#' assessment year's expected counts are estimated from preceding years only.
 #' For every assessment year, [spi_expected()] is refitted on the years before
 #' it. The assessment year's counts are masked (set to `NA`), so the model
 #' predicts them from the earlier years, and later years are dropped. The

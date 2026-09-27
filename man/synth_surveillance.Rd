@@ -114,13 +114,13 @@ completeness gap as cVDPV2-positive at elevated rate.
 Four spatially-contiguous clusters (25 districts, \code{is_low_incidence}) get a
 low baseline (\code{b_i} overridden so their true rate sits around 1.5 per 100,000
 under-15 per year), so their genuine per-capita NPAFP rate sits below the
-conventional target while the context-conditional SPI scores the resilient
-ones adequate -- the "False alarm" cell. Sixteen of the twenty-five are also
+conventional target while the resilient districts can have SPI at or above
+1, giving the "NPAFP only" category. Sixteen of the twenty-five are also
 persistent laggards, so their completeness stays low from 2020 on and SPI
-flags them -- the "True shortfall" cell. Normal-baseline laggards and
-transients (raw rate above target, SPI flagged) supply the "False
-reassurance" cell, so all four cells of the SPI x NPAFP crosstab are
-populated and evolve realistically across the ten study years.
+can flag them in the "Both flagged" category. Districts with higher
+baseline reporting can meet the rate target while SPI is below 1, giving
+the "SPI only" category. The simulation includes all four combinations
+across the ten study years; these categories do not establish adequacy.
 }
 
 \section{Fictional geography}{

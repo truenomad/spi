@@ -1,28 +1,41 @@
 cff-version: 1.2.0
-message: "If you use spi in your work, please cite it as below."
+message: "If you use spi in your work, please cite it using the citation below."
 type: software
+
 title: "spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting"
 version: 0.0.0.9000
+
 abstract: >-
-  Estimates expected case counts for each district and month using Bayesian
-  spatial and temporal models fitted with INLA. The surveillance performance
-  index (SPI) compares observed and expected counts, nationally centred by
-  default, with credible intervals for uncertainty in expected counts. Tables, maps, and district reports
-  support surveillance review.
+  An R package for estimating district-level relative acute flaccid paralysis
+  (AFP) reporting. spi models expected non-polio AFP (NPAFP) counts by district
+  and month using Bayesian spatiotemporal models fitted with INLA, then compares
+  observed and expected counts through the Surveillance Performance Index (SPI).
+  By default, district observed-to-expected ratios are centred on the national
+  observed-to-expected ratio for the same period. The package provides posterior
+  uncertainty, diagnostic plots, concordance with the conventional NPAFP rate,
+  and tools for district-level surveillance review.
+
 authors:
   - family-names: Yusuf
     given-names: "Mohamed A."
     email: mohamedayusuf87@gmail.com
     orcid: "https://orcid.org/0000-0002-9339-4613"
+
 license: MIT
 repository-code: "https://github.com/truenomad/spi"
 url: "https://truenomad.github.io/spi/"
-date-released: "2026-07-02"
+date-released: "2026-09-27"
+
 keywords:
   - polio
+  - poliovirus
+  - "acute flaccid paralysis"
   - AFP
+  - NPAFP
   - surveillance
   - epidemiology
+  - "Bayesian modelling"
+  - "spatiotemporal modelling"
   - BYM2
   - INLA
-  - "r-package"
+  - "R package"

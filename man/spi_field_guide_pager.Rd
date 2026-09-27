@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_field_guide_pager.R
 \name{spi_field_guide_pager}
 \alias{spi_field_guide_pager}
-\title{Render a one-page SPI pager for a single district}
+\title{Create a one-page SPI district report}
 \usage{
 spi_field_guide_pager(
   x,
@@ -51,18 +51,18 @@ one-row data frame. Recognised fields: \code{name} (or \code{region}/\code{adm1}
 (or \code{region_rank}), \code{n} (or \code{n_regions}) and \code{spi} (or \code{region_spi}). It
 renders as a header line reading \verb{region SUD-OUEST}, \verb{SPI 0.70} and
 \verb{worst rank 1 of 22}, joined by middle dots. The rank provides context and does not change
-the judgement. Default: NULL (no regional line).}
+the label. Default: NULL (no regional line).}
 
 \item{year_label}{Optional label for the reading year, shown in the masthead
 in place of the bare year. Use it when the window is not a calendar year,
 e.g. \code{"rolling year to Apr 2025"}. Default: NULL (the year).}
 
-\item{prob_under}{Optional posterior probability that observed \strong{non-polio
-AFP detection} fell below the model expectation, i.e. \code{P(SPI < 1)}, as a
+\item{prob_under}{Optional posterior probability of a relative reporting
+shortfall under the chosen centring setting, \code{P(SPI < 1)}, as a
 single number on the 0 to 1 scale. It is appended to the strength line
 as a percentage, with the tails printed as "over 99\%" and "under 1\%" so
 reported precision matches the posterior draws. This probability describes
-reporting relative to expectation, not the presence of poliovirus.
+relative reporting, not the presence of poliovirus.
 Default: NULL (not shown).}
 
 \item{indicators_df}{Optional district-year panel of conventional AFP and ES
@@ -72,8 +72,7 @@ against its target, plus tiles for whichever of \code{stool_adequacy_cond_pct},
 \code{inv_timeliness_pct}, \code{onset_notify_pct} and \code{ev_rate} are present. Pass
 the assessable counts (\code{inv_timeliness_n}, \code{onset_notify_n}) and they are
 shown under each figure; a percentage on fewer than five cases prints as a
-fraction instead, since a district below expectation often has only a
-handful. These indicators are context: they never change the judgement.
+fraction instead because the percentage is based on few cases. These indicators are context: they never change the label.
 Default NULL (no strip).}
 
 \item{npafp_target}{Numeric non-polio AFP rate target for the strip's rate
@@ -133,15 +132,15 @@ admin-1 inputs. Default: \code{"district"}.}
 \value{
 An object of class \code{spi_pager}: a list with the rendered
 \code{html} string, the resolved \code{district}, \code{year}, \code{verdict} (the review
-judgement), and \code{paths} (the files written, empty when neither \code{path} nor
-\code{file} is set). Printing it reports the judgement and any written files. Recover the markup with
+label), and \code{paths} (the files written, empty when neither \code{path} nor
+\code{file} is set). Printing it reports the label and any written files. Recover the markup with
 \code{as.character()}.
 }
 \description{
 Creates a one-page district report from a \code{\link[=spi_field_guide]{spi_field_guide()}} result. It
-includes the review judgement, an SPI chart with a 90\% credible interval
+includes the review label, an SPI chart with a 90\% credible interval
 and detection markers, the five STEPS components, and a summary of the
-findings that support the judgement.
+findings that support the label.
 }
 \details{
 The report is static HTML with an SVG chart. It works offline, using system
@@ -157,7 +156,7 @@ shown as fractions and are not assessed against a target.
 
 AFP detections appear as filled diamonds and ES detections as hollow
 circles. Seasonality and trend are also shown as context. These findings
-and the optional indicators do not change the STEPS judgement.
+and the optional indicators do not change the STEPS label.
 
 The report uses rose for review priority, amber for monitor, and green for
 no SPI indication.

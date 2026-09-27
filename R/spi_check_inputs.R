@@ -20,11 +20,11 @@
 #'   (Date), and `count` (integer-valued).
 #' @param population Tibble with the district identifier, the denominator
 #'   column (see `pop_col`), and either a `month` (Date) or `year` (integer)
-#'   column. Granularity is auto-detected.
+#'   column. The time unit is inferred from these columns.
 #' @param shapefile An `sf` object of district polygons, or a pre-built `nb`
 #'   neighbour object. Geometry validity is only checked for `sf` input.
 #' @param covariates Optional tibble of district covariates. Only its ids are
-#'   reconciled against the case panel.
+#'   compared with the district IDs in the case data.
 #' @param id_col Character. Name of the district identifier column, shared by
 #'   `cases`, `population`, `covariates`, and `shapefile`. Default
 #'   `"district_id"`.
@@ -33,8 +33,8 @@
 #' @param verbose Logical. Print the report once built. Default `TRUE`.
 #'
 #' @return A `spi_input_check` object: a list with `issues` (a tibble of
-#'   graded findings, one row each with `severity`, `code`, `message`, and the
-#'   offending `ids`), `gaps` (a `district_id` x `month` tibble of missing
+#'   findings by severity, one row each with `severity`, `code`, `message`, and the
+#'   affected `ids`), `gaps` (a `district_id` x `month` tibble of missing
 #'   district-months), `n_error` / `n_warning` /
 #'   `n_note` counts, `ok` (`TRUE` when there are no error-level issues), and
 #'   the panel dimensions. Has a `print` method.
@@ -46,7 +46,8 @@
 #' rpt <- spi_check_inputs(
 #'   cases = synth_surveillance$cases,
 #'   population = synth_surveillance$population,
-#'   shapefile = synth_surveillance$boundaries
+#'   shapefile = synth_surveillance$boundaries,
+#'   id_col = "adm2_guid"
 #' )
 #' rpt
 #' rpt$gaps

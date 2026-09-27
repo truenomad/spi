@@ -8,7 +8,7 @@
   both = "Both flagged"
 )
 
-#' Cross-classify SPI against the conventional NPAFP-rate threshold
+#' Compare SPI with the conventional NPAFP rate
 #'
 #' @description
 #' Compares the SPI and conventional NPAFP rate for each district-year.
@@ -36,17 +36,17 @@
 #'   closes, matching the `year_end_month` the SPI was computed with. The
 #'   conventional rate is grouped on the same rolling year, so the two sides of
 #'   the comparison cover the same months. Default: 12 (calendar years).
-#' @param spi_threshold Numeric. SPI median below this = flagged. The SPI's
-#'   neutral cut is 1 (observed at expected). Default: 1.
+#' @param spi_threshold Numeric. A posterior median below this value is
+#'   flagged, subject to `spi_rule`. The reference is 1: with national centring,
+#'   district and national observed-to-expected ratios are equal. Default: 1.
 #' @param spi_rule Character. `"median"` flags on `spi_median` alone.
 #'   `"interval"` additionally requires the 90% upper bound (`spi_q95`) to
-#'   sit below 1, so only districts whose whole plausible range reads as
-#'   under-detecting are flagged. This is the paper's sensitivity analysis
-#'   on the primary median-based rule. Default: `"median"`.
-#' @param npafp_target Numeric. NPAFP rate below this per `npafp_multiplier`
-#'   person-years = "fail". WHO's target for polio surveillance is
-#'   traditionally 2 per 100,000 under-15; the paper uses 3 per 100,000.
-#'   Default: 3.
+#'   be below 1. This requires stronger evidence of a relative reporting
+#'   shortfall, not evidence of missed cases. The paper uses this rule for a
+#'   sensitivity analysis. Default: `"median"`.
+#' @param npafp_target Numeric. NPAFP reporting-rate target per
+#'   `npafp_multiplier` person-years. Set this to the target used by the
+#'   programme. Default: 3, as in the accompanying study.
 #' @param npafp_multiplier Numeric. Denominator scaling for the NPAFP rate.
 #'   Default: 100000 (per 100,000 under-15 person-years).
 #' @param strata Character vector of column names to stratify concordance
@@ -67,8 +67,8 @@
 #' \describe{
 #'   \item{district_year}{Tibble with per-district-year classification:
 #'     `{id_col}`, `year`, `count_annual`, `pop_u15`, `npafp_rate`,
-#'     `npafp_adequate` (logical), `observed` (posterior observed count, from
-#'     `spi$summary`, when present), `expected_total` (context-conditional
+#'     `npafp_adequate` (logical: rate target met), `observed` (reported count
+#'     from `spi$summary`, when present), `expected_total` (modelled
 #'     expected count, when present), `spi_median`, `spi_q05`, `spi_q95`,
 #'     `spi_flagged` (logical), `spi_pass` (logical, `!spi_flagged`),
 #'     `concordance` (factor: Neither flagged / SPI only / NPAFP only /
@@ -540,20 +540,19 @@ plot.spi_concordance <- function(x, ...) {
 #' Three-panel concordance map (NPAFP | SPI | disagreement)
 #'
 #' @description
-#' Reproduces the paper's three-panel choropleth for a single year:
+#' Maps the NPAFP rate, SPI, and their agreement for one year:
 #' \itemize{
 #'   \item **Panel A** -- conventional NPAFP rate per 100,000 under-15
-#'     person-years, categorised on the canonical POLIS breaks
-#'     (`<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24`). Values below the WHO
-#'     conventional target are drawn on the red end of the palette.
+#'     person-years, grouped into the reporting bands
+#'     (`<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24`). Values below the
+#'     selected NPAFP target are drawn on the red end of the palette.
 #'   \item **Panel B** -- posterior median SPI, categorised on breaks
-#'     symmetric on the log scale around the paper's cut of 1 (default
+#'     approximately symmetric on the log scale around the reference of 1 (default
 #'     `-Inf, 0.5, 0.75, 1, 1.33, 2, Inf`). Bins at or below the SPI
 #'     threshold are warm; the rest are cool.
-#'   \item **Panel C** -- where the two indicators disagree. LGAs are
+#'   \item **Panel C** -- agreement between the two indicators. Districts are
 #'     coloured by the four concordance cells (`Neither flagged`,
-#'     `Both flagged`, `SPI only`, `NPAFP only`). This is where the
-#'     SPI-vs-conventional refinement lives visually.
+#'     `Both flagged`, `SPI only`, `NPAFP only`).
 #' }
 #'
 #' The panels are composed via `patchwork` so the returned object plots

@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_field_guide.R
 \name{spi_field_guide}
 \alias{spi_field_guide}
-\title{Review a low SPI through the five STEPS components}
+\title{Review relative reporting shortfalls with STEPS}
 \usage{
 spi_field_guide(
   concordance,
@@ -120,7 +120,7 @@ from zero at this two-sided level (needing at least three points in the
 window); otherwise it is "flat". Default: NULL (slope sign and tolerance
 only).}
 
-\item{noise_alpha}{Optional numeric level for a sampling-noise gate on
+\item{noise_alpha}{Optional numeric threshold for a sampling-noise check on
 strength (S). The SPI credible interval is posterior uncertainty in the
 \emph{expected} count with the observed count held fixed, so it says nothing
 about sampling variation in the count itself. At \code{observed = 0} the ratio
@@ -129,8 +129,9 @@ is identically zero in every draw, the interval collapses to \verb{(0, 0)}, and
 is set, \code{gate_pass} additionally requires the Poisson reference tail
 \eqn{P(X \le observed \mid \lambda = expected)} to be at or below it.
 \code{cri_excludes_1} keeps its own meaning either way. The tail is always
-reported (\code{noise_tail}, \code{noise_plausible}). Default: NULL (no noise gate).
-\code{0.05} is the recommended setting for an operational reading.}
+reported (\code{noise_tail}, \code{noise_plausible}). Default: NULL (no check).
+A value such as \code{0.05} adds this check; it is not a validated field-action
+threshold.}
 
 \item{id_col}{Character district id column. Default: NULL (take
 \code{concordance$id_col}).}
@@ -172,7 +173,7 @@ guide's three review labels (\verb{Review priority}, \code{Monitor},
 \verb{No SPI indication}). STEPS is applied only to districts with an SPI below
 \code{spi_cut} (1 by default, as in the field guide).
 
-SPI measures NPAFP reporting volume. STEPS brings this together with
+SPI measures relative NPAFP reporting volume. STEPS brings this together with
 timeliness and stool quality, plus the extent and persistence of a shortfall.
 The five components and what each asks:
 \itemize{
@@ -182,7 +183,7 @@ below 1.
 \item \strong{T: Timeliness} -- are specimens reaching the laboratory within 3
 days? Needs \code{process}.
 \item \strong{E: Extent} -- are other districts in the same admin-1 area (the
-other LGAs in the same state, in Nigeria) also below expectation? Needs
+other LGAs in the same state, in Nigeria) also below the SPI cutoff? Needs
 an \code{extent_col} in the concordance.
 \item \strong{P: Persistence} -- was the SPI also below the cut in the previous
 year?
@@ -191,9 +192,9 @@ year?
 }
 
 STEPS is not a combined score. Extent and persistence provide supporting
-context for a low SPI. Timeliness and stool adequacy describe separate
+context for a relative reporting shortfall. Timeliness and stool adequacy describe separate
 dimensions of surveillance and do not change the generated label. These
-labels are not validated judgements of surveillance adequacy or automatic
+labels are not validated measures of surveillance adequacy or automatic
 recommendations for field action.
 
 Trend, neighbouring-district context, seasonal patterns, and poliovirus
@@ -208,11 +209,11 @@ guide's descriptions:
 \item \strong{Review priority} -- the SPI is below \code{spi_cut}, its 90\% credible
 interval lies entirely below 1 (and, when \code{noise_alpha} is set, sampling
 noise alone is unlikely to produce the shortfall), and the shortfall is
-corroborated by extent or persistence. Evidence of reporting below
-expectation is strong or persistent enough to warrant further
-investigation.
+supported by extent or persistence. The label identifies districts
+to consider for closer review.
 \item \strong{Monitor} -- the SPI is below \code{spi_cut}, but the interval includes
-1 or neither extent nor persistence supports it. Uncertainty or limited
+1, the optional sampling-noise check fails, or neither extent nor
+persistence supports it. Uncertainty or limited
 supporting information favours reassessment as new data become
 available.
 \item \strong{No SPI indication} -- the SPI is at or above \code{spi_cut}. There is

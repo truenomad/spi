@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_adjacency.R
 \name{spi_adjacency}
 \alias{spi_adjacency}
-\title{Build spatial neighbour matrix from sf boundaries}
+\title{Build a neighbour graph from district boundaries}
 \usage{
 spi_adjacency(
   boundaries,
@@ -20,8 +20,9 @@ identifier.}
 
 \item{contiguity}{character. "queen" (default) or "rook" contiguity rule.}
 
-\item{handle_islands}{logical. if TRUE (default), disconnected components
-are assigned their nearest neighbour.}
+\item{handle_islands}{Logical. If TRUE (default), districts with no
+neighbours are linked to their nearest district. Separate groups of
+connected districts are not joined.}
 
 \item{snap_tolerance}{numeric. tolerance for boundary matching in CRS
 units. default 1e-5.}
@@ -42,9 +43,8 @@ knn).
 }
 }
 \description{
-constructs an nb (neighbourhood) object from an sf polygon
-layer. handles islands by assigning nearest neighbour. returns an object
-compatible with INLA's BYM2 specification.
+Builds a neighbour list from an \code{sf} polygon layer for the BYM2 model.
+By default, a district with no neighbours is linked to the nearest district.
 }
 \details{
 \strong{What this is.} An \code{nb} object (from \pkg{spdep}) is a list of length n
@@ -53,12 +53,12 @@ district \code{i}'s neighbours. It is the graph form of a sparse adjacency
 matrix W with \code{W[i, j] = 1} iff districts i and j share a boundary.
 
 \strong{Why the package needs it.} The BYM2 spatial random effect fitted inside
-\code{\link[=spi_expected]{spi_expected()}} decomposes risk into a structured component (correlated
+\code{\link[=spi_expected]{spi_expected()}} separates district variation into a structured component (correlated
 across neighbours) and an unstructured component. The structured part is
 a Gaussian Markov random field whose precision matrix is built directly
 from this neighbour graph. Districts with no neighbours contribute no
 spatial smoothing -- which is why we attach islands to their nearest
-mainland district by default.
+district by default.
 
 \strong{Contiguity rule.} Queen contiguity treats districts as neighbours if
 they share \emph{any} boundary point (edge or corner); rook requires a shared

@@ -28,7 +28,7 @@
 #'   the same way. "none" leaves the raw ratio untouched.
 #' @param year_end_month Integer 1 to 12. Month in which the reading year
 #'   closes, for `level = "district_year"`. The default, 12, gives calendar
-#'   years. Any other value gives a rolling year: `year_end_month = 4` groups
+#'   years. Any other value gives a non-calendar reporting year: `year_end_month = 4` groups
 #'   May through April, so a review can close on the month the decision was
 #'   actually taken rather than on 31 December. Each window is labelled by the
 #'   calendar year in which it closes, so May 2024 to April 2025 reads as 2025.
@@ -39,7 +39,7 @@
 #'   Ignored at every other level. Default: 12 (calendar years).
 #' @param min_expected Numeric. Districts or district-periods with total
 #'   expected count below this threshold are flagged as low-information. SPI
-#'   is still computed but unreliable. Default: 1.
+#'   is still computed; inspect the counts and uncertainty before interpreting it. Default: 1.
 #' @param verbose Logical. Progress messages via cli. Default: TRUE.
 #'
 #' @return Object of class `spi_index`. A list containing:
@@ -68,13 +68,12 @@
 #' With `centre = "national"`, every district's SPI draws for a period are
 #' further divided by that period's national observed-to-expected ratio
 #' (summed observed over summed median-expected, across districts). This
-#' removes a country-wide shift in detection, such as a change in reporting
-#' practice, from every district's SPI at once, so a district's centred SPI
-#' reflects how it compares with the rest of the country rather than with a
-#' fixed expectation. Because a draw-level quantile scales with a positive
+#' compares the district ratio with the national ratio. District SPI can
+#' stay unchanged when district and national ratios change together, so
+#' review the national ratio separately. Because a draw-level quantile scales with a positive
 #' constant, dividing `spi_median`, `spi_q05` and `spi_q95` by the same ratio
 #' gives the same result as dividing the draws first and re-summarising. A
-#' period with no detections nationally has no ratio to divide by; its rows
+#' period with no reported cases nationally has no ratio to divide by; its rows
 #' become `NA` and a warning names the affected periods.
 #'
 #' @seealso [spi_expected()], [spi_concordance()]

@@ -56,12 +56,12 @@ png / pptx).
 Two layouts:
 \itemize{
 \item \code{"scan"} -- one row per district for the focal year, with the
-STEPS components and the judgement; the judgement cell is shaded.
+STEPS components and the label; the label cell is shaded.
 \item \code{"worked"} -- the field guide's teaching layout: the five STEPS
-components, the conventional NPAFP rate and the judgement as rows, a
+components, the conventional NPAFP rate and the label as rows, a
 few districts as columns, every cell shaded as adding to concern
 (rose), intermediate (amber) or reassuring (green). When \code{districts} is
-NULL, four districts (at or above expectation, an uncertain shortfall,
+NULL, four districts (SPI at or above 1, an uncertain shortfall,
 a large corroborated shortfall, a shortfall without spatial
 corroboration) are chosen by rule.
 }

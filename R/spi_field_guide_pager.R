@@ -1,10 +1,10 @@
-#' Render a one-page SPI pager for a single district
+#' Create a one-page SPI district report
 #'
 #' @description
 #' Creates a one-page district report from a [spi_field_guide()] result. It
-#' includes the review judgement, an SPI chart with a 90% credible interval
+#' includes the review label, an SPI chart with a 90% credible interval
 #' and detection markers, the five STEPS components, and a summary of the
-#' findings that support the judgement.
+#' findings that support the label.
 #'
 #' @details
 #' The report is static HTML with an SVG chart. It works offline, using system
@@ -20,7 +20,7 @@
 #'
 #' AFP detections appear as filled diamonds and ES detections as hollow
 #' circles. Seasonality and trend are also shown as context. These findings
-#' and the optional indicators do not change the STEPS judgement.
+#' and the optional indicators do not change the STEPS label.
 #'
 #' The report uses rose for review priority, amber for monitor, and green for
 #' no SPI indication.
@@ -37,12 +37,12 @@
 #'   `adm1_name` column, if present, supplies the regional outlines; an
 #'   `adm0_name` column restricts a multi-country layer to the focal district's
 #'   own country. Default: NULL (no inset).
-#' @param prob_under Optional posterior probability that observed **non-polio
-#'   AFP detection** fell below the model expectation, i.e. `P(SPI < 1)`, as a
+#' @param prob_under Optional posterior probability of a relative reporting
+#'   shortfall under the chosen centring setting, `P(SPI < 1)`, as a
 #'   single number on the 0 to 1 scale. It is appended to the strength line
 #'   as a percentage, with the tails printed as "over 99%" and "under 1%" so
 #'   reported precision matches the posterior draws. This probability describes
-#'   reporting relative to expectation, not the presence of poliovirus.
+#'   relative reporting, not the presence of poliovirus.
 #'   Default: NULL (not shown).
 #' @param year_label Optional label for the reading year, shown in the masthead
 #'   in place of the bare year. Use it when the window is not a calendar year,
@@ -52,7 +52,7 @@
 #'   (or `region_rank`), `n` (or `n_regions`) and `spi` (or `region_spi`). It
 #'   renders as a header line reading `region SUD-OUEST`, `SPI 0.70` and
 #'   `worst rank 1 of 22`, joined by middle dots. The rank provides context and does not change
-#'   the judgement. Default: NULL (no regional line).
+#'   the label. Default: NULL (no regional line).
 #' @param indicators_df Optional district-year panel of conventional AFP and ES
 #'   indicators, keyed by `guid` (or `id_col`) and `year`. When supplied, a
 #'   strip below the chart shows the non-polio AFP rate over the same years
@@ -60,8 +60,7 @@
 #'   `inv_timeliness_pct`, `onset_notify_pct` and `ev_rate` are present. Pass
 #'   the assessable counts (`inv_timeliness_n`, `onset_notify_n`) and they are
 #'   shown under each figure; a percentage on fewer than five cases prints as a
-#'   fraction instead, since a district below expectation often has only a
-#'   handful. These indicators are context: they never change the judgement.
+#'   fraction instead because the percentage is based on few cases. These indicators are context: they never change the label.
 #'   Default NULL (no strip).
 #' @param npafp_target Numeric non-polio AFP rate target for the strip's rate
 #'   panel, per 100,000 under 15. Default: NULL (`x$thresholds$npafp`).
@@ -106,8 +105,8 @@
 #'
 #' @return An object of class `spi_pager`: a list with the rendered
 #'   `html` string, the resolved `district`, `year`, `verdict` (the review
-#'   judgement), and `paths` (the files written, empty when neither `path` nor
-#'   `file` is set). Printing it reports the judgement and any written files. Recover the markup with
+#'   label), and `paths` (the files written, empty when neither `path` nor
+#'   `file` is set). Printing it reports the label and any written files. Recover the markup with
 #'   `as.character()`.
 #'
 #' @seealso [spi_field_guide()] for the reading and [spi_field_guide_table()]

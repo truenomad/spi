@@ -94,8 +94,8 @@ navbar:
 reference:
 - title: Fit the model
   desc: >
-    Check the inputs, build the neighbour graph, and fit expected monthly
-    counts with INLA. `spi_compare_overdispersion()` compares the three
+    Check the inputs and fit expected monthly counts with INLA. Pass district
+    boundaries directly, or inspect the neighbour graph separately. `spi_compare_overdispersion()` compares the three
     observation models.
   contents:
   - spi_check_inputs

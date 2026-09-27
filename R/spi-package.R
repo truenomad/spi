@@ -45,8 +45,8 @@ utils::globalVariables(c(
 #'
 #' @section Main functions:
 #'
-#' - [spi_adjacency()]: Build spatial neighbour matrix
-#' - [spi_expected()]: Fit BYM2 expected rate model
+#' - [spi_adjacency()]: Build a neighbour graph
+#' - [spi_expected()]: Fit expected case counts
 #' - [spi_compare_overdispersion()]: Compare Poisson vs negative-binomial fits
 #' - [spi_index()]: Compute surveillance performance index
 #' - [spi_concordance()]: Cross-classify SPI against the NPAFP-rate threshold
@@ -55,13 +55,9 @@ utils::globalVariables(c(
 #' - [spi_field_guide_help()]: Learn to read the field guide
 #'
 #' @section Applications:
-#' Designed for AFP/polio surveillance but applicable to any case-based
-#' disease surveillance system:
-#' - Acute flaccid paralysis (AFP) surveillance
-#' - Measles discard surveillance
-#' - Neonatal tetanus reporting
-#' - DHIS2 completeness monitoring
-#' - AEFI pharmacovigilance
+#' Designed for acute flaccid paralysis surveillance. Other case-based
+#' surveillance applications need suitable counts, population denominators,
+#' and model settings.
 #'
 #' @section Dependencies:
 #' Model fitting uses INLA for Bayesian inference. INLA is not on

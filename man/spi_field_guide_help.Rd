@@ -25,15 +25,14 @@ The narrated worked-example tibble, invisibly.
 }
 \description{
 An interpretation aid for the console. Explains the five STEPS components
-and the review judgements behind \code{\link[=spi_field_guide]{spi_field_guide()}}, lists common errors in
-interpreting the SPI, and walks through a \strong{live worked example}: four
-districts (at or above expectation, an uncertain shortfall, a large
-corroborated shortfall, and a shortfall without spatial corroboration)
-selected by rule from a real field guide and narrated from their own values.
+and the review labels behind \code{\link[=spi_field_guide]{spi_field_guide()}}, lists common errors in
+interpreting SPI, and explains four districts selected from a field guide:
+SPI at or above 1, an uncertain shortfall, a large shortfall supported by
+extent and persistence, and a shortfall without nearby supporting evidence.
 }
 \details{
 By default the worked example is narrated from \code{synth_field_guide}, the
-precomputed field guide on the synthetic bundle, so it runs instantly with
+precomputed field guide on the synthetic data, so it runs with
 no model fit. Pass \code{guide} to narrate your own \code{\link[=spi_field_guide]{spi_field_guide()}} result.
 }
 \examples{

@@ -1,8 +1,8 @@
-#' Build spatial neighbour matrix from sf boundaries
+#' Build a neighbour graph from district boundaries
 #'
-#' @description constructs an nb (neighbourhood) object from an sf polygon
-#' layer. handles islands by assigning nearest neighbour. returns an object
-#' compatible with INLA's BYM2 specification.
+#' @description
+#' Builds a neighbour list from an `sf` polygon layer for the BYM2 model.
+#' By default, a district with no neighbours is linked to the nearest district.
 #'
 #' @details
 #' **What this is.** An `nb` object (from \pkg{spdep}) is a list of length n
@@ -11,12 +11,12 @@
 #' matrix W with `W[i, j] = 1` iff districts i and j share a boundary.
 #'
 #' **Why the package needs it.** The BYM2 spatial random effect fitted inside
-#' [spi_expected()] decomposes risk into a structured component (correlated
+#' [spi_expected()] separates district variation into a structured component (correlated
 #' across neighbours) and an unstructured component. The structured part is
 #' a Gaussian Markov random field whose precision matrix is built directly
 #' from this neighbour graph. Districts with no neighbours contribute no
 #' spatial smoothing -- which is why we attach islands to their nearest
-#' mainland district by default.
+#' district by default.
 #'
 #' **Contiguity rule.** Queen contiguity treats districts as neighbours if
 #' they share *any* boundary point (edge or corner); rook requires a shared
@@ -60,8 +60,9 @@
 #' @param id_col character. column name containing the unique district
 #'   identifier.
 #' @param contiguity character. "queen" (default) or "rook" contiguity rule.
-#' @param handle_islands logical. if TRUE (default), disconnected components
-#'   are assigned their nearest neighbour.
+#' @param handle_islands Logical. If TRUE (default), districts with no
+#'   neighbours are linked to their nearest district. Separate groups of
+#'   connected districts are not joined.
 #' @param snap_tolerance numeric. tolerance for boundary matching in CRS
 #'   units. default 1e-5.
 #'

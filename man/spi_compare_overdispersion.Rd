@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_expected.R
 \name{spi_compare_overdispersion}
 \alias{spi_compare_overdispersion}
-\title{Compare spi expected models across overdispersion specifications}
+\title{Compare observation models for expected counts}
 \usage{
 spi_compare_overdispersion(
   cases,
@@ -52,7 +52,7 @@ a diagnostic rule), and \code{survivors} (specs that passed all rules).}
 \description{
 Fits the same model with different overdispersion specifications and
 returns a side-by-side comparison of fit, complexity, and calibration
-diagnostics. Used to justify the choice of overdispersion mechanism in
+diagnostics. Helps assess the \code{overdispersion} setting in
 \code{\link[=spi_expected]{spi_expected()}}.
 }
 \details{
@@ -63,9 +63,12 @@ overdispersion SD (\code{1/sqrt(tau_obs)} for "iid", \code{1/sqrt(nb_size)} for 
 NA for "none"), the share of observations with valid CPO, and a
 KS-distance-to-uniform PIT calibration statistic.
 
-\strong{Decision rule.} The recommended spec is the one with the lowest WAIC,
-but if a simpler spec (in the order \verb{none > iid > nb}) is within 5 WAIC
-units of the best, that simpler spec is preferred for parsimony.
+\strong{Selection rule.} A model is excluded if fewer than half its CPO values
+are valid, its effective parameter count exceeds 20\% of observations, or
+its BYM2 phi is below 0.02 or above 0.98. Among the remaining models, the
+function selects the smallest PIT distance from a uniform distribution.
+If all models are excluded, \code{choice} is \code{NA}. These are diagnostic rules,
+not proof that the selected model is correct.
 }
 \examples{
 \dontrun{

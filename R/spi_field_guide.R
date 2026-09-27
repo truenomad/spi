@@ -12,7 +12,7 @@
   isTRUE(r$gate_pass %||% r$cri_excludes_1)
 }
 
-#' Review a low SPI through the five STEPS components
+#' Review relative reporting shortfalls with STEPS
 #'
 #' @description
 #' Reviews each district-year in a [spi_concordance()] result using the five
@@ -22,7 +22,7 @@
 #' `No SPI indication`). STEPS is applied only to districts with an SPI below
 #' `spi_cut` (1 by default, as in the field guide).
 #'
-#' SPI measures NPAFP reporting volume. STEPS brings this together with
+#' SPI measures relative NPAFP reporting volume. STEPS brings this together with
 #' timeliness and stool quality, plus the extent and persistence of a shortfall.
 #' The five components and what each asks:
 #' \itemize{
@@ -32,7 +32,7 @@
 #'   \item **T: Timeliness** -- are specimens reaching the laboratory within 3
 #'     days? Needs `process`.
 #'   \item **E: Extent** -- are other districts in the same admin-1 area (the
-#'     other LGAs in the same state, in Nigeria) also below expectation? Needs
+#'     other LGAs in the same state, in Nigeria) also below the SPI cutoff? Needs
 #'     an `extent_col` in the concordance.
 #'   \item **P: Persistence** -- was the SPI also below the cut in the previous
 #'     year?
@@ -41,9 +41,9 @@
 #' }
 #'
 #' STEPS is not a combined score. Extent and persistence provide supporting
-#' context for a low SPI. Timeliness and stool adequacy describe separate
+#' context for a relative reporting shortfall. Timeliness and stool adequacy describe separate
 #' dimensions of surveillance and do not change the generated label. These
-#' labels are not validated judgements of surveillance adequacy or automatic
+#' labels are not validated measures of surveillance adequacy or automatic
 #' recommendations for field action.
 #'
 #' Trend, neighbouring-district context, seasonal patterns, and poliovirus
@@ -58,11 +58,11 @@
 #'   \item **Review priority** -- the SPI is below `spi_cut`, its 90% credible
 #'     interval lies entirely below 1 (and, when `noise_alpha` is set, sampling
 #'     noise alone is unlikely to produce the shortfall), and the shortfall is
-#'     corroborated by extent or persistence. Evidence of reporting below
-#'     expectation is strong or persistent enough to warrant further
-#'     investigation.
+#'     supported by extent or persistence. The label identifies districts
+#'     to consider for closer review.
 #'   \item **Monitor** -- the SPI is below `spi_cut`, but the interval includes
-#'     1 or neither extent nor persistence supports it. Uncertainty or limited
+#'     1, the optional sampling-noise check fails, or neither extent nor
+#'     persistence supports it. Uncertainty or limited
 #'     supporting information favours reassessment as new data become
 #'     available.
 #'   \item **No SPI indication** -- the SPI is at or above `spi_cut`. There is
@@ -155,7 +155,7 @@
 #'   from zero at this two-sided level (needing at least three points in the
 #'   window); otherwise it is "flat". Default: NULL (slope sign and tolerance
 #'   only).
-#' @param noise_alpha Optional numeric level for a sampling-noise gate on
+#' @param noise_alpha Optional numeric threshold for a sampling-noise check on
 #'   strength (S). The SPI credible interval is posterior uncertainty in the
 #'   *expected* count with the observed count held fixed, so it says nothing
 #'   about sampling variation in the count itself. At `observed = 0` the ratio
@@ -164,8 +164,9 @@
 #'   is set, `gate_pass` additionally requires the Poisson reference tail
 #'   \eqn{P(X \le observed \mid \lambda = expected)} to be at or below it.
 #'   `cri_excludes_1` keeps its own meaning either way. The tail is always
-#'   reported (`noise_tail`, `noise_plausible`). Default: NULL (no noise gate).
-#'   `0.05` is the recommended setting for an operational reading.
+#'   reported (`noise_tail`, `noise_plausible`). Default: NULL (no check).
+#'   A value such as `0.05` adds this check; it is not a validated field-action
+#'   threshold.
 #' @param id_col Character district id column. Default: NULL (take
 #'   `concordance$id_col`).
 #' @param verbose Logical. Progress and missing-input messages via cli.
@@ -1081,15 +1082,14 @@ as_tibble.spi_field_guide <- function(x, ...) {
 #'
 #' @description
 #' An interpretation aid for the console. Explains the five STEPS components
-#' and the review judgements behind [spi_field_guide()], lists common errors in
-#' interpreting the SPI, and walks through a **live worked example**: four
-#' districts (at or above expectation, an uncertain shortfall, a large
-#' corroborated shortfall, and a shortfall without spatial corroboration)
-#' selected by rule from a real field guide and narrated from their own values.
+#' and the review labels behind [spi_field_guide()], lists common errors in
+#' interpreting SPI, and explains four districts selected from a field guide:
+#' SPI at or above 1, an uncertain shortfall, a large shortfall supported by
+#' extent and persistence, and a shortfall without nearby supporting evidence.
 #'
 #' @details
 #' By default the worked example is narrated from `synth_field_guide`, the
-#' precomputed field guide on the synthetic bundle, so it runs instantly with
+#' precomputed field guide on the synthetic data, so it runs with
 #' no model fit. Pass `guide` to narrate your own [spi_field_guide()] result.
 #'
 #' @param topic One or more of `"all"`, `"signals"`, `"verdict"`,
@@ -1361,12 +1361,12 @@ spi_field_guide_help <- function(
 #' Two layouts:
 #' \itemize{
 #'   \item `"scan"` -- one row per district for the focal year, with the
-#'     STEPS components and the judgement; the judgement cell is shaded.
+#'     STEPS components and the label; the label cell is shaded.
 #'   \item `"worked"` -- the field guide's teaching layout: the five STEPS
-#'     components, the conventional NPAFP rate and the judgement as rows, a
+#'     components, the conventional NPAFP rate and the label as rows, a
 #'     few districts as columns, every cell shaded as adding to concern
 #'     (rose), intermediate (amber) or reassuring (green). When `districts` is
-#'     NULL, four districts (at or above expectation, an uncertain shortfall,
+#'     NULL, four districts (SPI at or above 1, an uncertain shortfall,
 #'     a large corroborated shortfall, a shortfall without spatial
 #'     corroboration) are chosen by rule.
 #' }

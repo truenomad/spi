@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_concordance.R
 \name{spi_concordance}
 \alias{spi_concordance}
-\title{Cross-classify SPI against the conventional NPAFP-rate threshold}
+\title{Compare SPI with the conventional NPAFP rate}
 \usage{
 spi_concordance(
   spi,
@@ -35,19 +35,19 @@ closes, matching the \code{year_end_month} the SPI was computed with. The
 conventional rate is grouped on the same rolling year, so the two sides of
 the comparison cover the same months. Default: 12 (calendar years).}
 
-\item{spi_threshold}{Numeric. SPI median below this = flagged. The SPI's
-neutral cut is 1 (observed at expected). Default: 1.}
+\item{spi_threshold}{Numeric. A posterior median below this value is
+flagged, subject to \code{spi_rule}. The reference is 1: with national centring,
+district and national observed-to-expected ratios are equal. Default: 1.}
 
 \item{spi_rule}{Character. \code{"median"} flags on \code{spi_median} alone.
 \code{"interval"} additionally requires the 90\% upper bound (\code{spi_q95}) to
-sit below 1, so only districts whose whole plausible range reads as
-under-detecting are flagged. This is the paper's sensitivity analysis
-on the primary median-based rule. Default: \code{"median"}.}
+be below 1. This requires stronger evidence of a relative reporting
+shortfall, not evidence of missed cases. The paper uses this rule for a
+sensitivity analysis. Default: \code{"median"}.}
 
-\item{npafp_target}{Numeric. NPAFP rate below this per \code{npafp_multiplier}
-person-years = "fail". WHO's target for polio surveillance is
-traditionally 2 per 100,000 under-15; the paper uses 3 per 100,000.
-Default: 3.}
+\item{npafp_target}{Numeric. NPAFP reporting-rate target per
+\code{npafp_multiplier} person-years. Set this to the target used by the
+programme. Default: 3, as in the accompanying study.}
 
 \item{npafp_multiplier}{Numeric. Denominator scaling for the NPAFP rate.
 Default: 100000 (per 100,000 under-15 person-years).}
@@ -75,8 +75,8 @@ An object of class \code{spi_concordance}. A list with:
 \describe{
 \item{district_year}{Tibble with per-district-year classification:
 \code{{id_col}}, \code{year}, \code{count_annual}, \code{pop_u15}, \code{npafp_rate},
-\code{npafp_adequate} (logical), \code{observed} (posterior observed count, from
-\code{spi$summary}, when present), \code{expected_total} (context-conditional
+\code{npafp_adequate} (logical: rate target met), \code{observed} (reported count
+from \code{spi$summary}, when present), \code{expected_total} (modelled
 expected count, when present), \code{spi_median}, \code{spi_q05}, \code{spi_q95},
 \code{spi_flagged} (logical), \code{spi_pass} (logical, \code{!spi_flagged}),
 \code{concordance} (factor: Neither flagged / SPI only / NPAFP only /
