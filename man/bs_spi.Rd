@@ -9,6 +9,7 @@ bs_spi(
   cases = NULL,
   boundaries = NULL,
   level = c("district_year", "district_month", "district_quarter", "district_total"),
+  centre = c("national", "none"),
   min_expected = 1,
   year_end_month = 12L,
   verbose = TRUE
@@ -32,6 +33,11 @@ district id. Default \code{NULL}.}
 temporal resolution), "district_quarter" (calendar-quarter SPI per
 district), "district_year" (annual SPI per district, default),
 "district_total" (single SPI per district over the full study period).}
+
+\item{centre}{Character. "national" (default) divides each period's SPI
+draws and summaries by that period's national observed-to-expected
+ratio, so a country-wide reporting change does not move every district
+the same way. "none" leaves the raw ratio untouched.}
 
 \item{min_expected}{Numeric. Districts or district-periods with total
 expected count below this threshold are flagged as low-information. SPI
@@ -62,6 +68,10 @@ mean, q05, q10, q90, q95) per district or district-period.}
 as low-information.}
 \item{totals}{Tibble of overall observed and expected totals.}
 \item{id_col}{The id column name, echoed for downstream use.}
+\item{centre}{The \code{centre} argument used.}
+\item{national}{Tibble of the national observed-to-expected ratio per
+period (\code{national_observed}, \code{national_expected}, \code{national_oe},
+\code{districts}), or \code{NULL} when \code{centre = "none"}.}
 \item{call}{Matched call.}
 }
 }
@@ -77,6 +87,18 @@ For aggregated levels, observed counts are summed within each grouping,
 expected counts are summed within each grouping per posterior draw, and
 the ratio is computed per draw. This preserves the joint uncertainty in
 the expected denominator.
+
+With \code{centre = "national"}, every district's SPI draws for a period are
+further divided by that period's national observed-to-expected ratio
+(summed observed over summed median-expected, across districts). This
+removes a country-wide shift in detection, such as a change in reporting
+practice, from every district's SPI at once, so a district's centred SPI
+reflects how it compares with the rest of the country rather than with a
+fixed expectation. Because a draw-level quantile scales with a positive
+constant, dividing \code{spi_median}, \code{spi_q05} and \code{spi_q95} by the same ratio
+gives the same result as dividing the draws first and re-summarising. A
+period with no detections nationally has no ratio to divide by; its rows
+become \code{NA} and a warning names the affected periods.
 }
 \examples{
 \dontrun{

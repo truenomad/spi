@@ -21,6 +21,10 @@
 #'   temporal resolution), "district_quarter" (calendar-quarter SPI per
 #'   district), "district_year" (annual SPI per district, default),
 #'   "district_total" (single SPI per district over the full study period).
+#' @param centre Character. "national" (default) divides each period's SPI
+#'   draws and summaries by that period's national observed-to-expected
+#'   ratio, so a country-wide reporting change does not move every district
+#'   the same way. "none" leaves the raw ratio untouched.
 #' @param year_end_month Integer 1 to 12. Month in which the reading year
 #'   closes, for `level = "district_year"`. The default, 12, gives calendar
 #'   years. Any other value gives a rolling year: `year_end_month = 4` groups
@@ -47,6 +51,10 @@
 #'     as low-information.}
 #'   \item{totals}{Tibble of overall observed and expected totals.}
 #'   \item{id_col}{The id column name, echoed for downstream use.}
+#'   \item{centre}{The `centre` argument used.}
+#'   \item{national}{Tibble of the national observed-to-expected ratio per
+#'     period (`national_observed`, `national_expected`, `national_oe`,
+#'     `districts`), or `NULL` when `centre = "none"`.}
 #'   \item{call}{Matched call.}
 #' }
 #'
@@ -55,6 +63,18 @@
 #' expected counts are summed within each grouping per posterior draw, and
 #' the ratio is computed per draw. This preserves the joint uncertainty in
 #' the expected denominator.
+#'
+#' With `centre = "national"`, every district's SPI draws for a period are
+#' further divided by that period's national observed-to-expected ratio
+#' (summed observed over summed median-expected, across districts). This
+#' removes a country-wide shift in detection, such as a change in reporting
+#' practice, from every district's SPI at once, so a district's centred SPI
+#' reflects how it compares with the rest of the country rather than with a
+#' fixed expectation. Because a draw-level quantile scales with a positive
+#' constant, dividing `spi_median`, `spi_q05` and `spi_q95` by the same ratio
+#' gives the same result as dividing the draws first and re-summarising. A
+#' period with no detections nationally has no ratio to divide by; its rows
+#' become `NA` and a warning names the affected periods.
 #'
 #' @seealso [bs_expected()], [bs_concordance()]
 #' @family blindspot core functions
@@ -85,6 +105,7 @@ bs_spi <- function(
     "district_quarter",
     "district_total"
   ),
+  centre = c("national", "none"),
   min_expected = 1,
   year_end_month = 12L,
   verbose = TRUE
@@ -102,6 +123,7 @@ bs_spi <- function(
     min_expected >= 0
   )
   level <- match.arg(level)
+  centre <- match.arg(centre)
   year_end_month <- as.integer(year_end_month)
   if (length(year_end_month) != 1L || is.na(year_end_month) ||
         year_end_month < 1L || year_end_month > 12L) {
@@ -178,6 +200,22 @@ bs_spi <- function(
     district_total = .spi_district_total(draws, observed, fit_data, id_col)
   )
 
+  # --- centre on the national observed-to-expected ratio ------
+  national <- NULL
+  if (centre == "national") {
+    period_col <- switch(
+      level,
+      district_month = "month",
+      district_quarter = "quarter",
+      district_year = "year",
+      district_total = character(0)
+    )
+    centred <- .centre_spi(spi_obj, period_col)
+    spi_obj$draws <- centred$draws
+    spi_obj$summary <- centred$summary
+    national <- centred$national
+  }
+
   # --- attach admin names (adm*_name) just before the id column ---
   spi_obj$summary <- .attach_admin_labels(spi_obj$summary, boundaries, id_col)
 
@@ -204,6 +242,8 @@ bs_spi <- function(
       low_information = low_info,
       totals = totals,
       id_col = id_col,
+      centre = centre,
+      national = national,
       call = match.call()
     ),
     class = "blindspot_spi"
@@ -407,6 +447,14 @@ print.blindspot_spi <- function(x, ...) {
     "i" = "Total observed: {fmt_int(n_obs_total)} | total expected \\
            (median): {fmt_int(n_exp_med)}."
   ))
+
+  if (identical(x$centre, "national")) {
+    rng <- round(range(x$national$national_oe, na.rm = TRUE), 2)
+    cli::cli_bullets(c(
+      "i" = "Centred on the national observed-to-expected ratio \\
+             (range {rng[1]} to {rng[2]})."
+    ))
+  }
 
   cli::cli_h3("SPI distribution (medians)")
   q <- stats::quantile(

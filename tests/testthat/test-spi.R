@@ -225,3 +225,49 @@ test_that("SPI footnote + flag helpers cover every branch", {
   expect_match(blindspot:::.note_cri(0.02, "flag"), "over-smoothed")
   expect_match(blindspot:::.note_cri(0.8, "flag"), "under-smoothed")
 })
+
+test_that("national centring divides by the period's summed O/E", {
+  fit <- make_expected(id_col = "adm2_guid")
+  raw <- bs_spi(fit, level = "district_year", centre = "none", verbose = FALSE)
+  cen <- bs_spi(fit, level = "district_year", verbose = FALSE)
+  expect_identical(cen$centre, "national")
+  nat <- raw$summary |>
+    dplyr::summarise(oe = sum(observed) / sum(expected_total), .by = "year")
+  expect_equal(cen$national$national_oe, nat$oe)
+  ratio <- nat$oe[match(cen$summary$year, nat$year)]
+  for (col in c("spi_median", "spi_q05", "spi_q95")) {
+    expect_equal(cen$summary[[col]], raw$summary[[col]] / ratio)
+  }
+  expect_equal(cen$draws, sweep(raw$draws, 2, ratio, "/"))
+  # each year's centred index sums back to national parity
+  chk <- cen$summary |>
+    dplyr::summarise(
+      oe = sum(observed) / sum(expected_total * national_oe), .by = "year"
+    )
+  expect_equal(chk$oe, rep(1, nrow(chk)))
+})
+
+test_that("centre = 'none' leaves the index untouched", {
+  fit <- make_expected()
+  raw <- bs_spi(fit, centre = "none", verbose = FALSE)
+  expect_null(raw$national)
+  expect_false("national_oe" %in% names(raw$summary))
+})
+
+test_that("district_total centres on one national ratio", {
+  fit <- make_expected()
+  cen <- bs_spi(fit, level = "district_total", verbose = FALSE)
+  expect_equal(nrow(cen$national), 1L)
+})
+
+test_that("a year with no detections gives NA, not Inf", {
+  fit <- make_expected()
+  yr1 <- format(fit$data$month, "%Y") == "2015"
+  fit$data$count[yr1] <- 0
+  expect_warning(
+    cen <- bs_spi(fit, verbose = FALSE),
+    "no detections"
+  )
+  expect_true(all(is.na(cen$summary$spi_median[cen$summary$year == 2015])))
+  expect_false(any(is.infinite(cen$summary$spi_median)))
+})

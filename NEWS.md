@@ -75,6 +75,13 @@
   part of the window against a whole-year denominator and understated the rate.
 * `bs_spi()` gained `boundaries`, joining admin names immediately before the
   district id. `bs_concordance()` places its own name columns the same way.
+* `bs_spi()` gained `centre` (default `"national"`). Every district's SPI for
+  a period is divided by that period's national observed-to-expected ratio,
+  so a country-wide reporting change no longer moves every district the same
+  way. The result gains `$national`, the per-period ratio; `centre = "none"`
+  keeps the raw ratio and sets `$national` to `NULL`. A period with no
+  detections nationally has no ratio to divide by, so its rows are `NA`
+  rather than `Inf`, with a warning naming the affected periods.
 * Concordance maps draw a legend key for a fill level no district fell into,
   which `geom_sf` had rendered as a blank swatch.
 
