@@ -1,5 +1,128 @@
-url: https://truenomad.github.io/spi
+url: https://truenomad.github.io/spi/
+
+# Write llms.txt and a .md copy of every page so agents can read the site
+# (pkgdown >= 2.2.0). This is the default; set here so it is not dropped.
+llm-docs: true
 
 template:
   bootstrap: 5
+  bootswatch: flatly
+  light-switch: true
   math-rendering: mathml
+  includes:
+    in_header: |
+      <script>
+        (function() {
+          // light between 06:00 and 18:00 local time, dark otherwise
+          var hour = new Date().getHours();
+          var timeOfDay = (hour >= 6 && hour < 18) ? 'light' : 'dark';
+          var ls;
+          try { ls = window.localStorage; } catch (e) { ls = null; }
+          var userSet = ls && ls.getItem('pkgdown-theme-source') === 'user';
+          var stored = ls && ls.getItem('pkgdown-theme');
+          var theme = (userSet && stored) ? stored : timeOfDay;
+          if (ls && !userSet) ls.setItem('pkgdown-theme', timeOfDay);
+          document.documentElement.dataset.bsTheme = theme;
+          // any later change to data-bs-theme (via pkgdown's lightswitch)
+          // is an explicit user choice, so remember it for next visit
+          new MutationObserver(function() {
+            var current = document.documentElement.dataset.bsTheme;
+            if (!current || !ls) return;
+            ls.setItem('pkgdown-theme', current);
+            ls.setItem('pkgdown-theme-source', 'user');
+          }).observe(document.documentElement, {
+            attributes: true, attributeFilter: ['data-bs-theme']
+          });
+        })();
+      </script>
+  bslib:
+    # palette drawn from the spi logo: charcoal strokes, cream ground and the
+    # red accent on the i
+    primary: "#2C2C2A"
+    secondary: "#444441"
+    success: "#5BA86F"
+    info: "#628DA5"
+    warning: "#F2A900"
+    danger: "#CC1111"
+    body-bg: "#F5F0E8"
+    link-color: "#B91C1C"
+    link-hover-color: "#901212"
+    link-color-dark: "#F28B82"
+    link-hover-color-dark: "#F5B3AD"
+    navbar-bg: "#2C2C2A"
+    navbar-fg: "#F5F0E8"
+    headings-color: "#2C2C2A"
+    base_font: {google: "Inter"}
+    heading_font: {google: "Inter"}
+    code_font: {google: "JetBrains Mono"}
+
+# The default "links" component adds "View on CRAN" whenever CRAN has a
+# package called spi. The CRAN package of that name is unrelated, so list
+# the links by hand.
+home:
+  sidebar:
+    structure: [source, license, community, citation, authors, dev]
+    components:
+      source:
+        title: Links
+        text: |
+          [Browse source code](https://github.com/truenomad/spi)
+
+          [Report a bug](https://github.com/truenomad/spi/issues)
+
+navbar:
+  bg: primary
+  structure:
+    left: [intro, articles, reference, news]
+    right: [search, lightswitch, github]
+  components:
+    articles:
+      text: Articles
+      menu:
+      - text: Getting started
+        href: articles/spi-getting-started.html
+      - text: Interpreting SPI
+        href: articles/spi-interpretation.html
+      - text: STEPS and district review
+        href: articles/spi-field-guide.html
+      - text: Model options and sensitivity
+        href: articles/spi-model-options.html
+
+reference:
+- title: Fit the model
+  desc: >
+    Check the inputs, build the neighbour graph and fit expected monthly
+    counts with INLA. `spi_compare_overdispersion()` compares the three
+    observation models.
+  contents:
+  - spi_check_inputs
+  - spi_adjacency
+  - spi_expected
+  - spi_compare_overdispersion
+- title: Calculate and compare SPI
+  desc: >
+    Calculate annual or monthly SPI from a fitted model, or annually updated
+    SPI from preceding years only. Compare SPI with the conventional NPAFP
+    target and map the result.
+  contents:
+  - spi_index
+  - spi_prospective
+  - spi_concordance
+  - spi_concordance_maps
+  - as_tibble
+- title: Review districts
+  desc: >
+    Organise district review with the five STEPS components, then produce a
+    table or a one-page district report.
+  contents:
+  - spi_field_guide
+  - spi_field_guide_table
+  - spi_field_guide_pager
+  - spi_field_guide_help
+- title: Example data
+  desc: >
+    Synthetic surveillance data for the fictional country Harad, used in the
+    examples and articles.
+  contents:
+  - synth_surveillance
+  - synth_field_guide

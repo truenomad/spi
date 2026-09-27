@@ -19,7 +19,7 @@ Description: Estimates expected case counts for each district and month
     Designed for acute flaccid paralysis (AFP) surveillance, with support
     for other case-based surveillance data.
 License: MIT + file LICENSE
-URL: https://github.com/truenomad/spi,
+URL: https://github.com/truenomad/spi, https://truenomad.github.io/spi/,
     https://truenomad.r-universe.dev/spi
 BugReports: https://github.com/truenomad/spi/issues
 Depends:
