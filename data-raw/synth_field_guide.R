@@ -41,7 +41,7 @@ spi_dy <- spi_index(fit, level = "district_year")
 spi_dm <- spi_index(fit, level = "district_month")
 
 # 4. concordance ---------------------------------------------------------------
-conc <- spi_concordance(
+conc <- spi_compare_npafp(
   spi = spi_dy,
   cases = synth$cases,
   population = synth$population,
@@ -65,7 +65,7 @@ detections <- dplyr::bind_rows(
 )
 
 synth_field_guide <- spi_field_guide(
-  concordance = conc,
+  comparison = conc,
   process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
@@ -77,7 +77,7 @@ synth_field_guide <- spi_field_guide(
 )
 
 # drop the bulky matched call so the shipped object stays small and stable
-synth_field_guide$call <- quote(spi_field_guide(concordance = conc))
+synth_field_guide$call <- quote(spi_field_guide(comparison = conc))
 
 usethis::use_data(synth_field_guide, overwrite = TRUE, compress = "xz")
 

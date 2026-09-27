@@ -1,30 +1,32 @@
-# the four concordance cells, in display order. Every table, plot and metric
-# reads the labels from here.
+# the four SPI and NPAFP categories, in display order. Every table, plot and
+# metric reads the labels from here.
 # @noRd
-.concordance_cells <- c(
-  neither = "Neither flagged",
-  spi_only = "SPI only",
-  npafp_only = "NPAFP only",
-  both = "Both flagged"
+.npafp_categories <- c(
+  neither = "Neither below",
+  spi_only = "SPI below threshold only",
+  npafp_only = "NPAFP below target only",
+  both = "Both below"
 )
 
-#' Compare SPI with the conventional NPAFP rate
+#' Compare SPI with the NPAFP target
 #'
 #' @description
-#' Compares the SPI and conventional NPAFP rate for each district-year.
-#' The default SPI threshold is 1. The four categories show which measure
-#' falls below its threshold:
+#' Classifies each district-year by whether its SPI is below the SPI threshold
+#' and whether its NPAFP rate is below the NPAFP target. The default SPI
+#' threshold is 1. The four categories are:
 #' \itemize{
-#'   \item **Neither flagged** -- NPAFP >= target AND SPI >= threshold.
-#'   \item **Both flagged** -- NPAFP < target AND SPI < threshold.
-#'   \item **SPI only** -- NPAFP >= target BUT SPI < threshold.
-#'   \item **NPAFP only** -- NPAFP < target BUT SPI >= threshold.
+#'   \item **Neither below** -- NPAFP >= target AND SPI >= threshold.
+#'   \item **Both below** -- NPAFP < target AND SPI < threshold.
+#'   \item **SPI below threshold only** -- NPAFP >= target BUT SPI < threshold.
+#'   \item **NPAFP below target only** -- NPAFP < target BUT SPI >= threshold.
 #' }
-#' These categories describe agreement between the measures; they do not
-#' establish whether surveillance is adequate.
+#' The two measures answer different questions, so neither is a reference
+#' standard for the other. The categories describe where they agree or
+#' differ; they do not establish whether surveillance is adequate.
 #'
-#' Concordance is quantified as raw percent agreement and Cohen's kappa,
-#' plus a McNemar chi-square test of whether one measure flags more often.
+#' Agreement is summarised as raw percent agreement and Cohen's kappa, plus a
+#' McNemar test of whether one measure places more district-years below its
+#' threshold than the other.
 #'
 #' @param spi Object of class `spi_index` at `district_year` level.
 #' @param cases Optional tibble with the district id column and `count`
@@ -36,10 +38,11 @@
 #'   closes, matching the `year_end_month` the SPI was computed with. The
 #'   conventional rate is grouped on the same rolling year, so the two sides of
 #'   the comparison cover the same months. Default: 12 (calendar years).
-#' @param spi_threshold Numeric. A posterior median below this value is
-#'   flagged, subject to `spi_rule`. The reference is 1: with national centring,
-#'   district and national observed-to-expected ratios are equal. Default: 1.
-#' @param spi_rule Character. `"median"` flags on `spi_median` alone.
+#' @param spi_threshold Numeric. A posterior median below this value counts
+#'   as below the threshold, subject to `spi_rule`. The reference is 1: with
+#'   national centring, district and national observed-to-expected ratios are
+#'   equal. Default: 1.
+#' @param spi_rule Character. `"median"` uses `spi_median` alone.
 #'   `"interval"` additionally requires the 90% upper bound (`spi_q95`) to
 #'   be below 1. This requires stronger evidence of a relative reporting
 #'   shortfall, not evidence of missed cases. The paper uses this rule for a
@@ -49,8 +52,8 @@
 #'   programme. Default: 3, as in the accompanying study.
 #' @param npafp_multiplier Numeric. Denominator scaling for the NPAFP rate.
 #'   Default: 100000 (per 100,000 under-15 person-years).
-#' @param strata Character vector of column names to stratify concordance
-#'   by. Any column present in the district-year summary is valid:
+#' @param strata Character vector of column names to stratify the
+#'   comparison by. Any column present in the district-year summary is valid:
 #'   `"year"`, `"adm1_name"`, `"adm0_name"`, or any joined covariate.
 #'   Set NULL for pooled analysis. Default: NULL.
 #' @param id_col Character. Name of the district id column. Inferred from
@@ -63,16 +66,16 @@
 #'   region/country labels. Default: NULL.
 #' @param verbose Logical. Progress messages via cli. Default: TRUE.
 #'
-#' @return An object of class `spi_concordance`. A list with:
+#' @return An object of class `spi_compare_npafp`. A list with:
 #' \describe{
 #'   \item{district_year}{Tibble with per-district-year classification:
 #'     `{id_col}`, `year`, `count_annual`, `pop_u15`, `npafp_rate`,
 #'     `npafp_adequate` (logical: rate target met), `observed` (reported count
 #'     from `spi$summary`, when present), `expected_total` (modelled
 #'     expected count, when present), `spi_median`, `spi_q05`, `spi_q95`,
-#'     `spi_flagged` (logical), `spi_pass` (logical, `!spi_flagged`),
-#'     `concordance` (factor: Neither flagged / SPI only / NPAFP only /
-#'     Both flagged).}
+#'     `spi_below_threshold` (logical), `spi_pass` (logical,
+#'     `!spi_below_threshold`), `category` (factor: Neither below / SPI below
+#'     threshold only / NPAFP below target only / Both below).}
 #'   \item{crosstab}{2x2 table of counts and row/column percentages.}
 #'   \item{metrics}{Pooled scalar metrics: `n`, `pct_agreement`,
 #'     `cohens_kappa`, `mcnemar_p`, plus per-cell counts.}
@@ -92,20 +95,20 @@
 #' \dontrun{
 #' spi_dy <- spi_index(fit_bare, level = "district_year")
 #'
-#' conc <- spi_concordance(
-#'   spi             = spi_dy,
-#'   population      = synth_surveillance$population,
-#'   spi_threshold   = 1,
-#'   npafp_target    = 3,
-#'   strata          = c("year", "adm1_name"),
-#'   boundaries      = synth_surveillance$boundaries
+#' comparison <- spi_compare_npafp(
+#'   spi = spi_dy,
+#'   population = synth_surveillance$population,
+#'   spi_threshold = 1,
+#'   npafp_target = 3,
+#'   strata = c("year", "adm1_name"),
+#'   boundaries = synth_surveillance$boundaries
 #' )
 #'
-#' print(conc)
-#' summary(conc)
-#' plot(conc)
+#' print(comparison)
+#' summary(comparison)
+#' plot(comparison)
 #' }
-spi_concordance <- function(
+spi_compare_npafp <- function(
   spi,
   cases = NULL,
   population,
@@ -121,7 +124,7 @@ spi_concordance <- function(
   verbose = TRUE
 ) {
   .check_pkg(c("dplyr", "tibble", "cli"),
-             reason = "to run the SPI x NPAFP concordance analysis")
+             reason = "to compare SPI with the NPAFP target")
   spi_rule <- match.arg(spi_rule)
 
   stopifnot(inherits(spi, "spi_index"))
@@ -134,7 +137,7 @@ spi_concordance <- function(
   }
   if (!"year" %in% names(spi$summary)) {
     cli::cli_abort(
-      "{.fn spi_concordance} expects a district-year SPI; got level \\
+      "{.fn spi_compare_npafp} expects a district-year SPI; got level \\
        {.val {spi$level}}. Re-run {.fn spi_index} with \\
        {.code level = \"district_year\"}."
     )
@@ -204,15 +207,16 @@ spi_concordance <- function(
     dplyr::mutate(
       npafp_rate = .data$count_annual / .data$pop_u15 * npafp_multiplier,
       npafp_adequate = .data$npafp_rate >= npafp_target,
-      spi_flagged = .data$spi_median < spi_threshold &
+      spi_below_threshold = .data$spi_median < spi_threshold &
         (spi_rule == "median" | .data$spi_q95 < 1),
-      spi_pass = !.data$spi_flagged,
-      concordance = factor(dplyr::case_when(
-        npafp_adequate & !spi_flagged ~ .concordance_cells[["neither"]],
-        npafp_adequate & spi_flagged ~ .concordance_cells[["spi_only"]],
-        !npafp_adequate & !spi_flagged ~ .concordance_cells[["npafp_only"]],
-        !npafp_adequate & spi_flagged ~ .concordance_cells[["both"]]
-      ), levels = unname(.concordance_cells))
+      spi_pass = !.data$spi_below_threshold,
+      category = factor(dplyr::case_when(
+        npafp_adequate & !spi_below_threshold ~ .npafp_categories[["neither"]],
+        npafp_adequate & spi_below_threshold ~ .npafp_categories[["spi_only"]],
+        !npafp_adequate & !spi_below_threshold ~
+          .npafp_categories[["npafp_only"]],
+        !npafp_adequate & spi_below_threshold ~ .npafp_categories[["both"]]
+      ), levels = unname(.npafp_categories))
     )
 
   # optional join with boundaries so `strata` can reference adm1/adm0 labels
@@ -234,8 +238,8 @@ spi_concordance <- function(
   }
 
   # ---- 4. Pooled metrics + crosstab ----
-  crosstab <- .concordance_crosstab(dy)
-  metrics  <- .concordance_metrics(dy)
+  crosstab <- .npafp_crosstab(dy)
+  metrics <- .npafp_metrics(dy)
 
   # ---- 5. Optional stratified metrics ----
   by_stratum <- NULL
@@ -250,7 +254,7 @@ spi_concordance <- function(
     }
     by_stratum <- dy |>
       dplyr::group_by(dplyr::across(dplyr::all_of(strata))) |>
-      dplyr::group_modify(~ .concordance_metrics(.x)) |>
+      dplyr::group_modify(~ .npafp_metrics(.x)) |>
       dplyr::ungroup()
   }
 
@@ -273,7 +277,7 @@ spi_concordance <- function(
       id_col = id_col,
       call = match.call()
     ),
-    class = "spi_concordance"
+    class = "spi_compare_npafp"
   )
 }
 
@@ -282,15 +286,15 @@ spi_concordance <- function(
 # ---------------------------------------------------------------------------
 
 # 2x2 crosstab with row/column percentages
-.concordance_crosstab <- function(dy) {
+.npafp_crosstab <- function(dy) {
   tab <- table(
     NPAFP = factor(
-      ifelse(dy$npafp_adequate, "adequate", "inadequate"),
-      levels = c("adequate", "inadequate")
+      ifelse(dy$npafp_adequate, "target met", "below target"),
+      levels = c("target met", "below target")
     ),
     SPI = factor(
-      ifelse(dy$spi_pass, "pass", "fail"),
-      levels = c("pass", "fail")
+      ifelse(dy$spi_pass, "at or above threshold", "below threshold"),
+      levels = c("at or above threshold", "below threshold")
     )
   )
   n <- sum(tab)
@@ -303,11 +307,11 @@ spi_concordance <- function(
 }
 
 # pooled metrics; also used inside group_modify for stratified splits
-.concordance_metrics <- function(dy) {
+.npafp_metrics <- function(dy) {
   n <- nrow(dy)
   counts <- vapply(
-    .concordance_cells,
-    function(cell) sum(dy$concordance == cell), integer(1)
+    .npafp_categories,
+    function(cell) sum(dy$category == cell), integer(1)
   )
 
   # kappa on 0/1 verdict vectors
@@ -326,10 +330,10 @@ spi_concordance <- function(
     pct_agreement = agreement,
     cohens_kappa = kappa,
     mcnemar_p = mcn,
-    n_neither_flagged = counts[["neither"]],
+    n_neither = counts[["neither"]],
     n_spi_only = counts[["spi_only"]],
     n_npafp_only = counts[["npafp_only"]],
-    n_both_flagged = counts[["both"]]
+    n_both = counts[["both"]]
   )
 }
 
@@ -349,9 +353,9 @@ spi_concordance <- function(
 }
 
 .mcnemar_p <- function(dy) {
-  # off-diagonals of the concordance table
-  b <- sum(dy$concordance == .concordance_cells[["spi_only"]])
-  c <- sum(dy$concordance == .concordance_cells[["npafp_only"]])
+  # off-diagonals of the SPI and NPAFP table
+  b <- sum(dy$category == .npafp_categories[["spi_only"]])
+  c <- sum(dy$category == .npafp_categories[["npafp_only"]])
   if (b + c < 1L) return(NA_real_)
   # exact binomial test on off-diagonals (McNemar exact)
   stats::binom.test(b, b + c, p = 0.5)$p.value
@@ -362,8 +366,8 @@ spi_concordance <- function(
 # ---------------------------------------------------------------------------
 
 #' @export
-print.spi_concordance <- function(x, ...) {
-  cli::cli_h1("SPI x NPAFP concordance")
+print.spi_compare_npafp <- function(x, ...) {
+  cli::cli_h1("SPI and NPAFP classification")
   cli::cli_inform(c(
     "SPI cut: {.val {x$thresholds$spi}} ({x$thresholds$rule} rule) \\
      | NPAFP target: {.val {x$thresholds$npafp}} per \\
@@ -376,11 +380,11 @@ print.spi_concordance <- function(x, ...) {
      McNemar p {ifelse(is.na(x$metrics$mcnemar_p), 'NA',
                         sprintf('%.4f', x$metrics$mcnemar_p))}"
   ))
-  cli::cli_h2("Four-cell counts")
-  counts <- c(x$metrics$n_neither_flagged, x$metrics$n_spi_only,
-              x$metrics$n_npafp_only, x$metrics$n_both_flagged)
+  cli::cli_h2("Category counts")
+  counts <- c(x$metrics$n_neither, x$metrics$n_spi_only,
+              x$metrics$n_npafp_only, x$metrics$n_both)
   cell_tbl <- tibble::tibble(
-    cell = unname(.concordance_cells),
+    category = unname(.npafp_categories),
     n = counts,
     pct = round(100 * counts / x$metrics$n, 1)
   )
@@ -393,7 +397,7 @@ print.spi_concordance <- function(x, ...) {
 }
 
 #' @export
-summary.spi_concordance <- function(object, ...) {
+summary.spi_compare_npafp <- function(object, ...) {
   print(object, ...)
   cli::cli_h2("2x2 crosstab (counts)")
   print(object$crosstab$counts)
@@ -404,41 +408,36 @@ summary.spi_concordance <- function(object, ...) {
 
 #' @export
 #' @importFrom tibble as_tibble
-as_tibble.spi_concordance <- function(x, ...) {
+as_tibble.spi_compare_npafp <- function(x, ...) {
   x$district_year
 }
 
 #' @export
-plot.spi_concordance <- function(x, ...) {
-  .check_pkg(c("ggplot2"), reason = "to plot concordance")
+plot.spi_compare_npafp <- function(x, ...) {
+  .check_pkg(c("ggplot2"), reason = "to plot the SPI and NPAFP comparison")
   dy <- x$district_year
-  spi_cut  <- x$thresholds$spi
+  spi_cut <- x$thresholds$spi
   npafp_target <- x$thresholds$npafp
-  pal <- c(
-    "Neither flagged" = "#2E7D32",
-    "Both flagged" = "#C62828",
-    "SPI only" = "#F9A825",
-    "NPAFP only" = "#1565C0"
+  cats <- .npafp_categories
+  pal <- stats::setNames(
+    c("#2E7D32", "#C62828", "#F9A825", "#1565C0"),
+    cats[c("neither", "both", "spi_only", "npafp_only")]
   )
   # Legend labels carry each cell's share of all district-years (from
   # x$metrics).
   m <- x$metrics
-  pct <- c(
-    "Neither flagged" = m$n_neither_flagged,
-    "Both flagged" = m$n_both_flagged,
-    "SPI only" = m$n_spi_only,
-    "NPAFP only" = m$n_npafp_only
+  pct <- stats::setNames(
+    c(m$n_neither, m$n_both, m$n_spi_only, m$n_npafp_only),
+    names(pal)
   ) / m$n * 100
   cell_labels <- stats::setNames(
     sprintf("%s (%.1f%%)", names(pct), pct), names(pct)
   )
   # Darker shades for the in-plot corner labels so each quadrant name reads
   # clearly (a deep tone of its cell colour) over the faint quadrant tint.
-  label_pal <- c(
-    "Neither flagged" = "#1B5E20",
-    "Both flagged" = "#8E1B1B",
-    "SPI only" = "#B8860B",
-    "NPAFP only" = "#0D47A1"
+  label_pal <- stats::setNames(
+    c("#1B5E20", "#8E1B1B", "#B8860B", "#0D47A1"),
+    names(pal)
   )
   # Quadrant backdrop: a faint tint and a corner label per cell of the 2x2, so
   # the scatter reads as the crosstab the reader has already seen without them
@@ -451,7 +450,7 @@ plot.spi_concordance <- function(x, ...) {
     ymin = c(-Inf, -Inf, spi_cut, spi_cut),
     ymax = c(spi_cut, spi_cut, Inf, Inf),
     cell = factor(
-      c("Both flagged", "SPI only", "NPAFP only", "Neither flagged"),
+      cats[c("both", "spi_only", "npafp_only", "neither")],
       levels = names(pal)
     )
   )
@@ -468,25 +467,26 @@ plot.spi_concordance <- function(x, ...) {
                         linetype = 2, colour = "grey40") +
     ggplot2::geom_hline(yintercept = spi_cut,
                         linetype = 2, colour = "grey40") +
-    ggplot2::geom_point(ggplot2::aes(colour = .data$concordance),
+    ggplot2::geom_point(ggplot2::aes(colour = .data$category),
                         alpha = 0.7) +
-    # corner labels in a deep tone of each quadrant's colour. NPAFP inadequate
-    # sits left (low rate), SPI flagged sits low (below the cut).
-    ggplot2::annotate("text", x = 0, y = -Inf, label = "Both flagged",
+    # corner labels in a deep tone of each quadrant's colour. NPAFP below target
+    # sits left (low rate), SPI below threshold sits low (below the cut).
+    ggplot2::annotate("text", x = 0, y = -Inf, label = cats[["both"]],
                       hjust = -0.08, vjust = -1, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["Both flagged"]]) +
-    ggplot2::annotate("text", x = Inf, y = -Inf, label = "SPI only",
+                      alpha = 0.85, colour = label_pal[[cats[["both"]]]]) +
+    ggplot2::annotate("text", x = Inf, y = -Inf, label = cats[["spi_only"]],
                       hjust = 1.08, vjust = -1, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["SPI only"]]) +
-    ggplot2::annotate("text", x = 0, y = Inf, label = "NPAFP only",
+                      alpha = 0.85, colour = label_pal[[cats[["spi_only"]]]]) +
+    ggplot2::annotate("text", x = 0, y = Inf, label = cats[["npafp_only"]],
                       hjust = -0.08, vjust = 1.9, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["NPAFP only"]]) +
-    ggplot2::annotate("text", x = Inf, y = Inf, label = "Neither flagged",
+                      alpha = 0.85,
+                      colour = label_pal[[cats[["npafp_only"]]]]) +
+    ggplot2::annotate("text", x = Inf, y = Inf, label = cats[["neither"]],
                       hjust = 1.08, vjust = 1.9, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["Neither flagged"]]) +
+                      alpha = 0.85, colour = label_pal[[cats[["neither"]]]]) +
     ggplot2::scale_colour_manual(
       values = pal, drop = TRUE, labels = cell_labels,
-      name = "Concordance (% of total)"
+      name = "Category (% of district-years)"
     ) +
     ggplot2::scale_fill_manual(values = pal, guide = "none") +
     ggplot2::scale_x_continuous(
@@ -495,6 +495,7 @@ plot.spi_concordance <- function(x, ...) {
       labels = c("0", "1", "3", "10", "30", "100", "300", "1,000", "3,000")
     ) +
     ggplot2::labs(
+      title = "SPI and NPAFP classification",
       x = sprintf("NPAFP rate (per %s person-years, log1p)",
                   format(x$thresholds$multiplier, big.mark = ",")),
       y = "SPI (posterior median)"
@@ -518,7 +519,7 @@ plot.spi_concordance <- function(x, ...) {
 
 
 # ============================================================================
-# Concordance maps  (three-panel choropleth)
+# SPI and NPAFP maps (three-panel choropleth)
 
 # A discrete fill level with no rows draws a blank legend key, because geom_sf
 # takes its key glyph from the data. Padding the frame with one empty geometry
@@ -537,7 +538,7 @@ plot.spi_concordance <- function(x, ...) {
   rbind(d, pad)
 }
 
-#' Three-panel concordance map (NPAFP | SPI | disagreement)
+#' Map the NPAFP rate, SPI, and their classification
 #'
 #' @description
 #' Maps the NPAFP rate, SPI, and their agreement for one year:
@@ -550,9 +551,9 @@ plot.spi_concordance <- function(x, ...) {
 #'     approximately symmetric on the log scale around the reference of 1 (default
 #'     `-Inf, 0.5, 0.75, 1, 1.33, 2, Inf`). Bins at or below the SPI
 #'     threshold are warm; the rest are cool.
-#'   \item **Panel C** -- agreement between the two indicators. Districts are
-#'     coloured by the four concordance cells (`Neither flagged`,
-#'     `Both flagged`, `SPI only`, `NPAFP only`).
+#'   \item **Panel C** -- the SPI and NPAFP category of each district
+#'     (`Neither below`, `Both below`, `SPI below threshold only`,
+#'     `NPAFP below target only`).
 #' }
 #'
 #' The panels are composed via `patchwork` so the returned object plots
@@ -564,19 +565,19 @@ plot.spi_concordance <- function(x, ...) {
 #' width-to-height ratio, such as `ggsave(width = 15, height = 5)`. A region
 #' that is taller than it is wide needs a taller image.
 #'
-#' @param concordance A `spi_concordance` object. `$district_year`
-#'   must contain `year`, `npafp_rate`, `spi_median`, and `concordance`.
+#' @param comparison A [spi_compare_npafp()] result. `$district_year`
+#'   must contain `year`, `npafp_rate`, `spi_median`, and `category`.
 #' @param boundaries `sf` object with the district id column matching
-#'   `concordance$id_col` and a POLYGON geometry column.
+#'   `comparison$id_col` and a POLYGON geometry column.
 #' @param year Integer. Which year to display. Defaults to the maximum
-#'   year in the concordance table.
+#'   year in the comparison table.
 #' @param spi_threshold,npafp_target Numeric cuts used in the panel
 #'   subtitles. If NULL (default) they are pulled from
-#'   `concordance$thresholds`.
+#'   `comparison$thresholds`.
 #' @param npafp_breaks,spi_breaks Numeric break vectors used for the
 #'   categorical fills. Defaults match the paper.
 #' @param id_col Character. Name of the district id column in
-#'   `boundaries`. Inferred from `concordance$id_col` if NULL.
+#'   `boundaries`. Inferred from `comparison$id_col` if NULL.
 #' @param titles Optional character vector of length 3 to override the
 #'   default panel titles.
 #' @param year_label Character. What to call the displayed year in the
@@ -591,22 +592,24 @@ plot.spi_concordance <- function(x, ...) {
 #'
 #' @return A `patchwork` object plotting the three panels side by side.
 #'
-#' @seealso [spi_concordance()]
+#' @seealso [spi_compare_npafp()]
 #'
 #' @export
 #' @examples
 #' \dontrun{
 #' spi_dy <- spi_index(fit_bare, level = "district_year")
-#' conc <- spi_concordance(
-#'   spi        = spi_dy,
-#'   cases      = synth_surveillance$cases,
+#' comparison <- spi_compare_npafp(
+#'   spi = spi_dy,
+#'   cases = synth_surveillance$cases,
 #'   population = synth_surveillance$population,
 #'   boundaries = synth_surveillance$boundaries
 #' )
-#' spi_concordance_maps(conc, synth_surveillance$boundaries, year = 2023)
+#' spi_compare_npafp_maps(
+#'   comparison, synth_surveillance$boundaries, year = 2023
+#' )
 #' }
-spi_concordance_maps <- function(
-  concordance,
+spi_compare_npafp_maps <- function(
+  comparison,
   boundaries,
   year = NULL,
   spi_threshold = NULL,
@@ -619,15 +622,15 @@ spi_concordance_maps <- function(
   provinces = TRUE
 ) {
   .check_pkg(c("ggplot2", "patchwork", "sf", "dplyr"),
-             reason = "to draw the three-panel concordance map")
-  stopifnot(inherits(concordance, "spi_concordance"),
+             reason = "to draw the three-panel SPI and NPAFP map")
+  stopifnot(inherits(comparison, "spi_compare_npafp"),
             inherits(boundaries, "sf"))
 
-  id_col        <- id_col        %||% concordance$id_col
-  spi_threshold <- spi_threshold %||% concordance$thresholds$spi
-  npafp_target  <- npafp_target  %||% concordance$thresholds$npafp
+  id_col <- id_col %||% comparison$id_col
+  spi_threshold <- spi_threshold %||% comparison$thresholds$spi
+  npafp_target <- npafp_target %||% comparison$thresholds$npafp
 
-  dy <- concordance$district_year
+  dy <- comparison$district_year
   if (is.null(year)) year <- max(dy$year, na.rm = TRUE)
   yr <- as.integer(year)
 
@@ -636,10 +639,9 @@ spi_concordance_maps <- function(
     cli::cli_abort("no district-year rows for {.arg year} = {.val {yr}}")
   }
 
-  # Paper's canonical palettes and labels. Reds/pinks tag "below threshold"
-  # for both indicators; the concordance panel picks up amber for the SPI-only
-  # catches and green for the NPAFP-only flags. All hex values chosen to
-  # visually match the paper's Figure 2.
+  # Paper's canonical palettes and labels. Reds/pinks mark "below threshold"
+  # for both indicators; the category panel uses amber for SPI below threshold
+  # only and green for NPAFP below target only, matching the paper's Figure 2.
   npafp_labels <- c("<1", "1-2", "2-3", "3-6", "6-12", "12-24", ">=24")
   pal_a <- c(
     "<1" = "#B71C1C",
@@ -652,7 +654,7 @@ spi_concordance_maps <- function(
   )
   # spi_labels are built from spi_breaks rather than hard-coded, so a custom
   # spi_breaks stays consistent with its own fill legend. Bins whose upper
-  # edge sits at or below spi_threshold are warm (flagged side); the rest are
+  # edge sits at or below spi_threshold are warm (below threshold); the rest are
   # cool. Both ramps are interpolated from the same endpoint colours as the
   # original fixed palette, so a custom spi_breaks still reads on the same
   # warm/cool scale.
@@ -669,24 +671,17 @@ spi_concordance_maps <- function(
       c("#90CAF9", "#1E88E5", "#0D47A1")
     )(sum(!is_warm))
   }
-  # Panel C: neutral concordance labels with the (NPAFP, SPI) reading spelled
-  # out on the legend chips.
-  c_labels <- c(
-    "Neither flagged (both pass)" = "Neither flagged",
-    "Both flagged (both flag)" = "Both flagged",
-    "SPI only (NPAFP adequate, SPI flagged)" = "SPI only",
-    "NPAFP only (NPAFP flagged, SPI adequate)" = "NPAFP only"
-  )
-  pal_c <- c(
-    "Neither flagged (both pass)" = "#EEEEEE",
-    "Both flagged (both flag)" = "#9E9E9E",
-    "SPI only (NPAFP adequate, SPI flagged)" = "#F9A825",
-    "NPAFP only (NPAFP flagged, SPI adequate)" = "#2E7D32"
+  # Panel C: the category labels describe themselves, so the legend uses them
+  # as they are
+  cats <- .npafp_categories
+  pal_c <- stats::setNames(
+    c("#EEEEEE", "#9E9E9E", "#F9A825", "#2E7D32"),
+    cats[c("neither", "both", "spi_only", "npafp_only")]
   )
 
   bnd_slice <- boundaries |>
     dplyr::inner_join(
-      slice[, c(id_col, "npafp_rate", "spi_median", "concordance")],
+      slice[, c(id_col, "npafp_rate", "spi_median", "category")],
       by = id_col
     )
 
@@ -715,28 +710,28 @@ spi_concordance_maps <- function(
   ttl_b <- (titles %||% NULL)[2] %||%
     sprintf("B. Posterior median SPI (%s)", yr_lbl)
   ttl_c <- (titles %||% NULL)[3] %||%
-    sprintf("C. Where the two indicators disagree (%s)", yr_lbl)
+    sprintf("C. SPI and NPAFP classification (%s)", yr_lbl)
 
-  rule <- concordance$thresholds$rule %||% "median"
+  rule <- comparison$thresholds$rule %||% "median"
 
   # Wrap subtitles/legend titles to a fixed width: ggplot draws these
   # left-aligned and never wraps them, so a long single line spills out of a
   # narrow panel into its neighbour (the composed three-panel figure).
   sub_a <- .wrap_lines(sprintf(
-    "Threshold = %g per 100 000 children under 15.", npafp_target
+    "NPAFP target = %g per 100 000 children under 15.", npafp_target
   ))
   sub_b <- .wrap_lines(paste0(
-    sprintf("SPI below %g is flagged.", spi_threshold),
+    sprintf("SPI threshold = %g.", spi_threshold),
     if (identical(rule, "interval")) {
-      " Flagged also needs the 90% upper bound below 1."
+      " Below the threshold also needs the 90% upper bound below 1."
     } else {
       ""
     }
   ))
   sub_c <- .wrap_lines(paste0(
-    "Amber: NPAFP adequate, SPI flagged (SPI only). ",
-    "Green: NPAFP flagged, SPI adequate (NPAFP only). ",
-    "Concordant cells in grey."
+    "Amber: SPI below threshold only. ",
+    "Green: NPAFP below target only. ",
+    "Grey: both below or neither below."
   ))
 
   # ---- Panel A fill category ----
@@ -773,7 +768,7 @@ spi_concordance_maps <- function(
       values = pal_a, drop = FALSE, limits = names(pal_a),
       na.value = "grey85",
       name = .wrap_lines(sprintf(
-        "NPAFP per 100 000 u15 (%d); red = below conventional threshold", yr
+        "NPAFP per 100 000 u15 (%d); red = below the NPAFP target", yr
       ))
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(
@@ -797,7 +792,7 @@ spi_concordance_maps <- function(
       values = pal_b, drop = FALSE, limits = names(pal_b),
       na.value = "grey85",
       name = .wrap_lines(sprintf(
-        "Posterior median SPI (%d); red = below adequacy of %g",
+        "Posterior median SPI (%d); red = below %g",
         yr, spi_threshold
       ))
     ) +
@@ -808,20 +803,19 @@ spi_concordance_maps <- function(
     ggplot2::labs(title = ttl_b, subtitle = sub_b) +
     base_theme
 
-  # ---- Panel C concordance category (with parenthetical legend chips) ----
-  legend_lookup <- stats::setNames(names(c_labels), unname(c_labels))
-  bnd_slice$concordance_legend <- factor(
-    legend_lookup[as.character(bnd_slice$concordance)],
-    levels = names(c_labels)
+  # ---- Panel C SPI and NPAFP category ----
+  bnd_slice$category <- factor(
+    as.character(bnd_slice$category),
+    levels = names(pal_c)
   )
-  p_c <- ggplot2::ggplot(.pad_fill_levels(bnd_slice, "concordance_legend")) +
-    ggplot2::geom_sf(ggplot2::aes(fill = .data$concordance_legend),
+  p_c <- ggplot2::ggplot(.pad_fill_levels(bnd_slice, "category")) +
+    ggplot2::geom_sf(ggplot2::aes(fill = .data$category),
                      colour = "grey82", linewidth = 0.1) +
     adm1_layer +
     ggplot2::scale_fill_manual(
       values = pal_c, drop = FALSE, limits = names(pal_c),
       na.value = "grey85",
-      name = .wrap_lines("Per-LGA agreement (conventional NPAFP x SPI)")
+      name = .wrap_lines("District category (NPAFP target and SPI threshold)")
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(
       # single column: the four cell labels are long, so a multi-column

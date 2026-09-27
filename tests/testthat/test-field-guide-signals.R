@@ -14,7 +14,7 @@ build_full_guide <- function(detections = make_detections(), detection_col = NUL
                              es = make_es(), es_col = "n_positive",
                              process = make_process(), spi_cut = 0.8,
                              verbose = FALSE, ...) {
-  conc <- make_concordance()
+  conc <- make_comparison()
   nb <- make_nb(ids6)
   sm <- make_spi_month("adm2_guid", ids6, 2019:2024, seasonal_map)
   spi_field_guide(conc, process = process, adjacency = nb, spi_month = sm,
@@ -39,7 +39,7 @@ test_that("all optional signals compute when the inputs are supplied", {
   # every judgement reachable
   expect_setequal(
     as.character(dy$verdict),
-    c("Review priority", "Monitor", "No SPI indication")
+    c("Priority for review", "Monitor", "No SPI indication")
   )
 })
 
@@ -52,7 +52,7 @@ test_that("detection_col filters detections and validates its name", {
 
 test_that("context signals never move the judgement", {
   full <- build_full_guide()
-  bare <- spi_field_guide(make_concordance(), spi_cut = 0.8, verbose = FALSE)
+  bare <- spi_field_guide(make_comparison(), spi_cut = 0.8, verbose = FALSE)
   expect_identical(full$district_year$verdict, bare$district_year$verdict)
 })
 
@@ -71,9 +71,9 @@ test_that("traj_alpha gates a volatile slope to flat, not falling", {
     list(
       district_year = dy,
       thresholds = list(spi = 0.8, npafp = 3, multiplier = 1e5),
-      id_col = "adm2_guid", call = quote(spi_concordance())
+      id_col = "adm2_guid", call = quote(spi_compare_npafp())
     ),
-    class = "spi_concordance"
+    class = "spi_compare_npafp"
   )
 
   foc <- function(fg) fg$focal[fg$focal$adm2_guid == "V1", ]
@@ -99,7 +99,7 @@ test_that("neighbourhood_shortfall names the region-wide absorption case", {
                    na.rm = TRUE))
 
   # without adjacency the column is present but NA (graceful degradation)
-  bare <- spi_field_guide(make_concordance(), verbose = FALSE)
+  bare <- spi_field_guide(make_comparison(), verbose = FALSE)
   expect_true(all(is.na(bare$district_year$neighbourhood_shortfall)))
 })
 
@@ -128,7 +128,7 @@ test_that("process counts become timeliness and adequacy concerns", {
 })
 
 test_that("spi_field_guide degrades and warns without optional inputs", {
-  conc <- make_concordance()
+  conc <- make_comparison()
   expect_message(
     bare <- spi_field_guide(conc, spi_cut = 0.8, verbose = TRUE),
     "Not computed"
@@ -149,7 +149,7 @@ test_that("spi_field_guide degrades and warns without optional inputs", {
 })
 
 test_that("spi_field_guide validates read_year, columns, and spi_month level", {
-  conc <- make_concordance()
+  conc <- make_comparison()
   expect_error(spi_field_guide(conc, read_year = 1990L, verbose = FALSE),
                "no district-year rows")
 
@@ -218,7 +218,7 @@ test_that("field guide tables render and cover the cell factories", {
 })
 
 test_that("neighbour / seasonal signals degrade on odd adjacency inputs", {
-  conc <- make_concordance()
+  conc <- make_comparison()
 
   # adjacency without a region.id attribute -> indices used as ids
   nb_noid <- make_nb(ids6)
@@ -317,7 +317,7 @@ test_that("gt save dispatch checks the docx dependency", {
 test_that("noise_alpha closes the gate a zero count opens for free", {
   # observed 0 against 2 expected: SPI = 0 / expected_draw is identically 0, so
   # the interval collapses to (0, 0) and clears one whatever the count basis
-  conc <- make_count_concordance(list(
+  conc <- make_count_comparison(list(
     ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
                 observed = c(1, 1, 0, 0, 0), expected = 2)
   ))
@@ -326,7 +326,7 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
   f <- base$focal
   expect_true(f$cri_excludes_1)
   expect_true(f$gate_pass)
-  expect_identical(as.character(f$verdict), "Review priority")
+  expect_identical(as.character(f$verdict), "Priority for review")
   # the tail is reported even with no gate asked for
   expect_equal(f$noise_tail, stats::ppois(0, 2), tolerance = 1e-9)
   expect_true(f$noise_plausible)
@@ -342,7 +342,7 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
   expect_identical(as.character(g$verdict), "Monitor")
 
   # a well-powered zero is untouched: P(X = 0 | 30) is vanishing
-  powered <- make_count_concordance(list(
+  powered <- make_count_comparison(list(
     ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
                 observed = c(1, 1, 0, 0, 0), expected = 30)
   ))
@@ -356,7 +356,7 @@ test_that("noise_alpha leaves cri_excludes_1 and the default read alone", {
   # the regression that matters: `noise_plausible` is computed whether or not
   # it gates, so folding it into `gate_pass` unconditionally would silently
   # apply a 5% noise gate to the published spec.
-  conc <- make_concordance()
+  conc <- make_comparison()
   base <- spi_field_guide(conc, verbose = FALSE)$district_year
 
   expect_identical(base$cri_excludes_1, base$spi_q95 < 1)
@@ -375,7 +375,7 @@ test_that("a certain but uncorroborated shortfall reads Monitor", {
   # below the cut with the interval wholly below one, but the previous year was
   # at or above the cut and the district has no neighbours in its area, so
   # neither extent nor persistence corroborates
-  conc <- make_count_concordance(list(
+  conc <- make_count_comparison(list(
     LONE = list(spi = c(0.90, 0.60), q95 = c(1.10, 0.70),
                 observed = 6, expected = 10)
   ))
@@ -387,12 +387,12 @@ test_that("a certain but uncorroborated shortfall reads Monitor", {
   expect_true(is.na(f$extent_concern))
   expect_identical(as.character(f$verdict), "Monitor")
   expect_identical(
-    levels(f$verdict), c("Review priority", "Monitor", "No SPI indication")
+    levels(f$verdict), c("Priority for review", "Monitor", "No SPI indication")
   )
 })
 
 test_that("noise_alpha must be a probability", {
-  conc <- make_concordance()
+  conc <- make_comparison()
   expect_error(spi_field_guide(conc, noise_alpha = 0, verbose = FALSE),
                "probability")
   expect_error(spi_field_guide(conc, noise_alpha = 1.5, verbose = FALSE),
@@ -402,7 +402,7 @@ test_that("noise_alpha must be a probability", {
 test_that("persistence reads the previous year, not a historical run", {
   # three sub-cut years, then recovery, then one sub-cut year: the previous
   # year was above the cut, so persistence does not fire despite the old run
-  conc <- make_count_concordance(list(
+  conc <- make_count_comparison(list(
     STALE = list(spi = c(0.5, 0.5, 0.5, 1.1, 1.05, 0.7),
                  q95 = c(0.6, 0.6, 0.6, 1.3, 1.25, 0.75),
                  observed = 4, expected = 12)
@@ -418,7 +418,7 @@ test_that("persistence reads the previous year, not a historical run", {
 })
 
 test_that("the defaults follow the field guide", {
-  conc <- make_concordance()
+  conc <- make_comparison()
   base <- spi_field_guide(conc, verbose = FALSE)
   # STEPS applies below 1 whatever cut the concordance used
   expect_equal(base$thresholds$spi, 1)
@@ -430,7 +430,7 @@ test_that("the defaults follow the field guide", {
 })
 
 test_that("detection_serotypes keeps ambiguous virus out of the channels", {
-  conc <- make_count_concordance(list(
+  conc <- make_count_comparison(list(
     D1 = list(spi = c(0.5, 0.5, 0.5), q95 = c(0.6, 0.6, 0.6),
               observed = 4, expected = 12)
   ))

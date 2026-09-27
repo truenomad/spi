@@ -39,7 +39,7 @@ NULL (return the table object without saving).}
 \item{shade}{Logical. Apply concern shading. Default: TRUE.}
 
 \item{max_rows}{Integer. For the \code{"scan"} layout, cap the number of rows
-(review priority first, then by size of shortfall). Default: 50.}
+(priority for review first, then by size of shortfall). Default: 50.}
 
 \item{...}{Passed to the underlying \code{gt::gtsave()} / flextable saver.}
 }

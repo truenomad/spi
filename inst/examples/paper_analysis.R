@@ -8,8 +8,8 @@
 #   spi_expected               BYM2 expected-count model (bare + adjusted specs)
 #   spi_compare_overdispersion Poisson / iid / NB likelihood comparison
 #   spi_index                  surveillance performance index (3 aggregation levels)
-#   spi_concordance            SPI vs conventional NPAFP threshold (+ strata)
-#   spi_concordance_maps       three-panel choropleth
+#   spi_compare_npafp          SPI vs the NPAFP target (+ strata)
+#   spi_compare_npafp_maps     three-panel choropleth
 #   spi_field_guide            STEPS review -> priority / monitor / none
 #   spi_field_guide_help       learn to read the review
 #   spi_field_guide_table      formatted gt / flextable reports
@@ -56,7 +56,7 @@ synth <- spi::synth_surveillance
 cases <- synth$cases
 population <- synth$population
 boundaries <- synth$boundaries
-truth <- synth$truth # simulation settings, for the comparison panel
+truth <- synth$simulation_truth # simulation settings, for the comparison panel
 
 cli::cli_alert_info(
   "cases: {format(nrow(cases), big.mark = ',')} district-months"
@@ -242,9 +242,9 @@ if (interactive()) {
 # "False reassurance" identifies district-years that meet the NPAFP target
 # but have an SPI below the threshold.
 
-cli::cli_h2("SPI x NPAFP concordance (pooled)")
+cli::cli_h2("SPI and NPAFP classification (pooled)")
 
-conc <- spi::spi_concordance(
+conc <- spi::spi_compare_npafp(
   spi = spi_dy,
   cases = cases,
   population = population,
@@ -261,12 +261,12 @@ if (interactive()) {
 } # four-quadrant scatter
 
 ## ---------------------------------------------------------------------------##
-# Stratified concordance (by year, by province) --------------------------------
+# Stratified classification (by year, by province) -----------------------------
 ## ---------------------------------------------------------------------------##
 
-cli::cli_h2("Stratified concordance")
+cli::cli_h2("Stratified classification")
 
-conc_by_year <- spi::spi_concordance(
+conc_by_year <- spi::spi_compare_npafp(
   spi = spi_dy,
   cases = cases,
   population = population,
@@ -277,7 +277,7 @@ conc_by_year <- spi::spi_concordance(
   verbose = FALSE
 )
 
-conc_by_prov <- spi::spi_concordance(
+conc_by_prov <- spi::spi_compare_npafp(
   spi = spi_dy,
   cases = cases,
   population = population,
@@ -306,7 +306,7 @@ cli::cli_h2("Truth overlay")
 planted <- truth$adm2_guid[truth$is_blindspot]
 
 overlay <- table(
-  concordance = conc$district_year$concordance,
+  comparison = conc$district_year$category,
   planted = ifelse(conc$district_year$adm2_guid %in% planted, "planted", "other")
 )
 
@@ -315,7 +315,7 @@ print(overlay)
 
 n_planted <- function(cell) {
   sum(
-    conc$district_year$concordance == cell &
+    conc$district_year$category == cell &
       conc$district_year$adm2_guid %in% planted
   )
 }
@@ -330,17 +330,17 @@ cli::cli_alert_info(
 )
 
 ## ---------------------------------------------------------------------------##
-# Three-panel concordance figure (paper Figure 2 style) ------------------------
+# Three-panel SPI and NPAFP figure (paper Figure 2 style) ----------------------
 ## ---------------------------------------------------------------------------##
 
 # Panel A: conventional NPAFP rate, POLIS canonical breaks, red below target
 # Panel B: posterior median SPI, paper's operational breaks, red below cut
-# Panel C: four-cell concordance -- where the two indicators disagree
+# Panel C: the four SPI and NPAFP categories
 
-cli::cli_h2("Three-panel concordance map for {focal_year}")
+cli::cli_h2("Three-panel SPI and NPAFP map for {focal_year}")
 
-maps <- spi::spi_concordance_maps(
-  concordance = conc,
+maps <- spi::spi_compare_npafp_maps(
+  comparison = conc,
   boundaries = boundaries,
   year = focal_year
 )
@@ -369,11 +369,11 @@ if (interactive()) {
 cli::cli_h2("SPI field guide")
 
 detections <- synth$virus_outcome |>
-  dplyr::filter(any_cvdpv2 == 1) |>
+  dplyr::filter(any_virus == 1) |>
   dplyr::select(adm2_guid, year)
 
 fg <- spi::spi_field_guide(
-  concordance = conc,
+  comparison = conc,
   process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,

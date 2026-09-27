@@ -75,7 +75,7 @@ if (!file.exists(boundaries_path)) {
 boundaries <- sf::st_read(boundaries_path, quiet = TRUE)
 # GeoPackage cannot store an absent CRS, so it round-trips as an "engineering"
 # CRS that GDAL refuses to transform -- which breaks coord_sf() inside
-# spi_concordance_maps(). Reset to a true NA so downstream sf / ggplot treat the
+# spi_compare_npafp_maps(). Reset to a true NA so downstream sf / ggplot treat the
 # local grid as planar and skip datum transformation.
 sf::st_crs(boundaries) <- NA
 N_DISTRICTS <- nrow(boundaries)
@@ -488,7 +488,7 @@ synth_surveillance <- list(
   es_district_year = es_district_year,
   afp_timeliness = afp_timeliness,
   afp_process = afp_process,
-  truth = truth
+  simulation_truth = truth
 )
 
 cat("cases:            ", nrow(cases), "rows,",
@@ -512,7 +512,7 @@ cat("afp_timeliness:   ", nrow(afp_timeliness), "district-years,",
 cat("afp_process:      ", nrow(afp_process), "district-years,",
     sum(afp_process$n_adequate), "adequate,",
     sum(afp_process$n_transport_timely), "transported within 3d\n")
-cat("truth:            ", sum(truth$is_blindspot), "blindspots,",
+cat("simulation_truth: ", sum(truth$is_blindspot), "blindspots,",
     sum(truth$is_low_incidence), "low-incidence; profiles:",
     paste(names(table(truth$surveillance_profile)),
           table(truth$surveillance_profile), sep = "=", collapse = " "), "\n")

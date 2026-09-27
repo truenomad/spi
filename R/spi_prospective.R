@@ -41,7 +41,7 @@
 #'   plus admin name columns, joined onto the summary as in [spi_index()].
 #'   Default: `NULL`.
 #' @param min_expected Numeric. District-years with a total expected count
-#'   below this threshold are flagged as low-information. Default: 1.
+#'   below this threshold are marked as low-information. Default: 1.
 #' @param predictive Logical. Reserved for a held-out predictive check. Only
 #'   `FALSE` is supported at present. Default: `FALSE`.
 #' @param verbose Logical. Print one progress step per assessment year.
@@ -71,7 +71,7 @@
 #' the number of assessment years. Every fit uses the same `...` arguments,
 #' including `n_draws`.
 #'
-#' @seealso [spi_expected()], [spi_index()], [spi_concordance()]
+#' @seealso [spi_expected()], [spi_index()], [spi_compare_npafp()]
 #' @family spi core functions
 #'
 #' @export

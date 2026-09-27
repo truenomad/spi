@@ -1,6 +1,19 @@
-# spi 0.1.0.9000
+# spi 0.2.0
 
 ### Breaking changes
+
+* `spi_concordance()` and `spi_concordance_maps()` are now `spi_compare_npafp()` and
+  `spi_compare_npafp_maps()`, and the result has class `spi_compare_npafp`. In its
+  `district_year` table, `concordance` is now `category` and `spi_flagged` is
+  `spi_below_threshold`; the metric counts are `n_neither`, `n_spi_only`, `n_npafp_only`,
+  and `n_both`. `spi_field_guide()` takes `comparison` in place of `concordance`.
+
+* The four categories are now `Neither below`, `SPI below threshold only`,
+  `NPAFP below target only`, and `Both below`.
+
+* The review label `Review priority` is now `Priority for review`.
+
+* `synth_surveillance$truth` is now `synth_surveillance$simulation_truth`.
 
 * Renamed `blindspot` to `spi`; functions now use the `spi_` prefix instead of `bs_`.
 
@@ -21,13 +34,13 @@
 * STEPS now covers strength, timeliness, extent, persistence, and stool adequacy. The default
   `spi_cut` is 1.
 
-* Replaced the old labels and count of supporting findings with `Review priority`, `Monitor`, and
-  `No SPI indication`.
+* Replaced the old labels and count of supporting findings with `Priority for review`, `Monitor`,
+  and `No SPI indication`.
 
 * Added `process`, `extent_col`, `process_target`, and `process_min_cases` to check specimen
   handling and nearby districts.
 
-* Added `spi_rule`, taken from the concordance settings. The interval rule uses `No SPI indication`
+* Added `spi_rule`, taken from the comparison settings. The interval rule uses `No SPI indication`
   when the interval includes 1.
 
 * Trend, neighbours, seasonal patterns, and AFP/ES detections remain supporting context; they do not

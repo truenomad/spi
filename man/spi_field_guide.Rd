@@ -5,7 +5,7 @@
 \title{Review relative reporting shortfalls with STEPS}
 \usage{
 spi_field_guide(
-  concordance,
+  comparison,
   process = NULL,
   extent_col = NULL,
   process_target = 80,
@@ -30,8 +30,8 @@ spi_field_guide(
 )
 }
 \arguments{
-\item{concordance}{A \code{\link[=spi_concordance]{spi_concordance()}} result (class
-\code{spi_concordance}). Supplies SPI and NPAFP results for every
+\item{comparison}{A \code{\link[=spi_compare_npafp]{spi_compare_npafp()}} result (class
+\code{spi_compare_npafp}). Supplies SPI and NPAFP results for every
 district-year.}
 
 \item{process}{Optional district-year tibble of AFP process counts, keyed
@@ -43,9 +43,9 @@ within 3 days of the second stool collection). Enables timeliness (T) and
 stool adequacy (S). District-years missing from \code{process} count as zero
 cases. Default: NULL.}
 
-\item{extent_col}{Name of the admin-1 column in \code{concordance$district_year}
+\item{extent_col}{Name of the admin-1 column in \code{comparison$district_year}
 that defines the area for extent (E). Default: NULL (\code{"adm1_name"} when
-present, as it is when \code{\link[=spi_concordance]{spi_concordance()}} was given \code{boundaries}).}
+present, as it is when \code{\link[=spi_compare_npafp]{spi_compare_npafp()}} was given \code{boundaries}).}
 
 \item{process_target}{Numeric target, in percent, for timeliness and stool
 adequacy. Default: 80.}
@@ -106,7 +106,7 @@ every district-year with an SPI below \code{spi_cut}. \code{"interval"} also
 requires the 90\% upper bound (\code{spi_q95}) to be below 1, so a district-year
 whose interval includes 1 is labelled \verb{No SPI indication}. Extent and
 persistence still use the median. Default: NULL (the \code{spi_rule} given to
-\code{\link[=spi_concordance]{spi_concordance()}}).}
+\code{\link[=spi_compare_npafp]{spi_compare_npafp()}}).}
 
 \item{traj_window}{Integer. Trend regression window in years, ending at
 each year (context). Default: 5.}
@@ -134,7 +134,7 @@ A value such as \code{0.05} adds this check; it is not a validated field-action
 threshold.}
 
 \item{id_col}{Character district id column. Default: NULL (take
-\code{concordance$id_col}).}
+\code{comparison$id_col}).}
 
 \item{verbose}{Logical. Progress and missing-input messages via cli.
 Default: TRUE.}
@@ -166,10 +166,10 @@ computed, the id column, and the matched call.}
 }
 }
 \description{
-Reviews each district-year in a \code{\link[=spi_concordance]{spi_concordance()}} result using the five
+Reviews each district-year in a \code{\link[=spi_compare_npafp]{spi_compare_npafp()}} result using the five
 \strong{STEPS} components (strength,
 timeliness, extent, persistence, stool adequacy) and one of the field
-guide's three review labels (\verb{Review priority}, \code{Monitor},
+guide's three review labels (\verb{Priority for review}, \code{Monitor},
 \verb{No SPI indication}). STEPS is applied only to districts with an SPI below
 \code{spi_cut} (1 by default, as in the field guide).
 
@@ -184,7 +184,7 @@ below 1.
 days? Needs \code{process}.
 \item \strong{E: Extent} -- are other districts in the same admin-1 area (the
 other LGAs in the same state, in Nigeria) also below the SPI cutoff? Needs
-an \code{extent_col} in the concordance.
+an \code{extent_col} in the comparison.
 \item \strong{P: Persistence} -- was the SPI also below the cut in the previous
 year?
 \item \strong{S: Stool adequacy} -- are stool specimens adequate? Needs
@@ -206,10 +206,10 @@ generated review label.
 Each district-year receives one of three review labels, using the field
 guide's descriptions:
 \itemize{
-\item \strong{Review priority} -- the SPI is below \code{spi_cut}, its 90\% credible
-interval lies entirely below 1 (and, when \code{noise_alpha} is set, sampling
-noise alone is unlikely to produce the shortfall), and the shortfall is
-supported by extent or persistence. The label identifies districts
+\item \strong{Priority for review} -- the SPI is below \code{spi_cut}, its 90\%
+credible interval lies entirely below 1 (and, when \code{noise_alpha} is set,
+sampling noise alone is unlikely to produce the shortfall), and extent
+or persistence also raises concern. The label identifies districts
 to consider for closer review.
 \item \strong{Monitor} -- the SPI is below \code{spi_cut}, but the interval includes
 1, the optional sampling-noise check fails, or neither extent nor
@@ -249,17 +249,17 @@ fit  <- spi_expected(
 )
 cy   <- spi_index(fit, level = "district_year")
 cm   <- spi_index(fit, level = "district_month")
-conc <- spi_concordance(
+comparison <- spi_compare_npafp(
   cy, synth_surveillance$cases, synth_surveillance$population,
   boundaries = synth_surveillance$boundaries
 )
 fg <- spi_field_guide(
-  conc,
+  comparison,
   process = synth_surveillance$afp_process,
   adjacency = adj,
   spi_month = cm,
   detections = synth_surveillance$virus_outcome |>
-    dplyr::filter(any_cvdpv2 == 1) |>
+    dplyr::filter(any_virus == 1) |>
     dplyr::select(adm2_guid, year),
   es = synth_surveillance$es_district_year,
   es_col = "n_positive"
@@ -268,7 +268,7 @@ fg <- spi_field_guide(
 }
 \seealso{
 \code{\link[=spi_field_guide_table]{spi_field_guide_table()}} to render it, \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}
-to learn to read it, \code{\link[=spi_concordance]{spi_concordance()}} for the input, and the one-page
+to learn to read it, \code{\link[=spi_compare_npafp]{spi_compare_npafp()}} for the input, and the one-page
 infographic at
 \code{system.file("field-guide", "npafp_spi_steps_infographic.html", package = "spi")}.
 }

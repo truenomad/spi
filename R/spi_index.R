@@ -38,7 +38,7 @@
 #'   summary carries `n_months` and those rows should normally be dropped.
 #'   Ignored at every other level. Default: 12 (calendar years).
 #' @param min_expected Numeric. Districts or district-periods with total
-#'   expected count below this threshold are flagged as low-information. SPI
+#'   expected count below this threshold are marked as low-information. SPI
 #'   is still computed; inspect the counts and uncertainty before interpreting it. Default: 1.
 #' @param verbose Logical. Progress messages via cli. Default: TRUE.
 #'
@@ -48,7 +48,7 @@
 #'   \item{summary}{Tibble with grouping variables and SPI summaries (median,
 #'     mean, q05, q10, q90, q95) per district or district-period.}
 #'   \item{level}{Aggregation level used.}
-#'   \item{low_information}{Tibble of districts or district-periods flagged
+#'   \item{low_information}{Tibble of districts or district-periods marked
 #'     as low-information.}
 #'   \item{totals}{Tibble of overall observed and expected totals.}
 #'   \item{id_col}{The id column name, echoed for downstream use.}
@@ -76,7 +76,7 @@
 #' period with no reported cases nationally has no ratio to divide by; its rows
 #' become `NA` and a warning names the affected periods.
 #'
-#' @seealso [spi_expected()], [spi_concordance()]
+#' @seealso [spi_expected()], [spi_compare_npafp()]
 #' @family spi core functions
 #'
 #' @export
@@ -253,7 +253,7 @@ spi_index <- function(
       n_low_s <- format(n_low, big.mark = ",")
       group_word <- ngettext(n_low, "group", "groups")
       cli::cli_alert_warning(
-        "{n_low_s} {group_word} flagged low-information \\
+        "{n_low_s} {group_word} marked low-information \\
          (expected < {min_expected})."
       )
     }
@@ -499,7 +499,7 @@ print.spi_index <- function(x, ...) {
   if (n_low_info > 0) {
     group_word <- ngettext(n_low_info, "group", "groups")
     cli::cli_alert_warning(
-      "{fmt_int(n_low_info)} {group_word} flagged low-information."
+      "{fmt_int(n_low_info)} {group_word} marked low-information."
     )
   }
 

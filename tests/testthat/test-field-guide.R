@@ -24,7 +24,7 @@ test_that("synth_field_guide has the expected structure", {
   expect_s3_class(dy$verdict, "factor")
   expect_setequal(
     levels(dy$verdict),
-    c("Review priority", "Monitor", "No SPI indication")
+    c("Priority for review", "Monitor", "No SPI indication")
   )
   # the interval and the gate it feeds are recorded apart
   expect_true(all(c("cri_excludes_1", "gate_pass") %in% names(dy)))
@@ -54,7 +54,7 @@ test_that("the review rule matches the verdict column", {
   expect_priority <- dy$spi_median < cut & dy$spi_q95 < 1 & corroborated
   expect_monitor <- dy$spi_median < cut & !expect_priority
 
-  expect_equal(as.character(dy$verdict) == "Review priority", expect_priority)
+  expect_equal(as.character(dy$verdict) == "Priority for review", expect_priority)
   expect_equal(as.character(dy$verdict) == "Monitor", expect_monitor)
   expect_equal(
     as.character(dy$verdict) == "No SPI indication", !(dy$spi_median < cut)
@@ -62,7 +62,7 @@ test_that("the review rule matches the verdict column", {
 })
 
 test_that("the interval rule relabels shortfalls whose interval includes 1", {
-  conc <- make_concordance()
+  conc <- make_comparison()
   fg_med <- spi_field_guide(conc, verbose = FALSE)
   fg_int <- spi_field_guide(conc, spi_rule = "interval", verbose = FALSE)
   med <- as.character(fg_med$district_year$verdict)
@@ -76,7 +76,7 @@ test_that("the interval rule relabels shortfalls whose interval includes 1", {
   expect_identical(fg_med$thresholds$rule, "median")
   expect_identical(fg_int$thresholds$rule, "interval")
 
-  # the rule given to spi_concordance() carries through by default
+  # the rule given to spi_compare_npafp() carries through by default
   conc$thresholds$rule <- "interval"
   expect_equal(
     spi_field_guide(conc, verbose = FALSE)$district_year$verdict,
@@ -97,7 +97,7 @@ test_that("timeliness and stool adequacy never move the judgement", {
       thresholds = list(spi = 0.8, npafp = fg$thresholds$npafp),
       id_col = "adm2_guid"
     ),
-    class = "spi_concordance"
+    class = "spi_compare_npafp"
   )
   with_process <- spi_field_guide(
     conc, process = synth_surveillance$afp_process, verbose = FALSE
@@ -147,7 +147,7 @@ test_that("graceful degradation without optional inputs", {
       thresholds = list(spi = fg$thresholds$spi, npafp = fg$thresholds$npafp),
       id_col = "adm2_guid"
     ),
-    class = "spi_concordance"
+    class = "spi_compare_npafp"
   )
 
   bare <- spi_field_guide(conc, verbose = FALSE)
@@ -157,7 +157,7 @@ test_that("graceful degradation without optional inputs", {
   expect_true(all(is.na(bare$district_year$neighbour_spi)))
   expect_true(all(is.na(bare$district_year$seasonal)))
   # without extent, only persistence can lift a certain shortfall
-  pri <- bare$district_year[bare$district_year$verdict == "Review priority", ]
+  pri <- bare$district_year[bare$district_year$verdict == "Priority for review", ]
   expect_true(all(pri$persistence_concern))
 })
 
@@ -238,7 +238,7 @@ test_that("spi_field_guide can be recomputed end to end", {
   )
   cy <- spi_index(fit, level = "district_year", verbose = FALSE)
   cm <- spi_index(fit, level = "district_month", verbose = FALSE)
-  conc <- spi_concordance(
+  conc <- spi_compare_npafp(
     cy, s$cases, s$population, boundaries = s$boundaries, verbose = FALSE
   )
   fg <- spi_field_guide(

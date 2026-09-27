@@ -36,13 +36,14 @@ shortfalls for surveillance review.
 monitoring
 }
 
-\strong{Concordance and interpretation}
+\strong{Comparison with the NPAFP target and interpretation}
 \itemize{
-\item Cross-classify SPI against the conventional NPAFP-rate threshold into a
-four-cell table (neither flagged / SPI only / NPAFP only / both flagged).
+\item Classify each district-year by SPI and the NPAFP target into four
+categories (neither below / SPI below threshold only / NPAFP below
+target only / both below).
 \item Review each district-year with an SPI below 1 through the five STEPS
 components (strength, timeliness, extent, persistence, stool adequacy)
-to a review priority / monitor / no SPI indication review label. These labels do not establish surveillance adequacy.
+to a priority for review / monitor / no SPI indication review label. These labels do not establish surveillance adequacy.
 }
 }
 
@@ -50,10 +51,10 @@ to a review priority / monitor / no SPI indication review label. These labels do
 
 \itemize{
 \item \code{\link[=spi_adjacency]{spi_adjacency()}}: Build a neighbour graph
-\item \code{\link[=spi_expected]{spi_expected()}}: Fit expected case counts
+\item \code{\link[=spi_expected]{spi_expected()}}: Fit the expected-count model
 \item \code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}}: Compare Poisson vs negative-binomial fits
 \item \code{\link[=spi_index]{spi_index()}}: Compute surveillance performance index
-\item \code{\link[=spi_concordance]{spi_concordance()}}: Cross-classify SPI against the NPAFP-rate threshold
+\item \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}: Compare SPI with the NPAFP target
 \item \code{\link[=spi_field_guide]{spi_field_guide()}}: Review a low SPI through the five STEPS components
 \item \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}: Render the field guide (gt / flextable)
 \item \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}: Learn to read the field guide

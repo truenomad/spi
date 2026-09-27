@@ -116,6 +116,18 @@ no reported cases has an SPI of 0 and a 0 to 0 interval, because the
 interval reflects uncertainty in the expected count only; this is not
 certainty about surveillance performance.
 
+## Recommended workflow
+
+1.  Check the inputs with `spi_check_inputs()`.
+2.  Fit the expected-count model with `spi_expected()`.
+3.  Calculate annual SPI: `spi_prospective()` for routine year-by-year
+    assessment, or `spi_index()` to describe a fitted period.
+4.  Compare SPI with the NPAFP target using `spi_compare_npafp()`.
+5.  Check the credible intervals and the national observed-to-expected
+    ratio.
+6.  Organise district review with `spi_field_guide()` and the STEPS
+    components.
+
 ## Learn more
 
 The [package website](https://truenomad.github.io/spi/) includes five

@@ -158,7 +158,7 @@ AFP detections appear as filled diamonds and ES detections as hollow
 circles. Seasonality and trend are also shown as context. These findings
 and the optional indicators do not change the STEPS label.
 
-The report uses rose for review priority, amber for monitor, and green for
+The report uses rose for priority for review, amber for monitor, and green for
 no SPI indication.
 }
 \examples{

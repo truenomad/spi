@@ -36,20 +36,21 @@ utils::globalVariables(c(
 #' - Adapts standardised morbidity ratio (SMR) framework to surveillance
 #'   monitoring
 #'
-#' **Concordance and interpretation**
-#' - Cross-classify SPI against the conventional NPAFP-rate threshold into a
-#'   four-cell table (neither flagged / SPI only / NPAFP only / both flagged).
+#' **Comparison with the NPAFP target and interpretation**
+#' - Classify each district-year by SPI and the NPAFP target into four
+#'   categories (neither below / SPI below threshold only / NPAFP below
+#'   target only / both below).
 #' - Review each district-year with an SPI below 1 through the five STEPS
 #'   components (strength, timeliness, extent, persistence, stool adequacy)
-#'   to a review priority / monitor / no SPI indication review label. These labels do not establish surveillance adequacy.
+#'   to a priority for review / monitor / no SPI indication review label. These labels do not establish surveillance adequacy.
 #'
 #' @section Main functions:
 #'
 #' - [spi_adjacency()]: Build a neighbour graph
-#' - [spi_expected()]: Fit expected case counts
+#' - [spi_expected()]: Fit the expected-count model
 #' - [spi_compare_overdispersion()]: Compare Poisson vs negative-binomial fits
 #' - [spi_index()]: Compute surveillance performance index
-#' - [spi_concordance()]: Cross-classify SPI against the NPAFP-rate threshold
+#' - [spi_compare_npafp()]: Compare SPI with the NPAFP target
 #' - [spi_field_guide()]: Review a low SPI through the five STEPS components
 #' - [spi_field_guide_table()]: Render the field guide (gt / flextable)
 #' - [spi_field_guide_help()]: Learn to read the field guide

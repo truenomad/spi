@@ -1,7 +1,7 @@
 # review judgements, strongest first. Every renderer, legend and summary
 # orders off this, so a change reaches all of them at once.
 # @noRd
-.FG_VERDICT_LEVELS <- c("Review priority", "Monitor", "No SPI indication")
+.FG_VERDICT_LEVELS <- c("Priority for review", "Monitor", "No SPI indication")
 
 # the strength gate as the guide recorded it. A guide built before the gate
 # was split from the interval carries it under `cri_excludes_1`, which is what
@@ -15,10 +15,10 @@
 #' Review relative reporting shortfalls with STEPS
 #'
 #' @description
-#' Reviews each district-year in a [spi_concordance()] result using the five
+#' Reviews each district-year in a [spi_compare_npafp()] result using the five
 #' **STEPS** components (strength,
 #' timeliness, extent, persistence, stool adequacy) and one of the field
-#' guide's three review labels (`Review priority`, `Monitor`,
+#' guide's three review labels (`Priority for review`, `Monitor`,
 #' `No SPI indication`). STEPS is applied only to districts with an SPI below
 #' `spi_cut` (1 by default, as in the field guide).
 #'
@@ -33,7 +33,7 @@
 #'     days? Needs `process`.
 #'   \item **E: Extent** -- are other districts in the same admin-1 area (the
 #'     other LGAs in the same state, in Nigeria) also below the SPI cutoff? Needs
-#'     an `extent_col` in the concordance.
+#'     an `extent_col` in the comparison.
 #'   \item **P: Persistence** -- was the SPI also below the cut in the previous
 #'     year?
 #'   \item **S: Stool adequacy** -- are stool specimens adequate? Needs
@@ -55,10 +55,10 @@
 #' Each district-year receives one of three review labels, using the field
 #' guide's descriptions:
 #' \itemize{
-#'   \item **Review priority** -- the SPI is below `spi_cut`, its 90% credible
-#'     interval lies entirely below 1 (and, when `noise_alpha` is set, sampling
-#'     noise alone is unlikely to produce the shortfall), and the shortfall is
-#'     supported by extent or persistence. The label identifies districts
+#'   \item **Priority for review** -- the SPI is below `spi_cut`, its 90%
+#'     credible interval lies entirely below 1 (and, when `noise_alpha` is set,
+#'     sampling noise alone is unlikely to produce the shortfall), and extent
+#'     or persistence also raises concern. The label identifies districts
 #'     to consider for closer review.
 #'   \item **Monitor** -- the SPI is below `spi_cut`, but the interval includes
 #'     1, the optional sampling-noise check fails, or neither extent nor
@@ -84,8 +84,8 @@
 #' or an `extent_col` the corresponding component is `NA`. `signals_active`
 #' records which components and context signals were computable.
 #'
-#' @param concordance A [spi_concordance()] result (class
-#'   `spi_concordance`). Supplies SPI and NPAFP results for every
+#' @param comparison A [spi_compare_npafp()] result (class
+#'   `spi_compare_npafp`). Supplies SPI and NPAFP results for every
 #'   district-year.
 #' @param process Optional district-year tibble of AFP process counts, keyed
 #'   by the district id column and `year`, with columns `n_cases` (AFP cases),
@@ -95,9 +95,9 @@
 #'   within 3 days of the second stool collection). Enables timeliness (T) and
 #'   stool adequacy (S). District-years missing from `process` count as zero
 #'   cases. Default: NULL.
-#' @param extent_col Name of the admin-1 column in `concordance$district_year`
+#' @param extent_col Name of the admin-1 column in `comparison$district_year`
 #'   that defines the area for extent (E). Default: NULL (`"adm1_name"` when
-#'   present, as it is when [spi_concordance()] was given `boundaries`).
+#'   present, as it is when [spi_compare_npafp()] was given `boundaries`).
 #' @param process_target Numeric target, in percent, for timeliness and stool
 #'   adequacy. Default: 80.
 #' @param process_min_cases Integer. Fewest cases for timeliness or stool
@@ -145,7 +145,7 @@
 #'   requires the 90% upper bound (`spi_q95`) to be below 1, so a district-year
 #'   whose interval includes 1 is labelled `No SPI indication`. Extent and
 #'   persistence still use the median. Default: NULL (the `spi_rule` given to
-#'   [spi_concordance()]).
+#'   [spi_compare_npafp()]).
 #' @param traj_window Integer. Trend regression window in years, ending at
 #'   each year (context). Default: 5.
 #' @param traj_tol Numeric slope dead-band per year below which a trend is
@@ -168,7 +168,7 @@
 #'   A value such as `0.05` adds this check; it is not a validated field-action
 #'   threshold.
 #' @param id_col Character district id column. Default: NULL (take
-#'   `concordance$id_col`).
+#'   `comparison$id_col`).
 #' @param verbose Logical. Progress and missing-input messages via cli.
 #'   Default: TRUE.
 #'
@@ -198,7 +198,7 @@
 #' }
 #'
 #' @seealso [spi_field_guide_table()] to render it, [spi_field_guide_help()]
-#'   to learn to read it, [spi_concordance()] for the input, and the one-page
+#'   to learn to read it, [spi_compare_npafp()] for the input, and the one-page
 #'   infographic at
 #'   `system.file("field-guide", "npafp_spi_steps_infographic.html", package =
 #'   "spi")`.
@@ -219,24 +219,24 @@
 #' )
 #' cy   <- spi_index(fit, level = "district_year")
 #' cm   <- spi_index(fit, level = "district_month")
-#' conc <- spi_concordance(
+#' comparison <- spi_compare_npafp(
 #'   cy, synth_surveillance$cases, synth_surveillance$population,
 #'   boundaries = synth_surveillance$boundaries
 #' )
 #' fg <- spi_field_guide(
-#'   conc,
+#'   comparison,
 #'   process = synth_surveillance$afp_process,
 #'   adjacency = adj,
 #'   spi_month = cm,
 #'   detections = synth_surveillance$virus_outcome |>
-#'     dplyr::filter(any_cvdpv2 == 1) |>
+#'     dplyr::filter(any_virus == 1) |>
 #'     dplyr::select(adm2_guid, year),
 #'   es = synth_surveillance$es_district_year,
 #'   es_col = "n_positive"
 #' )
 #' }
 spi_field_guide <- function(
-  concordance,
+  comparison,
   process = NULL,
   extent_col = NULL,
   process_target = 80,
@@ -264,20 +264,20 @@ spi_field_guide <- function(
     reason = "to read the SPI through the field guide"
   )
 
-  stopifnot(inherits(concordance, "spi_concordance"))
+  stopifnot(inherits(comparison, "spi_compare_npafp"))
 
-  id_col <- id_col %||% concordance$id_col %||% "district_id"
-  npafp_target <- concordance$thresholds$npafp
-  spi_rule <- spi_rule %||% concordance$thresholds$rule %||% "median"
+  id_col <- id_col %||% comparison$id_col %||% "district_id"
+  npafp_target <- comparison$thresholds$npafp
+  spi_rule <- spi_rule %||% comparison$thresholds$rule %||% "median"
   spi_rule <- match.arg(spi_rule, c("median", "interval"))
 
-  dy <- concordance$district_year
+  dy <- comparison$district_year
   required <- c(id_col, "year", "observed", "expected_total", "spi_median",
                 "spi_q05", "spi_q95", "npafp_rate", "npafp_adequate")
   missing_cols <- setdiff(required, names(dy))
   if (length(missing_cols) > 0) {
     cli::cli_abort(
-      "{.arg concordance$district_year} is missing column{?s} \\
+      "{.arg comparison$district_year} is missing column{?s} \\
        {.val {missing_cols}}."
     )
   }
@@ -340,7 +340,7 @@ spi_field_guide <- function(
     if (!extent_col %in% names(dy)) {
       cli::cli_abort(
         "{.arg extent_col} = {.val {extent_col}} is not a column of \\
-         {.arg concordance$district_year}."
+         {.arg comparison$district_year}."
       )
     }
     dy <- .fg_add_extent(dy, extent_col, spi_cut)
@@ -414,7 +414,7 @@ spi_field_guide <- function(
 
   # --- judgement ------------------------------------------------------
   # extent and persistence are the two validated corroborators of the SPI
-  # signal, so either one lifts a certain shortfall to review priority.
+  # signal, so either one lifts a certain shortfall to priority for review.
   # timeliness and stool adequacy are reported beside them and never move the
   # judgement.
   is_true <- function(x) !is.na(x) & x
@@ -425,7 +425,7 @@ spi_field_guide <- function(
     (spi_rule == "median" | is_true(dy$cri_excludes_1))
   dy$verdict <- factor(
     dplyr::case_when(
-      dy$spi_below & dy$gate_pass & corroborated ~ "Review priority",
+      dy$spi_below & dy$gate_pass & corroborated ~ "Priority for review",
       labelled ~ "Monitor",
       TRUE ~ "No SPI indication"
     ),
@@ -452,7 +452,7 @@ spi_field_guide <- function(
     foc <- dy[dy$year == read_year, ]
     cli::cli_alert_success(
       "Field guide read for {.val {read_year}}: \\
-       {sum(foc$verdict == 'Review priority')} review priority, \\
+       {sum(foc$verdict == 'Priority for review')} priority for review, \\
        {sum(foc$verdict == 'Monitor')} monitor, \\
        {sum(foc$verdict == 'No SPI indication')} no SPI indication."
     )
@@ -918,7 +918,7 @@ spi_field_guide <- function(
   tibble::tribble(
     ~signal, ~asks, ~interpret, ~corroborates,
     "S: Strength",
-    "How large and how certain is the shortfall? Read from the SPI value and whether its 90% credible interval lies entirely below 1.",
+    "How large is the shortfall, and does the 90% credible interval lie entirely below the reference value of 1?",
     "A larger shortfall with an interval below 1 is stronger evidence. The difference between observed and expected counts is not a count of missed cases.",
     "No",
     "T: Timeliness",
@@ -926,12 +926,12 @@ spi_field_guide <- function(
     "Measures specimen transport after detection. It has not been validated as evidence for a low SPI and does not change the judgement.",
     "No (independent)",
     "E: Extent",
-    "Are other districts in the same admin-1 area (other LGAs in the same state) also below expectation?",
-    "A shortfall shared by other districts in the area provides supporting context for a low SPI.",
+    "Is an SPI below the chosen cutoff more common among other districts in the same admin-1 area than nationally?",
+    "Provides contextual evidence about whether the shortfall is shared with nearby districts.",
     "Yes",
     "P: Persistence",
-    "Was the SPI also below 1 in the previous year?",
-    "A shortfall in the previous year adds support, but is common.",
+    "Was SPI also below the chosen cutoff in the previous year?",
+    "Provides contextual evidence about whether the shortfall is repeated over time. A shortfall in the previous year is common.",
     "Yes (supporting)",
     "S: Stool adequacy",
     "Are stool specimens adequate?",
@@ -946,19 +946,19 @@ spi_field_guide <- function(
   tibble::tribble(
     ~misreading, ~correction,
     sprintf("SPI below %s means surveillance has failed.", cut),
-    "Reporting was estimated below the modelled expectation. This does not establish surveillance failure. Review the size, uncertainty, persistence, and context of the shortfall.",
+    "Relative reporting was below the reference, which by default is the national observed-to-expected ratio. This does not establish surveillance failure. Review the size, uncertainty, persistence, and context of the shortfall.",
     sprintf("SPI of %s or above means surveillance is adequate.", cut),
-    "The SPI cannot establish overall surveillance adequacy. Consider the conventional NPAFP rate, specimen adequacy, timeliness, and other surveillance information.",
+    "The SPI cannot establish overall surveillance adequacy. Consider the conventional NPAFP rate, stool adequacy, timeliness, and other surveillance information.",
     "SPI below 1 means cases were missed.",
-    "Observed reporting was below the modelled expectation. This does not establish why the shortfall occurred or how many cases, if any, were missed.",
+    "Relative reporting was below the reference. This does not establish why the shortfall occurred or how many cases, if any, were missed.",
     "A higher SPI always means surveillance improved.",
     "The SPI can rise because observed reporting increased, expected reporting decreased, or both. Examine the counts separately and seek other evidence of improvement.",
     "A district that meets the conventional NPAFP target does not need further review.",
     "A district can meet the minimum reporting target while reporting substantially fewer cases than expected from its population and reporting history. Interpret both indicators together.",
     "A low conventional NPAFP rate with an SPI near 1 is not concerning.",
-    "Persistent low reporting can lower the modelled expectation. The SPI may not identify a long-standing shortfall. Persistent failure to meet the conventional target remains a reason for investigation.",
+    "Persistent low reporting can lower the modelled expectation. The SPI may not identify a long-standing shortfall. Persistent failure to meet the NPAFP target remains a reason for investigation.",
     "A low SPI means poliovirus is circulating.",
-    "Poliovirus detections are not used to calculate the SPI. A low value identifies reporting below expectation and does not establish whether poliovirus is present."
+    "Poliovirus detections are not used to calculate the SPI. A low value identifies a relative reporting shortfall and does not establish whether poliovirus is present."
   )
 }
 
@@ -973,7 +973,7 @@ print.spi_field_guide <- function(x, ...) {
     "Read year: {.val {x$read_year}} \\
      | STEPS applied below SPI {.val {x$thresholds$spi}} \\
      ({x$thresholds$rule %||% 'median'} rule) \\
-     | review priority: 90% CrI below 1, corroborated by extent or \\
+     | priority for review: 90% CrI below 1, with extent or \\
      persistence"
   ))
 
@@ -1003,10 +1003,12 @@ print.spi_field_guide <- function(x, ...) {
   )
   print(verdict_tbl)
 
-  priority <- foc[foc$verdict == "Review priority", ]
+  priority <- foc[foc$verdict == "Priority for review", ]
   n_show <- min(10L, nrow(priority))
   if (n_show > 0) {
-    cli::cli_h2("Review priority districts (top {n_show} by size of shortfall)")
+    cli::cli_h2(
+      "Districts with priority for review (top {n_show} by size of shortfall)"
+    )
     print(.fg_scan_tibble(x, priority), n = n_show)
   }
   cli::cli_alert_info(
@@ -1154,7 +1156,7 @@ spi_field_guide_help <- function(
     )
     cli::cli_ul()
     cli::cli_li(
-      "{.strong Review priority} -- SPI below {format(spi_cut)}, the 90% \\
+      "{.strong Priority for review} -- SPI below {format(spi_cut)}, the 90% \\
        credible interval entirely below 1, and the shortfall corroborated by \\
        extent or persistence. Evidence of reporting below expectation is \\
        sufficiently strong or persistent to warrant further investigation."
@@ -1330,9 +1332,10 @@ spi_field_guide_help <- function(
 .fg_action <- function(r) {
   switch(
     as.character(r$verdict),
-    "Review priority" = paste(
-      "review priority. Evidence of reporting below expectation is",
-      "sufficiently strong or persistent to warrant further investigation."
+    "Priority for review" = paste(
+      "priority for review. The relative reporting shortfall is",
+      "strong enough, with extent or persistence also raising concern, to",
+      "warrant further investigation."
     ),
     "Monitor" = paste(
       "monitor. Uncertainty or limited supporting information favours",
@@ -1384,7 +1387,7 @@ spi_field_guide_help <- function(
 #'   NULL (return the table object without saving).
 #' @param shade Logical. Apply concern shading. Default: TRUE.
 #' @param max_rows Integer. For the `"scan"` layout, cap the number of rows
-#'   (review priority first, then by size of shortfall). Default: 50.
+#'   (priority for review first, then by size of shortfall). Default: 50.
 #' @param ... Passed to the underlying `gt::gtsave()` / flextable saver.
 #'
 #' @return The `gt_tbl` or `flextable` object, invisibly when `file` is set.
@@ -1464,7 +1467,7 @@ FG_CLASS_FILL <- c(
 # @noRd
 .fg_verdict_class <- function(verdict) {
   vapply(as.character(verdict), function(v) {
-    switch(v, "Review priority" = "warm", "Monitor" = "amber", "cool")
+    switch(v, "Priority for review" = "warm", "Monitor" = "amber", "cool")
   }, character(1))
 }
 
@@ -1513,8 +1516,8 @@ FG_CLASS_FILL <- c(
   vclass <- .fg_verdict_class(foc$verdict)
   title <- sprintf("SPI field guide: district scan, %d", year)
   subtitle <- sprintf(
-    paste0("STEPS applied below SPI %s; review priority when the 90%% CrI ",
-           "lies below 1 and extent or persistence corroborates"),
+    paste0("STEPS applied below SPI %s; priority for review when the 90%% ",
+           "CrI lies below 1 and extent or persistence raises concern"),
     format(spi_cut)
   )
 
@@ -1707,12 +1710,12 @@ FG_CLASS_FILL <- c(
   )
   if (!is.null(uncertain)) used <- c(used, uncertain[[id_col]])
 
-  # large, corroborated shortfall: review priority on both corroborators,
+  # large, corroborated shortfall: priority for review on both corroborators,
   # conventionally adequate where possible, largest shortfall
   corrob <- pick(
     dplyr::filter(
       remaining(),
-      .data$verdict == "Review priority"
+      .data$verdict == "Priority for review"
     ),
     dplyr::desc(is_true(.data$extent_concern) &
                   is_true(.data$persistence_concern)),

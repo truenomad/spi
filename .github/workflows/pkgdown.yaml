@@ -103,7 +103,7 @@ jobs:
         run: |
           test -f docs/llms.txt
           test -f docs/index.md
-          for a in spi-getting-started spi-interpretation spi-field-guide spi-model-options; do
+          for a in spi-getting-started spi-methods spi-interpretation spi-field-guide spi-model-options; do
             test -f "docs/articles/$a.md"
             grep -q "articles/$a.md" docs/llms.txt
           done

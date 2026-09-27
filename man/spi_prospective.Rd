@@ -61,7 +61,7 @@ plus admin name columns, joined onto the summary as in \code{\link[=spi_index]{s
 Default: \code{NULL}.}
 
 \item{min_expected}{Numeric. District-years with a total expected count
-below this threshold are flagged as low-information. Default: 1.}
+below this threshold are marked as low-information. Default: 1.}
 
 \item{predictive}{Logical. Reserved for a held-out predictive check. Only
 \code{FALSE} is supported at present. Default: \code{FALSE}.}
@@ -126,9 +126,9 @@ spi$prospective
 }
 }
 \seealso{
-\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_index]{spi_index()}}, \code{\link[=spi_concordance]{spi_concordance()}}
+\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_index]{spi_index()}}, \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}
 
-Other spi core functions:
-\code{\link[=spi_index]{spi_index()}}
+Other spi core functions: 
+\code{\link{spi_index}()}
 }
 \concept{spi core functions}

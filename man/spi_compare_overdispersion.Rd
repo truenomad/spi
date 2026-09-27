@@ -44,7 +44,8 @@ Object of class \code{spi_comparison}. A list containing:
 \describe{
 \item{fits}{Named list of \code{spi_expected} objects, keyed by spec.}
 \item{summary}{Tibble of key diagnostics, one row per specification.}
-\item{recommendation}{List with \code{choice} (recommended specification),
+\item{recommendation}{List with \code{choice} (the specification selected by
+the package's diagnostic rule, a diagnostic recommendation),
 \code{reasoning} (string explaining the choice), \code{excluded} (specs failing
 a diagnostic rule), and \code{survivors} (specs that passed all rules).}
 }
@@ -68,7 +69,9 @@ are valid, its effective parameter count exceeds 20\% of observations, or
 its BYM2 phi is below 0.02 or above 0.98. Among the remaining models, the
 function selects the smallest PIT distance from a uniform distribution.
 If all models are excluded, \code{choice} is \code{NA}. These are diagnostic rules,
-not proof that the selected model is correct.
+not proof that the selected model is correct. The negative binomial
+default in \code{\link[=spi_expected]{spi_expected()}} is the pre-specified model used in the
+accompanying study; this comparison is an optional diagnostic.
 }
 \examples{
 \dontrun{

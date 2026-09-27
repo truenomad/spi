@@ -1,4 +1,4 @@
-#' Fit a BYM2 model of expected case counts
+#' Fit the BYM2 expected-count model
 #'
 #' @description
 #' Estimates expected counts for each district-month using a negative binomial
@@ -18,8 +18,11 @@
 #'   `id_col`), `month` (Date) OR `year` (int), plus one or more numeric
 #'   covariate columns. If NULL, the model uses population, spatial, seasonal,
 #'   and year terms according to the selected settings. Covariates are
-#'   standardised internally (mean = 0, sd = 1). Default:
-#'   NULL.
+#'   standardised internally (mean = 0, sd = 1). Covariate adjustment
+#'   changes the estimand: a covariate-adjusted SPI no longer answers the same
+#'   question as the default SPI, and the coefficients are conditional
+#'   associations within the expected-count model, not causal effects.
+#'   Default: NULL.
 #' @param id_col Character. Name of the district identifier column in `cases`,
 #'   `population`, and `covariates`. Must match the `id_col` used when building
 #'   `adjacency` via [spi_adjacency()]. The function renames this column to
@@ -1546,7 +1549,8 @@ as.data.frame.spi_expected <- function(x, ...) {
 #' \describe{
 #'   \item{fits}{Named list of `spi_expected` objects, keyed by spec.}
 #'   \item{summary}{Tibble of key diagnostics, one row per specification.}
-#'   \item{recommendation}{List with `choice` (recommended specification),
+#'   \item{recommendation}{List with `choice` (the specification selected by
+#'     the package's diagnostic rule, a diagnostic recommendation),
 #'     `reasoning` (string explaining the choice), `excluded` (specs failing
 #'     a diagnostic rule), and `survivors` (specs that passed all rules).}
 #' }
@@ -1564,7 +1568,9 @@ as.data.frame.spi_expected <- function(x, ...) {
 #' its BYM2 phi is below 0.02 or above 0.98. Among the remaining models, the
 #' function selects the smallest PIT distance from a uniform distribution.
 #' If all models are excluded, `choice` is `NA`. These are diagnostic rules,
-#' not proof that the selected model is correct.
+#' not proof that the selected model is correct. The negative binomial
+#' default in [spi_expected()] is the pre-specified model used in the
+#' accompanying study; this comparison is an optional diagnostic.
 #'
 #' @seealso [spi_expected()]
 #'
@@ -1841,13 +1847,15 @@ spi_compare_overdispersion <- function(
     )
   print(display_tbl)
 
-  cli::cli_h3("Recommendation")
+  cli::cli_h3("Diagnostic recommendation")
   if (is.na(recommendation$choice)) {
     cli::cli_alert_danger(
       "No specification passed diagnostic checks."
     )
   } else {
-    cli::cli_alert_success("Use {.val {recommendation$choice}}.")
+    cli::cli_alert_success(
+      "The diagnostic rule selects {.val {recommendation$choice}}."
+    )
   }
   cli::cli_alert_info(recommendation$reasoning)
   if (length(recommendation$survivors) > 1) {

@@ -5,7 +5,7 @@
 
 priority_district <- function(fg) {
   foc <- fg$focal
-  foc[foc$verdict == "Review priority" & foc$observed > 0, ][["adm2_name"]][1]
+  foc[foc$verdict == "Priority for review" & foc$observed > 0, ][["adm2_name"]][1]
 }
 
 adequate_district <- function(fg) {
@@ -28,7 +28,7 @@ test_that("a review priority district renders a well-formed pager object", {
   p <- spi_field_guide_pager(fg, district = d, verbose = FALSE)
 
   expect_s3_class(p, "spi_pager")
-  expect_identical(p$verdict, "Review priority")
+  expect_identical(p$verdict, "Priority for review")
   expect_identical(as.character(p), p$html)
   expect_length(p$paths, 0L)
 
@@ -44,7 +44,9 @@ test_that("a review priority district renders a well-formed pager object", {
   expect_match(html, "vbanner", fixed = TRUE)
   # review priority accent is rose, and the banner names its corroboration
   expect_match(html, "--accent:#c8102e", fixed = TRUE)
-  expect_match(html, "Reporting is below expectation, with support from", fixed = TRUE)
+  expect_match(
+    html, "Relative reporting is below the reference, and", fixed = TRUE
+  )
 })
 
 test_that("an at-or-above district switches the accent to green", {
@@ -77,7 +79,7 @@ test_that("monitor names the reason the shortfall is held back", {
   # so it excludes one and the noise gate is what holds the reading at
   # monitor. Saying "includes one" here contradicts the bounds printed beside
   # it.
-  conc <- make_count_concordance(list(
+  conc <- make_count_comparison(list(
     ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
                 observed = c(1, 1, 0, 0, 0), expected = 2)
   ))
@@ -91,7 +93,7 @@ test_that("monitor names the reason the shortfall is held back", {
   expect_match(h, "by chance alone", fixed = TRUE)
 
   # an interval genuinely reaching one keeps its wording
-  wide <- make_count_concordance(list(
+  wide <- make_count_comparison(list(
     WIDE = list(spi = rep(0.6, 5), q95 = rep(1.2, 5),
                 observed = 6, expected = 10)
   ))
@@ -103,20 +105,22 @@ test_that("monitor names the reason the shortfall is held back", {
   expect_no_match(hw, "noise not ruled out", fixed = TRUE)
 
   # a certain shortfall with no corroboration says so
-  lone <- make_count_concordance(list(
+  lone <- make_count_comparison(list(
     LONE = list(spi = c(1.1, 0.6), q95 = c(1.3, 0.7),
                 observed = 6, expected = 10)
   ))
   hl <- spi_field_guide_pager(spi_field_guide(lone, verbose = FALSE),
                              district = "LONE", verbose = FALSE)$html
   expect_match(hl, "below cut \u00b7 not corroborated", fixed = TRUE)
-  expect_match(hl, "neither extent nor persistence supports", fixed = TRUE)
+  expect_match(
+    hl, "neither extent nor persistence raises concern", fixed = TRUE
+  )
 })
 
 test_that("a detection is context, never a counted STEPS signal", {
   fg <- synth_field_guide
   foc <- fg$focal
-  cand <- foc[foc$verdict == "Review priority" &
+  cand <- foc[foc$verdict == "Priority for review" &
                 foc$genomic_orphan %in% TRUE, ]
   skip_if(nrow(cand) == 0)
   d <- cand[["adm2_name"]][1]
@@ -133,7 +137,7 @@ test_that("a detection is context, never a counted STEPS signal", {
 test_that("clearing the cut is not reported as detecting adequately", {
   # a cut below 1 lets a district clear it while its whole posterior sits
   # below one; that must not read as green
-  conc <- make_count_concordance(list(
+  conc <- make_count_comparison(list(
     SHORT = list(spi = rep(0.85, 3), q95 = rep(0.95, 3),
                  observed = 17, expected = 20),
     OK = list(spi = rep(1.0, 3), q95 = rep(1.2, 3),
@@ -190,7 +194,7 @@ test_that("the pager prescribes no follow-up action", {
 test_that("strength does not claim the interval rules out sampling noise", {
   fg <- synth_field_guide
   foc <- fg$focal
-  for (nm in foc[foc$verdict == "Review priority", ][["adm2_name"]]) {
+  for (nm in foc[foc$verdict == "Priority for review", ][["adm2_name"]]) {
     expect_no_match(
       spi_field_guide_pager(fg, district = nm, verbose = FALSE)$html,
       "unlikely to be noise", fixed = TRUE
@@ -203,7 +207,7 @@ test_that("a small-count shortfall names the sampling-variability caveat", {
   foc <- fg$focal
   # a priority whose Poisson tail leaves chance a plausible explanation
   cand <- foc[
-    foc$verdict == "Review priority" &
+    foc$verdict == "Priority for review" &
       stats::ppois(foc$observed, lambda = foc$expected_total) > 0.05,
   ]
   skip_if(nrow(cand) == 0)
@@ -214,7 +218,7 @@ test_that("a small-count shortfall names the sampling-variability caveat", {
 
   # a well-powered shortfall carries no such caveat
   solid <- foc[
-    foc$verdict == "Review priority" &
+    foc$verdict == "Priority for review" &
       stats::ppois(foc$observed, lambda = foc$expected_total) < 0.01,
   ]
   if (nrow(solid) > 0) {
@@ -738,7 +742,7 @@ as_adm1_guide <- function(fg) {
 
 test_that("adm1-level inputs render without an adm2 column", {
   fg <- as_adm1_guide(synth_field_guide)
-  d <- fg$focal[fg$focal$verdict == "Review priority", ][["adm1_name"]][1]
+  d <- fg$focal[fg$focal$verdict == "Priority for review", ][["adm1_name"]][1]
   skip_if(is.na(d))
   skip_if_not_installed("sf")
 
@@ -759,7 +763,7 @@ test_that("adm1-level inputs render without an adm2 column", {
 
 test_that("unit_noun rewords the reading; default stays \"district\"", {
   fg <- as_adm1_guide(synth_field_guide)
-  d <- fg$focal[fg$focal$verdict == "Review priority", ][["adm1_name"]][1]
+  d <- fg$focal[fg$focal$verdict == "Priority for review", ][["adm1_name"]][1]
   skip_if(is.na(d))
 
   prov <- spi_field_guide_pager(
@@ -780,7 +784,7 @@ test_that("unit_noun rewords the reading; default stays \"district\"", {
 
 test_that("adm1 auto-name keeps each admin level once", {
   fg <- as_adm1_guide(synth_field_guide)
-  d <- fg$focal[fg$focal$verdict == "Review priority", ][["adm1_name"]][1]
+  d <- fg$focal[fg$focal$verdict == "Priority for review", ][["adm1_name"]][1]
   skip_if(is.na(d))
 
   dir <- withr::local_tempdir()
@@ -1015,7 +1019,7 @@ test_that("two levels sharing a name get two file names", {
 
 test_that("the pager names a shortfall the interval rule leaves unlabelled", {
   fg <- spi_field_guide(
-    make_concordance(), spi_rule = "interval", verbose = FALSE
+    make_comparison(), spi_rule = "interval", verbose = FALSE
   )
   h <- spi_field_guide_pager(fg, district = "FG3", verbose = FALSE)$html
 

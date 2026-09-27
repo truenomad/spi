@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_expected.R
 \name{spi_expected}
 \alias{spi_expected}
-\title{Fit a BYM2 model of expected case counts}
+\title{Fit the BYM2 expected-count model}
 \usage{
 spi_expected(
   cases,
@@ -45,8 +45,11 @@ must match those in \code{cases}.}
 \code{id_col}), \code{month} (Date) OR \code{year} (int), plus one or more numeric
 covariate columns. If NULL, the model uses population, spatial, seasonal,
 and year terms according to the selected settings. Covariates are
-standardised internally (mean = 0, sd = 1). Default:
-NULL.}
+standardised internally (mean = 0, sd = 1). Covariate adjustment
+changes the estimand: a covariate-adjusted SPI no longer answers the same
+question as the default SPI, and the coefficients are conditional
+associations within the expected-count model, not causal effects.
+Default: NULL.}
 
 \item{season}{Character. Seasonal specification: "harmonic" (1st + 2nd order
 sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),

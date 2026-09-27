@@ -41,7 +41,7 @@ gen_hit <- foc$genomic_orphan %in% TRUE
 
 # one district per judgement, chosen by rule so the gallery survives a
 # regeneration of the synthetic bundle:
-#  - Review priority -- the deepest priority with a virus detection (rose)
+#  - Priority for review -- the deepest priority with a virus detection (rose)
 #  - Monitor, uncertain -- below the cut with an interval reaching 1 (amber)
 #  - Monitor, uncorroborated -- certain, but neither extent nor persistence
 #    supports it, with at least one case so the tiles have figures (amber)
@@ -56,7 +56,7 @@ largest <- function(keep) {
 }
 
 districts <- unique(c(
-  deepest(foc$verdict == "Review priority" & (gen_hit | es_hit)),
+  deepest(foc$verdict == "Priority for review" & (gen_hit | es_hit)),
   deepest(foc$verdict == "Monitor" & !foc$cri_excludes_1),
   deepest(foc$verdict == "Monitor" & foc$gate_pass & foc$observed > 0),
   largest(foc$verdict == "No SPI indication" & foc$spi_median >= cut)
@@ -69,9 +69,6 @@ pagers <- lapply(districts, function(d) {
     boundaries = synth_surveillance$boundaries,
     id_col = "adm2_guid",
     indicators_df = indicators,
-    # the guide above was built from cVDPV2-only AFP detection records, so the page
-    # may name that serotype; a mixed input would leave this NULL
-    detection_label = "cVDPV2",
     path = out_dir
   )
 })

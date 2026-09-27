@@ -9,7 +9,7 @@ test_that("synth_surveillance has the expected structure", {
     synth_surveillance,
     c("cases", "population", "covariates", "boundaries", "ward_boundaries",
       "virus_outcome", "es_sites", "es_data", "es_district_year",
-      "afp_timeliness", "afp_process", "truth")
+      "afp_timeliness", "afp_process", "simulation_truth")
   )
 
   # afp_process: the counts behind the STEPS timeliness and stool adequacy
@@ -49,7 +49,7 @@ test_that("synth_surveillance has the expected structure", {
   # so the adjusted model has real signal to attribute
   cov_truth <- merge(
     synth_surveillance$covariates,
-    synth_surveillance$truth[, c("adm2_guid", "is_blindspot")],
+    synth_surveillance$simulation_truth[, c("adm2_guid", "is_blindspot")],
     by = "adm2_guid"
   )
   expect_lt(
@@ -94,18 +94,18 @@ test_that("synth_surveillance has the expected structure", {
 
   # truth: surveillance profiles + low-incidence seeds
   expect_setequal(
-    names(synth_surveillance$truth),
+    names(synth_surveillance$simulation_truth),
     c("adm2_guid", "surveillance_profile", "is_blindspot",
       "is_low_incidence", "covid_nadir", "recovered_2024")
   )
-  expect_gt(sum(synth_surveillance$truth$is_low_incidence), 0L)
+  expect_gt(sum(synth_surveillance$simulation_truth$is_low_incidence), 0L)
   expect_true(all(c("resilient", "early_improver", "covid_transient",
                     "persistent_laggard") %in%
-                    synth_surveillance$truth$surveillance_profile))
+                    synth_surveillance$simulation_truth$surveillance_profile))
   # is_blindspot is exactly the non-resilient set
   expect_true(all(
-    synth_surveillance$truth$is_blindspot ==
-      (synth_surveillance$truth$surveillance_profile != "resilient")
+    synth_surveillance$simulation_truth$is_blindspot ==
+      (synth_surveillance$simulation_truth$surveillance_profile != "resilient")
   ))
 })
 
@@ -169,7 +169,7 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   spi <- spi_index(fit, level = "district_year", verbose = FALSE)
   expect_s3_class(spi, "spi_index")
 
-  conc <- spi_concordance(
+  conc <- spi_compare_npafp(
     spi = spi,
     cases = synth_surveillance$cases,
     population = synth_surveillance$population,
@@ -178,16 +178,16 @@ test_that("full chain runs and recovers planted blindspots above chance", {
     boundaries = synth_surveillance$boundaries,
     verbose = FALSE
   )
-  expect_s3_class(conc, "spi_concordance")
+  expect_s3_class(conc, "spi_compare_npafp")
 
   dy <- conc$district_year
-  spi_flagged_cells <- c("Both flagged", "SPI only")
+  spi_flagged_cells <- c("Both below", "SPI below threshold only")
 
   # Planted blindspots (non-resilient) should surface in an SPI-flagged cell in
   # some year at above-chance rates.
-  called <- unique(dy$adm2_guid[dy$concordance %in% spi_flagged_cells])
-  planted <- synth_surveillance$truth$adm2_guid[
-    synth_surveillance$truth$is_blindspot
+  called <- unique(dy$adm2_guid[dy$category %in% spi_flagged_cells])
+  planted <- synth_surveillance$simulation_truth$adm2_guid[
+    synth_surveillance$simulation_truth$is_blindspot
   ]
   expect_gt(mean(planted %in% called), 0.5)
 
@@ -195,13 +195,14 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   # (2020-21) and is lower both before (pre-COVID improvement) and after
   # (recovery). This is the whole point of the multi-year fixture.
   flagged <- tapply(
-    dy$concordance %in% spi_flagged_cells, dy$year, sum
+    dy$category %in% spi_flagged_cells, dy$year, sum
   )
   covid <- mean(flagged[c("2020", "2021")])
   expect_gt(covid, mean(flagged[c("2018", "2019")]))   # crash vs pre-COVID best
   expect_gt(covid, flagged[["2024"]])                  # crash vs recovered tail
 
-  # Persistent laggards never fully recover: Both flagged / SPI only
+  # Persistent laggards never fully recover: Both below / SPI below threshold
+  # only
   # cells remain populated in the final year.
   expect_gt(flagged[["2024"]], 0)
 })

@@ -227,10 +227,10 @@ test_that("spi_prospective fits synth_surveillance end to end", {
   expect_equal(sort(unique(res$summary$year)), last_three)
   ok <- res$summary$expected_total >= 1
   expect_true(all(is.finite(res$summary$spi_median[ok])))
-  conc <- spi_concordance(
+  conc <- spi_compare_npafp(
     res, cases = s$cases, population = s$population, verbose = FALSE
   )
-  expect_s3_class(conc, "spi_concordance")
+  expect_s3_class(conc, "spi_compare_npafp")
 })
 
 test_that("the verbose path reports each year and inputs are validated", {

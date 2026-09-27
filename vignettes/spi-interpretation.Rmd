@@ -42,14 +42,14 @@ The two volume measures can disagree, as in this illustrative example:
 
 District A meets the NPAFP target, but its observed-to-expected ratio is 55% of the national ratio. District B is below the NPAFP target even though its ratio is slightly above the national ratio. District C meets the NPAFP target and has an SPI above 1. These values alone do not establish surveillance adequacy.
 
-Taken together, the NPAFP target and SPI give four combinations. `spi_concordance()` assigns each district-year to one of them:
+Taken together, the NPAFP target and SPI give four combinations. `spi_compare_npafp()` assigns each district-year to one of them:
 
-| NPAFP target | SPI | `spi_concordance()` category | Reading |
+| NPAFP target | SPI | `spi_compare_npafp()` category | Reading |
 | --- | --- | --- | --- |
-| Met | Below 1 | SPI only | Relative reporting shortfall although absolute volume meets the target |
-| Not met | 1 or above | NPAFP only | Low absolute reporting that is not low relative to the district's modelled reference; persistent low reporting may have become the baseline |
-| Not met | Below 1 | Both flagged | Low absolute and relative reporting |
-| Met | 1 or above | Neither flagged | Neither volume measure indicates a shortfall |
+| Met | Below 1 | SPI below threshold only | Relative reporting shortfall although absolute volume meets the target |
+| Not met | 1 or above | NPAFP below target only | Low absolute reporting that is not low relative to the district's modelled reference; persistent low reporting may have become the baseline |
+| Not met | Below 1 | Both below | Low absolute and relative reporting |
+| Met | 1 or above | Neither below | Neither volume measure indicates a shortfall |
 
 ## National centring
 
@@ -125,5 +125,13 @@ SPI describes relative reporting volume, despite the word "performance" in its n
 - a measure of poliovirus circulation or outbreak risk;
 - a detection probability;
 - a measure of overall surveillance quality.
+
+Avoid these uses:
+
+- comparing SPI values directly between countries fitted separately;
+- reading an SPI below 1 as proof of surveillance failure;
+- using SPI in place of the NPAFP target;
+- mixing retrospective and prospective SPI in one trend;
+- reading a zero SPI interval as complete certainty.
 
 Use it with the conventional NPAFP rate, timeliness, and stool adequacy. [Reviewing districts with STEPS](spi-field-guide.html) shows how to bring them together in a district review.

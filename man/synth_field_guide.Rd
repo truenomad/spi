@@ -19,7 +19,7 @@ supplied. This lets \code{\link[=spi_field_guide_help]{spi_field_guide_help()}},
 \code{\link[=spi_field_guide_table]{spi_field_guide_table()}} examples, and tests run without refitting the model.
 It was produced by \code{spi_adjacency()} -> \code{spi_expected()} (no covariates) ->
 \code{spi_index()} at district-year and district-month levels ->
-\code{spi_concordance()} -> \code{spi_field_guide()}.
+\code{spi_compare_npafp()} -> \code{spi_field_guide()}.
 }
 \section{Reproducibility}{
 

@@ -3,7 +3,7 @@ message: "If you use spi in your work, please cite it using the citation below."
 type: software
 
 title: "spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting"
-version: 0.0.0.9000
+version: 0.2.0
 
 abstract: >-
   An R package for estimating district-level relative acute flaccid paralysis

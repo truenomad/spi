@@ -1,7 +1,7 @@
 #' Synthetic AFP surveillance data
 #'
 #' Example data for `spi_adjacency()`, `spi_expected()`, `spi_index()`, and
-#' `spi_concordance()`. Surveillance counts are simulated. Population counts
+#' `spi_compare_npafp()`. Surveillance counts are simulated. Population counts
 #' and the original boundary geometry come from the sources listed below.
 #'
 #' @format A named list with twelve elements:
@@ -70,12 +70,15 @@
 #'     stool collection and laboratory receipt dates), `n_transport_timely`
 #'     (of those, received by the laboratory within 3 days). The shape
 #'     [spi_field_guide()]'s `process` argument expects.}
-#'   \item{truth}{Tibble, 236 x 6. Simulation settings by district. Columns:
+#'   \item{simulation_truth}{Tibble, 236 x 6. Settings the simulation used
+#'     for each district; they describe the synthetic data, not true
+#'     surveillance performance. Columns:
 #'     `adm2_guid`, `surveillance_profile` (character: `"resilient"`,
 #'     `"early_improver"`, `"covid_transient"`, or `"persistent_laggard"`),
 #'     `is_blindspot` (logical, TRUE for every non-resilient profile),
 #'     `is_low_incidence` (logical, TRUE for the low-baseline clusters that
-#'     seed the False alarm / True shortfall cells), `covid_nadir` (numeric,
+#'     seed the NPAFP below target only and Both below categories),
+#'     `covid_nadir` (numeric,
 #'     the district's relative detection completeness at the 2020 trough), and
 #'     `recovered_2024` (logical, TRUE if completeness is back to adequate by
 #'     2024).}
@@ -105,11 +108,11 @@
 #' low baseline (`b_i` overridden so their true rate sits around 1.5 per 100,000
 #' under-15 per year), so their genuine per-capita NPAFP rate sits below the
 #' conventional target while the resilient districts can have SPI at or above
-#' 1, giving the "NPAFP only" category. Sixteen of the twenty-five are also
+#' 1, giving the "NPAFP below target only" category. Sixteen of the twenty-five are also
 #' persistent laggards, so their completeness stays low from 2020 on and SPI
-#' can flag them in the "Both flagged" category. Districts with higher
-#' baseline reporting can meet the rate target while SPI is below 1, giving
-#' the "SPI only" category. The simulation includes all four combinations
+#' places them in the "Both below" category. Districts with higher
+#' baseline reporting can meet the NPAFP target while SPI is below 1, giving
+#' the "SPI below threshold only" category. The simulation includes all four combinations
 #' across the ten study years; these categories do not establish adequacy.
 #'
 #' @section Fictional geography:
@@ -153,14 +156,14 @@
 #'   n_draws    = 200
 #' )
 #' spi <- spi_index(fit, level = "district_year")
-#' conc <- spi_concordance(
-#'   spi           = spi,
-#'   cases         = synth_surveillance$cases,
-#'   population    = synth_surveillance$population,
+#' comparison <- spi_compare_npafp(
+#'   spi = spi,
+#'   cases = synth_surveillance$cases,
+#'   population = synth_surveillance$population,
 #'   spi_threshold = 0.80,
-#'   npafp_target  = 3,
-#'   strata        = c("year", "adm1_name"),
-#'   boundaries    = synth_surveillance$boundaries
+#'   npafp_target = 3,
+#'   strata = c("year", "adm1_name"),
+#'   boundaries = synth_surveillance$boundaries
 #' )
 #' }
 "synth_surveillance"
@@ -173,7 +176,7 @@
 #' [spi_field_guide_table()] examples, and tests run without refitting the model.
 #' It was produced by `spi_adjacency()` -> `spi_expected()` (no covariates) ->
 #' `spi_index()` at district-year and district-month levels ->
-#' `spi_concordance()` -> `spi_field_guide()`.
+#' `spi_compare_npafp()` -> `spi_field_guide()`.
 #'
 #' @format An object of class `spi_field_guide`; see the Value section
 #'   of [spi_field_guide()] for the element structure. Read year 2024; SPI cut

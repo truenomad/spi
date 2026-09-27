@@ -1,5 +1,5 @@
 # Fixture constructors that build the spi S3 objects directly, so the
-# downstream functions (spi_index, spi_concordance, spi_field_guide) can be
+# downstream functions (spi_index, spi_compare_npafp, spi_field_guide) can be
 # tested without a live INLA fit. Every constructor mirrors the exact object
 # contract the real functions produce (see spi_expected.R / spi_index.R for the
 # shapes).
@@ -155,9 +155,10 @@ make_expected <- function(id_col = "district_id",
   )
 }
 
-# --- a district-year spi_index placed into all four concordance cells --
+# --- a district-year spi_index placed into all four categories ----------
 make_spi_dy <- function(id_col = "district_id", years = 2015:2016) {
-  # A: Neither flagged | B: Both flagged | C: SPI only | D: NPAFP only
+  # A: Neither below | B: Both below | C: SPI below threshold only |
+  # D: NPAFP below target only
   # pop = 1e5 so npafp_rate == annual count; target 3 => count >= 3 adequate
   spec <- tibble::tibble(
     id = c("A", "B", "C", "D"),
@@ -175,7 +176,7 @@ make_spi_dy <- function(id_col = "district_id", years = 2015:2016) {
     spi_q05 = pmax(grid$spi - 0.15, 0.01),
     spi_q95 = grid$spi + 0.15
   )
-  # spi$data: annual case rows, summed inside spi_concordance
+  # spi$data: annual case rows, summed inside spi_compare_npafp
   data_tbl <- tibble::tibble(
     !!id_col := grid$id,
     year = grid$year,
@@ -271,11 +272,11 @@ make_spi_month <- function(id_col, ids, years, seasonal_map) {
   )
 }
 
-# --- a spi_concordance for the field guide --------------------------
+# --- a spi_compare_npafp for the field guide --------------------------
 # Six districts across six years, engineered at a 0.8 cut to reach review
 # priority / monitor / no SPI indication and to light up persistence and the
 # trend / neighbour / seasonal / detection context signals.
-make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
+make_comparison <- function(id_col = "adm2_guid", spi_cut = 0.8,
                              npafp_target = 3) {
   years <- 2019:2024
   ny <- length(years)
@@ -324,9 +325,9 @@ make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
       thresholds = list(spi = spi_cut, npafp = npafp_target,
                         multiplier = 1e5),
       id_col = id_col,
-      call = quote(spi_concordance())
+      call = quote(spi_compare_npafp())
     ),
-    class = "spi_concordance"
+    class = "spi_compare_npafp"
   )
 }
 
@@ -371,12 +372,12 @@ make_process <- function(id_col = "adm2_guid") {
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
-# --- a concordance with hand-set counts -----------------------------------
-# make_concordance() fixes expected_total at 12, which is well-powered; these
+# --- a comparison with hand-set counts ------------------------------------
+# make_comparison() fixes expected_total at 12, which is well-powered; these
 # gates turn on the count basis, so they need districts specified case by case.
 # `spec` is a named list of list(spi=, q95=, observed=, expected=), years ending
 # 2024.
-make_count_concordance <- function(spec, spi_cut = 0.8,
+make_count_comparison <- function(spec, spi_cut = 0.8,
                                    id_col = "adm2_guid") {
   rows <- lapply(names(spec), function(d) {
     s <- spec[[d]]
@@ -403,9 +404,9 @@ make_count_concordance <- function(spec, spi_cut = 0.8,
       by_stratum = NULL,
       thresholds = list(spi = spi_cut, npafp = 3, multiplier = 1e5),
       id_col = id_col,
-      call = quote(spi_concordance())
+      call = quote(spi_compare_npafp())
     ),
-    class = "spi_concordance"
+    class = "spi_compare_npafp"
   )
 }
 

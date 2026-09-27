@@ -22,7 +22,7 @@
 #' circles. Seasonality and trend are also shown as context. These findings
 #' and the optional indicators do not change the STEPS label.
 #'
-#' The report uses rose for review priority, amber for monitor, and green for
+#' The report uses rose for priority for review, amber for monitor, and green for
 #' no SPI indication.
 #'
 #' @param x A [spi_field_guide()] result (class `spi_field_guide`).
@@ -553,10 +553,10 @@ as.character.spi_pager <- function(x, ...) {
   verdict <- as.character(focal$verdict)
   switch(
     verdict,
-    "Review priority" = list(
+    "Priority for review" = list(
       verdict = verdict,
       accent = "#c8102e",
-      tag = "Review priority",
+      tag = "Priority for review",
       state = "below cut \u00b7 interval below 1 \u00b7 corroborated"
     ),
     "Monitor" = list(
@@ -1550,12 +1550,13 @@ as.character.spi_pager <- function(x, ...) {
   } else {
     ""
   }
-  if (verdict == "Review priority") {
+  if (verdict == "Priority for review") {
     return(paste0(
       sprintf(
-        paste0("Reporting is below expectation, with support from %s. ",
-               "The findings warrant further investigation."),
-        paste(corroborators, collapse = " and ")
+        paste0("Relative reporting is below the reference, and %s also %s ",
+               "concern. The findings warrant further investigation."),
+        paste(corroborators, collapse = " and "),
+        if (length(corroborators) > 1L) "raise" else "raises"
       ),
       process_txt
     ))
@@ -1566,12 +1567,13 @@ as.character.spi_pager <- function(x, ...) {
     } else if (!.fg_gate_pass(focal)) {
       "a count this small could fall this short by chance alone"
     } else {
-      "neither extent nor persistence supports the shortfall"
+      "neither extent nor persistence raises concern"
     }
     return(paste0(
       sprintf(
-        paste0("Reporting is below expectation, but %s. The findings support ",
-               "reassessment as new data become available."),
+        paste0("Relative reporting is below the reference, but %s. The ",
+               "findings support reassessment as new data become ",
+               "available."),
         reason
       ),
       process_txt
@@ -1579,16 +1581,16 @@ as.character.spi_pager <- function(x, ...) {
   }
   if (isTRUE(focal$spi_below)) {
     return(paste0(
-      "Reporting is below expectation, but the 90% interval still includes ",
-      "one. Under the interval rule, a shortfall receives a review label ",
-      "only when its interval lies wholly below one."
+      "Relative reporting is below the reference, but the 90% interval ",
+      "still includes one. Under the interval rule, a shortfall receives a ",
+      "review label only when its interval lies wholly below one."
     ))
   }
   if (.pager_short_of_expectation(focal)) {
     return(paste0(
       "The SPI is at or above the cut, but its 90% interval lies wholly ",
-      "below one: reporting is below expectation, but STEPS is not applied ",
-      "at or above the cut."
+      "below one: relative reporting is below the reference, but STEPS is ",
+      "not applied at or above the cut."
     ))
   }
   paste0(
@@ -1691,9 +1693,9 @@ as.character.spi_pager <- function(x, ...) {
   rows <- paste(rows, collapse = "")
 
   rule <- sprintf(
-    paste0("STEPS is applied to a %s with an SPI below %s. It is a review ",
-           "priority when its 90%% credible interval lies wholly below one and ",
-           "extent or persistence corroborates the shortfall. Timeliness and ",
+    paste0("STEPS is applied to a %s with an SPI below %s. It is a priority ",
+           "for review when its 90%% credible interval lies wholly below one ",
+           "and extent or persistence also raises concern. Timeliness and ",
            "stool adequacy are reported but do not change the judgement; the ",
            "trend, season and detections are context."),
     unit_noun, .pager_dot(spi_cut, 2)

@@ -40,7 +40,7 @@ ratio, so a country-wide reporting change does not move every district
 the same way. "none" leaves the raw ratio untouched.}
 
 \item{min_expected}{Numeric. Districts or district-periods with total
-expected count below this threshold are flagged as low-information. SPI
+expected count below this threshold are marked as low-information. SPI
 is still computed; inspect the counts and uncertainty before interpreting it. Default: 1.}
 
 \item{year_end_month}{Integer 1 to 12. Month in which the reading year
@@ -64,7 +64,7 @@ Object of class \code{spi_index}. A list containing:
 \item{summary}{Tibble with grouping variables and SPI summaries (median,
 mean, q05, q10, q90, q95) per district or district-period.}
 \item{level}{Aggregation level used.}
-\item{low_information}{Tibble of districts or district-periods flagged
+\item{low_information}{Tibble of districts or district-periods marked
 as low-information.}
 \item{totals}{Tibble of overall observed and expected totals.}
 \item{id_col}{The id column name, echoed for downstream use.}
@@ -117,9 +117,9 @@ print(spi_dy)
 }
 }
 \seealso{
-\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_concordance]{spi_concordance()}}
+\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}
 
-Other spi core functions:
-\code{\link[=spi_prospective]{spi_prospective()}}
+Other spi core functions: 
+\code{\link{spi_prospective}()}
 }
 \concept{spi core functions}

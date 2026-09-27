@@ -110,9 +110,8 @@ reference:
   contents:
   - spi_index
   - spi_prospective
-  - spi_concordance
-  - spi_concordance_maps
-  - as_tibble
+  - spi_compare_npafp
+  - spi_compare_npafp_maps
 - title: Review districts
   desc: >
     Organise district review with the five STEPS components, then produce a
@@ -129,6 +128,11 @@ reference:
   contents:
   - synth_surveillance
   - synth_field_guide
+- title: Methods
+  desc: >
+    Convert package results to tibbles.
+  contents:
+  - as_tibble
 
 articles:
 - title: Articles
