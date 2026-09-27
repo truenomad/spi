@@ -72,12 +72,23 @@ jobs:
           needs: website
 
       # The INLA articles are knitted locally by vignettes/precompile.R and
-      # committed as plain .Rmd. CI has no INLA, so fail if one still has an
-      # R chunk to run.
+      # committed as plain .Rmd. CI has no INLA, so fail if a knitted article
+      # still has an R chunk, or if a .Rmd.orig changed since it was knitted.
       - name: Check articles are precomputed
         run: |
           if grep -l '^```{r' vignettes/*.Rmd; then
             echo "Knit the files above with vignettes/precompile.R and commit them."
+            exit 1
+          fi
+          cd vignettes
+          for f in *.Rmd.orig; do
+            if ! grep -q "  $f\$" precompiled.md5; then
+              echo "$f has not been knitted by precompile.R."
+              exit 1
+            fi
+          done
+          if ! md5sum --check --quiet precompiled.md5; then
+            echo "An .Rmd.orig changed since it was knitted. Run vignettes/precompile.R and commit."
             exit 1
           fi
         shell: bash
@@ -94,7 +105,7 @@ jobs:
           test -f docs/index.md
           for a in spi-getting-started spi-interpretation spi-field-guide spi-model-options; do
             test -f "docs/articles/$a.md"
-            grep -q "$a" docs/llms.txt
+            grep -q "articles/$a.md" docs/llms.txt
           done
         shell: bash
 

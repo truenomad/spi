@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This article explains what SPI means, what it does not mean, and how to use it with the conventional NPAFP rate and other surveillance indicators. The tables use small illustrative values rather than model output. [Getting started with SPI](spi-getting-started.html) shows how to produce the estimates.
+Read SPI alongside the conventional NPAFP rate, timeliness, and specimen quality. The examples below illustrate how these measures can differ; they are not model results. [Getting started with SPI](spi-getting-started.html) shows how to produce the estimates.
 
 ## Four complementary views
 
@@ -22,13 +22,13 @@ This article explains what SPI means, what it does not mean, and how to use it w
 
 A historically high-reporting district can decline substantially and still meet the conventional NPAFP target. SPI can identify that relative shortfall, especially when expectations are estimated from preceding years. Conversely, years of low reporting can become the model's expected baseline, leaving SPI near 1 despite low absolute reporting. The conventional target remains necessary to identify that persistent shortfall.
 
-**Absolute volume.** The NPAFP rate is the number of non-polio AFP cases per 100,000 under-15 population per year, compared with a fixed target. The examples in this package use a target of 3. The rate shows whether reporting reaches the level expected of a sensitive system, whatever the district's own history.
+**Absolute volume.** The NPAFP rate is the number of non-polio AFP cases per 100,000 under-15 population per year, compared with a fixed target. The examples in this package use a target of 3. The rate compares reporting with a fixed population-based target, regardless of the district's history. Meeting it does not establish surveillance sensitivity.
 
 **Relative volume.** SPI compares reported counts with the district's modelled expectation, which is based on its reporting history and population. By default it is also compared with the national pattern for the same period. SPI can show a decline in a district that still meets the absolute target.
 
-**Timeliness.** Timeliness indicators measure how quickly cases are notified and investigated, and how quickly specimens reach the laboratory. A district can report enough cases and still be slow.
+**Timeliness.** Timeliness indicators measure how quickly cases are notified and investigated, and how quickly specimens reach the laboratory. A district can meet a reporting-volume target while notifications, investigations, or specimen transport are delayed.
 
-**Specimen quality.** Stool adequacy measures whether two stool specimens were collected in time and reached the laboratory in good condition. It shows whether a reported case can be tested reliably.
+**Specimen quality.** Stool adequacy measures whether two stool specimens were collected in time and reached the laboratory in good condition. Adequate specimens support reliable virological testing.
 
 ## Absolute and relative reporting
 
@@ -37,10 +37,10 @@ The two volume measures can disagree, as in this illustrative example:
 | District | NPAFP rate | SPI | Interpretation |
 | --- | --- | --- | --- |
 | A | 8.0 | 0.55 | Target met, relative reporting shortfall |
-| B | 2.1 | 1.05 | Below the absolute target, but reporting in line with its history |
+| B | 2.1 | 1.05 | Below the rate target; district O:E slightly above national O:E |
 | C | 7.5 | 1.10 | Target met and relative reporting not below the national pattern |
 
-District A meets the target, but its reporting is well below its own expectation relative to the national pattern. The NPAFP rate alone would not show this. District B reports at its usual level, so SPI raises no concern, but it does not meet the absolute target. The NPAFP rate identifies that shortfall. District C raises no concern on either measure.
+District A meets the rate target, but its observed-to-expected ratio is 55% of the national ratio. District B is below the rate target even though its ratio is slightly above the national ratio. District C meets the rate target and has an SPI above 1. These values alone do not establish surveillance adequacy.
 
 ## National centring
 
@@ -75,9 +75,9 @@ Use annual SPI for review because monthly AFP counts are often sparse; monthly S
 
 ## Persistent low reporting
 
-The expected count adapts to a district's own history. A district that reports poorly for several years can therefore return to an SPI near 1 without any improvement in reporting.
+Persistently low reporting can become part of the model's baseline. A district can then have an SPI near 1 without an increase in reported cases.
 
-In this illustrative example, the district reported 10 cases a year before year 1, the expected count is the mean of the two preceding years, the national observed-to-expected ratio is 1, and the under-15 population is 250,000. The real model does not use a two-year mean, but its expectation adapts in the same direction.
+In this illustrative example, the district reported 10 cases a year before year 1, the expected count is the mean of the two preceding years, the national observed-to-expected ratio is 1, and the under-15 population is 250,000. This simplified calculation illustrates how a historical reference can change; it does not reproduce the SPI model.
 
 | Year | Observed | Expected | SPI | NPAFP rate |
 | --- | --- | --- | --- | --- |
@@ -87,11 +87,11 @@ In this illustrative example, the district reported 10 cases a year before year 
 | 4 | 6 | 6 | 1.00 | 2.4 |
 | 5 | 6 | 6 | 1.00 | 2.4 |
 
-The district's reporting falls in year 2 and stays low. SPI identifies the fall in years 2 and 3, then returns to 1 as the expectation adapts. The NPAFP rate stays below the target of 3 throughout. The conventional target therefore remains essential, and persistent failure to meet it is a reason for closer review.
+The district's reporting falls in year 2 and stays low. SPI identifies the fall in years 2 and 3, then returns to 1 as the expectation adapts. The NPAFP rate falls below the target of 3 in year 2 and stays there. The conventional target therefore remains essential, and persistent failure to meet it is a reason for closer review.
 
 ## National deterioration
 
-With `centre = "national"`, a decline shared by every district is removed from SPI. In this illustrative example, reporting falls by 30% in every district between year 1 and year 2:
+With `centre = "national"`, district SPI can stay unchanged when district and national observed-to-expected ratios fall by the same proportion. In this example, both ratios fall by 30% between year 1 and year 2:
 
 | Year | District O:E | National O:E | Centred SPI | Uncentred SPI |
 | --- | --- | --- | --- | --- |
@@ -113,7 +113,7 @@ Use a consistent model specification, centring setting, and training approach wh
 SPI describes relative reporting volume. It is not:
 
 - an estimate of missed cases;
-- a measure of poliovirus risk or outbreak risk;
+- a measure of poliovirus circulation or outbreak risk;
 - a detection probability;
 - a measure of overall surveillance quality.
 

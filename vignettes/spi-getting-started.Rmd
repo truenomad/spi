@@ -12,13 +12,13 @@ vignette: >
 
 
 
-This article works through an SPI analysis with the bundled synthetic data. It checks the inputs, fits expected counts, calculates SPI, inspects and plots the results, and produces annually updated estimates. [Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains what the results mean.
+Use the bundled synthetic data to check inputs, fit expected counts, calculate and plot SPI, and produce annually updated estimates. [Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains what the results mean.
 
 The outputs shown here were computed with INLA when the article was built.
 
 ## Input data
 
-spi needs three inputs, all keyed by the same district ID:
+spi needs three inputs, all using the same district ID column:
 
 - monthly NPAFP case counts, one row per district and month;
 - annual under-15 population, one row per district and year;
@@ -53,7 +53,7 @@ spi_check_inputs(
   shapefile = synth$boundaries,
   id_col = "adm2_guid"
 )
-#> 
+#>
 #> -- spi input check -------------------------------------------------------------
 #> v All input checks passed -- 236 districts x 120 months (2015-01 to 2024-12).
 ```
@@ -76,7 +76,7 @@ spi_check_inputs(
   shapefile = synth$boundaries,
   id_col = "adm2_guid"
 )
-#> 
+#>
 #> -- spi input check -------------------------------------------------------------
 #> i 236 districts x 120 months (2015-01 to 2024-12)
 #> x 1 case row has negative counts
@@ -117,12 +117,12 @@ fit |>
 #> # A tibble: 6 x 6
 #>   adm2_guid           month      count expected_median expected_q05 expected_q95
 #>   <chr>               <date>     <int>           <dbl>        <dbl>        <dbl>
-#> 1 {54CD979C-CF9D-6A6~ 2015-06-01     1           0.517        0.432        0.634
-#> 2 {54CD979C-CF9D-6A6~ 2015-11-01     1           0.577        0.483        0.701
-#> 3 {54CD979C-CF9D-6A6~ 2016-01-01     2           0.784        0.655        0.949
-#> 4 {54CD979C-CF9D-6A6~ 2016-02-01     1           0.795        0.663        0.957
-#> 5 {54CD979C-CF9D-6A6~ 2016-04-01     1           0.730        0.609        0.890
-#> 6 {54CD979C-CF9D-6A6~ 2016-05-01     1           0.676        0.563        0.819
+#> 1 {54CD979C-CF9D-6A6~ 2015-06-01     1           0.518        0.430        0.629
+#> 2 {54CD979C-CF9D-6A6~ 2015-11-01     1           0.577        0.480        0.699
+#> 3 {54CD979C-CF9D-6A6~ 2016-01-01     2           0.787        0.646        0.957
+#> 4 {54CD979C-CF9D-6A6~ 2016-02-01     1           0.800        0.658        0.969
+#> 5 {54CD979C-CF9D-6A6~ 2016-04-01     1           0.734        0.606        0.895
+#> 6 {54CD979C-CF9D-6A6~ 2016-05-01     1           0.676        0.560        0.826
 ```
 
 ## Calculate SPI
@@ -151,15 +151,15 @@ spi_year |>
 #> # A tibble: 6 x 6
 #>   adm2_guid                             year observed spi_median spi_q05 spi_q95
 #>   <chr>                                <dbl>    <int>      <dbl>   <dbl>   <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.675   0.469   0.944
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.11    0.772   1.54 
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0    
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.983   0.680   1.37 
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      2.12    1.46    2.92 
-#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.50    1.04    2.13
+#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.679   0.481   0.943
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.11    0.786   1.55
+#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.990   0.702   1.38
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      2.14    1.50    2.96
+#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.50    1.07    2.10
 ```
 
-`spi_year$national` reports the national observed-to-expected ratio for each year (`national_oe`). Centred SPI divides each district's ratio by this value, so review it separately: a shared national change does not show in centred SPI.
+`spi_year$national` reports the national observed-to-expected ratio for each year (`national_oe`). Centred SPI divides each district's ratio by this value, so review it separately: district SPI can stay unchanged when district and national ratios change together.
 
 
 ``` r
@@ -168,15 +168,15 @@ spi_year$national
 #>     year national_observed national_expected national_oe districts
 #>    <dbl>             <int>             <dbl>       <dbl>     <int>
 #>  1  2015              3468             3508.       0.989       236
-#>  2  2016              4228             4235.       0.998       236
-#>  3  2017              4373             4430.       0.987       236
-#>  4  2018              4768             4806.       0.992       236
-#>  5  2019              5558             5449.       1.02        236
-#>  6  2020              3153             3175.       0.993       236
-#>  7  2021              3372             3434.       0.982       236
-#>  8  2022              4578             4474.       1.02        236
-#>  9  2023              5246             5312.       0.988       236
-#> 10  2024              6085             5841.       1.04        236
+#>  2  2016              4228             4234.       0.999       236
+#>  3  2017              4373             4421.       0.989       236
+#>  4  2018              4768             4794.       0.995       236
+#>  5  2019              5558             5442.       1.02        236
+#>  6  2020              3153             3179.       0.992       236
+#>  7  2021              3372             3432.       0.982       236
+#>  8  2022              4578             4461.       1.03        236
+#>  9  2023              5246             5316.       0.987       236
+#> 10  2024              6085             5844.       1.04        236
 ```
 
 `summary()` gives diagnostics across all district-years, including the median SPI, the overall observed-to-expected ratio, and the share of credible intervals that exclude 1. A `flag` marks a diagnostic outside the range set by the package, as a prompt to look more closely:
@@ -185,20 +185,20 @@ spi_year$national
 ``` r
 summary(spi_year)
 #> # A tibble: 12 x 3
-#>    metric                      value  flag 
+#>    metric                      value  flag
 #>    <chr>                       <chr>  <chr>
-#>  1 median SPI                  0.935  pass 
-#>  2 calibration ratio (obs/exp) 1      pass 
-#>  3 log-SPI skewness            -0.826 flag 
-#>  4 % with CrI excluding 1      74.2   flag 
-#>  5 % SPI < 0.5 (severe)        16.8   <NA> 
-#>  6 % SPI > 1.5 (elevated)      15     <NA> 
-#>  7 SPI q05                     0.096  <NA> 
-#>  8 SPI q25                     0.628  <NA> 
-#>  9 SPI q75                     1.289  <NA> 
-#> 10 SPI q95                     1.898  <NA> 
-#> 11 n groups                    2,360  <NA> 
-#> 12 n low_information           68     <NA>
+#>  1 median SPI                  0.935  pass
+#>  2 calibration ratio (obs/exp) 1.001  pass
+#>  3 log-SPI skewness            -0.825 flag
+#>  4 % with CrI excluding 1      74.7   flag
+#>  5 % SPI < 0.5 (severe)        16.9   <NA>
+#>  6 % SPI > 1.5 (elevated)      14.9   <NA>
+#>  7 SPI q05                     0.095  <NA>
+#>  8 SPI q25                     0.626  <NA>
+#>  9 SPI q75                     1.286  <NA>
+#> 10 SPI q95                     1.894  <NA>
+#> 11 n groups                    2,360  <NA>
+#> 12 n low_information           69     <NA>
 ```
 
 ## Plots
@@ -210,22 +210,16 @@ summary(spi_year)
 plot(spi_year)
 ```
 
-<div class="figure">
 <img src="figures/getting-started-plot-distribution-1.png" alt="Histogram of district-year SPI values on a log scale, with reference lines at 0.5, 1 and 1.5." width="100%" />
-<p class="caption">plot of chunk plot-distribution</p>
-</div>
 
-The `funnel` view plots SPI against the expected count. Ratios based on small expected counts vary more, so they spread out on the left. Points are coloured by whether the district-year met the conventional NPAFP target:
+The `funnel` view plots SPI against the expected count. Ratios based on small expected counts can vary widely, so inspect them with their credible intervals. Points are coloured by whether the district-year met the conventional NPAFP target:
 
 
 ``` r
 plot(spi_year, type = "funnel")
 ```
 
-<div class="figure">
 <img src="figures/getting-started-plot-funnel-1.png" alt="Funnel plot of SPI against expected count, both on log scales, with points coloured by whether the NPAFP target was met." width="100%" />
-<p class="caption">plot of chunk plot-funnel</p>
-</div>
 
 The `caterpillar` view shows the lowest and highest SPI values with their credible intervals:
 
@@ -234,10 +228,7 @@ The `caterpillar` view shows the lowest and highest SPI values with their credib
 plot(spi_year, type = "caterpillar")
 ```
 
-<div class="figure">
 <img src="figures/getting-started-plot-caterpillar-1.png" alt="Caterpillar plot of the lowest and highest SPI district-years, each with its 90% credible interval." width="100%" />
-<p class="caption">plot of chunk plot-caterpillar</p>
-</div>
 
 The `calibration` view compares observed with expected counts. Points on the diagonal have observed counts equal to their expected counts:
 
@@ -246,10 +237,7 @@ The `calibration` view compares observed with expected counts. Points on the dia
 plot(spi_year, type = "calibration")
 ```
 
-<div class="figure">
 <img src="figures/getting-started-plot-calibration-1.png" alt="Scatter of observed against expected counts on log scales, with a diagonal line of equality." width="100%" />
-<p class="caption">plot of chunk plot-calibration</p>
-</div>
 
 ## Non-calendar years
 
@@ -270,7 +258,7 @@ spi_may_apr |>
 #> 3       12           2124
 ```
 
-The first and last years of a series are usually partial. `n_months` shows how many months each period covers; periods with fewer than 12 months should normally be excluded.
+The first and last reporting periods may be incomplete. `n_months` shows how many months each period covers; periods with fewer than 12 months should normally be excluded.
 
 ## Prospective use
 
@@ -309,7 +297,7 @@ prospective$prospective
 #> 6  2024           2015         2023       236
 ```
 
-The result is an `spi_index` object at the district-year level, so `as_tibble()`, `summary()`, and `plot()` work as above. Use a consistent model specification, centring setting, and training approach when comparing years; do not mix retrospective and prospective estimates in one series.
+The result is a `spi_index` object at the district-year level, so `as_tibble()`, `summary()`, and `plot()` work as above. Use a consistent model specification, centring setting, and training approach when comparing years; do not mix retrospective and prospective estimates in one series.
 
 ## Next steps
 

@@ -12,7 +12,7 @@ vignette: >
 
 
 
-The default SPI model uses no covariates and negative binomial overdispersion. This guide shows optional covariate adjustment, comparisons with alternative observation models, the spatial structure, prospective and retrospective fits, and sensitivity checks. These options can support sensitivity analyses or other applications; they are not additional components of the default SPI used in the accompanying study.
+The default SPI model uses no covariates and negative binomial overdispersion. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period.
 
 The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes. The outputs shown here were computed with INLA when the article was built.
 
@@ -65,13 +65,11 @@ summary(fit_adj)$effects |>
   dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
 #> # A tibble: 3 x 5
 #>   covariate       rr_median rr_q025 rr_q975 signif
-#>   <chr>               <dbl>   <dbl>   <dbl> <lgl> 
-#> 1 dtp3                1.00    0.953    1.05 FALSE 
-#> 2 urban_prop          1.03    0.938    1.13 FALSE 
+#>   <chr>               <dbl>   <dbl>   <dbl> <lgl>
+#> 1 dtp3                1.00    0.953    1.05 FALSE
+#> 2 urban_prop          1.03    0.938    1.13 FALSE
 #> 3 travel_time_min     0.991   0.968    1.01 FALSE
 ```
-
-Optional covariates can be used for sensitivity analyses or alternative applications; the default SPI does not require them.
 
 ## Compare overdispersion options
 
@@ -96,15 +94,15 @@ od$summary
 #> # A tibble: 3 x 11
 #>   spec  n_obs    dic   waic p_eff sd_spatial phi_spatial phi_pegged sd_extra
 #>   <chr> <int>  <dbl>  <dbl> <dbl>      <dbl>       <dbl> <lgl>         <dbl>
-#> 1 none  28320 81917. 81996.  241.      0.865       0.928 FALSE        NA    
+#> 1 none  28320 81917. 81996.  241.      0.865       0.928 FALSE        NA
 #> 2 iid   28320 79563. 79528. 5667.      0.864       0.926 FALSE         0.423
-#> 3 nb    28320 80299. 80296.  240.      0.867       0.934 FALSE        NA    
+#> 3 nb    28320 80299. 80296.  240.      0.868       0.934 FALSE        NA
 #> # i 2 more variables: cpo_valid <dbl>, pit_ks <dbl>
 ```
 
-`od$summary` has one row per observation model. DIC and WAIC measure fit, penalised for model complexity; lower values are better. The CPO column is the share of observations with a valid leave-one-out predictive value. The PIT statistic is the distance of the probability integral transform values from a uniform distribution, and smaller values mean better calibration.
+`od$summary` has one row per observation model. DIC and WAIC compare model fit while allowing for complexity; lower values are preferred. The CPO column is the share of observations with a valid leave-one-out predictive value. The PIT statistic is the distance of the probability integral transform values from a uniform distribution, and smaller values indicate closer agreement with that reference distribution.
 
-WAIC can favour a model with one random effect per observation even when that model overfits. `spi_compare_overdispersion()` therefore first excludes any model with valid CPO values for fewer than half of the observations, an effective number of parameters above 20% of the observations, or a BYM2 `phi` at the boundary of its range. Among the remaining models, it recommends the one with the smallest PIT distance. `od$recommendation` gives the choice and the reasoning:
+WAIC can favour a model with one random effect per observation even when that model overfits. `spi_compare_overdispersion()` therefore first excludes any model with valid CPO values for fewer than half of the observations, an effective number of parameters above 20% of the observations, or a BYM2 `phi` below 0.02 or above 0.98. Among the remaining models, it recommends the one with the smallest PIT distance. `od$recommendation` gives the choice and the reasoning:
 
 
 ``` r
@@ -125,15 +123,15 @@ To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same 
 adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
 #> Neighbour list object:
-#> Number of regions: 236 
-#> Number of nonzero links: 1,320 
-#> Percentage nonzero weights: 2.3700 
+#> Number of regions: 236
+#> Number of nonzero links: 1,320
+#> Percentage nonzero weights: 2.3700
 #> Average number of links: 5.5932
 ```
 
-Districts are neighbours when their boundaries touch at any point (`contiguity = "queen"`); `contiguity = "rook"` requires a shared edge. With `handle_islands = TRUE`, the default, a district or group of districts with no neighbours is linked to its nearest neighbour, so every district belongs to one connected graph.
+Districts are neighbours when their boundaries touch at any point (`contiguity = "queen"`); `contiguity = "rook"` requires a shared edge. With `handle_islands = TRUE`, the default, a district with no neighbours is linked to its nearest district by centroid distance. A group of districts cut off from the rest stays a separate component, and the printed graph reports the number of disjoint connected subgraphs when there is more than one.
 
-The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits district-level variation into a spatially structured part, shared with neighbours, and an unstructured part specific to each district; `phi` is the share of that variation that is spatially structured. A district with a long reporting history is estimated mainly from its own data. Where the history is short or counts are sparse, the estimate relies more on neighbouring districts and on the national pattern. This makes the estimate more stable, but it can pull an unusual district towards its neighbours.
+The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits district-level variation into a spatially structured part, shared with neighbours, and an unstructured part specific to each district; `phi` is the share of that variation that is spatially structured. Where district information is sparse, partial pooling and spatial borrowing help estimate the expected count. This makes the estimate more stable, but it can pull an unusual district towards its neighbours.
 
 ## Prospective and retrospective fits
 
@@ -190,7 +188,7 @@ compare |>
 #> # A tibble: 1 x 5
 #>   district_years correlation below_1_retro below_1_prosp change_side
 #>            <int>       <dbl>         <int>         <int>       <int>
-#> 1           1416       0.957           816           818          98
+#> 1           1416       0.958           816           819          99
 ```
 
 
@@ -232,12 +230,9 @@ ggplot2::ggplot(compare_plot, ggplot2::aes(spi_retro, spi_prosp)) +
   ggplot2::theme_minimal()
 ```
 
-<div class="figure">
 <img src="figures/model-options-compare-plot-1.png" alt="Scatter of prospective against retrospective SPI for the same district-years, both on log scales, with dotted lines at 1 and a dashed line of equal values." width="80%" />
-<p class="caption">plot of chunk compare-plot</p>
-</div>
 
-The correlation between the two is 0.96, but 98 of 1416 district-years fall on different sides of 1 depending on the fit.
+The correlation between the two is 0.96, but 99 of 1416 district-years fall on different sides of 1 depending on the fit.
 
 In the retrospective fit, each assessed year contributes to its own expectation, so part of a decline in that year is absorbed into the expected count. In the prospective fit, the expectation for each year comes only from earlier years. The accompanying study uses prospective assessment for this reason. Do not mix the two in one series.
 
@@ -275,11 +270,11 @@ dplyr::bind_rows(
 #> 1 default                2360    1316
 #> 2 centre_none            2360    1304
 #> 3 may_to_april           2124    1159
-#> 4 covariates             2360    1310
+#> 4 covariates             2360    1311
 #> 5 poisson_iid            2360    1301
 ```
 
-The `poisson_iid` row reuses the comparison fit from `spi_compare_overdispersion()`, which kept 100 posterior draws. A different training period needs new prospective fits. Starting the assessment later gives every assessed year a longer history:
+The `poisson_iid` row reuses the comparison fit from `spi_compare_overdispersion()`, which kept 100 posterior draws. A different training period needs new prospective fits. Starting assessment in 2021 skips the earliest assessment years. It does not change the training history for years already included, because each fit still uses all preceding years:
 
 
 ``` r

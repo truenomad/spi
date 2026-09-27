@@ -22,6 +22,11 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   cache = TRUE,
+  # refit when the package code or data change, not only the chunk code
+  cache.extra = unname(
+    tools::md5sum(dir(c("../R", "../data"), full.names = TRUE))
+  ),
+  error = FALSE,
   autodep = TRUE,
   cache.path = "cache/model-options/"
 )
@@ -30,7 +35,7 @@ INLA::inla.setOption(num.threads = "1:1")
 set.seed(1)
 ```
 
-The default SPI model uses no covariates and negative binomial overdispersion. This guide shows optional covariate adjustment, comparisons with alternative observation models, the spatial structure, prospective and retrospective fits, and sensitivity checks. These options can support sensitivity analyses or other applications; they are not additional components of the default SPI used in the accompanying study.
+The default SPI model uses no covariates and negative binomial overdispersion. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period.
 
 The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes. The outputs shown here were computed with INLA when the article was built.
 
@@ -72,8 +77,6 @@ summary(fit_adj)$effects |>
   dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
 ```
 
-Optional covariates can be used for sensitivity analyses or alternative applications; the default SPI does not require them.
-
 ## Compare overdispersion options
 
 Compare Poisson, Poisson with an observation-level random effect, and negative binomial models:
@@ -94,9 +97,9 @@ od <- spi_compare_overdispersion(
 od$summary
 ```
 
-`od$summary` has one row per observation model. DIC and WAIC measure fit, penalised for model complexity; lower values are better. The CPO column is the share of observations with a valid leave-one-out predictive value. The PIT statistic is the distance of the probability integral transform values from a uniform distribution, and smaller values mean better calibration.
+`od$summary` has one row per observation model. DIC and WAIC compare model fit while allowing for complexity; lower values are preferred. The CPO column is the share of observations with a valid leave-one-out predictive value. The PIT statistic is the distance of the probability integral transform values from a uniform distribution, and smaller values indicate closer agreement with that reference distribution.
 
-WAIC can favour a model with one random effect per observation even when that model overfits. `spi_compare_overdispersion()` therefore first excludes any model with valid CPO values for fewer than half of the observations, an effective number of parameters above 20% of the observations, or a BYM2 `phi` at the boundary of its range. Among the remaining models, it recommends the one with the smallest PIT distance. `od$recommendation` gives the choice and the reasoning:
+WAIC can favour a model with one random effect per observation even when that model overfits. `spi_compare_overdispersion()` therefore first excludes any model with valid CPO values for fewer than half of the observations, an effective number of parameters above 20% of the observations, or a BYM2 `phi` below 0.02 or above 0.98. Among the remaining models, it recommends the one with the smallest PIT distance. `od$recommendation` gives the choice and the reasoning:
 
 ```{r overdispersion-choice}
 od$recommendation$choice
@@ -114,9 +117,9 @@ adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
 ```
 
-Districts are neighbours when their boundaries touch at any point (`contiguity = "queen"`); `contiguity = "rook"` requires a shared edge. With `handle_islands = TRUE`, the default, a district or group of districts with no neighbours is linked to its nearest neighbour, so every district belongs to one connected graph.
+Districts are neighbours when their boundaries touch at any point (`contiguity = "queen"`); `contiguity = "rook"` requires a shared edge. With `handle_islands = TRUE`, the default, a district with no neighbours is linked to its nearest district by centroid distance. A group of districts cut off from the rest stays a separate component, and the printed graph reports the number of disjoint connected subgraphs when there is more than one.
 
-The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits district-level variation into a spatially structured part, shared with neighbours, and an unstructured part specific to each district; `phi` is the share of that variation that is spatially structured. A district with a long reporting history is estimated mainly from its own data. Where the history is short or counts are sparse, the estimate relies more on neighbouring districts and on the national pattern. This makes the estimate more stable, but it can pull an unusual district towards its neighbours.
+The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits district-level variation into a spatially structured part, shared with neighbours, and an unstructured part specific to each district; `phi` is the share of that variation that is spatially structured. Where district information is sparse, partial pooling and spatial borrowing help estimate the expected count. This makes the estimate more stable, but it can pull an unusual district towards its neighbours.
 
 ## Prospective and retrospective fits
 
@@ -240,7 +243,7 @@ dplyr::bind_rows(
 )
 ```
 
-The `poisson_iid` row reuses the comparison fit from `spi_compare_overdispersion()`, which kept 100 posterior draws. A different training period needs new prospective fits. Starting the assessment later gives every assessed year a longer history:
+The `poisson_iid` row reuses the comparison fit from `spi_compare_overdispersion()`, which kept 100 posterior draws. A different training period needs new prospective fits. Starting assessment in 2021 skips the earliest assessment years. It does not change the training history for years already included, because each fit still uses all preceding years:
 
 ```{r sensitivity-training, eval = FALSE}
 prosp_later <- spi_prospective(

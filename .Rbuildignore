@@ -20,4 +20,5 @@
 ^pkgdown$
 ^vignettes/.*[.]Rmd[.]orig$
 ^vignettes/precompile[.]R$
+^vignettes/precompiled[.]md5$
 ^vignettes/cache$

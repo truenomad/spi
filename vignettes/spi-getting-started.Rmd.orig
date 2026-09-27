@@ -22,6 +22,11 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   cache = TRUE,
+  # refit when the package code or data change, not only the chunk code
+  cache.extra = unname(
+    tools::md5sum(dir(c("../R", "../data"), full.names = TRUE))
+  ),
+  error = FALSE,
   cache.path = "cache/getting-started/"
 )
 options(cli.unicode = FALSE, width = 80)
@@ -29,13 +34,13 @@ INLA::inla.setOption(num.threads = "1:1")
 set.seed(1)
 ```
 
-This article works through an SPI analysis with the bundled synthetic data. It checks the inputs, fits expected counts, calculates SPI, inspects and plots the results, and produces annually updated estimates. [Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains what the results mean.
+Use the bundled synthetic data to check inputs, fit expected counts, calculate and plot SPI, and produce annually updated estimates. [Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains what the results mean.
 
 The outputs shown here were computed with INLA when the article was built.
 
 ## Input data
 
-spi needs three inputs, all keyed by the same district ID:
+spi needs three inputs, all using the same district ID column:
 
 - monthly NPAFP case counts, one row per district and month;
 - annual under-15 population, one row per district and year;
@@ -138,7 +143,7 @@ spi_year |>
   dplyr::slice_head(n = 6)
 ```
 
-`spi_year$national` reports the national observed-to-expected ratio for each year (`national_oe`). Centred SPI divides each district's ratio by this value, so review it separately: a shared national change does not show in centred SPI.
+`spi_year$national` reports the national observed-to-expected ratio for each year (`national_oe`). Centred SPI divides each district's ratio by this value, so review it separately: district SPI can stay unchanged when district and national ratios change together.
 
 ```{r national}
 spi_year$national
@@ -158,7 +163,7 @@ summary(spi_year)
 plot(spi_year)
 ```
 
-The `funnel` view plots SPI against the expected count. Ratios based on small expected counts vary more, so they spread out on the left. Points are coloured by whether the district-year met the conventional NPAFP target:
+The `funnel` view plots SPI against the expected count. Ratios based on small expected counts can vary widely, so inspect them with their credible intervals. Points are coloured by whether the district-year met the conventional NPAFP target:
 
 ```{r plot-funnel, fig.alt = "Funnel plot of SPI against expected count, both on log scales, with points coloured by whether the NPAFP target was met."}
 plot(spi_year, type = "funnel")
@@ -188,7 +193,7 @@ spi_may_apr |>
   dplyr::count(n_months, name = "district_years")
 ```
 
-The first and last years of a series are usually partial. `n_months` shows how many months each period covers; periods with fewer than 12 months should normally be excluded.
+The first and last reporting periods may be incomplete. `n_months` shows how many months each period covers; periods with fewer than 12 months should normally be excluded.
 
 ## Prospective use
 
@@ -216,7 +221,7 @@ prospective <- spi_prospective(
 prospective$prospective
 ```
 
-The result is an `spi_index` object at the district-year level, so `as_tibble()`, `summary()`, and `plot()` work as above. Use a consistent model specification, centring setting, and training approach when comparing years; do not mix retrospective and prospective estimates in one series.
+The result is a `spi_index` object at the district-year level, so `as_tibble()`, `summary()`, and `plot()` work as above. Use a consistent model specification, centring setting, and training approach when comparing years; do not mix retrospective and prospective estimates in one series.
 
 ## Next steps
 
