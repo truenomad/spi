@@ -18,3 +18,6 @@
 \.DS_Store$
 ^inst/examples/pager/.*\.png$
 ^pkgdown$
+^vignettes/.*[.]Rmd[.]orig$
+^vignettes/precompile[.]R$
+^vignettes/cache$

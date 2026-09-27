@@ -28,3 +28,6 @@ Rplots.pdf
 
 # cached geoBoundaries source geometry (fetched by data-raw/synth_admin_polygons.R)
 data-raw/geoboundaries_cache/
+
+# knitr cache from the precomputed articles
+vignettes/cache/
