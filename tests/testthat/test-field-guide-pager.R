@@ -45,7 +45,8 @@ test_that("a review priority district renders a well-formed pager object", {
   # review priority accent is rose, and the banner names its corroboration
   expect_match(html, "--accent:#c8102e", fixed = TRUE)
   expect_match(
-    html, "Relative reporting is below the reference, and", fixed = TRUE
+    html, "Relative reporting is below the national pattern, with",
+    fixed = TRUE
   )
 })
 
@@ -57,8 +58,9 @@ test_that("an at-or-above district switches the accent to green", {
   p <- spi_field_guide_pager(fg, district = d, verbose = FALSE)
   expect_identical(p$verdict, "No SPI indication")
   expect_match(p$html, "--accent:#1f6f43", fixed = TRUE)
-  expect_match(p$html, "STEPS is not applied", fixed = TRUE)
-  expect_match(p$html, "No SPI indication for additional review", fixed = TRUE)
+  expect_match(p$html, "no SPI shortfall is indicated", fixed = TRUE)
+  expect_match(p$html, "Continue routine review using the NPAFP rate",
+               fixed = TRUE)
 })
 
 test_that("a monitored shortfall names why it is not a priority", {
@@ -71,7 +73,7 @@ test_that("a monitored shortfall names why it is not a priority", {
   h <- p$html
   expect_match(h, "--accent:#e87722", fixed = TRUE)
   expect_match(h, "class=\"tag\">Monitor", fixed = TRUE)
-  expect_match(h, "reassessment as new data become available", fixed = TRUE)
+  expect_match(h, "Reassess as additional data become available", fixed = TRUE)
 })
 
 test_that("monitor names the reason the shortfall is held back", {
@@ -101,7 +103,7 @@ test_that("monitor names the reason the shortfall is held back", {
   expect_identical(as.character(fgw$focal$verdict), "Monitor")
   hw <- spi_field_guide_pager(fgw, district = "WIDE", verbose = FALSE)$html
   expect_match(hw, "interval includes 1", fixed = TRUE)
-  expect_match(hw, "still includes one", fixed = TRUE)
+  expect_match(hw, "uncertainty remains", fixed = TRUE)
   expect_no_match(hw, "noise not ruled out", fixed = TRUE)
 
   # a certain shortfall with no corroboration says so
@@ -113,7 +115,7 @@ test_that("monitor names the reason the shortfall is held back", {
                              district = "LONE", verbose = FALSE)$html
   expect_match(hl, "below cut \u00b7 not corroborated", fixed = TRUE)
   expect_match(
-    hl, "neither extent nor persistence raises concern", fixed = TRUE
+    hl, "neither extent nor persistence supports the shortfall", fixed = TRUE
   )
 })
 
@@ -153,7 +155,8 @@ test_that("clearing the cut is not reported as detecting adequately", {
 
   hok <- spi_field_guide_pager(fg, district = "OK", verbose = FALSE)$html
   expect_match(hok, "--accent:#1f6f43", fixed = TRUE)
-  expect_match(hok, "No SPI indication for additional review", fixed = TRUE)
+  expect_match(hok, "Continue routine review using the NPAFP rate",
+               fixed = TRUE)
 })
 
 test_that("the onset tile rests on the bundle's own timeliness counts", {
@@ -205,9 +208,10 @@ test_that("strength does not claim the interval rules out sampling noise", {
 test_that("a small-count shortfall names the sampling-variability caveat", {
   fg <- synth_field_guide
   foc <- fg$focal
-  # a priority whose Poisson tail leaves chance a plausible explanation
+  # a priority with at least one case whose Poisson tail leaves chance a
+  # plausible explanation; a zero count is described by construction instead
   cand <- foc[
-    foc$verdict == "Priority for review" &
+    foc$verdict == "Priority for review" & foc$observed > 0 &
       stats::ppois(foc$observed, lambda = foc$expected_total) > 0.05,
   ]
   skip_if(nrow(cand) == 0)
@@ -238,8 +242,9 @@ test_that("a zero count is not credited with clearing uncertainty", {
 
   h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   # the interval collapses to a point mass at zero; never call that evidence
-  expect_match(h, "the interval carries no evidence", fixed = TRUE)
-  expect_match(h, "reported no non-polio AFP cases", fixed = TRUE)
+  expect_match(h, "SPI is 0 by construction, so its interval is also 0",
+               fixed = TRUE)
+  expect_match(h, "reported no NPAFP cases", fixed = TRUE)
   expect_no_match(h, "0 cases against", fixed = TRUE)
 })
 
@@ -251,11 +256,10 @@ test_that("a small expected count keeps a decimal so it matches the ratio", {
                 foc$expected_total > 1 & foc$expected_total < 10, ]
   skip_if(nrow(cand) == 0)
   d <- cand[["adm2_name"]][1]
-  exp_dot <- gsub(".", "\u00b7", sprintf("%.1f", cand$expected_total[1]),
-                  fixed = TRUE)
+  exp_txt <- sprintf("%.1f", cand$expected_total[1])
 
   h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
-  expect_match(h, paste0("against ", exp_dot, " expected"), fixed = TRUE)
+  expect_match(h, paste0("against ", exp_txt, " expected"), fixed = TRUE)
 })
 
 test_that("persistence reads the previous year's SPI", {
@@ -267,11 +271,9 @@ test_that("persistence reads the previous year's SPI", {
 
   h <- spi_field_guide_pager(fg, district = r$adm2_name, verbose = FALSE)$html
   expect_match(
-    h, sprintf("SPI %s in %d, %s the cut.",
-               gsub(".", "\u00b7", sprintf("%.2f", r$spi_previous),
-                    fixed = TRUE),
+    h, sprintf("SPI was %.2f in %d, %s 1.00.", r$spi_previous,
                fg$read_year - 1L,
-               if (r$persistence_concern) "also below" else "at or above"),
+               if (r$spi_previous < 1) "also below" else "at or above"),
     fixed = TRUE
   )
 })
@@ -285,12 +287,12 @@ test_that("timeliness and stool adequacy rows read the process counts", {
 
   h <- spi_field_guide_pager(fg, district = r$adm2_name, verbose = FALSE)$html
   expect_match(
-    h, sprintf("%d of %d specimens at the laboratory within 3 days",
+    h, sprintf("%d of %d specimens reached the laboratory within 3 days",
                r$n_transport_timely, r$n_transport),
     fixed = TRUE
   )
   expect_match(
-    h, sprintf("%d of %d cases with adequate stool specimens",
+    h, sprintf("%d of %d cases had adequate stool specimens",
                r$n_adequate, r$n_cases),
     fixed = TRUE
   )
@@ -770,15 +772,14 @@ test_that("unit_noun rewords the reading; default stays \"district\"", {
     fg, district = d, id_col = "adm1_guid", unit_noun = "province",
     verbose = FALSE
   )$html
-  expect_match(prov, "STEPS is applied to a province", fixed = TRUE)
-  expect_no_match(prov, "STEPS is applied to a district", fixed = TRUE)
+  expect_match(prov, "other provinces in", fixed = TRUE)
+  expect_no_match(prov, "other districts in", fixed = TRUE)
 
   # default is unchanged: adm2 output still reads "district"
   d2 <- priority_district(synth_field_guide)
   h2 <- spi_field_guide_pager(
     synth_field_guide, district = d2, verbose = FALSE
   )$html
-  expect_match(h2, "STEPS is applied to a district", fixed = TRUE)
   expect_match(h2, "other districts in", fixed = TRUE)
 })
 
@@ -1027,4 +1028,73 @@ test_that("the pager names a shortfall the interval rule leaves unlabelled", {
   expect_match(h, "below cut \u00b7 interval includes 1", fixed = TRUE)
   expect_match(h, "Under the interval rule", fixed = TRUE)
   expect_no_match(h, "at or above cut", fixed = TRUE)
+})
+
+test_that("a priority pager uses the plain review wording", {
+  fg <- synth_field_guide
+  d <- priority_district(fg)
+  skip_if(is.na(d))
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
+
+  expect_match(h, "observed \u00f7 model-expected NPAFP", fixed = TRUE)
+  expect_match(
+    h, "Context \u2014 conventional AFP and ES indicators</span>",
+    fixed = TRUE
+  )
+  expect_match(h, "Reading the SPI \u2014 five STEPS for", fixed = TRUE)
+  expect_match(h, "Reporting below expectation \u00b7 support from",
+               fixed = TRUE)
+  expect_match(
+    h, "STEPS organises review of a relative reporting shortfall.",
+    fixed = TRUE
+  )
+  expect_match(
+    h, paste0("Relative reporting is below the national pattern, with ",
+              "supporting evidence from"),
+    fixed = TRUE
+  )
+  expect_match(h, "Further review is warranted.", fixed = TRUE)
+  expect_match(h, "compared with", fixed = TRUE)
+  expect_no_match(h, "Blind through the expected peak", fixed = TRUE)
+  expect_no_match(h, "Sampling noise untested", fixed = TRUE)
+  # decimals use a full stop, never the middle dot
+  expect_no_match(h, "[0-9]\u00b7[0-9]")
+})
+
+test_that("an uncertain monitored shortfall reads as limited precision", {
+  fg <- synth_field_guide
+  foc <- fg$focal
+  cand <- foc[foc$verdict == "Monitor" & !(foc$cri_excludes_1 %in% TRUE) &
+                foc$observed > 0, ]
+  skip_if(nrow(cand) == 0)
+  h <- spi_field_guide_pager(
+    fg, district = cand$adm2_name[1], verbose = FALSE
+  )$html
+
+  expect_match(
+    h, "Recent reporting below expectation \u00b7 limited precision",
+    fixed = TRUE
+  )
+  expect_match(h, "SPI is below 1, but the shortfall is uncertain",
+               fixed = TRUE)
+  expect_match(h, "includes 1, so the shortfall is uncertain.", fixed = TRUE)
+  expect_match(
+    h, "Relative reporting is below the national pattern, but uncertainty",
+    fixed = TRUE
+  )
+})
+
+test_that("an at-or-above pager says SPI indicates no shortfall", {
+  fg <- synth_field_guide
+  d <- adequate_district(fg)
+  skip_if(is.na(d))
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
+
+  expect_match(
+    h, "SPI does not indicate a relative reporting shortfall in",
+    fixed = TRUE
+  )
+  expect_match(h, "national relative-reporting pattern. SPI is", fixed = TRUE)
+  expect_match(h, "at or above the 1.00 reference", fixed = TRUE)
+  expect_no_match(h, "Reporting below expectation", fixed = TRUE)
 })

@@ -120,9 +120,9 @@ Default: NULL (first of \code{adm2_name}, \code{adm1_name}, else the id column).
 under the district name. Default: \code{"admin-2 district"}.}
 
 \item{unit_noun}{Singular common noun for the operational unit, used in the
-on-page reading (e.g. "other \code{unit_noun}s in", "STEPS is applied to a
-\code{unit_noun}..."). Set it to match \code{admin_label}, e.g. \code{"province"} for
-admin-1 inputs. Default: \code{"district"}.}
+extent reading ("other \code{unit_noun}s in ..."). Set it to match
+\code{admin_label}, e.g. \code{"province"} for admin-1 inputs. Default:
+\code{"district"}.}
 
 \item{note}{Optional provenance tag printed in the footer, e.g.
 \code{"illustrative"} for a worked example. Default: NULL (untagged).}

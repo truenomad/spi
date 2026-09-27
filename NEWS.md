@@ -75,6 +75,11 @@
 * Footnotes are optional, small expected counts keep decimals, and reports say when detection data
   were not supplied.
 
+* Reworded the district report in plain language. Numbers use a decimal point instead of a middle
+  dot. The line beside the context heading describes the review label rather than the seasonal
+  pattern and trend. At or above the cutoff, the report says SPI indicates no relative reporting
+  shortfall and points to the other surveillance indicators.
+
 ### SPI, concordance and inputs
 
 * Added `spi_check_inputs()` and `check` to find problems with counts, population, IDs, missing

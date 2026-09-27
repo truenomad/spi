@@ -96,9 +96,9 @@
 #' @param admin_label Short description of the administrative level, shown
 #'   under the district name. Default: `"admin-2 district"`.
 #' @param unit_noun Singular common noun for the operational unit, used in the
-#'   on-page reading (e.g. "other `unit_noun`s in", "STEPS is applied to a
-#'   `unit_noun`..."). Set it to match `admin_label`, e.g. `"province"` for
-#'   admin-1 inputs. Default: `"district"`.
+#'   extent reading ("other `unit_noun`s in ..."). Set it to match
+#'   `admin_label`, e.g. `"province"` for admin-1 inputs. Default:
+#'   `"district"`.
 #' @param note Optional provenance tag printed in the footer, e.g.
 #'   `"illustrative"` for a worked example. Default: NULL (untagged).
 #' @param verbose Logical. Emit a cli summary on build. Default: TRUE.
@@ -509,10 +509,10 @@ as.character.spi_pager <- function(x, ...) {
   )
 }
 
-# format a number with the pager's middle-dot decimal separator.
+# format a number to a fixed number of decimal places for the pager.
 # @noRd
-.pager_dot <- function(x, digits = 2) {
-  gsub(".", "\u00b7", formatC(x, format = "f", digits = digits), fixed = TRUE)
+.pager_num <- function(x, digits = 2) {
+  formatC(x, format = "f", digits = digits)
 }
 
 # parse a cumulative "2021, 2022" detection-year string to integers. an NA
@@ -673,7 +673,7 @@ as.character.spi_pager <- function(x, ...) {
       if (strong) "0.65" else "0.9", "\"/>",
       "<text x=\"", ml - 8, "\" y=\"", fnum(y + 3),
       "\" text-anchor=\"end\" font-family=\"Spline Sans Mono\" ",
-      "font-size=\"9\" fill=\"#5a6883\">", .pager_dot(v, 1), "</text>"
+      "font-size=\"9\" fill=\"#5a6883\">", .pager_num(v, 1), "</text>"
     )
   }
 
@@ -789,7 +789,7 @@ as.character.spi_pager <- function(x, ...) {
     ),
     "<text x=\"", fnum(ex + 10), "\" y=\"", fnum(ly + 15 + extra),
     "\" font-family=\"Spline Sans Mono\" font-size=\"9.5\" fill=\"", accent,
-    "\">", .pager_escape(qual), "SPI ", .pager_dot(focal$spi_median, 2),
+    "\">", .pager_escape(qual), "SPI ", .pager_num(focal$spi_median, 2),
     "</text></svg>"
   )
   s
@@ -1103,45 +1103,35 @@ as.character.spi_pager <- function(x, ...) {
         paste0("<text x=\"%s\" y=\"%s\" font-family=\"Spline Sans Mono\" ",
                "font-size=\"9\" font-weight=\"600\" fill=\"%s\">%s</text>"),
         fnum(px(last - 1) + 6), fnum(py(rate[last]) + 3), accent,
-        .pager_dot(rate[last], 1)
+        .pager_num(rate[last], 1)
       )
     )
   }
   paste0(s, "</svg>")
 }
 
-# how the district reads through its expected seasonal peak, distinguishing a
-# channel that was never supplied from one that was and found nothing.
+# the line beside the context heading, in the words of the verdict. At or above
+# the cut it says nothing.
 # @noRd
-.pager_season_word <- function(r, active) {
-  if (!is.null(active) && !isTRUE(unname(active["seasonal"]))) return("")
-  switch(
-    r$seasonal %||% "not assessed",
-    blind = "Blind through the expected peak",
-    muted = "Muted through the expected peak",
-    # detecting through the peak is worth saying only where the district still
-    # reads short: it is then a district that looks and still finds too little
-    present = if (isTRUE(r$spi_below)) {
-      "Detects through the expected peak, yet still reads short"
-    } else {
-      ""
-    },
-    ""
-  )
-}
-
-# the trend over the trailing window, said only when detection has moved. It
-# is context outside STEPS and never changes the judgement.
-# @noRd
-.pager_trend_word <- function(r, window = 5L) {
-  switch(
-    r$trajectory %||% "flat",
-    falling = sprintf("Detection falling over the last %d years",
-                      as.integer(window)),
-    rising = sprintf("Detection rising over the last %d years",
-                     as.integer(window)),
-    ""
-  )
+.pager_context_heading <- function(focal) {
+  if (identical(as.character(focal$verdict), "Priority for review")) {
+    corroborators <- c(
+      if (isTRUE(focal$extent_concern)) "extent",
+      if (isTRUE(focal$persistence_concern)) "persistence"
+    )
+    return(paste0(
+      "Reporting below expectation \u00b7 support from ",
+      paste(corroborators, collapse = " and ")
+    ))
+  }
+  if (!isTRUE(focal$spi_below)) return("")
+  if (!isTRUE(focal$cri_excludes_1)) {
+    return("Recent reporting below expectation \u00b7 limited precision")
+  }
+  if (!.fg_gate_pass(focal)) {
+    return("Reporting below expectation \u00b7 chance not ruled out")
+  }
+  "Reporting below expectation \u00b7 no support from extent or persistence"
 }
 
 # the serotype to name in the detection wording. The guide carries detection
@@ -1221,14 +1211,8 @@ as.character.spi_pager <- function(x, ...) {
 # the five STEPS and never enter the corroborator count or the verdict.
 # @noRd
 .pager_strip_html <- function(ind, years, npafp_target, accent, focal,
-                              detections, detection_label, active,
-                              traj_window = 5L) {
-  season <- paste(
-    c(.pager_season_word(focal, active),
-      .pager_trend_word(focal, traj_window)),
-    collapse = " \u00b7 "
-  )
-  season <- sub("^ \u00b7 | \u00b7 $", "", season)
+                              detections, detection_label, active) {
+  heading <- .pager_context_heading(focal)
   dets <- .pager_detection_boxes(
     detections, detection_label, active, .pager_serotypes(focal)
   )
@@ -1249,9 +1233,9 @@ as.character.spi_pager <- function(x, ...) {
   paste0(
     "<div class=\"istrip\">",
     "<div class=\"sectlab\"><span>Context \u2014 conventional AFP and ES ",
-    "indicators and detections</span>",
-    if (nzchar(season)) {
-      paste0("<span>", .pager_escape(season), "</span>")
+    "indicators</span>",
+    if (nzchar(heading)) {
+      paste0("<span>", .pager_escape(heading), "</span>")
     } else {
       ""
     },
@@ -1270,10 +1254,10 @@ as.character.spi_pager <- function(x, ...) {
   unit_noun = "district", active = NULL, prob_under = NULL
 ) {
   r <- as.list(focal)
-  spi <- .pager_dot(r$spi_median, 2)
-  q05 <- .pager_dot(r$spi_q05, 2)
-  q95 <- .pager_dot(r$spi_q95, 2)
-  cut <- .pager_dot(spi_cut, 2)
+  spi <- .pager_num(r$spi_median, 2)
+  q05 <- .pager_num(r$spi_q05, 2)
+  q95 <- .pager_num(r$spi_q95, 2)
+  cut <- .pager_num(spi_cut, 2)
   obs <- as.integer(round(r$observed))
   exp <- .pager_count(r$expected_total)
   # a zero count makes the interval degenerate: SPI = 0 / expected_draw is
@@ -1285,38 +1269,43 @@ as.character.spi_pager <- function(x, ...) {
     sprintf("%d case%s", obs, if (obs == 1L) "" else "s")
   }
 
-  # S strength: size and certainty of the shortfall
+  # S strength: size and certainty of the shortfall. At a cut of 1 the cut is
+  # the reference itself, so the row names it that way
+  cut_word <- if (isTRUE(all.equal(spi_cut, 1))) "reference" else "cut"
   strength <- if (.pager_short_of_expectation(r)) {
     sprintf(
-      paste0("SPI %s is at or above the %s cut, but its 90%% interval (%s to ",
-             "%s) lies wholly below one; STEPS is not applied."),
+      paste0("SPI is %s, at or above the %s cut, but its 90%% interval ",
+             "(%s\u2013%s) lies wholly below 1; STEPS is not applied."),
       spi, cut, q05, q95
     )
   } else if (!isTRUE(r$spi_below)) {
-    sprintf("SPI %s is at or above the %s cut; STEPS is not applied.",
-            spi, cut)
+    sprintf(
+      "SPI is %s, at or above the %s %s; no SPI shortfall is indicated.",
+      spi, cut, cut_word
+    )
   } else if (!isTRUE(r$cri_excludes_1)) {
     sprintf(
-      paste0("SPI %s, %s against %s expected, but its 90%% interval (%s to ",
-             "%s) includes one, so the shortfall is uncertain."),
+      paste0("SPI is %s: %s reported against %s expected. The 90%% interval ",
+             "(%s\u2013%s) includes 1, so the shortfall is uncertain."),
       spi, detected, exp, q05, q95
     )
   } else if (!.fg_gate_pass(r)) {
     sprintf(
-      paste0("SPI %s with its 90%% interval (%s to %s) wholly below one, but ",
-             "a count this small could fall this short by chance alone."),
+      paste0("SPI is %s, with its 90%% interval (%s\u2013%s) wholly below 1, ",
+             "but a count this small could fall this short by chance alone."),
       spi, q05, q95
     )
   } else if (zero_count) {
     sprintf(
-      paste0("No cases against %s expected, so the SPI is zero by ",
-             "construction and the interval carries no evidence.%s"),
+      paste0("No cases were reported against %s expected. SPI is 0 by ",
+             "construction, so its interval is also 0; this does not imply ",
+             "complete certainty.%s"),
       exp, .pager_noise_note(r, params)
     )
   } else {
     sprintf(
-      paste0("SPI %s, %s against %s expected, with its 90%% interval (%s to ",
-             "%s) wholly below one.%s"),
+      paste0("SPI is %s: %s reported against %s expected. The 90%% interval ",
+             "(%s\u2013%s) lies wholly below 1.%s"),
       spi, detected, exp, q05, q95, .pager_noise_note(r, params)
     )
   }
@@ -1344,9 +1333,15 @@ as.character.spi_pager <- function(x, ...) {
     }
     if (n < min_cases) {
       return(list(
-        reading = sprintf("%d case%s; fewer than %d, not assessed.",
-                          as.integer(n), if (n == 1L) "" else "s",
-                          as.integer(min_cases)),
+        reading = sprintf(
+          "%s; fewer than %d, not assessed.",
+          if (n == 0) {
+            "No cases"
+          } else {
+            sprintf("%d case%s", as.integer(n), if (n == 1L) "" else "s")
+          },
+          as.integer(min_cases)
+        ),
         role = "quiet", label = "not assessed"
       ))
     }
@@ -1360,11 +1355,11 @@ as.character.spi_pager <- function(x, ...) {
   }
   timeliness <- process_row(
     r$n_transport_timely, r$n_transport,
-    "specimens at the laboratory within 3 days", r$timeliness_concern,
+    "specimens reached the laboratory within 3 days", r$timeliness_concern,
     active[["timeliness"]] %||% !is.na(r$n_transport)
   )
   adequacy <- process_row(
-    r$n_adequate, r$n_cases, "cases with adequate stool specimens",
+    r$n_adequate, r$n_cases, "cases had adequate stool specimens",
     r$adequacy_concern, active[["adequacy"]] %||% !is.na(r$n_cases)
   )
 
@@ -1373,10 +1368,9 @@ as.character.spi_pager <- function(x, ...) {
   extent <- if (!extent_ok) {
     "Not assessable."
   } else {
-    pct <- gsub(".", "\u00b7", .fg_pct_pair(r$extent_pct, r$national_pct),
-                fixed = TRUE)
+    pct <- .fg_pct_pair(r$extent_pct, r$national_pct)
     sprintf(
-      "%d of %d other %ss in %s below %s (%s, against %s nationally).",
+      "%d of %d other %ss in %s had SPI below %s (%s, versus %s nationally).",
       as.integer(r$extent_others_below), as.integer(r$extent_others),
       unit_noun, r$extent_area, cut, pct[1], pct[2]
     )
@@ -1387,10 +1381,13 @@ as.character.spi_pager <- function(x, ...) {
   persistence <- if (!is.finite(prev)) {
     "No SPI for the previous year."
   } else {
-    sprintf("SPI %s in %d, %s the cut.", .pager_dot(prev, 2),
-            as.integer(r$year) - 1L,
-            if (isTRUE(r$persistence_concern)) "also below" else
-              "at or above")
+    prev_word <- if (prev < spi_cut) {
+      if (isTRUE(r$spi_below)) "also below" else "below"
+    } else {
+      "at or above"
+    }
+    sprintf("SPI was %s in %d, %s %s.", .pager_num(prev, 2),
+            as.integer(r$year) - 1L, prev_word, cut)
   }
 
   list(
@@ -1461,7 +1458,7 @@ as.character.spi_pager <- function(x, ...) {
       formatC(alpha * 100, format = "g")
     ))
   }
-  if (tail > 0.05) " Sampling noise untested." else ""
+  ""
 }
 
 # format a model-expected count: whole cases once there are enough of them to
@@ -1470,55 +1467,61 @@ as.character.spi_pager <- function(x, ...) {
 # @noRd
 .pager_count <- function(x) {
   if (!isTRUE(is.finite(x))) return("--")
-  if (abs(x) >= 10) format(round(x), big.mark = ",") else .pager_dot(x, 1)
+  if (abs(x) >= 10) format(round(x), big.mark = ",") else .pager_num(x, 1)
 }
 
 # one- or two-sentence caption describing the reading for this judgement.
 # @noRd
-.pager_caption <- function(focal, name, params = list()) {
-  verdict <- as.character(focal$verdict)
+.pager_caption <- function(focal, name, params = list(), spi_cut = 1) {
   obs <- as.integer(round(focal$observed))
   exp <- .pager_count(focal$expected_total)
+  yr <- as.integer(focal$year)
   zero <- isTRUE(obs == 0L)
+  few_cases <- params$process_min_cases %||% 5L
+  below <- if (isTRUE(all.equal(spi_cut, 1))) {
+    "below 1"
+  } else {
+    sprintf("below the %s cut", .pager_num(spi_cut, 2))
+  }
   if (isTRUE(focal$spi_below)) {
     seen <- if (zero) {
-      sprintf(
-        paste0("%s reported no non-polio AFP cases against the %s the model ",
-               "expects for its population, location and season."),
-        name, exp
-      )
+      sprintf("%s reported no NPAFP cases in %d, compared with %s expected.",
+              name, yr, exp)
     } else {
-      sprintf(
-        paste0("%s reports fewer non-polio AFP cases than expected: ",
-               "%d against %s."),
-        name, obs, exp
-      )
+      sprintf("%s reported %d NPAFP case%s in %d, compared with %s expected.",
+              name, obs, if (obs == 1L) "" else "s", yr, exp)
     }
     # the interval speaks to uncertainty in the expectation, never to sampling
     # variability in the count, so name the latter when chance alone could
     # produce the shortfall, unless a noise gate already ruled it out
-    caveat <- if (!is.null(params$noise_alpha) ||
-                  !.pager_noise_plausible(focal)) {
-      ""
-    } else if (zero) {
-      " Zero cases could occur by chance alone when so few are expected."
+    detail <- if (zero) {
+      " With no observed cases, SPI is 0 by construction."
+    } else if (!isTRUE(focal$cri_excludes_1)) {
+      sprintf(" SPI is %s, but the shortfall is uncertain%s.", below,
+              if (obs < few_cases) " with so few cases" else "")
+    } else if (is.null(params$noise_alpha) &&
+               .pager_noise_plausible(focal)) {
+      paste0(" This shortfall could occur by chance alone when so few ",
+             "cases are expected.")
     } else {
-      " This shortfall could occur by chance alone when so few cases are expected."
+      ""
     }
-    paste0(seen, caveat)
+    paste0(seen, detail)
   } else if (.pager_short_of_expectation(focal)) {
     sprintf(
-      paste0("%s is at or above the cut, but its 90%% credible interval lies ",
-             "wholly below one: it reports measurably fewer non-polio AFP ",
-             "cases than the model expects for its population, location and season."),
-      name
+      paste0("%s\u2019s SPI is at or above the cut, but its 90%% interval ",
+             "lies wholly below 1: it reported fewer NPAFP cases in %d than ",
+             "expected."),
+      name, yr
     )
   } else {
+    spi <- focal$spi_median
     sprintf(
-      paste0("%s reports about as many non-polio AFP cases as the model ",
-             "expects for its size, place and season; its SPI is at or above ",
-             "the cut."),
-      name
+      paste0("%s\u2019s %d reporting is %s the national relative-reporting ",
+             "pattern. SPI is %s."),
+      name, yr,
+      if (isTRUE(spi >= 1.5)) "above" else "broadly in line with",
+      .pager_num(spi, 2)
     )
   }
 }
@@ -1553,27 +1556,25 @@ as.character.spi_pager <- function(x, ...) {
   if (verdict == "Priority for review") {
     return(paste0(
       sprintf(
-        paste0("Relative reporting is below the reference, and %s also %s ",
-               "concern. The findings warrant further investigation."),
-        paste(corroborators, collapse = " and "),
-        if (length(corroborators) > 1L) "raise" else "raises"
+        paste0("Relative reporting is below the national pattern, with ",
+               "supporting evidence from %s. Further review is warranted."),
+        paste(corroborators, collapse = " and ")
       ),
       process_txt
     ))
   }
   if (verdict == "Monitor") {
     reason <- if (!isTRUE(focal$cri_excludes_1)) {
-      "the 90% interval still includes one"
+      "uncertainty remains"
     } else if (!.fg_gate_pass(focal)) {
       "a count this small could fall this short by chance alone"
     } else {
-      "neither extent nor persistence raises concern"
+      "neither extent nor persistence supports the shortfall"
     }
     return(paste0(
       sprintf(
-        paste0("Relative reporting is below the reference, but %s. The ",
-               "findings support reassessment as new data become ",
-               "available."),
+        paste0("Relative reporting is below the national pattern, but %s. ",
+               "Reassess as additional data become available."),
         reason
       ),
       process_txt
@@ -1581,21 +1582,23 @@ as.character.spi_pager <- function(x, ...) {
   }
   if (isTRUE(focal$spi_below)) {
     return(paste0(
-      "Relative reporting is below the reference, but the 90% interval ",
-      "still includes one. Under the interval rule, a shortfall receives a ",
-      "review label only when its interval lies wholly below one."
+      "Relative reporting is below the national pattern, but the 90% ",
+      "interval includes 1. Under the interval rule, a shortfall receives a ",
+      "review label only when its interval lies wholly below 1."
     ))
   }
   if (.pager_short_of_expectation(focal)) {
     return(paste0(
-      "The SPI is at or above the cut, but its 90% interval lies wholly ",
-      "below one: relative reporting is below the reference, but STEPS is ",
-      "not applied at or above the cut."
+      "SPI is at or above the cut, but its 90% interval lies wholly below 1. ",
+      "Relative reporting is below the national pattern, but STEPS is not ",
+      "applied at or above the cut."
     ))
   }
-  paste0(
-    "No SPI indication for additional review. Routine surveillance and ",
-    "review based on other indicators continue."
+  sprintf(
+    paste0("No SPI indication in %d. Continue routine review using the ",
+           "NPAFP rate, timeliness, stool adequacy and other surveillance ",
+           "evidence."),
+    as.integer(focal$year)
   )
 }
 
@@ -1626,11 +1629,11 @@ as.character.spi_pager <- function(x, ...) {
     collapse = " \u00b7 "
   )
 
-  spi <- .pager_dot(focal$spi_median, 2)
+  spi <- .pager_num(focal$spi_median, 2)
   nb_txt <- if (is.na(focal$neighbour_spi)) {
     ""
   } else {
-    sprintf(" \u00b7 neighbours %s", .pager_dot(focal$neighbour_spi, 2))
+    sprintf(" \u00b7 neighbours %s", .pager_num(focal$neighbour_spi, 2))
   }
   # the under-15 denominator the expected count is built on. Without it a reader
   # cannot tell whether an expectation of 1.9 cases belongs to a district of
@@ -1664,7 +1667,7 @@ as.character.spi_pager <- function(x, ...) {
       bits <- c(bits, sprintf("region %s", r_name))
     }
     if (isTRUE(is.finite(r_spi))) {
-      bits <- c(bits, sprintf("SPI %s", .pager_dot(r_spi, 2)))
+      bits <- c(bits, sprintf("SPI %s", .pager_num(r_spi, 2)))
     }
     if (isTRUE(is.finite(r_rank)) && isTRUE(is.finite(r_n))) {
       bits <- c(bits, sprintf("worst rank %d of %d", r_rank, r_n))
@@ -1692,15 +1695,21 @@ as.character.spi_pager <- function(x, ...) {
   }, character(1))
   rows <- paste(rows, collapse = "")
 
-  rule <- sprintf(
-    paste0("STEPS is applied to a %s with an SPI below %s. It is a priority ",
-           "for review when its 90%% credible interval lies wholly below one ",
-           "and extent or persistence also raises concern. Timeliness and ",
-           "stool adequacy are reported but do not change the judgement; the ",
-           "trend, season and detections are context."),
-    unit_noun, .pager_dot(spi_cut, 2)
-  )
-  caption <- .pager_escape(.pager_caption(focal, name, params))
+  rule <- if (identical(as.character(focal$verdict), "No SPI indication")) {
+    sprintf(
+      paste0("SPI does not indicate a relative reporting shortfall in %d. ",
+             "Timeliness, stool adequacy and other surveillance indicators ",
+             "should still be reviewed separately."),
+      as.integer(focal$year)
+    )
+  } else {
+    paste0(
+      "STEPS organises review of a relative reporting shortfall. Strength, ",
+      "extent and persistence describe the SPI signal; timeliness and stool ",
+      "adequacy provide separate surveillance context."
+    )
+  }
+  caption <- .pager_escape(.pager_caption(focal, name, params, spi_cut))
   banner_reading <- .pager_escape(
     .pager_banner_reading(focal, spi_cut, params, detections, detection_label)
   )
@@ -1755,7 +1764,7 @@ as.character.spi_pager <- function(x, ...) {
     # body
     "<div class=\"body\"><div class=\"cgroup\">",
     "<div class=\"sectlab\"><span>SPI over time \u2014 ", name, "</span>",
-    "<span>observed \u00f7 model-expected non-polio AFP</span></div>",
+    "<span>observed \u00f7 model-expected NPAFP</span></div>",
     "<div class=\"caption\">", caption, "</div>",
     "<div class=\"chartbox\"><div class=\"ts\">", chart, "</div>",
     if (nzchar(locator)) {
@@ -1768,18 +1777,17 @@ as.character.spi_pager <- function(x, ...) {
     "<div class=\"legend\">",
     "<span><span class=\"lk\"></span> ", name, "</span>",
     "<span><span class=\"lband\"></span> 90% credible interval</span>",
-    "<span><span class=\"lk exp\"></span> 1\u00b70, expected detection</span>",
+    "<span><span class=\"lk exp\"></span> 1.0, expected detection</span>",
     legend_detect,
     "</div>",
     .pager_strip_html(
       indicators, series$year, npafp_target, vstyle$accent, focal,
-      detections, detection_label, active,
-      traj_window = params$traj_window %||% 5L
+      detections, detection_label, active
     ),
     "</div>",
     # reading
     "<div class=\"reading\"><div class=\"sectlab\" ",
-    "style=\"margin-bottom:6px\"><span>Reading the SPI \u2014 the five STEPS ",
+    "style=\"margin-bottom:6px\"><span>Reading the SPI \u2014 five STEPS ",
     "for ",
     name, "</span><span>strength \u00b7 process \u00b7 supporting evidence</span></div>",
     "<div class=\"rrule\">", rule, "</div>",
