@@ -10,8 +10,8 @@ bs_expected(
   adjacency,
   covariates = NULL,
   season = c("harmonic", "rw2", "monthly", "none"),
-  year_effect = c("none", "iid", "rw1"),
-  overdispersion = c("iid", "nb", "none", "auto"),
+  year_effect = c("iid", "none", "rw1"),
+  overdispersion = c("nb", "iid", "none", "auto"),
   prior_phi = list(U = 0.5, alpha = 0.5),
   prior_precision = list(U = 1, alpha = 0.01),
   prior_precision_year = list(U = 1, alpha = 0.01),
@@ -55,17 +55,19 @@ component). Default: "harmonic".}
 \item{year_effect}{Character. Optional between-year random effect to
 absorb regime shifts in baseline detection that no within-year term
 can capture (e.g. surveillance disruption from insecurity, transition,
-or pandemic). "none" (default) preserves the original specification;
-"iid" lets each year find its own level independently (recommended
-when the between-year pattern is non-monotonic, such as a U shape);
+or pandemic). "iid" (default) lets each year find its own level
+independently; this is the paper specification, and is recommended
+when the between-year pattern is non-monotonic, such as a U shape.
+"none" preserves the original specification, with no year effect;
 "rw1" borrows strength smoothly across adjacent years.}
 
-\item{overdispersion}{Character. Overdispersion mechanism: "iid"
-(Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month,
-recommended), "nb" (negative binomial likelihood), "none" (plain Poisson,
-not recommended for sparse data), or "auto" (fit all three and pick the
-recommended spec via \code{\link[=bs_compare_overdispersion]{bs_compare_overdispersion()}}, then refit it at the
-requested \code{n_draws}). Default: "iid".}
+\item{overdispersion}{Character. Overdispersion mechanism: "nb" (negative
+binomial likelihood, default, the paper specification), "iid"
+(Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month),
+"none" (plain Poisson, not recommended for sparse data), or "auto" (fit
+all three and pick the recommended spec via
+\code{\link[=bs_compare_overdispersion]{bs_compare_overdispersion()}}, then refit it at the requested
+\code{n_draws}). Default: "nb".}
 
 \item{prior_phi}{Named list with elements \code{U} and \code{alpha} giving the BYM2
 mixing parameter PC prior \code{P(phi < U) = alpha}. Default:
@@ -206,13 +208,20 @@ graph is symmetric and that disconnected components are handled
 }
 
 \strong{CPO / PIT and \code{overdispersion = "iid"}.} When the model has an iid
-effect per observation (the default), conditional predictive ordinate
-(CPO) and the probability integral transform (PIT) are structurally
-unreliable -- INLA flags most observations as \code{failure = 1}. This is
-an artifact of the model spec, not a sign of poor fit. For CPO-based
-diagnostics, refit with \code{overdispersion = "nb"} or
-\code{overdispersion = "none"}.
+effect per observation, conditional predictive ordinate (CPO) and the
+probability integral transform (PIT) are structurally unreliable --
+INLA flags most observations as \code{failure = 1}. This is an artifact of
+the model spec, not a sign of poor fit. For CPO-based diagnostics, use
+the default \code{overdispersion = "nb"} or \code{overdispersion = "none"}.
 }
+\section{Paper specification}{
+
+The call the paper uses is \code{season = "harmonic"}, \code{year_effect = "iid"},
+\code{overdispersion = "nb"}, with no covariates -- the defaults below. The
+published index, \code{bs_spi_prospective()}, is built on a fit with
+these defaults.
+}
+
 \section{Choosing a seasonal specification}{
 
 Surveillance counts often show within-year cycles driven by transmission

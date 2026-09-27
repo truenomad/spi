@@ -55,6 +55,13 @@ test_that("bs_expected rejects malformed priors", {
   )
 })
 
+test_that("defaults are the paper specification", {
+  f <- formals(bs_expected)
+  expect_identical(eval(f$overdispersion)[[1]], "nb")
+  expect_identical(eval(f$year_effect)[[1]], "iid")
+  expect_identical(eval(f$season)[[1]], "harmonic")
+})
+
 test_that("bs_expected rejects bad n_draws and unknown spec strings", {
   local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
@@ -441,7 +448,8 @@ test_that("bs_compare_overdispersion and auto selection run end to end", {
   cmp <- tryCatch(
     bs_compare_overdispersion(
       d$cases, d$pop, d$bnd, specs = c("none", "iid"),
-      id_col = "adm2_guid", season = "none", n_draws = 20L, verbose = TRUE
+      id_col = "adm2_guid", season = "none", year_effect = "none",
+      n_draws = 20L, verbose = TRUE
     ),
     error = function(e) skip(paste("INLA unavailable:", conditionMessage(e)))
   )
@@ -451,8 +459,8 @@ test_that("bs_compare_overdispersion and auto selection run end to end", {
 
   auto <- fit_or_skip(
     cases = d$cases, population = d$pop, adjacency = d$bnd,
-    id_col = "adm2_guid", season = "none", overdispersion = "auto",
-    n_draws = 20L, seed = 4L, verbose = FALSE
+    id_col = "adm2_guid", season = "none", year_effect = "none",
+    overdispersion = "auto", n_draws = 20L, seed = 4L, verbose = FALSE
   )
   expect_s3_class(auto, "blindspot_expected")
   expect_true(auto$overdispersion %in% c("none", "iid", "nb"))
@@ -488,8 +496,8 @@ test_that("a seeded fit is reproducible and leaves the caller's RNG alone", {
   run <- function() {
     fit_or_skip(
       cases = d$cases, population = d$pop, adjacency = d$bnd,
-      id_col = "adm2_guid", season = "none", n_draws = 40L, seed = 7L,
-      verbose = FALSE
+      id_col = "adm2_guid", season = "none", year_effect = "none",
+      overdispersion = "iid", n_draws = 40L, seed = 7L, verbose = FALSE
     )
   }
 
@@ -534,7 +542,8 @@ test_that("num_threads = NULL opts out of the serial pin", {
 
   fit <- suppressWarnings(fit_or_skip(
     cases = d$cases, population = d$pop, adjacency = d$bnd,
-    id_col = "adm2_guid", season = "none", n_draws = 20L, seed = 7L,
+    id_col = "adm2_guid", season = "none", year_effect = "none",
+    overdispersion = "iid", n_draws = 20L, seed = 7L,
     num_threads = NULL, verbose = FALSE
   ))
   expect_false(identical(fit$model$.args$num.threads, "1:1"))

@@ -53,11 +53,11 @@ blindspot estimates, for each district in each month, how many cases a surveilla
 The expected count comes from a Bayesian spatiotemporal count model of each district-month, and the SPI is the observed count over that expectation:
 
 $$
-Y_{it} \sim \text{Poisson}(\mu_{it}), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}
+Y_{it} \sim \text{NegBin}(\mu_{it}, \kappa), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}
 $$
 
 $$
-\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + \epsilon_{it} + x_{it}^{\top}\beta
+\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + x_{it}^{\top}\beta
 $$
 
 where
@@ -67,10 +67,10 @@ where
 - $f(\text{month}_t)$ is harmonic seasonality (12- and 6-month periodicity)
 - $\gamma_{y(t)}$ is an exchangeable year effect
 - $u_i + v_i$ is a BYM2 spatial random effect (Riebler et al. 2016)
-- $\epsilon_{it}$ is the observation-level overdispersion term, the default `overdispersion = "iid"`
+- $\kappa$ is the negative binomial dispersion, the default `overdispersion = "nb"`
 - $x_{it}^{\top}\beta$ is the optional district-covariate term (DTP3 coverage, urbanicity, travel time to care)
 
-`overdispersion = "nb"` swaps the Poisson likelihood and $\epsilon_{it}$ for a negative binomial, and `"none"` drops the term; `bs_compare_overdispersion()` scores the three so the choice is justified rather than assumed.
+`overdispersion = "iid"` swaps the negative binomial likelihood for Poisson plus an observation-level term $\epsilon_{it}$ added to the linear predictor, and `"none"` drops overdispersion and fits a plain Poisson; `bs_compare_overdispersion()` scores the three so the choice is justified rather than assumed.
 
 <details>
 <summary><b>Method notes — estimand, model, and what the SPI is for</b> (click to expand)</summary>
@@ -160,7 +160,7 @@ adj
 
 ### 2. Expected counts
 
-`bs_expected()` is the core model. It estimates how many cases each district should report each month, given its population, its neighbours, and the season. The bare spec is a BYM2 spatial term, an IID year effect (which soaks up system-wide shifts such as the COVID drop), a harmonic season, and IID overdispersion, all on a log person-time offset. The `overdispersion` argument takes `"none"`, `"iid"`, or `"nb"` (negative binomial); pass `"auto"` to have it run the comparison in step 3 for you and refit with the best-calibrated spec.
+`bs_expected()` is the core model. It estimates how many cases each district should report each month, given its population, its neighbours, and the season. The bare spec, and the paper's own, is a BYM2 spatial term, an IID year effect (which soaks up system-wide shifts such as the COVID drop), a harmonic season, and negative binomial overdispersion, all on a log person-time offset. The `overdispersion` argument takes `"nb"` (default), `"iid"`, or `"none"`; pass `"auto"` to have it run the comparison in step 3 for you and refit with the best-calibrated spec.
 
 ```{r fit-bare}
 fit_bare <- bs_expected(
@@ -168,9 +168,6 @@ fit_bare <- bs_expected(
   population = synth$population,
   adjacency = adj,
   id_col = "adm2_guid",
-  season = "harmonic",
-  year_effect = "iid",
-  overdispersion = "iid",
   n_draws = 500,
   seed = 42,
   verbose = FALSE
@@ -207,9 +204,6 @@ fit_adj <- bs_expected(
   covariates = synth$covariates,
   log_transform = "travel_time_min",
   id_col = "adm2_guid",
-  season = "harmonic",
-  year_effect = "iid",
-  overdispersion = "iid",
   n_draws = 500,
   seed = 42,
   verbose = FALSE

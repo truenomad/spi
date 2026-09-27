@@ -87,6 +87,11 @@
 
 ### Model fitting
 
+* `bs_expected()` defaults changed to the paper specification:
+  `overdispersion = "nb"` (was `"iid"`) and `year_effect = "iid"` (was
+  `"none"`). The previous bare spec still works, by passing both arguments
+  explicitly. `bs_compare_overdispersion()` is unaffected, since it already
+  sets `overdispersion` per spec.
 * `bs_expected(seed = )` now reaches INLA's own RNG rather than R's alone.
   Seeding with `set.seed()` left `inla.posterior.sample()` unseeded, so two runs
   of identical seeded code disagreed by enough to move SPI and flip verdicts.
