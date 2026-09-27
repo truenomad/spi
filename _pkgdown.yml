@@ -82,6 +82,8 @@ navbar:
       menu:
       - text: Getting started
         href: articles/spi-getting-started.html
+      - text: How SPI works
+        href: articles/spi-methods.html
       - text: Interpreting SPI
         href: articles/spi-interpretation.html
       - text: STEPS and district review
@@ -133,6 +135,7 @@ articles:
   navbar: ~
   contents:
   - spi-getting-started
+  - spi-methods
   - spi-interpretation
   - spi-field-guide
   - spi-model-options
