@@ -443,3 +443,24 @@ make_indicators <- function(fg = synth_field_guide, seed = 20260725) {
     onset_notify_n = tl$n_assessable
   )
 }
+
+# --- a small monthly panel for bs_spi_prospective() -----------------------
+# Six districts in a chain, monthly Poisson counts and annual pop_u15.
+toy_panel <- function(years = 2015:2020, id_col = "adm2_guid") {
+  ids <- paste0("D", 1:6)
+  months <- seq(
+    as.Date(paste0(min(years), "-01-01")),
+    as.Date(paste0(max(years), "-12-01")),
+    by = "month"
+  )
+  cases <- tibble::tibble(
+    !!id_col := rep(ids, times = length(months)),
+    month = rep(months, each = length(ids))
+  )
+  cases$count <- withr::with_seed(1, stats::rpois(nrow(cases), 1))
+  list(
+    cases = cases,
+    population = make_population(id_col, years, ids),
+    adj = make_nb(ids, island_last = FALSE)
+  )
+}

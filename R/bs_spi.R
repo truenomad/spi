@@ -219,19 +219,10 @@ bs_spi <- function(
   # --- attach admin names (adm*_name) just before the id column ---
   spi_obj$summary <- .attach_admin_labels(spi_obj$summary, boundaries, id_col)
 
-  # --- low-information flag -----------------------------
-  low_info <- spi_obj$summary |>
-    dplyr::filter(.data$expected_total < min_expected)
-
-  # --- totals -------------------------------------------
-  totals <- tibble::tibble(
-    total_observed = sum(observed),
-    total_expected_median = round(
-      stats::median(matrixStats::rowSums2(draws)), 1
-    ),
-    n_groups = nrow(spi_obj$summary),
-    n_low_information = nrow(low_info)
-  )
+  # --- low-information flag and totals -----------------
+  tot <- .spi_totals(spi_obj$summary, draws, min_expected)
+  low_info <- tot$low_information
+  totals <- tot$totals
 
   # --- assemble output ----------------------------------
   result <- structure(
@@ -272,6 +263,25 @@ bs_spi <- function(
 }
 
 # --- internal helpers -------------------------------------
+
+# the low-information rows and the totals row of a blindspot_spi. Every
+# district-month falls in exactly one summary row, so the summed `observed`
+# column equals the summed monthly counts. `expected_draws` is any matrix of
+# expected counts whose row sums give the total expected count per draw.
+# @noRd
+.spi_totals <- function(summary, expected_draws, min_expected) {
+  low_info <- summary |>
+    dplyr::filter(.data$expected_total < min_expected)
+  totals <- tibble::tibble(
+    total_observed = sum(summary$observed),
+    total_expected_median = round(
+      stats::median(matrixStats::rowSums2(expected_draws)), 1
+    ),
+    n_groups = nrow(summary),
+    n_low_information = nrow(low_info)
+  )
+  list(low_information = low_info, totals = totals)
+}
 
 # summarise a draws matrix into median / mean / quantile columns
 # in one pass via matrixStats. Returns a tibble with the columns

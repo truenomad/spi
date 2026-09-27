@@ -118,5 +118,8 @@ print(spi_dy)
 }
 \seealso{
 \code{\link[=bs_expected]{bs_expected()}}, \code{\link[=bs_concordance]{bs_concordance()}}
+
+Other blindspot core functions:
+\code{\link[=bs_spi_prospective]{bs_spi_prospective()}}
 }
 \concept{blindspot core functions}
