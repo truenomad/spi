@@ -24,12 +24,12 @@ Default: NULL (use \code{synth_field_guide}).}
 The narrated worked-example tibble, invisibly.
 }
 \description{
-An interpretation aid for the console. Explains the five STEPS signals and
-the flag rule behind \code{\link[=bs_field_guide]{bs_field_guide()}}, lists the common misreadings that
-end a programme's trust in the score, and -- most usefully -- walks
-through a \strong{live worked example}: four archetype districts (reassuring,
-watch, flag, corroborated flag) selected by rule from a real field guide
-and narrated from their own signal values.
+An interpretation aid for the console. Explains the five STEPS components
+and the review judgements behind \code{\link[=bs_field_guide]{bs_field_guide()}}, lists common errors in
+interpreting the SPI, and walks through a \strong{live worked example}: four
+districts (at or above expectation, an uncertain shortfall, a large
+corroborated shortfall, and a shortfall without spatial corroboration)
+selected by rule from a real field guide and narrated from their own values.
 }
 \details{
 By default the worked example is narrated from \code{synth_field_guide}, the

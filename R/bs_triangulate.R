@@ -1,56 +1,58 @@
-#' Triangulate a field-guide verdict against independent virus detection
+#' Triangulate a field-guide judgement against independent virus detection
 #'
 #' @description
-#' Cross-references the [bs_field_guide()] verdict, which judges whether the
-#' AFP surveillance system *could* see poliovirus in a district-year, against
+#' Cross-references the [bs_field_guide()] review judgement, which reads
+#' whether AFP reporting in a district-year is below expectation, against
 #' the two channels that record whether virus was actually *found*: AFP
 #' detection and environmental surveillance (ES). Because ES is largely
 #' independent of AFP surveillance quality, it is the channel that can confirm
-#' or contradict a capacity flag without arguing in a circle. The result is a
+#' or contradict a review priority without arguing in a circle. The result is a
 #' per-district-year classification separating a trustworthy silence from a
 #' probable blind spot, and a three-level priority for triage.
 #'
 #' @details
-#' The field guide answers a capacity question from signals internal to the
-#' AFP stream, so a `FLAG` states that a silence is untrustworthy but not that
-#' the silence hid virus. This function adds the independent read. For every
-#' district-year with no AFP detection it classifies the verdict against ES
-#' status (`positive`, `clear` where a site exists and found nothing, or
-#' `no site`):
+#' The field guide reads reporting against expectation from the AFP stream
+#' alone, so a `Review priority` states that a silence may be untrustworthy
+#' but not that the silence hid virus. This function adds the independent
+#' read. For every district-year with no AFP detection it classifies the
+#' judgement against ES status (`positive`, `clear` where a site exists and
+#' found nothing, or `no site`):
 #' \itemize{
-#'   \item **confirmed blindspot** -- `FLAG`, AFP silent, ES positive. The
-#'     capacity flag is vindicated by an independent detection; the strongest
-#'     corroboration the data offer.
-#'   \item **blind, unverified** -- `FLAG`, AFP silent, no ES site. A capacity
-#'     warning with no independent channel to check it; the highest-value
+#'   \item **confirmed blindspot** -- `Review priority`, AFP silent, ES
+#'     positive. The review priority is supported by an independent
+#'     detection; the strongest corroboration the data offer.
+#'   \item **blind, unverified** -- `Review priority`, AFP silent, no ES site.
+#'     A shortfall with no independent channel to check it; the highest-value
 #'     place to deploy ES or an active search.
-#'   \item **flagged, ES clear** -- `FLAG`, AFP silent, ES negative. The
-#'     capacity concern stands, but the independent channel is quiet.
-#'   \item **adequate, ES positive** -- `No action`, AFP silent, ES positive.
-#'     A potential false-adequate: the guide saw nothing wrong yet virus was
-#'     found by the independent channel.
-#'   \item **corroborated / uncorroborated clear** -- `No action`, AFP silent,
-#'     ES negative or absent. A trustworthy silence, confirmed or unconfirmed.
+#'   \item **priority, ES clear** -- `Review priority`, AFP silent, ES
+#'     negative. The concern stands, but the independent channel is quiet.
+#'   \item **no indication, ES positive** -- `No SPI indication`, AFP silent,
+#'     ES positive. The guide saw no shortfall yet virus was found by the
+#'     independent channel.
+#'   \item **corroborated / uncorroborated clear** -- `No SPI indication`, AFP
+#'     silent, ES negative or absent. A silence confirmed or unconfirmed by
+#'     ES.
 #' }
-#' `REVIEW` and `WATCH` verdicts take the parallel `review, *` and `watch, *`
-#' labels. `review, ES positive` is high priority on the same reasoning as
-#' `watch, ES positive`; the other two review classes are medium.
+#' `Monitor` judgements take the parallel `monitor, *` labels.
+#' `monitor, ES positive` is high priority, since the ES hit supplies the
+#' corroboration the judgement lacked; the other two monitor classes are
+#' medium.
 #'
 #' A detection can inflate NPAFP through the active case finding it triggers,
-#' which lifts SPI and makes the preceding verdict look retrospectively
-#' correct. Set `detection_lag` to align the verdict in year *t* against
-#' detections in year *t + detection_lag*, so the capacity read is taken
-#' before the response contaminated it. `flag_preceded` records, for detected
-#' district-years, whether that aligned verdict was already `FLAG`, `REVIEW`
-#' or `WATCH`.
+#' which lifts SPI and makes the preceding judgement look retrospectively
+#' correct. Set `detection_lag` to align the judgement in year *t* against
+#' detections in year *t + detection_lag*, so the reading is taken before the
+#' response contaminated it. `flag_preceded` records, for detected
+#' district-years, whether that aligned judgement was already `Review
+#' priority` or `Monitor`.
 #'
 #' District-years present in `field_guide` but absent from `detections` are
 #' read as no detection and no ES site. Detections here are confirmed
 #' poliovirus isolations by channel, distinct from the orphan-sequence signal
-#' the field guide uses as out-of-grid detection corroboration.
+#' the field guide reports as detection context.
 #'
 #' @param field_guide A [bs_field_guide()] result (class
-#'   `blindspot_field_guide`). Supplies the verdict per district-year.
+#'   `blindspot_field_guide`). Supplies the judgement per district-year.
 #' @param detections A data frame at district-year level holding the id and
 #'   `year` columns plus the three detection columns named below.
 #' @param afp_detected Name of a logical / 0-1 column: poliovirus found
@@ -61,9 +63,9 @@
 #'   district-year. `es_detected` is only meaningful where this is true.
 #'   Default: `"es_covered"`.
 #' @param detection_lag Integer years to shift detections later than the
-#'   verdict they are tested against, to avoid response-amplified verdicts.
+#'   judgement they are tested against, to avoid response-amplified readings.
 #'   Default: 0.
-#' @param verdict_col Name of the verdict column in the field guide.
+#' @param verdict_col Name of the judgement column in the field guide.
 #'   Default: `"verdict"`.
 #' @param id_col Character district id column. Default: NULL (take
 #'   `field_guide$id_col`).
@@ -73,14 +75,14 @@
 #' @return An object of class `blindspot_triangulation`. A list with:
 #' \describe{
 #'   \item{district_year}{Tibble, one row per district-year, carrying the
-#'     verdict, `es_status`, `afp_hit`, `flag_preceded`, `triangulation`
+#'     judgement (`verdict`), `es_status`, `afp_hit`, `flag_preceded`, `triangulation`
 #'     (factor), and `priority` (factor).}
 #'   \item{focal}{The `read_year` slice of `district_year`.}
 #'   \item{reference}{Legend of the triangulation classes and their actions.}
 #'   \item{read_year, thresholds, params, id_col, call}{Metadata.}
 #' }
 #'
-#' @seealso [bs_field_guide()] for the verdict input,
+#' @seealso [bs_field_guide()] for the judgement input,
 #'   [bs_triangulate_table()] and [bs_triangulate_map()] for rendering the
 #'   result, and [bs_field_guide_table()] for rendering the guide itself.
 #'
@@ -207,10 +209,9 @@ bs_triangulate <- function(
 
 # @noRd
 .tri_levels <- c(
-  "confirmed blindspot", "blind, unverified", "review, ES positive",
-  "review, unverified", "watch, ES positive", "adequate, ES positive",
-  "flagged, ES clear", "review, ES clear", "watch, ES clear",
-  "watch, unverified", "corroborated clear", "uncorroborated clear",
+  "confirmed blindspot", "blind, unverified", "monitor, ES positive",
+  "no indication, ES positive", "priority, ES clear", "monitor, ES clear",
+  "monitor, unverified", "corroborated clear", "uncorroborated clear",
   "detected"
 )
 
@@ -223,51 +224,40 @@ bs_triangulate <- function(
     dplyr::mutate(
       triangulation = dplyr::case_when(
         .data$afp_hit ~ "detected",
-        .data$verdict_chr == "FLAG" & .data$es_status == "positive" ~
-          "confirmed blindspot",
-        .data$verdict_chr == "FLAG" & .data$es_status == "clear" ~
-          "flagged, ES clear",
-        .data$verdict_chr == "FLAG" & .data$es_status == "no site" ~
-          "blind, unverified",
-        .data$verdict_chr == "REVIEW" & .data$es_status == "positive" ~
-          "review, ES positive",
-        .data$verdict_chr == "REVIEW" & .data$es_status == "clear" ~
-          "review, ES clear",
-        .data$verdict_chr == "REVIEW" & .data$es_status == "no site" ~
-          "review, unverified",
-        .data$verdict_chr == "WATCH" & .data$es_status == "positive" ~
-          "watch, ES positive",
-        .data$verdict_chr == "WATCH" & .data$es_status == "clear" ~
-          "watch, ES clear",
-        .data$verdict_chr == "WATCH" & .data$es_status == "no site" ~
-          "watch, unverified",
-        .data$verdict_chr == "No action" & .data$es_status == "positive" ~
-          "adequate, ES positive",
-        .data$verdict_chr == "No action" & .data$es_status == "clear" ~
-          "corroborated clear",
-        .data$verdict_chr == "No action" & .data$es_status == "no site" ~
-          "uncorroborated clear",
+        .data$verdict_chr == "Review priority" &
+          .data$es_status == "positive" ~ "confirmed blindspot",
+        .data$verdict_chr == "Review priority" &
+          .data$es_status == "clear" ~ "priority, ES clear",
+        .data$verdict_chr == "Review priority" &
+          .data$es_status == "no site" ~ "blind, unverified",
+        .data$verdict_chr == "Monitor" & .data$es_status == "positive" ~
+          "monitor, ES positive",
+        .data$verdict_chr == "Monitor" & .data$es_status == "clear" ~
+          "monitor, ES clear",
+        .data$verdict_chr == "Monitor" & .data$es_status == "no site" ~
+          "monitor, unverified",
+        .data$verdict_chr == "No SPI indication" &
+          .data$es_status == "positive" ~ "no indication, ES positive",
+        .data$verdict_chr == "No SPI indication" &
+          .data$es_status == "clear" ~ "corroborated clear",
+        .data$verdict_chr == "No SPI indication" &
+          .data$es_status == "no site" ~ "uncorroborated clear",
         .default = NA_character_
       ),
       triangulation = factor(.data$triangulation, levels = .tri_levels),
       priority = dplyr::case_when(
         .data$triangulation == "detected" ~ "resolved",
         .data$triangulation %in% c(
-          "confirmed blindspot", "blind, unverified", "review, ES positive",
-          "watch, ES positive"
+          "confirmed blindspot", "blind, unverified", "monitor, ES positive"
         ) ~ "high",
-        # "adequate, ES positive" is the expected subclinical floor, not a
-        # false-adequate: AFP only sees the paralytic fraction (~1/200
-        # infections), so an adequate system misses most circulation by design
-        # and ES picking it up is normal. Medium, not high, so it does not
-        # outweigh confirmed blind spots in the triage.
-        # the review classes sit at medium alongside their watch counterparts
-        # rather than with the flags. The verdict already records that the
-        # shortfall is credible; promoting them to high as well would double-
-        # count that and swamp the confirmed blind spots in the triage.
+        # "no indication, ES positive" is the expected subclinical floor, not a
+        # false reassurance: AFP only sees the paralytic fraction (~1/200
+        # infections), so a system reporting as expected misses most
+        # circulation by design and ES picking it up is normal. Medium, not
+        # high, so it does not outweigh confirmed blind spots in the triage.
         .data$triangulation %in% c(
-          "flagged, ES clear", "review, ES clear", "review, unverified",
-          "watch, ES clear", "watch, unverified", "adequate, ES positive"
+          "priority, ES clear", "monitor, ES clear", "monitor, unverified",
+          "no indication, ES positive"
         ) ~ "medium",
         .data$triangulation %in% c(
           "corroborated clear", "uncorroborated clear"
@@ -277,7 +267,7 @@ bs_triangulate <- function(
       priority = factor(.data$priority, levels = .tri_priority_levels),
       flag_preceded = dplyr::if_else(
         .data$afp_hit,
-        .data$verdict_chr %in% c("FLAG", "REVIEW", "WATCH"),
+        .data$verdict_chr %in% c("Review priority", "Monitor"),
         NA
       )
     )
@@ -300,40 +290,31 @@ bs_triangulate <- function(
   tibble::tribble(
     ~class, ~means, ~action,
     "confirmed blindspot",
-    "Flagged capacity gap where ES independently found virus AFP missed.",
-    "Act: the flag is vindicated; active case search and response.",
+    "Review priority where ES independently found virus AFP missed.",
+    "Act: the shortfall is supported; active case search and response.",
     "blind, unverified",
-    "Flagged capacity gap with no ES site to check it.",
+    "Review priority with no ES site to check it.",
     "Highest-value deployment: add ES or active search to gain a read.",
-    "flagged, ES clear",
-    "Flagged capacity gap, but the ES site found nothing.",
-    "Watch: capacity concern stands at lower urgency.",
-    "adequate, ES positive",
-    "Verdict said adequate, yet ES found virus: a possible false-adequate.",
-    "Review why an adequate district missed a detected circulation.",
-    "review, ES positive",
-    "Credible but uncorroborated shortfall with an independent ES detection.",
-    "Escalate toward flag; the ES hit supplies the missing corroboration.",
-    "review, ES clear",
-    "Credible but uncorroborated shortfall; the ES site found nothing.",
-    "Review at lower urgency; the shortfall stands, corroboration does not.",
-    "review, unverified",
-    "Credible but uncorroborated shortfall with no ES site to check it.",
-    "High-value deployment: ES would settle whether the shortfall hid virus.",
-    "watch, ES positive",
-    "Borderline verdict with an independent ES detection.",
-    "Escalate toward flag; treat as a live signal.",
-    "watch, ES clear",
-    "Borderline verdict, but the covering ES site found nothing.",
-    "Watch; another year of data resolves the verdict.",
-    "watch, unverified",
-    "Borderline verdict with no ES site to check it.",
-    "Watch; ES would resolve whether the uncertainty hides virus.",
+    "priority, ES clear",
+    "Review priority, but the ES site found nothing.",
+    "Review: the concern stands at lower urgency.",
+    "no indication, ES positive",
+    "No SPI indication, yet ES found virus.",
+    "Review why a district reporting as expected missed a detected circulation.",
+    "monitor, ES positive",
+    "Monitored shortfall with an independent ES detection.",
+    "Escalate toward review priority; the ES hit supplies corroboration.",
+    "monitor, ES clear",
+    "Monitored shortfall, but the covering ES site found nothing.",
+    "Monitor; another year of data resolves the judgement.",
+    "monitor, unverified",
+    "Monitored shortfall with no ES site to check it.",
+    "Monitor; ES would resolve whether the shortfall hides virus.",
     "corroborated clear",
-    "Adequate verdict and a covering ES site both quiet.",
-    "None: trustworthy silence, independently confirmed.",
+    "No SPI indication and a covering ES site both quiet.",
+    "None: silence independently confirmed.",
     "uncorroborated clear",
-    "Adequate verdict but no ES site to confirm it.",
+    "No SPI indication but no ES site to confirm it.",
     "None routine; ES would upgrade this to corroborated.",
     "detected",
     "Poliovirus already surfaced through AFP in the district-year.",
@@ -351,7 +332,7 @@ print.blindspot_triangulation <- function(x, ...) {
   cli::cli_inform(c(
     "Read year: {.val {x$read_year}} \\
      | detection lag: {.val {x$params$detection_lag}} \\
-     | verdict crossed against AFP and ES channels"
+     | judgement crossed against AFP and ES channels"
   ))
 
   focal <- x$focal
@@ -370,7 +351,7 @@ print.blindspot_triangulation <- function(x, ...) {
   n_blind <- sum(focal$triangulation == "blind, unverified")
   cli::cli_inform(c(
     "*" = "{n_confirmed} confirmed blindspot{?s} (ES caught what AFP missed)",
-    "*" = "{n_blind} blind/unverified (flagged, no ES to check)"
+    "*" = "{n_blind} blind/unverified (review priority, no ES to check)"
   ))
   cli::cli_alert_info(
     "Class legend in {.code x$reference}; full panel in \\
@@ -388,7 +369,7 @@ print.blindspot_triangulation <- function(x, ...) {
 #' @description
 #' Renders the [bs_triangulate()] classification for one focal year as a
 #' `gt` or `flextable` table: one row per district, ordered by triage
-#' priority, with the field-guide verdict, ES and AFP status, the resulting
+#' priority, with the field-guide judgement, ES and AFP status, the resulting
 #' triangulation class, and its priority. The triangulation cell is shaded by
 #' priority (adverse / intermediate / reassuring), reusing the field-guide
 #' palette so the two tables read alike.
@@ -454,7 +435,7 @@ bs_triangulate_table <- function(
 
   df <- tibble::tibble(
     District = foc[[name_col]],
-    Verdict = as.character(foc$verdict_chr),
+    Judgement = as.character(foc$verdict_chr),
     ES = foc$es_status,
     AFP = ifelse(foc$afp_hit, "detected", "-"),
     Triangulation = as.character(foc$triangulation),
@@ -515,23 +496,20 @@ bs_triangulate_table <- function(
 # choropleth (mirrors bs_concordance_maps, single panel)
 # ---------------------------------------------------------------------------
 
-# thirteen-class triage palette; keys match .tri_levels exactly. Built for the
+# ten-class triage palette; keys match .tri_levels exactly. Built for the
 # legend and the table, not the map: the map defaults to priority precisely
 # because this many categorical fills collide on small polygons.
 # @noRd
 TRI_CLASS_FILL <- c(
   "confirmed blindspot" = "#B71C1C", # deep red: ES caught what AFP missed
-  "blind, unverified" = "#AD1457", # magenta: flagged, no channel to check
-  "review, ES positive" = "#BF360C", # rust: credible shortfall + ES hit
-  "review, unverified" = "#D81B60", # light magenta: review, no channel
-  "watch, ES positive" = "#E65100", # orange-red: borderline + ES hit
-  "adequate, ES positive" = "#8E24AA", # purple: possible false-adequate
-  "flagged, ES clear" = "#F9A825", # amber
-  "review, ES clear" = "#FB8C00", # orange: review, ES quiet
-  "watch, ES clear" = "#FBC02D", # amber-yellow
-  "watch, unverified" = "#FDD835", # yellow
-  "corroborated clear" = "#2E7D32", # green: trustworthy, confirmed silence
-  "uncorroborated clear" = "#A5D6A7", # light green: trustworthy, unconfirmed
+  "blind, unverified" = "#AD1457", # magenta: priority, no channel to check
+  "monitor, ES positive" = "#E65100", # orange-red: monitored + ES hit
+  "no indication, ES positive" = "#8E24AA", # purple: no shortfall, ES hit
+  "priority, ES clear" = "#F9A825", # amber
+  "monitor, ES clear" = "#FBC02D", # amber-yellow
+  "monitor, unverified" = "#FDD835", # yellow
+  "corroborated clear" = "#2E7D32", # green: confirmed silence
+  "uncorroborated clear" = "#A5D6A7", # light green: unconfirmed silence
   "detected" = "#1565C0" # blue: already surfaced through AFP
 )
 
@@ -662,9 +640,10 @@ bs_triangulate_map <- function(
   # Default: triage by priority. Ten categorical fills on hundreds of small
   # polygons collide, so map the three-level priority instead. Coverage is a
   # separate variable, so grey means one thing only -- no independent ES read --
-  # and the "act here" signal rides a red ring on the flagged districts. A
-  # flagged-but-unsited district (blind, unverified) then shows grey fill (no
-  # read) under a red ring ("instrument here") instead of hiding in the grey.
+  # and the "act here" signal rides a red ring on the review priority
+  # districts. A priority district with no ES site (blind, unverified) then
+  # shows grey fill (no read) under a red ring ("instrument here") instead of
+  # hiding in the grey.
   # AFP-detected sits off-grid in a neutral grey.
   bnd_slice <- bnd_slice |>
     dplyr::mutate(
@@ -677,7 +656,7 @@ bs_triangulate_map <- function(
         .data$map_fill,
         levels = c("high", "medium", "low", "detected", "no ES read")
       ),
-      flagged = .data$verdict_chr == "FLAG"
+      flagged = .data$verdict_chr == "Review priority"
     )
   fill_pal <- c(
     high = "#b2182b", medium = "#ef8a62", low = "#4d9221",
@@ -695,7 +674,7 @@ bs_triangulate_map <- function(
       fill = NA, colour = "#b2182b", linewidth = 0.55, inherit.aes = FALSE
     ) +
     ggplot2::scale_fill_manual(values = fill_pal, drop = FALSE,
-                               name = "Triage priority (red ring = flagged)") +
+                               name = "Triage priority (red ring = review priority)") +
     ggplot2::guides(fill = ggplot2::guide_legend(
       nrow = 1, title.position = "top", title.hjust = 0)) +
     ggplot2::labs(title = title, subtitle = subtitle) +

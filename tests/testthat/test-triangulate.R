@@ -9,46 +9,46 @@ make_fg <- function(dy, read_year = 2020L) {
     list(
       district_year = tibble::as_tibble(dy),
       read_year = as.integer(read_year),
-      thresholds = list(spi = 0.8, npafp = 3),
+      thresholds = list(spi = 1, npafp = 3),
       id_col = "adm2_guid"
     ),
     class = "blindspot_field_guide"
   )
 }
 
-test_that("all thirteen triangulation classes are reachable", {
-  ids <- sprintf("D%02d", 1:13)
+test_that("all ten triangulation classes are reachable", {
+  ids <- sprintf("D%02d", 1:10)
   dy <- tibble::tibble(
     adm2_guid = ids,
     year = 2020L,
     verdict = factor(
-      c("FLAG", "FLAG", "FLAG", "REVIEW", "REVIEW", "REVIEW",
-        "WATCH", "WATCH", "WATCH",
-        "No action", "No action", "No action", "No action"),
+      c("Review priority", "Review priority", "Review priority",
+        "Monitor", "Monitor", "Monitor",
+        "No SPI indication", "No SPI indication", "No SPI indication",
+        "No SPI indication"),
       levels = .FG_VERDICT_LEVELS
     )
   )
-  # each verdict tier crossed against ES positive / clear / no site, in that
+  # each judgement crossed against ES positive / clear / no site, in that
   # order, with one AFP hit at the end to reach "detected"
   det <- tibble::tibble(
     adm2_guid = ids,
     year = 2020L,
-    afp_detected = c(rep(FALSE, 12), TRUE),
+    afp_detected = c(rep(FALSE, 9), TRUE),
     es_detected = c(TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, TRUE, FALSE,
-                    FALSE, TRUE, FALSE, FALSE, FALSE),
+                    FALSE, FALSE),
     es_covered = c(TRUE, TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, TRUE,
-                   FALSE, TRUE, TRUE, FALSE, TRUE)
+                   FALSE, TRUE)
   )
   tri <- bs_triangulate(make_fg(dy), det, verbose = FALSE)
   cls <- tri$district_year
   got <- as.character(cls$triangulation[match(ids, cls$adm2_guid)])
 
   expect_equal(got, c(
-    "confirmed blindspot", "flagged, ES clear", "blind, unverified",
-    "review, ES positive", "review, ES clear", "review, unverified",
-    "watch, ES positive", "watch, ES clear", "watch, unverified",
-    "adequate, ES positive", "corroborated clear", "uncorroborated clear",
-    "detected"
+    "confirmed blindspot", "priority, ES clear", "blind, unverified",
+    "monitor, ES positive", "monitor, ES clear", "monitor, unverified",
+    "no indication, ES positive", "corroborated clear",
+    "uncorroborated clear", "detected"
   ))
   # every class realised, and no unclassified rows
   expect_setequal(as.character(unique(cls$triangulation)), .tri_levels)
@@ -57,26 +57,30 @@ test_that("all thirteen triangulation classes are reachable", {
   # priority rolls up as documented
   pr <- as.character(cls$priority[match(ids, cls$adm2_guid)])
   expect_equal(pr[1], "high")      # confirmed blindspot
-  expect_equal(pr[2], "medium")    # flagged, ES clear
-  expect_equal(pr[4], "high")      # review, ES positive
-  expect_equal(pr[5], "medium")    # review, ES clear
-  expect_equal(pr[6], "medium")    # review, unverified
-  expect_equal(pr[11], "low")      # corroborated clear
-  expect_equal(pr[13], "resolved") # detected
+  expect_equal(pr[2], "medium")    # priority, ES clear
+  expect_equal(pr[3], "high")      # blind, unverified
+  expect_equal(pr[4], "high")      # monitor, ES positive
+  expect_equal(pr[5], "medium")    # monitor, ES clear
+  expect_equal(pr[6], "medium")    # monitor, unverified
+  expect_equal(pr[7], "medium")    # no indication, ES positive
+  expect_equal(pr[8], "low")       # corroborated clear
+  expect_equal(pr[10], "resolved") # detected
 
-  # flag_preceded only set for the AFP-detected row (No action -> FALSE)
+  # flag_preceded only set for the AFP-detected row (No SPI indication ->
+  # FALSE)
   fp <- cls$flag_preceded[match(ids, cls$adm2_guid)]
-  expect_true(all(is.na(fp[1:12])))
-  expect_false(fp[13])
+  expect_true(all(is.na(fp[1:9])))
+  expect_false(fp[10])
 })
 
-test_that("a REVIEW verdict preceding an AFP detection counts as forewarned", {
-  # REVIEW is a capacity warning the guide did issue, so a detection in a
-  # district it had already marked is not an unforewarned detection
+test_that("a Monitor judgement preceding an AFP detection counts as forewarned", {
+  # Monitor is a shortfall the guide did report, so a detection in a district
+  # it had already marked is not an unforewarned detection
   dy <- tibble::tibble(
     adm2_guid = c("D1", "D2"),
     year = 2020L,
-    verdict = factor(c("REVIEW", "No action"), levels = .FG_VERDICT_LEVELS)
+    verdict = factor(c("Monitor", "No SPI indication"),
+                     levels = .FG_VERDICT_LEVELS)
   )
   det <- tibble::tibble(
     adm2_guid = c("D1", "D2"), year = 2020L,
@@ -92,8 +96,8 @@ test_that("detection_lag aligns verdict[t] with detection[t+lag]", {
   dy <- tibble::tibble(
     adm2_guid = "D1",
     year = c(2019L, 2020L),
-    verdict = factor(c("FLAG", "No action"),
-                     levels = c("FLAG", "WATCH", "No action"))
+    verdict = factor(c("Review priority", "No SPI indication"),
+                     levels = .FG_VERDICT_LEVELS)
   )
   # one ES-positive detection in 2020
   det <- tibble::tibble(
@@ -109,10 +113,10 @@ test_that("detection_lag aligns verdict[t] with detection[t+lag]", {
   cls0 <- tri0$district_year
   cls1 <- tri1$district_year
 
-  # lag 0: the 2020 No-action verdict meets the 2020 ES positive
+  # lag 0: the 2020 no-indication judgement meets the 2020 ES positive
   expect_equal(as.character(cls0$triangulation[cls0$year == 2020L]),
-               "adequate, ES positive")
-  # lag 1: the 2019 FLAG verdict now meets the 2020 ES positive
+               "no indication, ES positive")
+  # lag 1: the 2019 review priority now meets the 2020 ES positive
   expect_equal(as.character(cls1$triangulation[cls1$year == 2019L]),
                "confirmed blindspot")
   # and 2020 loses its aligned detection -> read as no site
@@ -124,8 +128,8 @@ test_that("district-years absent from detections read as no detection", {
   dy <- tibble::tibble(
     adm2_guid = c("D1", "D2"),
     year = 2020L,
-    verdict = factor(c("FLAG", "No action"),
-                     levels = c("FLAG", "WATCH", "No action"))
+    verdict = factor(c("Review priority", "No SPI indication"),
+                     levels = .FG_VERDICT_LEVELS)
   )
   # only D1 has a detection row; D2 is absent
   det <- tibble::tibble(
@@ -143,7 +147,7 @@ test_that("district-years absent from detections read as no detection", {
 test_that("bs_triangulate validates its inputs", {
   dy <- tibble::tibble(
     adm2_guid = "D1", year = 2020L,
-    verdict = factor("FLAG", levels = c("FLAG", "WATCH", "No action"))
+    verdict = factor("Review priority", levels = .FG_VERDICT_LEVELS)
   )
   det <- tibble::tibble(
     adm2_guid = "D1", year = 2020L,

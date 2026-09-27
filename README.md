@@ -39,11 +39,11 @@ each district-month, and the SPI is the observed count over that
 expectation:
 
 $$
-Y_{it} \sim \text{Poisson}(\mu_{it}), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}
+Y_{it} \sim \text{NegBin}(\mu_{it}, \kappa), \qquad \text{SPI}_{it} = \frac{Y_{it}}{\mu_{it}}
 $$
 
 $$
-\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + \epsilon_{it} + x_{it}^{\top}\beta
+\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i + x_{it}^{\top}\beta
 $$
 
 where
@@ -55,14 +55,15 @@ where
   periodicity)
 - $\gamma_{y(t)}$ is an exchangeable year effect
 - $u_i + v_i$ is a BYM2 spatial random effect (Riebler et al. 2016)
-- $\epsilon_{it}$ is the observation-level overdispersion term, the
-  default `overdispersion = "iid"`
+- $\kappa$ is the negative binomial dispersion, the default
+  `overdispersion = "nb"`
 - $x_{it}^{\top}\beta$ is the optional district-covariate term (DTP3
   coverage, urbanicity, travel time to care)
 
-`overdispersion = "nb"` swaps the Poisson likelihood and $\epsilon_{it}$
-for a negative binomial, and `"none"` drops the term;
-`bs_compare_overdispersion()` scores the three so the choice is
+`overdispersion = "iid"` swaps the negative binomial likelihood for
+Poisson plus an observation-level term $\epsilon_{it}$ added to the
+linear predictor, and `"none"` drops overdispersion and fits a plain
+Poisson; `bs_compare_overdispersion()` scores the three so the choice is
 justified rather than assumed.
 
 <details>
@@ -234,12 +235,12 @@ adj
 
 `bs_expected()` is the core model. It estimates how many cases each
 district should report each month, given its population, its neighbours,
-and the season. The bare spec is a BYM2 spatial term, an IID year effect
-(which soaks up system-wide shifts such as the COVID drop), a harmonic
-season, and IID overdispersion, all on a log person-time offset. The
-`overdispersion` argument takes `"none"`, `"iid"`, or `"nb"` (negative
-binomial); pass `"auto"` to have it run the comparison in step 3 for you
-and refit with the best-calibrated spec.
+and the season. The bare spec, and the paper's own, is a BYM2 spatial
+term, an IID year effect (which soaks up system-wide shifts such as the
+COVID drop), a harmonic season, and negative binomial overdispersion,
+all on a log person-time offset. The `overdispersion` argument takes
+`"nb"` (default), `"iid"`, or `"none"`; pass `"auto"` to have it run the
+comparison in step 3 for you and refit with the best-calibrated spec.
 
 ``` r
 fit_bare <- bs_expected(
@@ -247,9 +248,6 @@ fit_bare <- bs_expected(
   population = synth$population,
   adjacency = adj,
   id_col = "adm2_guid",
-  season = "harmonic",
-  year_effect = "iid",
-  overdispersion = "iid",
   n_draws = 500,
   seed = 42,
   verbose = FALSE
@@ -270,12 +268,12 @@ as_tibble(fit_bare) |>
 #> # A tibble: 6 x 6
 #>   adm2_guid           month      count expected_median expected_q05 expected_q95
 #>   <chr>               <date>     <int>           <dbl>        <dbl>        <dbl>
-#> 1 {54CD979C-CF9D-6A6~ 2015-06-01     1           0.534        0.296         1.05
-#> 2 {54CD979C-CF9D-6A6~ 2015-11-01     1           0.599        0.310         1.23
-#> 3 {54CD979C-CF9D-6A6~ 2016-01-01     2           0.930        0.496         1.89
-#> 4 {54CD979C-CF9D-6A6~ 2016-02-01     1           0.818        0.410         1.56
-#> 5 {54CD979C-CF9D-6A6~ 2016-04-01     1           0.749        0.408         1.35
-#> 6 {54CD979C-CF9D-6A6~ 2016-05-01     1           0.719        0.359         1.35
+#> 1 {54CD979C-CF9D-6A6~ 2015-06-01     1           0.517        0.432        0.634
+#> 2 {54CD979C-CF9D-6A6~ 2015-11-01     1           0.577        0.483        0.701
+#> 3 {54CD979C-CF9D-6A6~ 2016-01-01     2           0.784        0.655        0.949
+#> 4 {54CD979C-CF9D-6A6~ 2016-02-01     1           0.795        0.663        0.957
+#> 5 {54CD979C-CF9D-6A6~ 2016-04-01     1           0.730        0.609        0.890
+#> 6 {54CD979C-CF9D-6A6~ 2016-05-01     1           0.676        0.563        0.819
 ```
 
 ### Adjusting for covariates
@@ -306,9 +304,6 @@ fit_adj <- bs_expected(
   covariates = synth$covariates,
   log_transform = "travel_time_min",
   id_col = "adm2_guid",
-  season = "harmonic",
-  year_effect = "iid",
-  overdispersion = "iid",
   n_draws = 500,
   seed = 42,
   verbose = FALSE
@@ -326,8 +321,8 @@ eff[eff$covariate %in% c("dtp3", "urban_prop", "travel_time_min"),
 #> # A tibble: 3 x 5
 #>   covariate       rr_median rr_q025 rr_q975 signif
 #>   <chr>               <dbl>   <dbl>   <dbl> <lgl> 
-#> 1 dtp3                0.999   0.951    1.05 FALSE 
-#> 2 urban_prop          1.03    0.940    1.13 FALSE 
+#> 1 dtp3                1.00    0.953    1.05 FALSE 
+#> 2 urban_prop          1.03    0.938    1.13 FALSE 
 #> 3 travel_time_min     0.991   0.968    1.01 FALSE
 ```
 
@@ -388,12 +383,12 @@ head(as_tibble(spi_dy)[, c(
 #> # A tibble: 6 x 6
 #>   adm2_guid                             year observed spi_median spi_q05 spi_q95
 #>   <chr>                                <dbl>    <int>      <dbl>   <dbl>   <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.640   0.432   0.982
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.04    0.703   1.61 
+#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.675   0.469   0.944
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.11    0.772   1.54 
 #> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0    
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.921   0.620   1.46 
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      1.95    1.35    2.99 
-#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.41    0.939   2.13
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.983   0.680   1.37 
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      2.12    1.46    2.92 
+#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.50    1.04    2.13
 ```
 
 **Why the yearly SPI is the one we act on.** The index is defined at any
@@ -457,7 +452,7 @@ Every district-year lands in one of the four cells:
 table(conc$district_year$concordance)
 #> 
 #>     Both adequate    True shortfall False reassurance       False alarm 
-#>              1358               234               674                94
+#>              1348               233               684                95
 ```
 
 `plot()` shows the four cells as a scatter of NPAFP rate against SPI,
@@ -481,41 +476,65 @@ bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 
 <img src="man/figures/README-maps-1.png" alt="" width="100%" />
 
-### 7. The five-signal STEPS field guide
+### 7. The STEPS field guide
 
-`bs_field_guide()` reads each district-year through five signals —
-**STEPS** (significance, trend, extent, persistence, surroundings) — and
-lands on a FLAG, REVIEW, WATCH, or No-action verdict. Significance is
-the entry point; trend, persistence and surroundings are the three
-corroborators (a flag needs at least two of them); extent grades depth.
-A district that clears significance but not the corroborator count is
-held at REVIEW rather than dropped to No-action: the shortfall is
-credible, only the corroboration is thin. Surroundings uses the
-neighbour graph, and fires either on a contrast against healthier
-neighbours or on a shortfall shared across the whole neighbourhood, the
-case where there is no healthy neighbour left to contrast against.
-Seasonal blindness (from the monthly SPI) and any poliovirus found there
-through the case-based (AFP) channel or environmental surveillance (ES)
-are computed as **out-of-grid corroboration**: they strengthen a flag
-but are never one of the five STEPS.
+`bs_field_guide()` applies the SPI field guide's review framework to
+each district-year. For districts with an SPI below 1, five components,
+**STEPS**, help assess the wider surveillance picture:
 
-The `genomic` and `es` arguments are those two independent detection
-channels: `genomic` is the district-years where the toy's virus-outcome
-sheet recorded a cVDPV2 (`any_cvdpv2 == 1`), and `es` is the ES
-district-year table where a positive sewage sample was found
-(`n_positive > 0`). Neither comes from the AFP stream the guide is
-grading, so the out-of-grid detection can ask whether a flagged silence
-also had poliovirus surface there, evidence of a genuine blindspot
-rather than a false alarm. Detections corroborate the reading from
-outside the grid and never enter the STEPS count; by default they leave
-the verdict untouched too, though `detection_corroborates = TRUE`
-promotes a detection to a corroborator.
+| Letter | Component | What it asks |
+|----|----|----|
+| S | Strength | How large and how certain is the shortfall? Read from the SPI value and whether its 90% credible interval lies entirely below 1. |
+| T | Timeliness | Are specimens reaching the laboratory within 3 days? |
+| E | Extent | Are other districts in the same admin-1 area (other LGAs in the same state) also below expectation? |
+| P | Persistence | Was the SPI also below 1 in the previous year? |
+| S | Stool adequacy | Are stool specimens adequate? |
+
+The components are interpreted together, not combined into a score, and
+they do not carry the same weight. Extent is the strongest corroborator
+of the SPI signal. Persistence also supports it, but is common.
+Timeliness and stool adequacy are important surveillance dimensions, but
+are not validated corroborators, so they are reported and never change
+the judgement. Each district-year receives one of the field guide's
+three review judgements: **Review priority** when the interval lies
+entirely below 1 and extent or persistence corroborates the shortfall,
+**Monitor** for any other SPI below 1, and **No SPI indication** at or
+above 1.
+
+Timeliness and stool adequacy come from `process`, a district-year table
+of AFP case counts (`n_cases`, `n_adequate`, `n_transport`,
+`n_transport_timely`). Extent uses the `adm1_name` column that
+`bs_concordance()` carries when given `boundaries`. The trend, the
+neighbour contrast, seasonal detection and any poliovirus found through
+AFP (`genomic`) or environmental surveillance (`es`) are still computed
+and reported as context outside STEPS.
+
+The one-page infographic that summarises NPAFP, the SPI and STEPS ships
+with the package at
+`system.file("field-guide", "npafp_spi_steps_infographic.html", package = "blindspot")`.
+
+<details>
+
+<summary>
+
+Using NPAFP, SPI and STEPS (infographic)
+</summary>
+
+<figure>
+<img src="man/figures/README-steps-infographic.png"
+alt="Infographic: using NPAFP, SPI and STEPS to assess AFP surveillance" />
+<figcaption aria-hidden="true">Infographic: using NPAFP, SPI and STEPS
+to assess AFP surveillance</figcaption>
+</figure>
+
+</details>
 
 ``` r
 genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
 
 fg <- bs_field_guide(
   concordance = conc,
+  process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
   genomic = genomic[, c("adm2_guid", "year")],
@@ -526,63 +545,64 @@ fg <- bs_field_guide(
 
 fg
 #> # A tibble: 3 x 3
-#>   verdict       n   pct
-#>   <chr>     <int> <dbl>
-#> 1 FLAG         64  27.1
-#> 2 WATCH         1   0.4
-#> 3 No action   171  72.5
-#> # A tibble: 48 x 10
-#>    district   obs   exp   spi cri       npafp   run traj    corrob verdict
-#>    <chr>    <int> <dbl> <dbl> <chr>     <dbl> <int> <chr>    <int> <chr>  
-#>  1 Nentha       2  14.3  0.14 0.11-0.17   2       1 falling      2 FLAG   
-#>  2 Sarnesh      3  14.4  0.21 0.17-0.27   3.5     1 falling      2 FLAG   
-#>  3 Kirun        9  24.9  0.36 0.30-0.44   6.4     2 falling      2 FLAG   
-#>  4 Doldor      13  29.9  0.43 0.36-0.52   6.8     1 falling      2 FLAG   
-#>  5 Raenun      10  22.5  0.44 0.36-0.54   5.8     3 rising       2 FLAG   
-#>  6 Raenwen     10  21.5  0.47 0.38-0.59   5.9     1 falling      2 FLAG   
-#>  7 Beltha      14  29.3  0.48 0.40-0.58   7.5     1 falling      2 FLAG   
-#>  8 Zimun        5  10.1  0.49 0.38-0.64   5.4     3 rising       2 FLAG   
-#>  9 Raendor      8  15.8  0.51 0.40-0.63   4.7     2 falling      2 FLAG   
-#> 10 Kirtha      11  21.8  0.51 0.40-0.63  11.6     2 falling      2 FLAG   
-#> # i 38 more rows
+#>   verdict               n   pct
+#>   <chr>             <int> <dbl>
+#> 1 Review priority      84  35.6
+#> 2 Monitor              59  25  
+#> 3 No SPI indication    93  39.4
+#> # A tibble: 84 x 11
+#>    district   obs   exp   spi cri       npafp extent persist transport adequacy
+#>    <chr>    <int> <dbl> <dbl> <chr>     <dbl> <lgl>  <lgl>       <dbl>    <dbl>
+#>  1 Khandor      0   2.4  0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  2 Vasheth      0   0.8  0    0.00-0.00   0   TRUE   FALSE          NA       NA
+#>  3 Arddor       0   1.7  0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  4 Ardor        0   1.2  0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  5 Doloth       0   1.2  0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  6 Raenan       0   1    0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  7 Chakis       0   1.9  0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  8 Vashoth      0   2.4  0    0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  9 Suzil        1   8.6  0.11 0.09-0.14   1.6 TRUE   TRUE           NA       NA
+#> 10 Nentha       2  16.5  0.12 0.10-0.14   2   TRUE   FALSE          NA       NA
+#> # i 74 more rows
+#> # i 1 more variable: verdict <chr>
 ```
 
-`summary(fg)` adds the signal fire-counts and a reference for the five
-STEPS, and `bs_field_guide_help()` walks a worked example in the
-console.
+`summary(fg)` adds how often each STEPS component raises concern and the
+STEPS reference table, and `bs_field_guide_help()` walks the field
+guide's four worked examples in the console.
 
 For a report, `bs_field_guide_table()` renders the worked example as a
-publication-ready `gt` or `flextable`: the rule-picked archetype
-districts (by name) read down the five STEPS, each cell shaded by
-concern. (The image below is a snapshot; the live call returns a `gt`
-object whose cell shading GitHub would otherwise strip.)
+publication-ready `gt` or `flextable`: four rule-picked districts (by
+name) read down the five STEPS components, each cell shaded by concern.
+(The image below is a snapshot; the live call returns a `gt` object
+whose cell shading GitHub would otherwise strip.)
 
 ``` r
 bs_field_guide_table(fg, engine = "gt", layout = "worked")
 ```
 
-<img src="man/figures/README-fg-table.png" alt="Field guide table: four districts read down the five STEPS, cells shaded green for reassuring, amber for watch, and red for adverse." width="100%" />
+<img src="man/figures/README-fg-table.png" alt="Field guide table: four districts read down the five STEPS components, cells shaded green for reassuring, amber for intermediate, and rose where the finding adds to concern." width="100%" />
 
 For the one district you are about to investigate,
 `bs_field_guide_pager()` renders a single-district **field pager**: a
 self-contained, print-ready A4 tear-sheet. Hand it the field guide and
 the shapefile and it draws everything it needs from those two, with no
-adjacency object required. The masthead carries the verdict; the chart
-plots the district's own SPI (with the 90% credible-interval ribbon and
-AFP / ES detection markers) and a locator inset drawn from the real
-geometry, with the neighbour median read out as a figure rather than a
-line; the five STEPS read out as gate, magnitude, and corroboration
-(with seasonal and detection corroboration out of grid); and a verdict
-banner states what the reading rests on. The pager reports the reading
-and recommends no follow-up, and it is explicit about the limits of the
+adjacency object required. The masthead carries the review judgement;
+the chart plots the district's own SPI (with the 90% credible-interval
+ribbon and AFP / ES detection markers) and a locator inset drawn from
+the real geometry, with the neighbour median read out as a figure rather
+than a line; the five STEPS components are read out one per row, with
+the season, trend and detections shown as context; and a banner states
+what the judgement rests on. The pager reports the reading and
+recommends no follow-up, and it is explicit about the limits of the
 credible interval: that interval carries uncertainty in the *expected*
-count, not sampling variability in the observed one, so a flag resting
-on a handful of cases says so on its face. `path` writes an auto-named
-`spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`. Three optional
-arguments add context the field guide does not carry itself: `region`
-places the district in its region with a rank that is triage only,
-`year_label` names a reading window that is not a calendar year, and
-`prob_under` prints the posterior `P(SPI < 1)` on the significance line,
+count, not sampling variability in the observed one, so a shortfall
+resting on a handful of cases says so on its face. `path` writes an
+auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`. Three
+optional arguments add context the field guide does not carry itself:
+`region` places the district in its region with a rank that is triage
+only, `year_label` names a reading window that is not a calendar year,
+and `prob_under` prints the posterior `P(SPI < 1)` on the strength line,
 which is otherwise only pass or fail.
 
 ``` r
@@ -596,18 +616,18 @@ bs_field_guide_pager(
 
 <summary>
 
-One-page field pager for a flagged district
+One-page field pager for a review priority district
 </summary>
 
-<img src="man/figures/README-pager.png" alt="One-page SPI field pager: masthead verdict, an SPI-over-time chart with a credible-interval ribbon and a locator inset, the five-STEPS reading, and a verdict banner." width="100%" />
+<img src="man/figures/README-pager.png" alt="One-page SPI field pager: masthead judgement, an SPI-over-time chart with a credible-interval ribbon and a locator inset, the five STEPS components, and a judgement banner." width="100%" />
 
 </details>
 
 <!-- Section 8 (Triangulation) is temporarily dropped from the rendered docs.
      To restore, delete this comment wrapper and drop the `eval = FALSE` chunk
      options below.
-&#10;### 8. Triangulating the verdict against independent detection
-&#10;The field guide judges the *net*, not the *fish*: a FLAG says a silence is untrustworthy, not that the silence hid virus. Every signal it uses comes from the AFP stream itself, so it cannot corroborate its own verdict without arguing in a circle. `bs_triangulate()` crosses the verdict against the one largely-independent channel, environmental surveillance (ES), and against AFP detections, and sorts each district-year into a thirteen-class triage grid with a three-level priority.
+&#10;### 8. Triangulating the judgement against independent detection
+&#10;The field guide judges the *net*, not the *fish*: a review priority says a silence may be untrustworthy, not that the silence hid virus. Every component it uses comes from the AFP stream itself, so it cannot corroborate its own judgement without arguing in a circle. `bs_triangulate()` crosses the judgement against the one largely-independent channel, environmental surveillance (ES), and against AFP detections, and sorts each district-year into a ten-class triage grid with a three-level priority.
 &#10;
 ``` r
 tri <- bs_triangulate(
@@ -616,22 +636,23 @@ tri <- bs_triangulate(
   detection_lag = 1L,
   verbose = FALSE
 )
-&#10;# the thirteen classes are a verdict x ES-status grid (AFP-detected is off-grid)
+&#10;# the classes are a judgement x ES-status grid (AFP-detected is off-grid)
 tri$district_year |>
   dplyr::filter(!afp_hit) |>
   dplyr::mutate(
-    verdict = factor(verdict_chr, c("FLAG", "REVIEW", "WATCH", "No action")),
+    verdict = factor(verdict_chr, c("Review priority", "Monitor",
+                                    "No SPI indication")),
     ES = factor(es_status, c("positive", "clear", "no site"))
   ) |>
   dplyr::count(verdict, ES, .drop = FALSE) |>
   tidyr::pivot_wider(names_from = ES, values_from = n, values_fill = 0)
 ```
-&#10;Read as a grid, the field-guide verdict runs down the rows and the independent ES read across the columns, so every cell is one triage class. `detection_lag = 1L` tests the year-*t* verdict against year *t + 1* detections, so the capacity read is taken before the detection's own case-finding could inflate it. The cells that carry the weight sit off the reassuring bottom-right: **FLAG × positive** (confirmed blindspots, where ES caught what AFP missed), **No action × positive** (possible false-adequates the guide waved through), **FLAG × no site** (flagged with no ES site to check, the highest-value place to deploy ES or an active search), and **REVIEW × no site** (a credible shortfall, uncorroborated, with no independent channel to settle it). The district-years where AFP itself already detected virus sit outside the grid.
+&#10;Read as a grid, the field-guide judgement runs down the rows and the independent ES read across the columns, so every cell is one triage class. `detection_lag = 1L` tests the year-*t* judgement against year *t + 1* detections, so the reading is taken before the detection's own case-finding could inflate it. The cells that carry the weight sit off the reassuring bottom-right: **Review priority × positive** (confirmed blindspots, where ES caught what AFP missed), **No SPI indication × positive** (virus found where the guide saw no shortfall), **Review priority × no site** (a priority with no ES site to check, the highest-value place to deploy ES or an active search), and **Monitor × positive** (a monitored shortfall that the ES hit corroborates). The district-years where AFP itself already detected virus sit outside the grid.
 &#10;
 ``` r
 bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2020)
 ```
-&#10;The 2020 verdicts (the COVID-crash trough, tested against 2021 detections) map the triage: reds and magenta are the districts to act on or instrument, greens the trustworthy silences. `bs_triangulate_table()` renders the same panel as a `gt` / `flextable` for a report.
+&#10;The 2020 judgements (the COVID-crash trough, tested against 2021 detections) map the triage: reds and magenta are the districts to act on or instrument, greens the trustworthy silences. `bs_triangulate_table()` renders the same panel as a `gt` / `flextable` for a report.
 &#10;
 ``` r
 bs_triangulate_table(tri, engine = "gt", year = 2020) |>
@@ -649,11 +670,11 @@ bs_compare_overdispersion() # none vs IID vs negative-binomial diagnostic
 bs_spi()                    # surveillance performance index + posterior draws
 bs_concordance()            # cross-classify SPI vs the NPAFP-rate threshold
 bs_concordance_maps()       # three-panel concordance map (ggplot2/patchwork)
-bs_field_guide()            # read SPI to FLAG / REVIEW / WATCH / No-action
+bs_field_guide()            # STEPS review: priority / monitor / no indication
 bs_field_guide_table()      # render the field guide (gt / flextable)
 bs_field_guide_pager()      # one-district A4 field pager (html / png)
 bs_field_guide_help()       # learn to read the field guide (worked example)
-bs_triangulate()            # cross the verdict with ES / AFP detection channels
+bs_triangulate()            # cross the judgement with ES / AFP detections
 bs_triangulate_table()      # render the triangulation panel (gt / flextable)
 bs_triangulate_map()        # map the triage classes over districts (ggplot2)
 ```

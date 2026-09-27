@@ -40,9 +40,9 @@ utils::globalVariables(c(
 #' - Cross-classify SPI against the conventional NPAFP-rate threshold into a
 #'   four-cell table (both adequate / true shortfall / false alarm / false
 #'   reassurance).
-#' - Read each district-year through the five-signal STEPS field guide
-#'   (significance, trend, extent, persistence, surroundings) to a
-#'   FLAG / WATCH / No-action verdict.
+#' - Review each district-year with an SPI below 1 through the five STEPS
+#'   components (strength, timeliness, extent, persistence, stool adequacy)
+#'   to a review priority / monitor / no SPI indication judgement.
 #'
 #' @section Main functions:
 #'
@@ -51,7 +51,7 @@ utils::globalVariables(c(
 #' - [bs_compare_overdispersion()]: Compare Poisson vs negative-binomial fits
 #' - [bs_spi()]: Compute surveillance performance index
 #' - [bs_concordance()]: Cross-classify SPI against the NPAFP-rate threshold
-#' - [bs_field_guide()]: Read the SPI to FLAG / WATCH / No-action verdicts
+#' - [bs_field_guide()]: Review a low SPI through the five STEPS components
 #' - [bs_field_guide_table()]: Render the field guide (gt / flextable)
 #' - [bs_field_guide_help()]: Learn to read the field guide
 #'

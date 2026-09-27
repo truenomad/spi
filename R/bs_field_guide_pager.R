@@ -2,12 +2,12 @@
 #'
 #' @description
 #' Turns one district's [bs_field_guide()] reading into a self-contained,
-#' print-ready HTML "pager": a masthead with the verdict, an SPI-over-time
-#' chart for the district (with the 90% credible-interval ribbon and any
-#' orphan-poliovirus detections marked), the five-STEPS reading laid out as
-#' gate / magnitude / corroboration (with seasonal and detection corroboration
-#' read out of grid), and a verdict banner summarising what the reading rests
-#' on. The pager reports the reading; it recommends no follow-up.
+#' print-ready HTML "pager": a masthead with the review judgement, an
+#' SPI-over-time chart for the district (with the 90% credible-interval ribbon
+#' and any poliovirus detections marked), the five STEPS components (strength,
+#' timeliness, extent, persistence, stool adequacy), and a banner summarising
+#' what the judgement rests on. The pager reports the reading; it recommends
+#' no follow-up.
 #'
 #' It is the single-district companion to [bs_field_guide_table()]: where the
 #' table scans many districts at once, the pager is the tear-sheet you hand to
@@ -21,8 +21,8 @@
 #'
 #' The chart plots the focal district alone: its SPI line, the 90%
 #' credible-interval ribbon and any detection markers. Neighbours enter the
-#' page as the neighbour-median figure in the masthead and the surroundings (S)
-#' reading, both taken from the field guide, rather than as lines on the chart.
+#' page as the neighbour-median figure in the masthead, taken from the field
+#' guide, rather than as lines on the chart.
 #'
 #' Pass `boundaries` to draw the locator inset: the whole country in outline
 #' with its admin-1 divisions, and the focal district filled in the accent
@@ -34,23 +34,22 @@
 #' row below the chart: the non-polio AFP rate over the same years against its
 #' target, and tiles for stool adequacy, the two timeliness percentages and the
 #' EV rate (an ES measure, so it reads "no ES site" where the district has
-#' none). Its denominator is the case count, which in a flagged district is
-#' usually a handful, so a percentage on fewer than five assessable cases prints
-#' as a fraction and is not graded against a target. These indicators are
-#' supporting context from outside the five STEPS: they never enter the
-#' corroborator count and never change the verdict.
+#' none). Its denominator is the case count, which in a district below
+#' expectation is usually a handful, so a percentage on fewer than five
+#' assessable cases prints as a fraction and is not graded against a target.
+#' These indicators are context: they never change the judgement. The STEPS
+#' timeliness and stool adequacy rows are read from the field guide itself.
 #'
-#' The out-of-grid detection row reports poliovirus found there through either
+#' The context row also reports poliovirus found there through either
 #' channel: the case-based (AFP) detections already carried by the field
 #' guide's `genomic` input, and any environmental-surveillance (ES) positives
 #' passed via `es`. Both are marked on the chart (AFP as a filled diamond, ES as
-#' a hollow ring) and named in the reading. Detections are narrative
-#' corroboration only; they never enter the STEPS count or change the verdict,
-#' matching the paper.
+#' a hollow ring). The seasonal reading and a falling or rising trend are shown
+#' beside them. All of these are context outside STEPS and never change the
+#' judgement.
 #'
-#' The accent colour tracks the verdict: rose for a flag, plum for a review,
-#' amber for a watch, green for no action. A flag with an orphan-poliovirus
-#' detection is titled *"Flag, corroborated"*.
+#' The accent colour tracks the judgement: rose for review priority, amber for
+#' monitor, green for no SPI indication.
 #'
 #' @param x A [bs_field_guide()] result (class `blindspot_field_guide`).
 #' @param district District to profile: either an id (e.g. the admin-2 GUID)
@@ -66,11 +65,11 @@
 #'   own country. Default: NULL (no inset).
 #' @param prob_under Optional posterior probability that observed **non-polio
 #'   AFP detection** fell below the model expectation, i.e. `P(SPI < 1)`, as a
-#'   single number on the 0 to 1 scale. It is appended to the significance
-#'   line as a percentage, with the tails printed as "over 99%" and "under 1%"
-#'   so the line reports only the certainty the draws support. It states the
-#'   strength of the same evidence the significance gate tests, which is
-#'   otherwise only pass or fail. Read it as a system signal, not a virus
+#'   single number on the 0 to 1 scale. It is appended to the strength line
+#'   as a percentage, with the tails printed as "over 99%" and "under 1%" so
+#'   the line reports only the certainty the draws support. It states how
+#'   decisively the interval clears one, which the strength test otherwise
+#'   reports only as pass or fail. Read it as a system signal, not a virus
 #'   signal: it measures case-finding against expectation. Default: NULL (not
 #'   shown).
 #' @param year_label Optional label for the reading year, shown in the masthead
@@ -90,10 +89,9 @@
 #'   `inv_timeliness_pct`, `onset_notify_pct` and `ev_rate` are present. Pass
 #'   the assessable counts (`inv_timeliness_n`, `onset_notify_n`) and they are
 #'   shown under each figure; a percentage on fewer than five cases prints as a
-#'   fraction instead, since a flagged district often has only a handful. These
-#'   indicators support the reading from outside the five STEPS: they never
-#'   enter the corroborator count and never change the verdict. Default NULL
-#'   (no strip).
+#'   fraction instead, since a district below expectation often has only a
+#'   handful. These indicators are context: they never change the judgement.
+#'   Default NULL (no strip).
 #' @param npafp_target Numeric non-polio AFP rate target for the strip's rate
 #'   panel, per 100,000 under 15. Default: NULL (`x$thresholds$npafp`).
 #' @param es Optional ad-hoc environmental-surveillance detections keyed by
@@ -130,17 +128,17 @@
 #' @param admin_label Short description of the administrative level, shown
 #'   under the district name. Default: `"admin-2 district"`.
 #' @param unit_noun Singular common noun for the operational unit, used in the
-#'   on-page reading (e.g. "expected for the `unit_noun`", "A `unit_noun` is
-#'   flagged when..."). Set it to match `admin_label`, e.g. `"province"` for
+#'   on-page reading (e.g. "other `unit_noun`s in", "STEPS is applied to a
+#'   `unit_noun`..."). Set it to match `admin_label`, e.g. `"province"` for
 #'   admin-1 inputs. Default: `"district"`.
 #' @param note Optional provenance tag printed in the footer, e.g.
 #'   `"illustrative"` for a worked example. Default: NULL (untagged).
 #' @param verbose Logical. Emit a cli summary on build. Default: TRUE.
 #'
 #' @return An object of class `blindspot_pager`: a list with the rendered
-#'   `html` string, the resolved `district`, `year`, `verdict`, and `paths`
-#'   (the files written, empty when neither `path` nor `file` is set). Printing
-#'   it reports the verdict and any written files. Recover the markup with
+#'   `html` string, the resolved `district`, `year`, `verdict` (the review
+#'   judgement), and `paths` (the files written, empty when neither `path` nor
+#'   `file` is set). Printing it reports the judgement and any written files. Recover the markup with
 #'   `as.character()`.
 #'
 #' @seealso [bs_field_guide()] for the reading and [bs_field_guide_table()] for
@@ -239,8 +237,7 @@ bs_field_guide_pager <- function(
   indicators <- .pager_indicators(
     indicators_df, foc_id, id_col, year, series$year
   )
-  has_detection <- length(detections$afp) > 0 || length(detections$es) > 0
-  vstyle <- .pager_verdict_style(focal, corroborated = has_detection)
+  vstyle <- .pager_verdict_style(focal)
   # built before the chart: the badge overlays the chart's top-right corner, so
   # the endpoint label has to know whether it is there
   locator <- if (!is.null(boundaries)) {
@@ -293,7 +290,7 @@ bs_field_guide_pager <- function(
   if (verbose) {
     cli::cli_alert_success(
       "Pager for {.val {focal[[name_col]]}} ({year}): \\
-       verdict {.val {as.character(focal$verdict)}}."
+       {.val {as.character(focal$verdict)}}."
     )
     for (t in targets) cli::cli_alert_info("Written to {.file {t}}.")
   }
@@ -315,7 +312,7 @@ bs_field_guide_pager <- function(
 print.blindspot_pager <- function(x, ...) {
   cli::cli_h1("SPI pager")
   cli::cli_inform(
-    "{.strong {x$district}} | {x$year} | verdict {.val {x$verdict}}"
+    "{.strong {x$district}} | {x$year} | {.val {x$verdict}}"
   )
   if (length(x$paths) > 0) {
     for (p in x$paths) cli::cli_alert_info("Written to {.file {p}}.")
@@ -581,54 +578,49 @@ as.character.blindspot_pager <- function(x, ...) {
   yrs[yrs <= year]
 }
 
-# verdict-driven accent colour, tag text and state line for the masthead. the
-# state line describes where the reading sits against the rule; the pager
-# deliberately prescribes no follow-up, so no action strings are carried.
+# judgement-driven accent colour, tag text and state line for the masthead.
+# the state line describes where the reading sits against the field guide's
+# descriptions; the pager prescribes no follow-up, so no action strings are
+# carried.
 # @noRd
-.pager_verdict_style <- function(focal, corroborated = FALSE) {
+.pager_verdict_style <- function(focal) {
   verdict <- as.character(focal$verdict)
   switch(
     verdict,
-    FLAG = list(
-      verdict = "FLAG",
+    "Review priority" = list(
+      verdict = verdict,
       accent = "#c8102e",
-      tag = if (corroborated) "Flag \u00b7 corroborated" else "Flag",
-      state = "below cut \u00b7 interval excludes 1"
+      tag = "Review priority",
+      state = "below cut \u00b7 interval below 1 \u00b7 corroborated"
     ),
-    REVIEW = list(
-      verdict = "REVIEW",
-      accent = "#8c2f39",
-      tag = "Review",
-      state = "below cut \u00b7 not corroborated"
-    ),
-    WATCH = list(
-      verdict = "WATCH",
+    "Monitor" = list(
+      verdict = verdict,
       accent = "#e87722",
-      tag = "Watch",
-      # a watch can fail either half of the significance gate, and the page
-      # prints the interval bounds a few lines down, so naming the wrong half
-      # contradicts the numbers beside it
-      state = if (isTRUE(focal$cri_excludes_1)) {
+      tag = "Monitor",
+      # a district is held at monitor for one of three reasons, and the page
+      # prints the interval bounds a few lines down, so name the right one
+      state = if (!isTRUE(focal$cri_excludes_1)) {
+        "below cut \u00b7 interval includes 1"
+      } else if (!.fg_gate_pass(focal)) {
         "below cut \u00b7 noise not ruled out"
       } else {
-        "below cut \u00b7 interval includes 1"
+        "below cut \u00b7 not corroborated"
       }
     ),
-    # No action is now only ever a district at or above the cut: every
-    # sub-threshold reading lands in FLAG, REVIEW or WATCH. It still splits, so
-    # green never overclaims adequacy on a district whose interval sits below 1
+    # at or above the cut. It still splits, so green never overclaims on a
+    # district whose interval sits below 1 under a cut set below 1
     if (.pager_short_of_expectation(focal)) {
       list(
-        verdict = "No action",
+        verdict = verdict,
         accent = "#5a6883",
-        tag = "Below expectation",
+        tag = "No SPI indication",
         state = "at cut \u00b7 interval below 1"
       )
     } else {
       list(
-        verdict = "No action",
+        verdict = verdict,
         accent = "#1f6f43",
-        tag = "Adequate",
+        tag = "No SPI indication",
         state = "at or above cut"
       )
     }
@@ -1164,6 +1156,20 @@ as.character.blindspot_pager <- function(x, ...) {
   )
 }
 
+# the trend over the trailing window, said only when detection has moved. It
+# is context outside STEPS and never changes the judgement.
+# @noRd
+.pager_trend_word <- function(r, window = 5L) {
+  switch(
+    r$trajectory %||% "flat",
+    falling = sprintf("Detection falling over the last %d years",
+                      as.integer(window)),
+    rising = sprintf("Detection rising over the last %d years",
+                     as.integer(window)),
+    ""
+  )
+}
+
 # the serotype to name in the detection wording. The guide carries detection
 # years but not serotypes, so an unset label must not be filled in with a guess:
 # it falls back to the generic term instead.
@@ -1241,8 +1247,14 @@ as.character.blindspot_pager <- function(x, ...) {
 # the five STEPS and never enter the corroborator count or the verdict.
 # @noRd
 .pager_strip_html <- function(ind, years, npafp_target, accent, focal,
-                              detections, detection_label, active) {
-  season <- .pager_season_word(focal, active)
+                              detections, detection_label, active,
+                              traj_window = 5L) {
+  season <- paste(
+    c(.pager_season_word(focal, active),
+      .pager_trend_word(focal, traj_window)),
+    collapse = " \u00b7 "
+  )
+  season <- sub("^ \u00b7 | \u00b7 $", "", season)
   dets <- .pager_detection_boxes(
     detections, detection_label, active, .pager_serotypes(focal)
   )
@@ -1277,8 +1289,7 @@ as.character.blindspot_pager <- function(x, ...) {
 
 # ---- STEPS reading rows ---------------------------------------------------
 
-# build the five STEPS rows plus the out-of-grid season/detection row (code,
-# name, reading, role) for the focal year.
+# build the five STEPS rows (code, name, reading, role) for the focal year.
 # @noRd
 .pager_signals <- function(
   focal, series, spi_cut, params, detections, detection_label,
@@ -1288,153 +1299,57 @@ as.character.blindspot_pager <- function(x, ...) {
   spi <- .pager_dot(r$spi_median, 2)
   q05 <- .pager_dot(r$spi_q05, 2)
   q95 <- .pager_dot(r$spi_q95, 2)
-  npafp <- .pager_dot(r$npafp_rate, 1)
+  cut <- .pager_dot(spi_cut, 2)
   obs <- as.integer(round(r$observed))
   exp <- .pager_count(r$expected_total)
-  nb <- if (is.na(r$neighbour_spi)) NA else .pager_dot(r$neighbour_spi, 2)
-  win <- as.integer(params$traj_window)
-  persistence <- as.integer(params$persistence)
-  # runs are measured off the plotted series rather than read from the guide, so
-  # a guide built before `trailing_run_below` existed still reads correctly. the
-  # counted run comes from the guide when it carries one, so the chip can never
-  # disagree with the verdict it was computed under.
-  runs <- .pager_runs(series$spi_median < spi_cut, series$year)
-  run <- as.integer(
-    r$run_below %||% if (identical(params$persistence_basis, "trailing")) {
-      runs$trailing
-    } else {
-      runs$longest
-    }
-  )
   # a zero count makes the interval degenerate: SPI = 0 / expected_draw is
   # identically 0, so (q05, q95) collapses to (0, 0) and carries no evidence
   zero_count <- isTRUE(obs == 0L)
+  detected <- if (zero_count) {
+    "no cases"
+  } else {
+    sprintf("%d case%s", obs, if (obs == 1L) "" else "s")
+  }
 
-  s1 <- if (isTRUE(r$s1_discordance)) {
+  # S strength: size and certainty of the shortfall
+  strength <- if (.pager_short_of_expectation(r)) {
     sprintf(
-      paste0("Rate %s is adequate, yet SPI %s with a 90%% interval whose ",
-             "upper bound (%s) excludes one."),
-      npafp, spi, q95
-    )
-  } else if (.pager_short_of_expectation(r)) {
-    sprintf(
-      paste0("SPI %s clears the adequacy cut, but its 90%% interval (%s to ",
-             "%s) lies wholly below one; the gate stays shut on the cut ",
-             "alone."),
-      spi, q05, q95
+      paste0("SPI %s is at or above the %s cut, but its 90%% interval (%s to ",
+             "%s) lies wholly below one; STEPS is not applied."),
+      spi, cut, q05, q95
     )
   } else if (!isTRUE(r$spi_below)) {
-    sprintf("SPI %s sits at or above the adequacy cut; the gate stays shut.",
-            spi)
+    sprintf("SPI %s is at or above the %s cut; STEPS is not applied.",
+            spi, cut)
   } else if (!isTRUE(r$cri_excludes_1)) {
     sprintf(
-      paste0("SPI %s sits below the cut, but its 90%% interval (%s to %s) ",
-             "still includes one."),
-      spi, q05, q95
+      paste0("SPI %s, %s against %s expected, but its 90%% interval (%s to ",
+             "%s) includes one, so the shortfall is uncertain."),
+      spi, detected, exp, q05, q95
     )
   } else if (!.fg_gate_pass(r)) {
-    # the interval cleared and the noise gate did not, so the bounds printed
-    # here are both below one. Saying "includes one" would be contradicted by
-    # the two numbers in the same sentence.
     sprintf(
-      paste0("SPI %s sits below the cut with its 90%% interval (%s to %s) ",
-             "wholly below one, but a count this small could fall this short ",
-             "by chance alone."),
+      paste0("SPI %s with its 90%% interval (%s to %s) wholly below one, but ",
+             "a count this small could fall this short by chance alone."),
       spi, q05, q95
     )
   } else if (zero_count) {
-    # never present a point mass at zero as an inference that survived anything
     sprintf(
-      paste0("An empty count against %s expected, so the SPI is zero by ",
+      paste0("No cases against %s expected, so the SPI is zero by ",
              "construction and the interval carries no evidence.%s"),
       exp, .pager_noise_note(r, params)
     )
   } else {
-    # the interval is posterior uncertainty in the expected count with the
-    # observed count fixed, so say what it clears, not that the gap is
-    # "unlikely to be noise", which it cannot establish at small counts
     sprintf(
-      paste0("SPI %s with its 90%% interval (%s to %s) wholly below one: the ",
-             "shortfall holds against uncertainty in the expected level.%s"),
-      spi, q05, q95, .pager_noise_note(r, params)
+      paste0("SPI %s, %s against %s expected, with its 90%% interval (%s to ",
+             "%s) wholly below one.%s"),
+      spi, detected, exp, q05, q95, .pager_noise_note(r, params)
     )
   }
-
-  # extent (E) merges depth of shortfall and observed-vs-expected into one row
-  depth <- spi_cut - r$spi_median
-  extent_depth <- if (!isTRUE(r$spi_below)) {
-    "at or above the adequacy cut"
-  } else if (depth >= 0.15) {
-    "a deep rather than borderline shortfall"
-  } else if (depth <= 0.05) {
-    "a borderline shortfall"
-  } else {
-    "a moderate shortfall"
-  }
-  detected <- if (zero_count) {
-    "no cases detected"
-  } else {
-    sprintf("about %d case%s detected", obs, if (obs == 1L) "" else "s")
-  }
-  extent <- sprintf(
-    paste0("A posterior median SPI of %s, %s: %s against roughly %s expected ",
-           "for the %s."),
-    spi, extent_depth, detected, exp, unit_noun
-  )
-
-  s4 <- switch(
-    r$trajectory,
-    falling = sprintf("Detection has fallen over the last %d years.", win),
-    rising = sprintf("Detection has recovered over the last %d years.", win),
-    sprintf("Detection has held roughly flat over the last %d years.", win)
-  )
-
-  # persistence (P) counts the longest run in the panel to date by default,
-  # which never falls back once earned, so a district that has recovered can
-  # still carry a run that ended years ago. name the run ending at the read
-  # year, and say separately when the counted run is older than that, rather
-  # than letting a historical run read as current.
-  s5 <- .pager_persistence(runs, as.integer(r$year), params)
-
-  s6 <- if (isTRUE(r$island)) {
-    sprintf("No adjacent %s to compare against.", unit_noun)
-  } else if (is.na(r$neighbour_spi)) {
-    "Neighbours not assessable."
-  } else if (isTRUE(r$neighbour_discordant)) {
-    sprintf(
-      paste0("%s against a neighbour median of %s, so the gap is local ",
-             "rather than regional."),
-      spi, nb
-    )
-  } else if (isTRUE(r$spi_below)) {
-    # compare on the printed values, so the prose cannot contradict the number
-    # on the page: a neighbour median of 0.796 prints as 0.80 and must not be
-    # called "below the cut" against a cut that also prints as 0.80
-    nb_rel <- if (round(r$neighbour_spi, 2) < round(spi_cut, 2)) {
-      "itself below the cut"
-    } else {
-      "itself level with the cut"
-    }
-    sprintf(
-      paste0("%s against a neighbour median of %s, %s: a region-wide ",
-             "shortfall rather than a local gap."),
-      spi, nb, nb_rel
-    )
-  } else {
-    sprintf(
-      paste0("%s against a neighbour median of %s, in line with its ",
-             "neighbours."),
-      spi, nb
-    )
-  }
-
-  # the gate is pass or fail, so the posterior probability that observed
-  # non-polio AFP fell short of expectation is appended: it says how decisively
-  # the gate was cleared, which the bounds alone do not.
+  # the posterior probability that observed non-polio AFP fell short of
+  # expectation says how decisively the interval clears one
   pu_s <- suppressWarnings(as.numeric(prob_under %||% NA))
   if (isTRUE(is.finite(pu_s))) {
-    # the tails are named rather than rounded, so the line cannot print a
-    # certainty of 100% or 0% that the draws do not carry
     pu_lab <- if (pu_s >= 0.995) {
       "over 99%"
     } else if (pu_s <= 0.005) {
@@ -1442,33 +1357,81 @@ as.character.blindspot_pager <- function(x, ...) {
     } else {
       sprintf("%.0f%%", 100 * pu_s)
     }
-    s1 <- paste0(s1, sprintf(" Chance AFP below expected %s.", pu_lab))
+    strength <- paste0(strength, sprintf(" Chance AFP below expected %s.",
+                                         pu_lab))
   }
 
-  falling <- r$trajectory == "falling"
-  persistent <- run >= persistence
-  # surroundings is satisfied either by a contrast against healthy neighbours
-  # or by a shortfall shared across the neighbourhood, matching the rule the
-  # corroborator count uses
-  discordant <- isTRUE(r$neighbour_discordant) ||
-    isTRUE(r$neighbourhood_shortfall)
+  target <- params$process_target %||% 80
+  min_cases <- params$process_min_cases %||% 5L
+  process_row <- function(ok, n, what, concern, active_flag) {
+    if (!isTRUE(active_flag) || is.na(n)) {
+      return(list(reading = "Not supplied.", role = "quiet",
+                  label = "not supplied"))
+    }
+    if (n < min_cases) {
+      return(list(
+        reading = sprintf("%d case%s; fewer than %d, not assessed.",
+                          as.integer(n), if (n == 1L) "" else "s",
+                          as.integer(min_cases)),
+        role = "quiet", label = "not assessed"
+      ))
+    }
+    list(
+      reading = sprintf("%d of %d %s (%.0f%%; target %s%%).",
+                        as.integer(ok), as.integer(n), what, 100 * ok / n,
+                        format(target)),
+      role = if (isTRUE(concern)) "supp" else "quiet",
+      label = if (isTRUE(concern)) "concern" else "no concern"
+    )
+  }
+  timeliness <- process_row(
+    r$n_transport_timely, r$n_transport,
+    "specimens at the laboratory within 3 days", r$timeliness_concern,
+    active[["timeliness"]] %||% !is.na(r$n_transport)
+  )
+  adequacy <- process_row(
+    r$n_adequate, r$n_cases, "cases with adequate stool specimens",
+    r$adequacy_concern, active[["adequacy"]] %||% !is.na(r$n_cases)
+  )
 
-  # season and detections are out-of-grid; they are read in the context row
-  # below the chart, not as a sixth STEPS line
+  # E extent: other districts in the same admin-1 area
+  extent_ok <- !is.na(r$extent_others %||% NA) && r$extent_others > 0L
+  extent <- if (!extent_ok) {
+    "Not assessable."
+  } else {
+    pct <- gsub(".", "\u00b7", .fg_pct_pair(r$extent_pct, r$national_pct),
+                fixed = TRUE)
+    sprintf(
+      "%d of %d other %ss in %s below %s (%s, against %s nationally).",
+      as.integer(r$extent_others_below), as.integer(r$extent_others),
+      unit_noun, r$extent_area, cut, pct[1], pct[2]
+    )
+  }
+
+  # P persistence: SPI in the previous year
+  prev <- suppressWarnings(as.numeric(r$spi_previous %||% NA))
+  persistence <- if (!is.finite(prev)) {
+    "No SPI for the previous year."
+  } else {
+    sprintf("SPI %s in %d, %s the cut.", .pager_dot(prev, 2),
+            as.integer(r$year) - 1L,
+            if (isTRUE(r$persistence_concern)) "also below" else
+              "at or above")
+  }
+
   list(
-    list(code = "S", name = "Significance", reading = s1,
-         role = "gate", label = "gate"),
-    list(code = "T", name = "Trend", reading = s4,
-         role = if (falling) "corr" else "quiet",
-         label = if (falling) "corroborates" else "quiet"),
+    list(code = "S", name = "Strength", reading = strength,
+         role = "gate", label = "strength"),
+    list(code = "T", name = "Timeliness", reading = timeliness$reading,
+         role = timeliness$role, label = timeliness$label),
     list(code = "E", name = "Extent", reading = extent,
-         role = "mag", label = "magnitude"),
-    list(code = "P", name = "Persistence", reading = s5,
-         role = if (persistent) "supp" else "quiet",
-         label = if (persistent) "supports" else "quiet"),
-    list(code = "S", name = "Surroundings", reading = s6,
-         role = if (discordant) "corr" else "quiet",
-         label = if (discordant) "corroborates" else "quiet")
+         role = if (isTRUE(r$extent_concern)) "corr" else "quiet",
+         label = if (isTRUE(r$extent_concern)) "corroborates" else "quiet"),
+    list(code = "P", name = "Persistence", reading = persistence,
+         role = if (isTRUE(r$persistence_concern)) "corr" else "quiet",
+         label = if (isTRUE(r$persistence_concern)) "supports" else "quiet"),
+    list(code = "S", name = "Stool adequacy", reading = adequacy$reading,
+         role = adequacy$role, label = adequacy$label)
   )
 }
 
@@ -1527,56 +1490,6 @@ as.character.blindspot_pager <- function(x, ...) {
   if (tail > 0.05) " Sampling noise untested." else ""
 }
 
-# sub-cut runs in a district's series: the run ending at the last year, the
-# longest run anywhere in the panel, and the year that longest run ended.
-# @noRd
-.pager_runs <- function(below, years) {
-  below <- !is.na(below) & below
-  cur <- 0L
-  best <- 0L
-  best_end <- NA_integer_
-  for (i in seq_along(below)) {
-    cur <- if (below[i]) cur + 1L else 0L
-    if (cur > best) {
-      best <- cur
-      best_end <- as.integer(years[i])
-    }
-  }
-  list(trailing = cur, longest = best, longest_end = best_end)
-}
-
-# persistence (P) reading. names the run ending at the read year, and adds the
-# panel's longest run separately when that is what the corroborator counted and
-# it ended earlier, so a run from years ago never reads as current.
-# @noRd
-.pager_persistence <- function(runs, year, params) {
-  yrs <- function(n) {
-    sprintf("%d consecutive year%s", n, if (n == 1L) "" else "s")
-  }
-  trailing <- runs$trailing
-  longest <- runs$longest
-  counted <- if (identical(params$persistence_basis, "trailing")) {
-    trailing
-  } else {
-    longest
-  }
-  if (counted == 0L) return("No consecutive run below the adequacy cut.")
-  base <- if (trailing > 0L) {
-    sprintf("%s below the adequacy cut to %d.", yrs(trailing), year)
-  } else {
-    sprintf("Reads at or above the adequacy cut in %d.", year)
-  }
-  stale <- longest > trailing &&
-    !identical(params$persistence_basis, "trailing")
-  if (stale && is.finite(runs$longest_end)) {
-    return(sprintf(
-      "%s The counted run is the panel's longest, %s to %d.",
-      base, yrs(longest), runs$longest_end
-    ))
-  }
-  base
-}
-
 # format a model-expected count: whole cases once there are enough of them to
 # round without distorting the ratio, one decimal below that, so a district
 # with 1.9 expected never prints as "2" beside a stated SPI it contradicts.
@@ -1586,43 +1499,32 @@ as.character.blindspot_pager <- function(x, ...) {
   if (abs(x) >= 10) format(round(x), big.mark = ",") else .pager_dot(x, 1)
 }
 
-# one- or two-sentence caption describing the reading for this verdict.
+# one- or two-sentence caption describing the reading for this judgement.
 # @noRd
 .pager_caption <- function(focal, name, params = list()) {
   verdict <- as.character(focal$verdict)
-  discordant <- isTRUE(focal$neighbour_discordant)
-  if (verdict == "FLAG") {
-    tail <- if (discordant) {
-      ", and the gap widens while its neighbours read adequately"
-    } else {
-      ""
-    }
-    obs <- as.integer(round(focal$observed))
-    exp <- .pager_count(focal$expected_total)
-    zero <- isTRUE(obs == 0L)
-    # the caption says what was observed; what the interval does and does not
-    # establish belongs to the significance row, and saying it in both places
-    # was the same claim twice
+  obs <- as.integer(round(focal$observed))
+  exp <- .pager_count(focal$expected_total)
+  zero <- isTRUE(obs == 0L)
+  if (isTRUE(focal$spi_below)) {
     seen <- if (zero) {
       sprintf(
-        paste0("%s detected no non-polio AFP cases at all against the %s the ",
-               "model expects for its size, place and season%s."),
-        name, exp, tail
+        paste0("%s reported no non-polio AFP cases against the %s the model ",
+               "expects for its size, place and season."),
+        name, exp
       )
     } else {
       sprintf(
-        paste0("%s detects fewer non-polio AFP cases than its size, place and ",
-               "season lead the model to expect: %d against %s%s."),
-        name, obs, exp, tail
+        paste0("%s reports fewer non-polio AFP cases than its size, place and ",
+               "season lead the model to expect: %d against %s."),
+        name, obs, exp
       )
     }
     # the interval speaks to uncertainty in the expectation, never to sampling
-    # variability in the count. Name the latter when the count is small
-    # enough for chance alone to produce the shortfall, unless the guide was
-    # built with a noise gate that already ruled it out
-    caveat <- if (!is.null(params$noise_alpha)) {
-      ""
-    } else if (!.pager_noise_plausible(focal)) {
+    # variability in the count, so name the latter when chance alone could
+    # produce the shortfall, unless a noise gate already ruled it out
+    caveat <- if (!is.null(params$noise_alpha) ||
+                  !.pager_noise_plausible(focal)) {
       ""
     } else if (zero) {
       " A count this small could come up empty by chance alone."
@@ -1630,41 +1532,18 @@ as.character.blindspot_pager <- function(x, ...) {
       " A count this small could fall this short by chance alone."
     }
     paste0(seen, caveat)
-  } else if (verdict == "WATCH" && !isTRUE(focal$cri_excludes_1)) {
-    sprintf(
-      paste0("%s reads below the adequacy cut, but its 90%% credible interval ",
-             "still reaches one, so uncertainty in the expected level alone ",
-             "could account for the gap."),
-      name
-    )
-  } else if (verdict == "WATCH") {
-    # the interval is wholly below one here; it is the noise gate that held the
-    # reading back. The old wording named the interval and the chart above it
-    # printed the contradiction
-    sprintf(
-      paste0("%s reads below the adequacy cut and its 90%% credible interval ",
-             "lies wholly below one, but the count is small enough that ",
-             "ordinary sampling variation alone could produce the shortfall."),
-      name
-    )
-  } else if (verdict == "REVIEW") {
-    sprintf(
-      paste0("%s reads below the adequacy cut with a credible shortfall, but ",
-             "too few signals corroborate to meet the flag rule."),
-      name
-    )
   } else if (.pager_short_of_expectation(focal)) {
     sprintf(
-      paste0("%s clears the adequacy cut, but its 90%% credible interval lies ",
-             "wholly below one: it detects measurably fewer non-polio AFP ",
+      paste0("%s is at or above the cut, but its 90%% credible interval lies ",
+             "wholly below one: it reports measurably fewer non-polio AFP ",
              "cases than the model expects for its size, place and season."),
       name
     )
   } else {
     sprintf(
-      paste0("%s detects about as many non-polio AFP cases as the model ",
-             "expects for its size, place and season; its SPI sits at or ",
-             "above the adequacy cut."),
+      paste0("%s reports about as many non-polio AFP cases as the model ",
+             "expects for its size, place and season; its SPI is at or above ",
+             "the cut."),
       name
     )
   }
@@ -1679,101 +1558,62 @@ as.character.blindspot_pager <- function(x, ...) {
   sub(" \u00b7 ", "<br>", tag, fixed = TRUE)
 }
 
-# verdict-banner narrative summarising the fired corroborators.
+# judgement-banner narrative: which STEPS findings the judgement rests on.
 # @noRd
 .pager_banner_reading <- function(focal, spi_cut, params, detections, label) {
   verdict <- as.character(focal$verdict)
-  if (verdict != "FLAG") {
-    if (verdict == "WATCH") {
-      # which half of the significance gate shut. The banner sits under a chart
-      # that draws the interval, so naming the wrong half is visible on the page
-      if (!isTRUE(focal$cri_excludes_1)) {
-        return(paste0(
-          "The SPI sits below the cut but its 90% interval still reaches one, ",
-          "so the reading is held at watch, not flagged."
-        ))
-      }
-      return(paste0(
-        "The SPI sits below the cut and its 90% interval lies wholly below ",
-        "one, but a count this small could fall this short by chance alone, ",
-        "so the reading is held at watch, not flagged."
-      ))
-    }
-    if (verdict == "REVIEW") {
-      # at a zero count the interval is (0, 0) by construction, so citing it as
-      # what the reading rests on contradicts the significance row above, which
-      # says it carries no evidence. Rest the sentence on the count instead
-      if (isTRUE(as.integer(round(focal$observed)) == 0L)) {
-        return(paste0(
-          "The district detected nothing at all against the count the model ",
-          "expects, but fewer than the required signals corroborate, so the ",
-          "reading is held at review, not flagged."
-        ))
-      }
-      return(paste0(
-        "The SPI sits below the cut and its 90% interval lies wholly below ",
-        "one, but fewer than the required signals corroborate, so the reading ",
-        "is held at review, not flagged."
-      ))
-    }
-    if (.pager_short_of_expectation(focal)) {
-      return(paste0(
-        "The SPI clears the adequacy cut, but its 90% interval lies wholly ",
-        "below one: the district detects measurably less than expected, and ",
-        "the flag rule does not reach it."
-      ))
-    }
-    return(paste0(
-      "The SPI sits at or above the adequacy cut, so the significance gate ",
-      "never opens and the reading is no-action."
-    ))
-  }
-  # concise, bounded summary: the counted corroborators as a count (the STEPS
-  # rows name which fired), plus the detection channels shown out-of-grid. the
-  # base is three (trend, persistence, surroundings), or four when a detection
-  # is promoted to a counted signal, so the "of N" stays honest
-  dedupe <- isTRUE(params$dedupe_temporal)
-  detection_counts <- isTRUE(params$detection_corroborates)
-  n_axes <- (if (dedupe) 1L else 2L) + 1L + (if (detection_counts) 1L else 0L)
-  n_corr <- as.integer(focal$corroborators)
-  corr <- if (n_corr >= n_axes) {
-    sprintf("all %d signals", n_axes)
-  } else {
-    sprintf("%d of %d signals", n_corr, n_axes)
-  }
-  # the tiles name the serotypes per channel. Pooling them into one list here
-  # would credit each channel with the other's finds -- ES reading one serotype
-  # where AFP read five -- so the banner names the channels and leaves the
-  # naming to the tiles, which is also the only part of this sentence whose
-  # length the data controls.
-  # detections are cumulative to the read year, so an undated claim can rest on
-  # virus found five years ago. Name the year the tiles already name -- and name
-  # it per channel: pooling the years credits the quieter channel with the
-  # other's most recent find, reading as an AFP detection in a year only ES
-  # reached.
-  channel <- function(nm, years) {
-    if (length(years) == 0L) return(NULL)
-    if (length(years) == 1L) {
-      sprintf("%s (%d)", nm, years)
-    } else {
-      sprintf("%s (latest %d)", nm, max(years))
-    }
-  }
-  channels <- c(
-    channel("AFP", detections$afp),
-    channel("ES", detections$es)
+  corroborators <- c(
+    if (isTRUE(focal$extent_concern)) "extent",
+    if (isTRUE(focal$persistence_concern)) "persistence"
   )
-  detection <- if (length(channels) > 0) {
-    sprintf(
-      ", with %s detected by %s", label, paste(channels, collapse = " and ")
-    )
+  process <- c(
+    if (isTRUE(focal$timeliness_concern)) "specimen transport",
+    if (isTRUE(focal$adequacy_concern)) "stool adequacy"
+  )
+  process_txt <- if (length(process) > 0L) {
+    sprintf(" Weakness in %s adds to the concern.",
+            paste(process, collapse = " and "))
   } else {
     ""
   }
-  sprintf(
-    paste0("The SPI sits below the cut and its 90%% interval lies wholly ",
-           "below one, corroborated by %s%s."),
-    corr, detection
+  if (verdict == "Review priority") {
+    return(paste0(
+      sprintf(
+        paste0("A certain shortfall corroborated by %s: evidence of reporting ",
+               "below expectation is strong or persistent enough to warrant ",
+               "further investigation."),
+        paste(corroborators, collapse = " and ")
+      ),
+      process_txt
+    ))
+  }
+  if (verdict == "Monitor") {
+    reason <- if (!isTRUE(focal$cri_excludes_1)) {
+      "the 90% interval still includes one"
+    } else if (!.fg_gate_pass(focal)) {
+      "a count this small could fall this short by chance alone"
+    } else {
+      "neither extent nor persistence supports the shortfall"
+    }
+    return(paste0(
+      sprintf(
+        paste0("Reporting is below expectation, but %s, so reassessment as ",
+               "new data become available is favoured over review priority."),
+        reason
+      ),
+      process_txt
+    ))
+  }
+  if (.pager_short_of_expectation(focal)) {
+    return(paste0(
+      "The SPI is at or above the cut, but its 90% interval lies wholly ",
+      "below one: reporting is measurably below expectation, and STEPS does ",
+      "not reach it."
+    ))
+  }
+  paste0(
+    "No SPI indication for additional review. Routine surveillance and ",
+    "review based on other indicators continue."
   )
 }
 
@@ -1870,29 +1710,13 @@ as.character.blindspot_pager <- function(x, ...) {
   }, character(1))
   rows <- paste(rows, collapse = "")
 
-  # enumerate the actual corroborator axes: the temporal pair collapses to one
-  # under dedupe_temporal, and a detection joins the count under
-  # detection_corroborates -- so the "of N" and the list stay honest. season
-  # never counts; it corroborates from outside the grid
-  dedupe <- isTRUE(params$dedupe_temporal)
-  detection_counts <- isTRUE(params$detection_corroborates)
-  axes <- c(
-    if (dedupe) "trend or persistence" else "trend, persistence",
-    "surroundings",
-    if (detection_counts) "detections" else NULL
-  )
-  n_axes <- (if (dedupe) 1L else 2L) + 1L + (if (detection_counts) 1L else 0L)
-  detect_clause <- if (detection_counts) {
-    "."
-  } else {
-    "; season and detections are read as context above, never in this count."
-  }
   rule <- sprintf(
-    paste0("A %s is flagged when its SPI sits below the %s adequacy cut, its ",
-           "90%% credible interval lies wholly below one, and at least %d of ",
-           "%d signals corroborate (%s)%s"),
-    unit_noun, .pager_dot(spi_cut, 2), as.integer(params$min_corroborators),
-    n_axes, paste(axes, collapse = ", "), detect_clause
+    paste0("STEPS is applied to a %s with an SPI below %s. It is a review ",
+           "priority when its 90%% credible interval lies wholly below one and ",
+           "extent or persistence corroborates the shortfall. Timeliness and ",
+           "stool adequacy are reported but do not change the judgement; the ",
+           "trend, season and detections are context."),
+    unit_noun, .pager_dot(spi_cut, 2)
   )
   caption <- .pager_escape(.pager_caption(focal, name, params))
   banner_reading <- .pager_escape(
@@ -1967,14 +1791,15 @@ as.character.blindspot_pager <- function(x, ...) {
     "</div>",
     .pager_strip_html(
       indicators, series$year, npafp_target, vstyle$accent, focal,
-      detections, detection_label, active
+      detections, detection_label, active,
+      traj_window = params$traj_window %||% 5L
     ),
     "</div>",
     # reading
     "<div class=\"reading\"><div class=\"sectlab\" ",
     "style=\"margin-bottom:6px\"><span>Reading the SPI \u2014 the five STEPS ",
     "for ",
-    name, "</span><span>gate \u00b7 magnitude \u00b7 corroboration</span></div>",
+    name, "</span><span>strength \u00b7 process \u00b7 corroboration</span></div>",
     "<div class=\"rrule\">", rule, "</div>",
     "<div>", rows, "</div></div>",
     # verdict banner

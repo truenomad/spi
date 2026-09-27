@@ -2,32 +2,40 @@
 
 ### Field guide
 
-* The interpretation protocol is now five signals, STEPS (significance, trend,
-  extent, persistence, surroundings), matching the paper. The flag rule is two
-  of three corroborators (trend, persistence, surroundings), down from two of
-  four. Seasonal blindness and AFP / ES detections became out-of-grid
-  corroboration, reported but never counted. Default flag counts move against
-  the seven-signal spec, and `synth_field_guide` is regenerated to match.
-* New `REVIEW` verdict between `FLAG` and `WATCH`, for a credible shortfall
-  with too few corroborators. `bs_triangulate()` grows from ten classes to
-  thirteen, and `No action` now means only "at or above the cut".
-* `cri_excludes_1` means `spi_q95 < 1`, always. With `noise_alpha` set it had
-  silently meant the interval and the noise tail together while every string
-  built from it named only the interval. The composite the verdict turns on is
-  the new `gate_pass`. Default-path counts are unchanged, pinned by a test.
-* Surroundings fires on a shortfall shared across the neighbourhood as well as
-  on a contrast against healthy neighbours, capped at one corroborator. The old
-  rule went quiet where no healthy neighbour was left to contrast against.
-* New arguments, each defaulting to the published behaviour: `noise_alpha` (a
-  Poisson tail on the shortfall), `persistence_basis` (`"trailing"` reads the
-  run ending at the read year), `traj_alpha` (significance-gated trend),
-  `dedupe_temporal` (counts trend and persistence once),
-  `detection_corroborates` (promotes a detection to a counted signal),
-  `es` / `es_col` (an ES detection channel), `serotype_col` and
-  `detection_serotypes`.
-* New `district_year` columns: `gate_pass`, `neighbourhood_shortfall`,
-  `noise_tail`, `noise_plausible`, `trailing_run_below`, `es_years`,
-  `es_detected`, `orphan_serotypes`, `es_serotypes`.
+* STEPS now follows the SPI field guide: strength, timeliness, extent,
+  persistence and stool adequacy, applied to districts with an SPI below 1.
+  `spi_cut` defaults to 1 rather than the concordance cut. Extent compares the
+  share of other districts in the same admin-1 area below the cut with the
+  national share (`extent_col`, default `adm1_name`). Persistence is the SPI in
+  the previous year. Timeliness and stool adequacy come from the new `process`
+  argument, district-year AFP counts assessed on at least `process_min_cases`
+  cases against `process_target` percent.
+* The verdict is one of the field guide's three review judgements:
+  `Review priority` (interval entirely below 1, corroborated by extent or
+  persistence), `Monitor` (any other SPI below the cut) and
+  `No SPI indication`. Timeliness and stool adequacy are reported but never
+  move the judgement. `FLAG`, `REVIEW`, `WATCH`, `No action` and the
+  corroborator count are gone, as are `persistence`, `persistence_basis`,
+  `min_corroborators`, `dedupe_temporal` and `detection_corroborates`.
+* The trend, neighbour contrast, seasonal detection and AFP / ES detections
+  are still computed and reported as context outside STEPS.
+* `cri_excludes_1` means `spi_q95 < 1`, always; the strength test the
+  judgement turns on is `gate_pass`, which adds the Poisson noise tail when
+  `noise_alpha` is set.
+* Other arguments: `traj_alpha` (significance-gated trend), `es` / `es_col`
+  (an ES detection channel), `serotype_col` and `detection_serotypes`.
+* `bs_field_guide_help()`, `bs_field_guide_table()` and the misreadings use the
+  field guide's wording, and the worked layout picks the field guide's four
+  teaching cases.
+* `bs_triangulate()` crosses the three judgements with ES status: ten classes,
+  with `priority, ES clear`, `monitor, *` and `no indication, ES positive`
+  replacing the flag, review and watch classes.
+* `synth_surveillance` gains `afp_process`, drawn after every other table so
+  the existing elements are unchanged. `synth_field_guide` is regenerated with
+  it: for 2024, 60 review priority, 71 monitor and 105 no SPI indication.
+* The field guide infographic ships at
+  `system.file("field-guide", "npafp_spi_steps_infographic.html", package =
+  "blindspot")`.
 
 ### Field pager
 
@@ -38,26 +46,26 @@
   `inst/examples/pager_demo.R`.
 * It charts the focal district alone and places it in its country, so
   `adjacency` is ignored and neither `bs_adjacency()` nor spdep is called.
-* It prescribes no follow-up. The banner's action column is gone, and the
-  masthead states where the reading sits against the rule.
+* It reads the five STEPS components one per row and prescribes no follow-up.
+  The masthead states where the reading sits, and the banner names what the
+  judgement rests on. The season, trend and detections show as context.
 * `indicators_df` fills a context row with the non-polio AFP rate against its
   target, plus stool adequacy, the two timeliness percentages and the EV rate.
   Below five assessable cases a tile names its denominator and stays ungraded.
 * `region`, `year_label` and `prob_under` add regional context, a label for a
   window that is not a calendar year, and the posterior `P(SPI < 1)` on the
-  significance line.
+  strength line.
 * `detection_label` defaults to NULL and the page reads "poliovirus", since the
   guide records when a detection happened but not what was found.
 * Honesty fixes: the interval claim now covers uncertainty in the expected
   count alone; a district above the cut whose interval lies wholly below one
-  reads "Below expectation"; the banner names serotypes per channel and dates
-  the detection it rests on; detection tiles count years rather than detections.
+  keeps a slate accent rather than green; detection tiles name serotypes per
+  channel and count years rather than detections.
 * Layout fixes: a long unit name is sized to the row and breaks over two lines;
   a unit sharing its parent's name keeps the parent; the page grows past one
   sheet when the masthead fills.
-* Smaller fixes: `note` prints in the footer alone and is opt-in; persistence
-  names the run ending at the read year; an expected count below ten keeps a
-  decimal; an unsupplied channel reads as unsupplied.
+* Smaller fixes: `note` prints in the footer alone and is opt-in; an expected
+  count below ten keeps a decimal; an unsupplied channel reads as unsupplied.
 
 ### SPI, concordance and inputs
 

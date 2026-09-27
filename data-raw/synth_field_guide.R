@@ -6,8 +6,8 @@
 # `data("synth_field_guide", package = "blindspot")`).
 #
 # Requires INLA locally (for the one-off bs_expected() fit). The shipped object
-# is a `blindspot_field_guide` with all seven signals active. Pinned seed keeps
-# it byte-stable across runs.
+# is a `blindspot_field_guide` with all five STEPS components and every
+# context signal active. Pinned seed keeps it byte-stable across runs.
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -50,7 +50,7 @@ conc <- bs_concordance(
   boundaries = synth$boundaries
 )
 
-# 5. field guide (all signals active, both detection channels) -----------------
+# 5. field guide (all STEPS components and context, both detection channels) --
 # The bundle records both serotypes, so the genomic input is stacked long with a
 # serotype column rather than filtered to one: a district can then report what
 # was actually found instead of the reading assuming a single serotype.
@@ -66,6 +66,7 @@ genomic <- dplyr::bind_rows(
 
 synth_field_guide <- bs_field_guide(
   concordance = conc,
+  process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
   genomic = genomic,

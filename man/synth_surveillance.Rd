@@ -5,7 +5,7 @@
 \alias{synth_surveillance}
 \title{Synthetic AFP surveillance toy dataset}
 \format{
-A named list with eleven elements:
+A named list with twelve elements:
 \describe{
 \item{cases}{Tibble, 28,320 x 3. Columns: \code{adm2_guid} (character district
 id, a POLIS-style GUID such as
@@ -80,6 +80,13 @@ POLIS does not publish, so a reading has to build it from case data; this
 is the district-year aggregate such a percentage is computed from, and
 what \code{\link[=bs_field_guide_pager]{bs_field_guide_pager()}}'s \code{indicators_df} expects behind
 \code{onset_notify_pct} / \code{onset_notify_n}.}
+\item{afp_process}{Tibble, 2,360 x 6. District-year AFP process counts
+for the STEPS timeliness and stool adequacy components. Columns:
+\code{adm2_guid}, \code{year}, \code{n_cases} (AFP cases), \code{n_adequate} (cases with
+adequate stool specimens), \code{n_transport} (cases with both the second
+stool collection and laboratory receipt dates), \code{n_transport_timely}
+(of those, received by the laboratory within 3 days). The shape
+\code{\link[=bs_field_guide]{bs_field_guide()}}'s \code{process} argument expects.}
 \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 \code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
 \code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),

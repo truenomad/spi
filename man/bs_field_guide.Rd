@@ -2,10 +2,14 @@
 % Please edit documentation in R/bs_field_guide.R
 \name{bs_field_guide}
 \alias{bs_field_guide}
-\title{Read a low SPI through the five-signal STEPS field guide}
+\title{Review a low SPI through the five STEPS components}
 \usage{
 bs_field_guide(
   concordance,
+  process = NULL,
+  extent_col = NULL,
+  process_target = 80,
+  process_min_cases = 5L,
   adjacency = NULL,
   spi_month = NULL,
   genomic = NULL,
@@ -15,16 +19,11 @@ bs_field_guide(
   serotype_col = NULL,
   detection_serotypes = NULL,
   read_year = NULL,
-  spi_cut = NULL,
-  persistence = 3L,
-  persistence_basis = c("longest", "trailing"),
+  spi_cut = 1,
   traj_window = 5L,
   traj_tol = 0.01,
   traj_alpha = NULL,
   noise_alpha = NULL,
-  min_corroborators = 2L,
-  dedupe_temporal = FALSE,
-  detection_corroborates = FALSE,
   id_col = NULL,
   verbose = TRUE
 )
@@ -32,26 +31,46 @@ bs_field_guide(
 \arguments{
 \item{concordance}{A \code{\link[=bs_concordance]{bs_concordance()}} result (class
 \code{blindspot_concordance}). Supplies fused SPI + NPAFP for every
-district-year plus the thresholds.}
+district-year.}
+
+\item{process}{Optional district-year tibble of AFP process counts, keyed
+by the district id column and \code{year}, with columns \code{n_cases} (AFP cases),
+\code{n_adequate} (cases with adequate stool specimens), \code{n_transport} (cases
+with both the second stool collection and laboratory receipt dates, in
+order) and \code{n_transport_timely} (of those, received by the laboratory
+within 3 days of the second stool collection). Enables timeliness (T) and
+stool adequacy (S). District-years missing from \code{process} count as zero
+cases. Default: NULL.}
+
+\item{extent_col}{Name of the admin-1 column in \code{concordance$district_year}
+that defines the area for extent (E). Default: NULL (\code{"adm1_name"} when
+present, as it is when \code{\link[=bs_concordance]{bs_concordance()}} was given \code{boundaries}).}
+
+\item{process_target}{Numeric target, in percent, for timeliness and stool
+adequacy. Default: 80.}
+
+\item{process_min_cases}{Integer. Fewest cases for timeliness or stool
+adequacy to be assessed. Default: 5.}
 
 \item{adjacency}{Optional spatial neighbour object from \code{\link[=bs_adjacency]{bs_adjacency()}}
-(class \code{blindspot_nb}). Enables the surroundings signal (S). Default: NULL.}
+(class \code{blindspot_nb}). Enables the neighbour contrast, reported as
+context. Default: NULL.}
 
 \item{spi_month}{Optional \code{\link[=bs_spi]{bs_spi()}} result at \code{district_month} level.
-Enables the seasonal (out-of-grid) corroboration. Default: NULL.}
+Enables seasonal detection, reported as context. Default: NULL.}
 
 \item{genomic}{Optional tibble of case-based (AFP) poliovirus detections
-with the district id column and \code{year}. Enables the AFP half of the
-out-of-grid detection corroboration. Rows are detections; pass
-\code{genomic_col} to filter on a 0/1 flag column. Default: NULL.}
+with the district id column and \code{year}. Reported as context. Rows are
+detections; pass \code{genomic_col} to filter on a 0/1 flag column. Default:
+NULL.}
 
 \item{genomic_col}{Optional name of a logical / 0-1 column in \code{genomic};
 only truthy rows count as detections. Default: NULL (every row counts).}
 
 \item{es}{Optional tibble of environmental-surveillance (ES) detections with
-the district id column and \code{year}. Enables the ES half of the out-of-grid
-detection corroboration. Rows are positives; pass \code{es_col} to filter on a
-count / flag column. Default: NULL.}
+the district id column and \code{year}. Reported as context. Rows are
+positives; pass \code{es_col} to filter on a count / flag column. Default:
+NULL.}
 
 \item{es_col}{Optional name of a count / logical column in \code{es}; only rows
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
@@ -66,77 +85,40 @@ recorded" rather than "none found". Default: NULL.}
 
 \item{detection_serotypes}{Optional character vector of the serotypes that
 count as a detection, matched against \code{serotype_col}, e.g.
-\code{c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")}. An ambiguous VDPV is not a
-confirmed circulating virus, so a programme reading usually wants it out of
-the detection channels even though it sits in the line list. Rows outside
-the set are dropped before the detection years, flags and serotypes are
-computed, so all three stay consistent. Requires \code{serotype_col}. Default:
-NULL (whatever the input contains counts).}
+\code{c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3")}. Rows outside the set are
+dropped before the detection years, flags and serotypes are computed.
+Requires \code{serotype_col}. Default: NULL (whatever the input contains
+counts).}
 
 \item{read_year}{Integer focal year for \code{print()} and the default table /
 help rendering. Default: NULL (latest year present).}
 
-\item{spi_cut}{Numeric SPI adequacy cut. Default: NULL (take
-\code{concordance$thresholds$spi}).}
+\item{spi_cut}{Numeric SPI cut below which STEPS is applied. Also the cut
+for persistence and extent. Default: 1, as in the field guide.}
 
-\item{persistence}{Integer. Consecutive sub-cut years that corroborate a
-flag (persistence, P). Default: 3.}
+\item{traj_window}{Integer. Trend regression window in years, ending at
+each year (context). Default: 5.}
 
-\item{persistence_basis}{Which run the persistence corroborator (P) counts.
-\code{"longest"} is the running maximum over the panel to date: it never falls
-back once earned, so a district that read short years ago still carries
-the run after recovering. \code{"trailing"} is the run ending at the year being
-read, so persistence speaks to that year. Both runs are always reported
-(\code{longest_run_below}, \code{trailing_run_below}); this chooses which one gates.
-Default: \code{"longest"}, reproducing the published flag counts.
-\code{"trailing"} is the recommended setting for an operational read.}
+\item{traj_tol}{Numeric slope dead-band per year below which a trend is
+"flat" (context). Default: 0.01.}
 
-\item{traj_window}{Integer. Trend regression window in years, ending
-at each year (trend, T). Default: 5.}
-
-\item{traj_tol}{Numeric slope dead-band per year below which a trend
-is "flat" (trend, T). Default: 0.01.}
-
-\item{traj_alpha}{Optional numeric significance level for the trend (T).
-When set, a
-trajectory is only "falling" or "rising" if its OLS slope differs from
-zero at this two-sided level (needing at least three points in the
-window); otherwise it is "flat". This guards against a single anomalous or
-volatile year reading as a sustained trend. Default: NULL (the paper's
-slope-sign-and-tolerance trajectory, which reproduces the published flag
-counts). \code{0.1} is the recommended setting, improving specificity on
-volatile series.}
+\item{traj_alpha}{Optional numeric significance level for the trend. When
+set, a trajectory is only "falling" or "rising" if its OLS slope differs
+from zero at this two-sided level (needing at least three points in the
+window); otherwise it is "flat". Default: NULL (slope sign and tolerance
+only).}
 
 \item{noise_alpha}{Optional numeric level for a sampling-noise gate on
-significance (S). The SPI credible interval is posterior uncertainty in
-the \emph{expected} count with the observed count held fixed, so it says
-nothing about sampling variation in the count itself. At \code{observed = 0}
-the ratio is identically zero in every draw, the interval collapses to
-\verb{(0, 0)}, and \code{cri_excludes_1} is TRUE whatever the expected count, so the
-interval alone does no work. When \code{noise_alpha} is set, \code{gate_pass}
-additionally requires the Poisson reference tail
-\eqn{P(X \le observed \mid \lambda = expected)} to be at or below it, so a
-shortfall that chance alone could produce cannot open the gate. This
-subsumes a minimum-expected-count floor: at a zero count, \code{0.05} implies
-roughly three expected cases. \code{cri_excludes_1} keeps its own meaning
-either way, so a reading can say which of the two conditions failed. The
-tail is always reported (\code{noise_tail}, \code{noise_plausible}) whether or not
-it gates. Default: NULL
-(no noise gate, reproducing the published flag counts); \code{0.05} is the
-recommended setting for an operational read.}
-
-\item{min_corroborators}{Integer. Corroborating signals required to flag.
-Default: 2.}
-
-\item{dedupe_temporal}{Logical. Count a falling trend (T) and a persistent
-sub-cut run (P) as a single "temporal" corroborator rather than two, since
-over a short window they can re-read the same decline. Default: FALSE (they
-count separately, matching the paper).}
-
-\item{detection_corroborates}{Logical. Count an AFP or ES detection (the
-out-of-grid detection corroboration) as an independent corroborating
-signal. Default: FALSE (detections strengthen a flag in the narrative but
-never enter the count, matching the paper).}
+strength (S). The SPI credible interval is posterior uncertainty in the
+\emph{expected} count with the observed count held fixed, so it says nothing
+about sampling variation in the count itself. At \code{observed = 0} the ratio
+is identically zero in every draw, the interval collapses to \verb{(0, 0)}, and
+\code{cri_excludes_1} is TRUE whatever the expected count. When \code{noise_alpha}
+is set, \code{gate_pass} additionally requires the Poisson reference tail
+\eqn{P(X \le observed \mid \lambda = expected)} to be at or below it.
+\code{cri_excludes_1} keeps its own meaning either way. The tail is always
+reported (\code{noise_tail}, \code{noise_plausible}). Default: NULL (no noise gate).
+\code{0.05} is the recommended setting for an operational reading.}
 
 \item{id_col}{Character district id column. Default: NULL (take
 \code{concordance$id_col}).}
@@ -148,91 +130,92 @@ Default: TRUE.}
 An object of class \code{blindspot_field_guide}. A list with:
 \describe{
 \item{district_year}{Tibble, one row per district-year, carrying the
-inputs plus every signal value (\code{spi_below}, \code{cri_excludes_1}
-(the interval alone), \code{gate_pass} (the significance gate the verdict
-turns on: the interval, and the noise tail when \code{noise_alpha} is set),
-\code{s1_discordance}, \code{noise_tail}, \code{noise_plausible},
-\code{longest_run_below}, \code{trailing_run_below}, \code{run_below} (whichever of the
-two \code{persistence_basis} gates on), \code{trajectory}, \code{neighbour_spi},
-\code{neighbour_discordant}, \code{neighbourhood_shortfall}, \code{seasonal},
-\code{orphan_years}, \code{genomic_orphan}, \code{orphan_serotypes}, \code{es_years},
-\code{es_detected}, \code{es_serotypes}),
-\code{corroborators}, and \code{verdict} (factor).}
+inputs plus every component: strength (\code{spi_below}, \code{cri_excludes_1},
+\code{gate_pass}, \code{noise_tail}, \code{noise_plausible}), timeliness
+(\code{n_transport}, \code{n_transport_timely}, \code{pct_transport_timely},
+\code{transport_assessed}, \code{timeliness_concern}), extent (\code{extent_area},
+\code{extent_others}, \code{extent_others_below}, \code{extent_pct}, \code{national_pct},
+\code{extent_concern}), persistence (\code{spi_previous}, \code{persistence_concern}),
+stool adequacy (\code{n_cases}, \code{n_adequate}, \code{pct_adequate},
+\code{adequacy_assessed}, \code{adequacy_concern}), the context signals
+(\code{s1_discordance}, \code{longest_run_below}, \code{trailing_run_below},
+\code{trajectory}, \code{neighbour_spi}, \code{neighbour_discordant},
+\code{neighbourhood_shortfall}, \code{seasonal}, \code{orphan_years},
+\code{genomic_orphan}, \code{orphan_serotypes}, \code{es_years}, \code{es_detected},
+\code{es_serotypes}), and \code{verdict} (factor).}
 \item{focal}{The \code{read_year} slice of \code{district_year}.}
-\item{reference}{The five-signal STEPS reference tibble (what each asks /
-rules out).}
+\item{reference}{The STEPS reference tibble (what each component asks
+and how to interpret it).}
 \item{read_year, thresholds, params, signals_active, id_col, call}{
 Metadata: focal year, \code{spi_cut} / \code{npafp_target}, the tuning
-parameters, which optional signals were computed, the id column, and
-the matched call.}
+parameters, which optional components and context signals were
+computed, the id column, and the matched call.}
 }
 }
 \description{
-Turns a \code{\link[=bs_concordance]{bs_concordance()}} result into an operational reading of every
-district-year: the five interpretation signals -- \strong{STEPS} (significance,
-trend, extent, persistence, surroundings) -- and a four-level verdict
-(\code{FLAG}, \code{REVIEW}, \code{WATCH}, \verb{No action}). It automates the paper's
-\emph{"Interpreting and acting on the SPI"} field guide, which separates a
-genuine, sustained detection shortfall from statistical noise or a
-low-expectation artefact using only the SPI and its credible interval; the
-reading rests on the signals' convergence.
+Turns a \code{\link[=bs_concordance]{bs_concordance()}} result into the review reading of the SPI field
+guide for every district-year: the five \strong{STEPS} components (strength,
+timeliness, extent, persistence, stool adequacy) and one of the field
+guide's three review judgements (\verb{Review priority}, \code{Monitor},
+\verb{No SPI indication}). STEPS is applied only to districts with an SPI below
+\code{spi_cut} (1 by default, as in the field guide).
 
-The five STEPS signals, each ruling out a different alternative explanation:
+The five components and what each asks:
 \itemize{
-\item \strong{S: Significance} -- the district meets the WHO non-polio AFP
-target yet reads sub-threshold on SPI, with the full 90\% credible
-interval staying below 1, so the disagreement with the target is real.
-The starting point.
-\item \strong{T: Trend} -- the SPI-vs-year slope over the last \code{traj_window}
-years (falling / flat / rising); set \code{traj_alpha} to significance-gate
-it into a trend test so a single anomalous year is not read as a decline.
-\item \strong{E: Extent} -- how far below expectation the district sits, in
-posterior median SPI and observed versus model-expected cases (a deep
-rather than borderline or small-denominator shortfall).
-\item \strong{P: Persistence} -- the longest run of consecutive years below the
-cut up to that year.
-\item \strong{S: Surroundings} -- under-detection while immediate neighbours
-perform adequately (needs \code{adjacency}).
+\item \strong{S: Strength} -- how large and how certain is the shortfall? Read
+from the SPI value and whether its 90\% credible interval lies entirely
+below 1.
+\item \strong{T: Timeliness} -- are specimens reaching the laboratory within 3
+days? Needs \code{process}.
+\item \strong{E: Extent} -- are other districts in the same admin-1 area (the
+other LGAs in the same state, in Nigeria) also below expectation? Needs
+an \code{extent_col} in the concordance.
+\item \strong{P: Persistence} -- was the SPI also below the cut in the previous
+year?
+\item \strong{S: Stool adequacy} -- are stool specimens adequate? Needs
+\code{process}.
 }
 
-Seasonal detection through the expected peak months (needs \code{spi_month}) and
-any poliovirus found there through the case-based (AFP) channel (needs
-\code{genomic}) or environmental surveillance (needs \code{es}) are computed and
-reported as \strong{out-of-grid corroboration}: they strengthen a flag from
-outside the model but are never one of the five STEPS and never enter the
-corroborator count, matching the paper.
+The components are interpreted together, not combined into a score, and
+they do not carry the same weight. Extent is the strongest corroborator of
+the SPI signal. Persistence also supports the signal, but is common.
+Timeliness and stool adequacy are important surveillance dimensions, but are
+not validated corroborators of the SPI signal, so they are reported and
+never change the judgement.
+
+The trend, the neighbour contrast, seasonal detection and any poliovirus
+found through AFP or environmental surveillance are still computed when
+their inputs are supplied. They are reported as context outside STEPS and
+never change the judgement.
 }
 \details{
-A district-year is \strong{flagged} when three conditions hold together: the
-posterior median SPI is below \code{spi_cut}, the upper bound of the 90\%
-credible interval is below 1, and at least \code{min_corroborators} of three
-corroborating signals fire (a deteriorating \strong{trend}, sustained
-sub-threshold \strong{persistence}, or under-detection against healthy
-\strong{surroundings}). A district that meets the first two conditions but not
-the third is held at \strong{review}: the shortfall is credible, only the
-corroboration is thin. A district below the cut whose credible interval
-still reaches 1 -- or whose shortfall ordinary sampling noise could produce,
-where \code{noise_alpha} tests for it -- is kept at \strong{watch} rather than
-flagged, since there the evidence itself is what falls short. Everything
-else needs \strong{no action}. Significance is the entry point, not a
-corroborator; extent grades depth; seasonal and detection corroboration
-(AFP or ES) strengthen a flag from outside the grid but never enter the
-count, matching the paper.
+Each district-year receives one of three judgements, using the field
+guide's descriptions:
+\itemize{
+\item \strong{Review priority} -- the SPI is below \code{spi_cut}, its 90\% credible
+interval lies entirely below 1 (and, when \code{noise_alpha} is set, sampling
+noise alone is unlikely to produce the shortfall), and the shortfall is
+corroborated by extent or persistence. Evidence of reporting below
+expectation is strong or persistent enough to warrant further
+investigation.
+\item \strong{Monitor} -- the SPI is below \code{spi_cut}, but the interval includes
+1 or neither extent nor persistence supports it. Uncertainty or limited
+supporting information favours reassessment as new data become
+available.
+\item \strong{No SPI indication} -- the SPI is at or above \code{spi_cut}. There is
+no SPI indication for additional review; routine surveillance and review
+based on other indicators continue.
+}
 
-Three settings refine the reading; all are off by default, so the field
-guide reproduces the paper's published spec out of the box (bare slope-sign
-trend, three separately-counted signals). \code{dedupe_temporal} collapses the
-trend and persistence signals into one, so a flag cannot rest on two
-readings of the same decline; \code{detection_corroborates} promotes an AFP or ES
-detection to a counted, independent signal (otherwise it corroborates from
-outside the grid); and \code{traj_alpha} significance-gates the trend into a
-proper trend test (0.1 is the recommended value) so a single anomalous or
-endpoint-only year no longer reads as a sustained decline. Each changes flag
-counts against the published numbers, which is why each is opt-in.
+Extent compares the share of the other districts in the same \code{extent_col}
+area with an SPI below the cut against the national share in the same year,
+and raises concern when the area share is higher. Timeliness and stool
+adequacy are assessed on at least \code{process_min_cases} cases against a target
+of \code{process_target} percent; below that they are \code{NA} (not assessed).
 
-Signals that need optional inputs degrade gracefully: without \code{adjacency},
-\code{spi_month}, \code{genomic}, or \code{es} the corresponding signal is \code{NA} and
-contributes no corroborator. \code{signals_active} records which were computable.
+Components that need optional inputs degrade gracefully: without \code{process}
+or an \code{extent_col} the corresponding component is \code{NA}. \code{signals_active}
+records which components and context signals were computable.
 }
 \examples{
 # a precomputed field guide on the synthetic bundle ships with the package
@@ -254,6 +237,7 @@ conc <- bs_concordance(
 )
 fg <- bs_field_guide(
   conc,
+  process = synth_surveillance$afp_process,
   adjacency = adj,
   spi_month = cm,
   genomic = dplyr::filter(
@@ -266,5 +250,7 @@ fg <- bs_field_guide(
 }
 \seealso{
 \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} to render it, \code{\link[=bs_field_guide_help]{bs_field_guide_help()}}
-to learn to read it, and \code{\link[=bs_concordance]{bs_concordance()}} for the input.
+to learn to read it, \code{\link[=bs_concordance]{bs_concordance()}} for the input, and the one-page
+infographic at
+\code{system.file("field-guide", "npafp_spi_steps_infographic.html", package = "blindspot")}.
 }

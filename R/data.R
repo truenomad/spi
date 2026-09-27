@@ -6,7 +6,7 @@
 #' simulated; no personally identifying or operationally sensitive information
 #' is present.
 #'
-#' @format A named list with eleven elements:
+#' @format A named list with twelve elements:
 #' \describe{
 #'   \item{cases}{Tibble, 28,320 x 3. Columns: `adm2_guid` (character district
 #'     id, a POLIS-style GUID such as
@@ -81,6 +81,13 @@
 #'     is the district-year aggregate such a percentage is computed from, and
 #'     what [bs_field_guide_pager()]'s `indicators_df` expects behind
 #'     `onset_notify_pct` / `onset_notify_n`.}
+#'   \item{afp_process}{Tibble, 2,360 x 6. District-year AFP process counts
+#'     for the STEPS timeliness and stool adequacy components. Columns:
+#'     `adm2_guid`, `year`, `n_cases` (AFP cases), `n_adequate` (cases with
+#'     adequate stool specimens), `n_transport` (cases with both the second
+#'     stool collection and laboratory receipt dates), `n_transport_timely`
+#'     (of those, received by the laboratory within 3 days). The shape
+#'     [bs_field_guide()]'s `process` argument expects.}
 #'   \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 #'     `adm2_guid`, `surveillance_profile` (character: `"resilient"`,
 #'     `"early_improver"`, `"covid_transient"`, or `"persistent_laggard"`),
@@ -183,8 +190,8 @@
 
 #' Precomputed SPI field guide on the synthetic bundle
 #'
-#' A [bs_field_guide()] result computed on [synth_surveillance], with the
-#' surroundings signal and the out-of-grid seasonal and detection channels all
+#' A [bs_field_guide()] result computed on [synth_surveillance], with all
+#' five STEPS components and the neighbour, seasonal and detection context
 #' supplied. It ships so that [bs_field_guide_help()], the
 #' [bs_field_guide_table()] examples, and the package tests run instantly
 #' without refitting the (INLA-based) upstream model. The full modelling chain
@@ -194,7 +201,7 @@
 #'
 #' @format An object of class `blindspot_field_guide`; see the Value section
 #'   of [bs_field_guide()] for the element structure. Read year 2024; SPI cut
-#'   0.80; NPAFP target 3 per 100,000 under-15-years.
+#'   1; NPAFP target 3 per 100,000 under-15-years.
 #'
 #' @section Reproducibility:
 #' Regenerate with `Rscript data-raw/synth_field_guide.R` (needs INLA). The

@@ -3,7 +3,7 @@
 # The pager is self-contained: hand it the field guide and the shapefile and it
 # draws the locator inset from the real geometry, placing the district in its
 # country, and reads both detection channels (AFP + ES, already carried by the
-# field guide) into the out-of-grid row. Each district is written as a
+# field guide) into the context row. Each district is written as a
 # self-contained HTML tear-sheet plus a PNG preview, auto-named
 # spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}, into inst/examples/pager/ so
 # the results can be reviewed in the repo. PNG output needs webshot2 and a
@@ -13,24 +13,20 @@
 # or, from a source checkout:
 #   Rscript inst/examples/pager_demo.R
 #
-# Operational note: the pager renders the trend, the corroborator count and the
-# verdict straight from the field-guide object; it does not recompute them. So
-# the levers that decide what the page says are all at the *build* of the guide,
-# not at the pager call. Three matter:
+# Operational note: the pager renders the STEPS components and the judgement
+# straight from the field-guide object; it does not recompute them. So the
+# levers that decide what the page says are all at the *build* of the guide,
+# not at the pager call. Two matter:
 #
-#   fg <- bs_field_guide(conc, adjacency = adj, spi_month = cm,
+#   fg <- bs_field_guide(conc, process = p, adjacency = adj, spi_month = cm,
 #                        genomic = g, es = e,
-#                        traj_alpha = 0.1,             # gate the trend test
-#                        noise_alpha = 0.05,           # gate on sampling noise
-#                        persistence_basis = "trailing")  # current run only
+#                        traj_alpha = 0.1,     # gate the trend test (context)
+#                        noise_alpha = 0.05)   # gate strength on sampling noise
 #
-# All three default off, so the package reproduces the paper's published flag
-# counts out of the box. For operational pagers that people act on, turn them
-# on: traj_alpha stops a single volatile year reading as a sustained decline,
-# noise_alpha stops a shortfall that chance alone could produce from opening the
-# significance gate, and persistence_basis = "trailing" stops a sub-cut run that
-# ended years ago from corroborating this year's reading. Keep the defaults for
-# manuscript figures. This synthetic gallery renders from the precomputed
+# Both default off. For operational pagers that people act on, turn them on:
+# traj_alpha stops a single volatile year reading as a sustained decline, and
+# noise_alpha stops a shortfall that chance alone could produce from reading
+# as a certain one. This synthetic gallery renders from the precomputed
 # (default-settings) `synth_field_guide` so it runs instantly without INLA.
 
 devtools::load_all()
@@ -104,17 +100,17 @@ indicators <- tibble::tibble(
   onset_notify_n = tl$n_assessable
 )
 
-# ES is an optional out-of-grid channel; tolerate a guide built without it
+# ES is an optional context channel; tolerate a guide built without it
 es_hit <- if ("es_detected" %in% names(foc)) foc$es_detected %in% TRUE else FALSE
 gen_hit <- foc$genomic_orphan %in% TRUE
 
-# one district per verdict archetype, chosen by rule so the gallery survives a
-# regeneration of the synthetic bundle. these are the four accent states the
-# pager can show:
-#  - FLAG, corroborated -- the deepest flag with a virus detection (rose)
-#  - REVIEW -- a credible shortfall with too few corroborators to flag (plum)
-#  - WATCH -- below the cut but the evidence itself falls short (amber)
-#  - Adequate -- a large district clearly above the cut (green)
+# one district per judgement, chosen by rule so the gallery survives a
+# regeneration of the synthetic bundle:
+#  - Review priority -- the deepest priority with a virus detection (rose)
+#  - Monitor, uncertain -- below the cut with an interval reaching 1 (amber)
+#  - Monitor, uncorroborated -- certain, but neither extent nor persistence
+#    supports it (amber)
+#  - No SPI indication -- a large district clearly above the cut (green)
 deepest <- function(keep) {
   if (!any(keep, na.rm = TRUE)) return(character(0))
   foc$adm2_guid[keep][which.min(foc$spi_median[keep])]
@@ -125,10 +121,10 @@ largest <- function(keep) {
 }
 
 districts <- unique(c(
-  deepest(foc$verdict == "FLAG" & (gen_hit | es_hit)),
-  deepest(foc$verdict == "REVIEW"),
-  deepest(foc$verdict == "WATCH"),
-  largest(foc$verdict == "No action" & foc$spi_median >= cut)
+  deepest(foc$verdict == "Review priority" & (gen_hit | es_hit)),
+  deepest(foc$verdict == "Monitor" & !foc$cri_excludes_1),
+  deepest(foc$verdict == "Monitor" & foc$gate_pass),
+  largest(foc$verdict == "No SPI indication" & foc$spi_median >= cut)
 ))
 
 pagers <- lapply(districts, function(d) {

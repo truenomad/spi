@@ -41,9 +41,9 @@ monitoring
 \item Cross-classify SPI against the conventional NPAFP-rate threshold into a
 four-cell table (both adequate / true shortfall / false alarm / false
 reassurance).
-\item Read each district-year through the five-signal STEPS field guide
-(significance, trend, extent, persistence, surroundings) to a
-FLAG / WATCH / No-action verdict.
+\item Review each district-year with an SPI below 1 through the five STEPS
+components (strength, timeliness, extent, persistence, stool adequacy)
+to a review priority / monitor / no SPI indication judgement.
 }
 }
 
@@ -55,7 +55,7 @@ FLAG / WATCH / No-action verdict.
 \item \code{\link[=bs_compare_overdispersion]{bs_compare_overdispersion()}}: Compare Poisson vs negative-binomial fits
 \item \code{\link[=bs_spi]{bs_spi()}}: Compute surveillance performance index
 \item \code{\link[=bs_concordance]{bs_concordance()}}: Cross-classify SPI against the NPAFP-rate threshold
-\item \code{\link[=bs_field_guide]{bs_field_guide()}}: Read the SPI to FLAG / WATCH / No-action verdicts
+\item \code{\link[=bs_field_guide]{bs_field_guide()}}: Review a low SPI through the five STEPS components
 \item \code{\link[=bs_field_guide_table]{bs_field_guide_table()}}: Render the field guide (gt / flextable)
 \item \code{\link[=bs_field_guide_help]{bs_field_guide_help()}}: Learn to read the field guide
 }

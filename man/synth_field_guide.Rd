@@ -7,14 +7,14 @@
 \format{
 An object of class \code{blindspot_field_guide}; see the Value section
 of \code{\link[=bs_field_guide]{bs_field_guide()}} for the element structure. Read year 2024; SPI cut
-0.80; NPAFP target 3 per 100,000 under-15-years.
+1; NPAFP target 3 per 100,000 under-15-years.
 }
 \usage{
 synth_field_guide
 }
 \description{
-A \code{\link[=bs_field_guide]{bs_field_guide()}} result computed on \link{synth_surveillance}, with the
-surroundings signal and the out-of-grid seasonal and detection channels all
+A \code{\link[=bs_field_guide]{bs_field_guide()}} result computed on \link{synth_surveillance}, with all
+five STEPS components and the neighbour, seasonal and detection context
 supplied. It ships so that \code{\link[=bs_field_guide_help]{bs_field_guide_help()}}, the
 \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} examples, and the package tests run instantly
 without refitting the (INLA-based) upstream model. The full modelling chain

@@ -482,6 +482,26 @@ afp_timeliness <- cases |>
   ) |>
   select(adm2_guid, year, afp_cases, n_assessable, n_within_7d)
 
+# ---- AFP process: specimen transport and stool adequacy --------------------
+# The two STEPS process components, as the district-year counts the
+# percentages are computed from: cases with adequate stool specimens, cases
+# with both the second stool collection and laboratory receipt dates, and of
+# those, how many reached the laboratory within 3 days. Drawn after
+# `afp_timeliness`, so every earlier table keeps its RNG stream.
+afp_process <- afp_timeliness |>
+  transmute(adm2_guid, year, n_cases = afp_cases) |>
+  mutate(
+    n_adequate = rbinom(
+      n(), size = n_cases,
+      prob = pmin(0.97, pmax(0.55, rnorm(n(), 0.84, 0.08)))
+    ),
+    n_transport = rbinom(n(), size = n_cases, prob = 0.9),
+    n_transport_timely = rbinom(
+      n(), size = n_transport,
+      prob = pmin(0.97, pmax(0.35, rnorm(n(), 0.78, 0.12)))
+    )
+  )
+
 synth_surveillance <- list(
   cases = cases,
   population = population,
@@ -494,6 +514,7 @@ synth_surveillance <- list(
   es_district_year = es_district_year,
   detections = detections,
   afp_timeliness = afp_timeliness,
+  afp_process = afp_process,
   truth = truth
 )
 
@@ -519,6 +540,9 @@ cat("detections:       ", nrow(detections), "district-years,",
 cat("afp_timeliness:   ", nrow(afp_timeliness), "district-years,",
     sum(afp_timeliness$n_assessable), "assessable,",
     sum(afp_timeliness$n_within_7d), "within 7d\n")
+cat("afp_process:      ", nrow(afp_process), "district-years,",
+    sum(afp_process$n_adequate), "adequate,",
+    sum(afp_process$n_transport_timely), "transported within 3d\n")
 cat("truth:            ", sum(truth$is_blindspot), "blindspots,",
     sum(truth$is_low_incidence), "low-incidence; profiles:",
     paste(names(table(truth$surveillance_profile)),

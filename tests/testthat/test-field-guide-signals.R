@@ -1,6 +1,6 @@
-# The optional-signal machinery of bs_field_guide() -- the surroundings (S)
-# neighbour helper and the out-of-grid seasonal / genomic / ES helpers -- only
-# runs when the optional inputs are supplied. These build a field guide from
+# The optional machinery of bs_field_guide() -- the timeliness and stool
+# adequacy components and the neighbour / seasonal / genomic / ES context
+# helpers -- only runs when the optional inputs are supplied. These build a field guide from
 # constructed inputs (make_*, see helper-fixtures.R) so those branches run
 # without an INLA fit.
 
@@ -8,15 +8,18 @@ ids6 <- paste0("FG", 1:6)
 seasonal_map <- list(FG1 = "present", FG2 = "blind", FG3 = "muted",
                      FG4 = "present", FG5 = "none", FG6 = "present")
 
+# the fixtures are engineered around a 0.8 cut, so the tests pass it
+# explicitly rather than take the field guide's default of 1
 build_full_guide <- function(genomic = make_genomic(), genomic_col = NULL,
                              es = make_es(), es_col = "n_positive",
+                             process = make_process(), spi_cut = 0.8,
                              verbose = FALSE, ...) {
   conc <- make_concordance()
   nb <- make_nb(ids6)
   sm <- make_spi_month("adm2_guid", ids6, 2019:2024, seasonal_map)
-  bs_field_guide(conc, adjacency = nb, spi_month = sm, genomic = genomic,
-                 genomic_col = genomic_col, es = es, es_col = es_col,
-                 verbose = verbose, ...)
+  bs_field_guide(conc, process = process, adjacency = nb, spi_month = sm,
+                 genomic = genomic, genomic_col = genomic_col, es = es,
+                 es_col = es_col, spi_cut = spi_cut, verbose = verbose, ...)
 }
 
 test_that("all optional signals compute when the inputs are supplied", {
@@ -25,17 +28,19 @@ test_that("all optional signals compute when the inputs are supplied", {
   expect_true(all(fg$signals_active))
 
   dy <- fg$district_year
-  # surroundings (S) produced real values (not all NA) and a discordance
+  # neighbour contrast produced real values (not all NA) and a discordance
   expect_false(all(is.na(dy$neighbour_spi)))
   expect_true(any(dy$neighbour_discordant, na.rm = TRUE))
-  # out-of-grid seasonal produced blind / muted / present / not-assessed labels
+  # seasonal produced blind / muted / present / not-assessed labels
   expect_true(any(dy$seasonally_blind, na.rm = TRUE))
   expect_true(all(c("blind", "muted", "present") %in% dy$seasonal))
-  # out-of-grid genomic orphan attached to FG1 / FG2
+  # genomic orphan attached to FG1 / FG2
   expect_true(any(dy$genomic_orphan, na.rm = TRUE))
-  # every verdict level reachable
-  expect_true(all(c("FLAG", "WATCH", "No action") %in%
-                    as.character(dy$verdict)))
+  # every judgement reachable
+  expect_setequal(
+    as.character(dy$verdict),
+    c("Review priority", "Monitor", "No SPI indication")
+  )
 })
 
 test_that("genomic_col filters detections and validates its name", {
@@ -45,27 +50,10 @@ test_that("genomic_col filters detections and validates its name", {
   expect_error(build_full_guide(genomic_col = "missing_flag"), "genomic_col")
 })
 
-test_that("dedupe_temporal collapses the trajectory + persistence pair", {
-  fg1 <- function(fg) fg$focal[fg$focal$adm2_guid == "FG1", ]
-
-  # FG1 is falling and persistent, and sits in a short neighbourhood, so with
-  # adjacency supplied it carries both temporal signals plus surroundings.
-  # Deduping the temporal pair costs it exactly one corroborator.
-  base <- build_full_guide()
-  dedup <- build_full_guide(dedupe_temporal = TRUE)
-  expect_equal(fg1(base)$corroborators, 3L)
-  expect_equal(fg1(dedup)$corroborators, 2L)
-  expect_true(dedup$params$dedupe_temporal)
-
-  # with no adjacency, surroundings is not assessed and the temporal pair is
-  # the whole corroboration, so collapsing it drops FG1 below the 2-of-N rule
-  bare <- bs_field_guide(make_concordance(), verbose = FALSE)
-  bare_dedup <- bs_field_guide(make_concordance(), dedupe_temporal = TRUE,
-                               verbose = FALSE)
-  expect_equal(fg1(bare)$corroborators, 2L)
-  expect_identical(as.character(fg1(bare)$verdict), "FLAG")
-  expect_equal(fg1(bare_dedup)$corroborators, 1L)
-  expect_false(as.character(fg1(bare_dedup)$verdict) == "FLAG")
+test_that("context signals never move the judgement", {
+  full <- build_full_guide()
+  bare <- bs_field_guide(make_concordance(), spi_cut = 0.8, verbose = FALSE)
+  expect_identical(full$district_year$verdict, bare$district_year$verdict)
 })
 
 test_that("traj_alpha gates a volatile slope to flat, not falling", {
@@ -115,27 +103,49 @@ test_that("neighbourhood_shortfall names the region-wide absorption case", {
   expect_true(all(is.na(bare$district_year$neighbourhood_shortfall)))
 })
 
-test_that("detection_corroborates counts a detection as an extra signal", {
-  base <- build_full_guide()
-  withdet <- build_full_guide(detection_corroborates = TRUE)
+test_that("process counts become timeliness and adequacy concerns", {
+  f <- build_full_guide()$focal
+  row <- function(id) f[f$adm2_guid == id, ]
 
-  # FG2 carries a genomic orphan; counting it lifts the corroborator tally by 1
-  fg2 <- function(fg) fg$focal[fg$focal$adm2_guid == "FG2", ]
-  expect_true(fg2(base)$genomic_orphan)
-  expect_equal(fg2(withdet)$corroborators, fg2(base)$corroborators + 1L)
-  expect_true(withdet$params$detection_corroborates)
-  # default keeps the detection out of the count (paper's spec)
-  expect_false(base$params$detection_corroborates)
+  # FG1: 3 of 8 specimens within 3 days is below the 80% target
+  expect_equal(row("FG1")$pct_transport_timely, 100 * 3 / 8)
+  expect_true(row("FG1")$timeliness_concern)
+  expect_false(row("FG1")$adequacy_concern)
+  # FG3: 5 of 10 adequate stool specimens
+  expect_true(row("FG3")$adequacy_concern)
+  expect_false(row("FG3")$timeliness_concern)
+  # FG2: three cases is below the five-case floor, so neither is assessed
+  expect_false(row("FG2")$transport_assessed)
+  expect_true(is.na(row("FG2")$timeliness_concern))
+  expect_true(is.na(row("FG2")$adequacy_concern))
+  # FG4 is absent from `process`, so it has no cases rather than no data
+  expect_equal(row("FG4")$n_cases, 0L)
+  expect_true(is.na(row("FG4")$adequacy_concern))
+
+  bad <- make_process()
+  bad$n_transport_timely <- NULL
+  expect_error(build_full_guide(process = bad), "n_transport_timely")
 })
 
 test_that("bs_field_guide degrades and warns without optional inputs", {
   conc <- make_concordance()
-  bare <- bs_field_guide(conc, min_corroborators = 10L, verbose = TRUE)
-  expect_false(any(bare$signals_active))
+  expect_message(
+    bare <- bs_field_guide(conc, spi_cut = 0.8, verbose = TRUE),
+    "Not computed"
+  )
+  expect_identical(
+    names(bare$signals_active)[!bare$signals_active],
+    c("timeliness", "adequacy", "surroundings", "seasonal", "detect_afp",
+      "detect_es")
+  )
+  # admin-1 names are in the concordance, so extent is still computed
+  expect_true(bare$signals_active[["extent"]])
   expect_true(all(is.na(bare$district_year$neighbour_spi)))
   expect_true(all(is.na(bare$district_year$seasonal)))
-  # min_corroborators above the assessable count means nothing can flag
-  expect_false(any(bare$district_year$verdict == "FLAG"))
+
+  expect_error(
+    bs_field_guide(conc, extent_col = "state", verbose = FALSE), "extent_col"
+  )
 })
 
 test_that("bs_field_guide validates read_year, columns, and spi_month level", {
@@ -159,15 +169,14 @@ test_that("bs_field_guide_help runs every topic and the synth fallback", {
   fg <- build_full_guide()
   expect_no_error(bs_field_guide_help("all"))            # expands to all topics
 
-  # worked example narrated from a supplied guide (genomic -> corroborated flag)
+  # worked example narrated from a supplied guide: the four teaching cases
   w <- bs_field_guide_help("example", guide = fg)
   expect_s3_class(w, "tbl_df")
-  expect_true("Flag, corroborated" %in% w$case_label)
-
-  # a guide with no genomic input falls back to the persistent-flag narrative
-  fg_ng <- build_full_guide(genomic = NULL)
-  w2 <- bs_field_guide_help("example", guide = fg_ng)
-  expect_true("Flag, persistent" %in% w2$case_label)
+  expect_setequal(w$case_label, c(
+    "At or above expectation", "Uncertain shortfall",
+    "Large, corroborated shortfall",
+    "Shortfall without spatial corroboration"
+  ))
 
   # default guide argument loads the shipped synth_field_guide
   expect_no_error(bs_field_guide_help("example"))
@@ -239,26 +248,25 @@ test_that("neighbour / seasonal signals degrade on odd adjacency inputs", {
 })
 
 test_that("field-guide cell + narrative helpers cover their branches", {
-  # .fg_s6_cell: island, unassessable neighbours, and a normal contrast
-  expect_match(blindspot:::.fg_s6_cell(list(island = TRUE)), "no adjacent")
-  expect_match(
-    blindspot:::.fg_s6_cell(list(island = FALSE, neighbour_spi = NA_real_)),
-    "not assessable"
-  )
-  expect_match(
-    blindspot:::.fg_s6_cell(list(island = FALSE, neighbour_spi = 0.9,
-                                 spi_median = 0.5)),
-    "neighbour median"
-  )
+  # shares that round alike print a decimal, so a concern never reads as a tie
+  expect_equal(blindspot:::.fg_pct_pair(55.6, 55.5), c("55.6%", "55.5%"))
+  expect_equal(blindspot:::.fg_pct_pair(60, 40), c("60%", "40%"))
+
+  # process cells: not supplied, below the floor, and assessed
+  expect_equal(blindspot:::.fg_process_cell(NA, NA, "x", 5L), "Not supplied")
+  expect_match(blindspot:::.fg_process_cell(2, 3, "x", 5L), "not assessed")
+  expect_match(blindspot:::.fg_process_cell(6, 8, "x", 5L), "6 of 8 x \\(75%\\)")
 
   # .fg_tag returns NULL for an empty pick
-  expect_null(blindspot:::.fg_tag(NULL, "Watch"))
+  expect_null(blindspot:::.fg_tag(NULL, "Monitor"))
 
   # .fg_narrate fallback for an unrecognised case label
-  r <- list(case_label = "Other", verdict = "No action", spi_median = 0.9,
-            spi_q05 = 0.8, spi_q95 = 1.0, longest_run_below = 0L,
+  r <- list(case_label = "Other", verdict = "Monitor", year = 2024L,
+            spi_median = 0.9, spi_q05 = 0.8, spi_q95 = 1.0,
+            spi_previous = NA_real_, extent_others = 0L,
             expected_total = 5)
-  expect_match(blindspot:::.fg_narrate(r, 0.8), "verdict")
+  expect_match(blindspot:::.fg_narrate(r, 1), "Judgement: Monitor")
+  expect_match(blindspot:::.fg_narrate(r, 1), "no SPI for the previous year")
 })
 
 test_that("worked table aborts when no districts can be selected", {
@@ -314,23 +322,24 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
                 observed = c(1, 1, 0, 0, 0), expected = 2)
   ))
 
-  base <- bs_field_guide(conc, verbose = FALSE)
+  base <- bs_field_guide(conc, spi_cut = 0.8, verbose = FALSE)
   f <- base$focal
   expect_true(f$cri_excludes_1)
   expect_true(f$gate_pass)
-  expect_identical(as.character(f$verdict), "FLAG")
+  expect_identical(as.character(f$verdict), "Review priority")
   # the tail is reported even with no gate asked for
   expect_equal(f$noise_tail, stats::ppois(0, 2), tolerance = 1e-9)
   expect_true(f$noise_plausible)
 
-  gated <- bs_field_guide(conc, noise_alpha = 0.05, verbose = FALSE)
+  gated <- bs_field_guide(conc, noise_alpha = 0.05, spi_cut = 0.8,
+                          verbose = FALSE)
   g <- gated$focal
   # the interval still excludes one -- it collapsed to (0, 0). What shut is the
   # noise gate, and the two are reported apart so a reading can say which
   expect_true(g$cri_excludes_1)
   expect_false(g$gate_pass)
-  # below the cut with the gate shut is a watch, not a flag
-  expect_identical(as.character(g$verdict), "WATCH")
+  # below the cut with the gate shut is monitor, not review priority
+  expect_identical(as.character(g$verdict), "Monitor")
 
   # a well-powered zero is untouched: P(X = 0 | 30) is vanishing
   powered <- make_count_concordance(list(
@@ -362,25 +371,23 @@ test_that("noise_alpha leaves cri_excludes_1 and the default read alone", {
                      !gated$noise_plausible)
 })
 
-test_that("a credible but uncorroborated shortfall reads REVIEW, not no-action",
-{
-  # below the cut, interval wholly below one, but flat and alone: nothing
-  # corroborates. That is stronger evidence than a WATCH, whose interval
-  # reaches one, so it cannot sort beneath it.
+test_that("a certain but uncorroborated shortfall reads Monitor", {
+  # below the cut with the interval wholly below one, but the previous year was
+  # at or above the cut and the district has no neighbours in its area, so
+  # neither extent nor persistence corroborates
   conc <- make_count_concordance(list(
-    LONE = list(spi = rep(0.60, 5), q95 = rep(0.70, 5),
+    LONE = list(spi = c(0.90, 0.60), q95 = c(1.10, 0.70),
                 observed = 6, expected = 10)
   ))
-  f <- bs_field_guide(conc, min_corroborators = 2L, verbose = FALSE)$focal
+  f <- bs_field_guide(conc, spi_cut = 0.8, verbose = FALSE)$focal
 
   expect_true(f$spi_below)
   expect_true(f$gate_pass)
-  expect_lt(f$corroborators, 2L)
-  expect_identical(as.character(f$verdict), "REVIEW")
-
-  # and the tier sits between FLAG and WATCH, so `order()` triages correctly
+  expect_false(f$persistence_concern)
+  expect_true(is.na(f$extent_concern))
+  expect_identical(as.character(f$verdict), "Monitor")
   expect_identical(
-    levels(f$verdict), c("FLAG", "REVIEW", "WATCH", "No action")
+    levels(f$verdict), c("Review priority", "Monitor", "No SPI indication")
   )
 })
 
@@ -392,39 +399,34 @@ test_that("noise_alpha must be a probability", {
                "probability")
 })
 
-test_that("persistence_basis chooses between a historical and a current run", {
-  # three sub-cut years, then recovery, then one sub-cut year: longest is 3,
-  # the run ending 2024 is 1
+test_that("persistence reads the previous year, not a historical run", {
+  # three sub-cut years, then recovery, then one sub-cut year: the previous
+  # year was above the cut, so persistence does not fire despite the old run
   conc <- make_count_concordance(list(
     STALE = list(spi = c(0.5, 0.5, 0.5, 1.1, 1.05, 0.7),
                  q95 = c(0.6, 0.6, 0.6, 1.3, 1.25, 0.75),
                  observed = 4, expected = 12)
   ))
+  f <- bs_field_guide(conc, spi_cut = 0.8, verbose = FALSE)$focal
 
-  longest <- bs_field_guide(conc, verbose = FALSE)$focal
-  trailing <- bs_field_guide(
-    conc, persistence_basis = "trailing", verbose = FALSE
-  )$focal
-
-  # both runs are always reported, whichever gates
-  expect_equal(longest$longest_run_below, 3L)
-  expect_equal(longest$trailing_run_below, 1L)
-  expect_equal(trailing$longest_run_below, 3L)
-  expect_equal(trailing$trailing_run_below, 1L)
-
-  # run_below tracks the basis, and the corroborator follows it
-  expect_equal(longest$run_below, 3L)
-  expect_equal(trailing$run_below, 1L)
-  expect_gt(longest$corroborators, trailing$corroborators)
+  expect_equal(f$spi_previous, 1.05)
+  expect_false(f$persistence_concern)
+  expect_identical(as.character(f$verdict), "Monitor")
+  # both runs are still reported as context
+  expect_equal(f$longest_run_below, 3L)
+  expect_equal(f$trailing_run_below, 1L)
 })
 
-test_that("the defaults leave the published reading unchanged", {
+test_that("the defaults follow the field guide", {
   conc <- make_concordance()
   base <- bs_field_guide(conc, verbose = FALSE)
-  # longest basis, no noise gate
-  expect_identical(base$params$persistence_basis, "longest")
+  # STEPS applies below 1 whatever cut the concordance used
+  expect_equal(base$thresholds$spi, 1)
   expect_null(base$params$noise_alpha)
-  expect_equal(base$focal$run_below, base$focal$longest_run_below)
+  expect_equal(base$params$process_target, 80)
+  expect_equal(base$params$process_min_cases, 5L)
+  expect_false(any(c("min_corroborators", "persistence_basis") %in%
+                     names(base$params)))
 })
 
 test_that("detection_serotypes keeps ambiguous virus out of the channels", {

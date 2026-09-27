@@ -270,9 +270,9 @@ make_spi_month <- function(id_col, ids, years, seasonal_map) {
 }
 
 # --- a blindspot_concordance for the field guide --------------------------
-# Six districts across six years, engineered to reach FLAG / WATCH / No action
-# and to light up the trend / persistence / surroundings and out-of-grid
-# seasonal / detection signals.
+# Six districts across six years, engineered at a 0.8 cut to reach review
+# priority / monitor / no SPI indication and to light up persistence and the
+# trend / neighbour / seasonal / detection context signals.
 make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
                              npafp_target = 3) {
   years <- 2019:2024
@@ -282,7 +282,7 @@ make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
   traj <- list(
     FG1 = seq(0.75, 0.45, length.out = ny),   # falling, persistent, adequate
     FG2 = seq(0.70, 0.40, length.out = ny),   # falling, persistent (no genomic)
-    FG3 = rep(0.60, ny),                        # below cut, wide CrI -> WATCH
+    FG3 = rep(0.60, ny),                        # below cut, wide CrI -> monitor
     FG4 = rep(1.05, ny),                        # comfortably adequate
     FG5 = seq(0.9, 0.5, length.out = ny),      # island, falling
     FG6 = rep(0.95, ny)                         # steady, just above
@@ -294,7 +294,7 @@ make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
   rows <- list()
   for (d in names(traj)) {
     spi <- traj[[d]]
-    # FLAG districts get a tight CrI (q95 < 1); WATCH keeps CrI touching 1
+    # priority districts get a tight CrI (q95 < 1); monitor keeps it touching 1
     q95 <- if (d %in% c("FG1", "FG2", "FG5")) spi + 0.10 else spi + 0.45
     rate <- if (adequate[[d]]) 5 else 1.5
     rows[[d]] <- tibble::tibble(
@@ -348,6 +348,24 @@ make_es <- function(id_col = "adm2_guid") {
     year = c(2022L, 2023L),
     n_positive = c(1L, 2L)
   )
+}
+
+# AFP process counts for the STEPS timeliness and stool adequacy components.
+# FG1 transports slowly, FG3 has inadequate stool specimens, FG2 has too few
+# cases to assess, and the other districts are absent (read as no cases).
+make_process <- function(id_col = "adm2_guid") {
+  grid <- expand.grid(
+    id = c("FG1", "FG2", "FG3"), year = 2019:2024,
+    stringsAsFactors = FALSE
+  )
+  names(grid)[1] <- id_col
+  tibble::as_tibble(grid) |>
+    dplyr::mutate(
+      n_cases = c(FG1 = 8L, FG2 = 3L, FG3 = 10L)[.data[[id_col]]],
+      n_adequate = c(FG1 = 8L, FG2 = 3L, FG3 = 5L)[.data[[id_col]]],
+      n_transport = c(FG1 = 8L, FG2 = 3L, FG3 = 10L)[.data[[id_col]]],
+      n_transport_timely = c(FG1 = 3L, FG2 = 3L, FG3 = 9L)[.data[[id_col]]]
+    )
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x

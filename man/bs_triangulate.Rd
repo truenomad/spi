@@ -2,7 +2,7 @@
 % Please edit documentation in R/bs_triangulate.R
 \name{bs_triangulate}
 \alias{bs_triangulate}
-\title{Triangulate a field-guide verdict against independent virus detection}
+\title{Triangulate a field-guide judgement against independent virus detection}
 \usage{
 bs_triangulate(
   field_guide,
@@ -18,7 +18,7 @@ bs_triangulate(
 }
 \arguments{
 \item{field_guide}{A \code{\link[=bs_field_guide]{bs_field_guide()}} result (class
-\code{blindspot_field_guide}). Supplies the verdict per district-year.}
+\code{blindspot_field_guide}). Supplies the judgement per district-year.}
 
 \item{detections}{A data frame at district-year level holding the id and
 \code{year} columns plus the three detection columns named below.}
@@ -34,10 +34,10 @@ district-year. \code{es_detected} is only meaningful where this is true.
 Default: \code{"es_covered"}.}
 
 \item{detection_lag}{Integer years to shift detections later than the
-verdict they are tested against, to avoid response-amplified verdicts.
+judgement they are tested against, to avoid response-amplified readings.
 Default: 0.}
 
-\item{verdict_col}{Name of the verdict column in the field guide.
+\item{verdict_col}{Name of the judgement column in the field guide.
 Default: \code{"verdict"}.}
 
 \item{id_col}{Character district id column. Default: NULL (take
@@ -50,7 +50,7 @@ Default: TRUE.}
 An object of class \code{blindspot_triangulation}. A list with:
 \describe{
 \item{district_year}{Tibble, one row per district-year, carrying the
-verdict, \code{es_status}, \code{afp_hit}, \code{flag_preceded}, \code{triangulation}
+judgement (\code{verdict}), \code{es_status}, \code{afp_hit}, \code{flag_preceded}, \code{triangulation}
 (factor), and \code{priority} (factor).}
 \item{focal}{The \code{read_year} slice of \code{district_year}.}
 \item{reference}{Legend of the triangulation classes and their actions.}
@@ -58,53 +58,54 @@ verdict, \code{es_status}, \code{afp_hit}, \code{flag_preceded}, \code{triangula
 }
 }
 \description{
-Cross-references the \code{\link[=bs_field_guide]{bs_field_guide()}} verdict, which judges whether the
-AFP surveillance system \emph{could} see poliovirus in a district-year, against
+Cross-references the \code{\link[=bs_field_guide]{bs_field_guide()}} review judgement, which reads
+whether AFP reporting in a district-year is below expectation, against
 the two channels that record whether virus was actually \emph{found}: AFP
 detection and environmental surveillance (ES). Because ES is largely
 independent of AFP surveillance quality, it is the channel that can confirm
-or contradict a capacity flag without arguing in a circle. The result is a
+or contradict a review priority without arguing in a circle. The result is a
 per-district-year classification separating a trustworthy silence from a
 probable blind spot, and a three-level priority for triage.
 }
 \details{
-The field guide answers a capacity question from signals internal to the
-AFP stream, so a \code{FLAG} states that a silence is untrustworthy but not that
-the silence hid virus. This function adds the independent read. For every
-district-year with no AFP detection it classifies the verdict against ES
-status (\code{positive}, \code{clear} where a site exists and found nothing, or
-\verb{no site}):
+The field guide reads reporting against expectation from the AFP stream
+alone, so a \verb{Review priority} states that a silence may be untrustworthy
+but not that the silence hid virus. This function adds the independent
+read. For every district-year with no AFP detection it classifies the
+judgement against ES status (\code{positive}, \code{clear} where a site exists and
+found nothing, or \verb{no site}):
 \itemize{
-\item \strong{confirmed blindspot} -- \code{FLAG}, AFP silent, ES positive. The
-capacity flag is vindicated by an independent detection; the strongest
-corroboration the data offer.
-\item \strong{blind, unverified} -- \code{FLAG}, AFP silent, no ES site. A capacity
-warning with no independent channel to check it; the highest-value
+\item \strong{confirmed blindspot} -- \verb{Review priority}, AFP silent, ES
+positive. The review priority is supported by an independent
+detection; the strongest corroboration the data offer.
+\item \strong{blind, unverified} -- \verb{Review priority}, AFP silent, no ES site.
+A shortfall with no independent channel to check it; the highest-value
 place to deploy ES or an active search.
-\item \strong{flagged, ES clear} -- \code{FLAG}, AFP silent, ES negative. The
-capacity concern stands, but the independent channel is quiet.
-\item \strong{adequate, ES positive} -- \verb{No action}, AFP silent, ES positive.
-A potential false-adequate: the guide saw nothing wrong yet virus was
-found by the independent channel.
-\item \strong{corroborated / uncorroborated clear} -- \verb{No action}, AFP silent,
-ES negative or absent. A trustworthy silence, confirmed or unconfirmed.
+\item \strong{priority, ES clear} -- \verb{Review priority}, AFP silent, ES
+negative. The concern stands, but the independent channel is quiet.
+\item \strong{no indication, ES positive} -- \verb{No SPI indication}, AFP silent,
+ES positive. The guide saw no shortfall yet virus was found by the
+independent channel.
+\item \strong{corroborated / uncorroborated clear} -- \verb{No SPI indication}, AFP
+silent, ES negative or absent. A silence confirmed or unconfirmed by
+ES.
 }
-\code{REVIEW} and \code{WATCH} verdicts take the parallel \verb{review, *} and \verb{watch, *}
-labels. \verb{review, ES positive} is high priority on the same reasoning as
-\verb{watch, ES positive}; the other two review classes are medium.
+\code{Monitor} judgements take the parallel \verb{monitor, *} labels.
+\verb{monitor, ES positive} is high priority, since the ES hit supplies the
+corroboration the judgement lacked; the other two monitor classes are
+medium.
 
 A detection can inflate NPAFP through the active case finding it triggers,
-which lifts SPI and makes the preceding verdict look retrospectively
-correct. Set \code{detection_lag} to align the verdict in year \emph{t} against
-detections in year \emph{t + detection_lag}, so the capacity read is taken
-before the response contaminated it. \code{flag_preceded} records, for detected
-district-years, whether that aligned verdict was already \code{FLAG}, \code{REVIEW}
-or \code{WATCH}.
+which lifts SPI and makes the preceding judgement look retrospectively
+correct. Set \code{detection_lag} to align the judgement in year \emph{t} against
+detections in year \emph{t + detection_lag}, so the reading is taken before the
+response contaminated it. \code{flag_preceded} records, for detected
+district-years, whether that aligned judgement was already \verb{Review priority} or \code{Monitor}.
 
 District-years present in \code{field_guide} but absent from \code{detections} are
 read as no detection and no ES site. Detections here are confirmed
 poliovirus isolations by channel, distinct from the orphan-sequence signal
-the field guide uses as out-of-grid detection corroboration.
+the field guide reports as detection context.
 }
 \examples{
 fg <- synth_field_guide
@@ -114,7 +115,7 @@ print(tri)
 dplyr::count(tri$district_year, triangulation)
 }
 \seealso{
-\code{\link[=bs_field_guide]{bs_field_guide()}} for the verdict input,
+\code{\link[=bs_field_guide]{bs_field_guide()}} for the judgement input,
 \code{\link[=bs_triangulate_table]{bs_triangulate_table()}} and \code{\link[=bs_triangulate_map]{bs_triangulate_map()}} for rendering the
 result, and \code{\link[=bs_field_guide_table]{bs_field_guide_table()}} for rendering the guide itself.
 }

@@ -60,11 +60,11 @@ e.g. \code{"rolling year to Apr 2025"}. Default: NULL (the year).}
 
 \item{prob_under}{Optional posterior probability that observed \strong{non-polio
 AFP detection} fell below the model expectation, i.e. \code{P(SPI < 1)}, as a
-single number on the 0 to 1 scale. It is appended to the significance
-line as a percentage, with the tails printed as "over 99\%" and "under 1\%"
-so the line reports only the certainty the draws support. It states the
-strength of the same evidence the significance gate tests, which is
-otherwise only pass or fail. Read it as a system signal, not a virus
+single number on the 0 to 1 scale. It is appended to the strength line
+as a percentage, with the tails printed as "over 99\%" and "under 1\%" so
+the line reports only the certainty the draws support. It states how
+decisively the interval clears one, which the strength test otherwise
+reports only as pass or fail. Read it as a system signal, not a virus
 signal: it measures case-finding against expectation. Default: NULL (not
 shown).}
 
@@ -75,10 +75,9 @@ against its target, plus tiles for whichever of \code{stool_adequacy_cond_pct},
 \code{inv_timeliness_pct}, \code{onset_notify_pct} and \code{ev_rate} are present. Pass
 the assessable counts (\code{inv_timeliness_n}, \code{onset_notify_n}) and they are
 shown under each figure; a percentage on fewer than five cases prints as a
-fraction instead, since a flagged district often has only a handful. These
-indicators support the reading from outside the five STEPS: they never
-enter the corroborator count and never change the verdict. Default NULL
-(no strip).}
+fraction instead, since a district below expectation often has only a
+handful. These indicators are context: they never change the judgement.
+Default NULL (no strip).}
 
 \item{npafp_target}{Numeric non-polio AFP rate target for the strip's rate
 panel, per 100,000 under 15. Default: NULL (\code{x$thresholds$npafp}).}
@@ -127,8 +126,8 @@ Default: NULL (first of \code{adm2_name}, \code{adm1_name}, else the id column).
 under the district name. Default: \code{"admin-2 district"}.}
 
 \item{unit_noun}{Singular common noun for the operational unit, used in the
-on-page reading (e.g. "expected for the \code{unit_noun}", "A \code{unit_noun} is
-flagged when..."). Set it to match \code{admin_label}, e.g. \code{"province"} for
+on-page reading (e.g. "other \code{unit_noun}s in", "STEPS is applied to a
+\code{unit_noun}..."). Set it to match \code{admin_label}, e.g. \code{"province"} for
 admin-1 inputs. Default: \code{"district"}.}
 
 \item{note}{Optional provenance tag printed in the footer, e.g.
@@ -138,19 +137,19 @@ admin-1 inputs. Default: \code{"district"}.}
 }
 \value{
 An object of class \code{blindspot_pager}: a list with the rendered
-\code{html} string, the resolved \code{district}, \code{year}, \code{verdict}, and \code{paths}
-(the files written, empty when neither \code{path} nor \code{file} is set). Printing
-it reports the verdict and any written files. Recover the markup with
+\code{html} string, the resolved \code{district}, \code{year}, \code{verdict} (the review
+judgement), and \code{paths} (the files written, empty when neither \code{path} nor
+\code{file} is set). Printing it reports the judgement and any written files. Recover the markup with
 \code{as.character()}.
 }
 \description{
 Turns one district's \code{\link[=bs_field_guide]{bs_field_guide()}} reading into a self-contained,
-print-ready HTML "pager": a masthead with the verdict, an SPI-over-time
-chart for the district (with the 90\% credible-interval ribbon and any
-orphan-poliovirus detections marked), the five-STEPS reading laid out as
-gate / magnitude / corroboration (with seasonal and detection corroboration
-read out of grid), and a verdict banner summarising what the reading rests
-on. The pager reports the reading; it recommends no follow-up.
+print-ready HTML "pager": a masthead with the review judgement, an
+SPI-over-time chart for the district (with the 90\% credible-interval ribbon
+and any poliovirus detections marked), the five STEPS components (strength,
+timeliness, extent, persistence, stool adequacy), and a banner summarising
+what the judgement rests on. The pager reports the reading; it recommends
+no follow-up.
 
 It is the single-district companion to \code{\link[=bs_field_guide_table]{bs_field_guide_table()}}: where the
 table scans many districts at once, the pager is the tear-sheet you hand to
@@ -164,8 +163,8 @@ fonts offline). Every number is read from \code{x}; nothing is simulated.
 
 The chart plots the focal district alone: its SPI line, the 90\%
 credible-interval ribbon and any detection markers. Neighbours enter the
-page as the neighbour-median figure in the masthead and the surroundings (S)
-reading, both taken from the field guide, rather than as lines on the chart.
+page as the neighbour-median figure in the masthead, taken from the field
+guide, rather than as lines on the chart.
 
 Pass \code{boundaries} to draw the locator inset: the whole country in outline
 with its admin-1 divisions, and the focal district filled in the accent
@@ -177,23 +176,22 @@ Pass \code{indicators_df} to add conventional AFP and ES indicators to the conte
 row below the chart: the non-polio AFP rate over the same years against its
 target, and tiles for stool adequacy, the two timeliness percentages and the
 EV rate (an ES measure, so it reads "no ES site" where the district has
-none). Its denominator is the case count, which in a flagged district is
-usually a handful, so a percentage on fewer than five assessable cases prints
-as a fraction and is not graded against a target. These indicators are
-supporting context from outside the five STEPS: they never enter the
-corroborator count and never change the verdict.
+none). Its denominator is the case count, which in a district below
+expectation is usually a handful, so a percentage on fewer than five
+assessable cases prints as a fraction and is not graded against a target.
+These indicators are context: they never change the judgement. The STEPS
+timeliness and stool adequacy rows are read from the field guide itself.
 
-The out-of-grid detection row reports poliovirus found there through either
+The context row also reports poliovirus found there through either
 channel: the case-based (AFP) detections already carried by the field
 guide's \code{genomic} input, and any environmental-surveillance (ES) positives
 passed via \code{es}. Both are marked on the chart (AFP as a filled diamond, ES as
-a hollow ring) and named in the reading. Detections are narrative
-corroboration only; they never enter the STEPS count or change the verdict,
-matching the paper.
+a hollow ring). The seasonal reading and a falling or rising trend are shown
+beside them. All of these are context outside STEPS and never change the
+judgement.
 
-The accent colour tracks the verdict: rose for a flag, plum for a review,
-amber for a watch, green for no action. A flag with an orphan-poliovirus
-detection is titled \emph{"Flag, corroborated"}.
+The accent colour tracks the judgement: rose for review priority, amber for
+monitor, green for no SPI indication.
 }
 \examples{
 fg <- synth_field_guide

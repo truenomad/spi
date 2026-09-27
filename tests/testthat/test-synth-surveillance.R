@@ -9,8 +9,21 @@ test_that("synth_surveillance has the expected structure", {
     synth_surveillance,
     c("cases", "population", "covariates", "boundaries", "ward_boundaries",
       "virus_outcome", "es_sites", "es_data", "es_district_year", "detections",
-      "afp_timeliness", "truth")
+      "afp_timeliness", "afp_process", "truth")
   )
+
+  # afp_process: the counts behind the STEPS timeliness and stool adequacy
+  expect_named(
+    synth_surveillance$afp_process,
+    c("adm2_guid", "year", "n_cases", "n_adequate", "n_transport",
+      "n_transport_timely")
+  )
+  expect_equal(nrow(synth_surveillance$afp_process), n_dist * 10)
+  with(synth_surveillance$afp_process, {
+    expect_true(all(n_adequate <= n_cases))
+    expect_true(all(n_transport_timely <= n_transport))
+    expect_true(all(n_transport <= n_cases))
+  })
 
   # afp_timeliness: the district-year counts an onset-to-notification
   # percentage is built from, since POLIS publishes no such indicator

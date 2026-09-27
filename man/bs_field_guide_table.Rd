@@ -22,12 +22,13 @@ bs_field_guide_table(
 
 \item{engine}{Table engine: \code{"gt"} or \code{"flextable"}.}
 
-\item{layout}{\code{"scan"} (districts as rows) or \code{"worked"} (signals as rows).}
+\item{layout}{\code{"scan"} (districts as rows) or \code{"worked"} (components as
+rows).}
 
 \item{year}{Focal year. Default: NULL (\code{x$read_year}).}
 
 \item{districts}{Character vector of district ids for the \code{"worked"}
-layout. Default: NULL (rule-select four archetypes).}
+layout. Default: NULL (rule-select four districts).}
 
 \item{name_col}{Column to label districts by. Default: NULL (first of
 \code{adm2_name}, \code{adm1_name}, else the id column).}
@@ -38,7 +39,7 @@ NULL (return the table object without saving).}
 \item{shade}{Logical. Apply concern shading. Default: TRUE.}
 
 \item{max_rows}{Integer. For the \code{"scan"} layout, cap the number of rows
-(ranked flags first, then by depth). Default: 50.}
+(review priority first, then by size of shortfall). Default: 50.}
 
 \item{...}{Passed to the underlying \code{gt::gtsave()} / flextable saver.}
 }
@@ -54,13 +55,15 @@ png / pptx).
 \details{
 Two layouts:
 \itemize{
-\item \code{"scan"} -- one row per district for the focal year, with the key
-signals and the verdict; the verdict cell is shaded by concern.
-\item \code{"worked"} -- the paper's teaching layout: the five STEPS plus
-the verdict as rows, a few districts as columns, every cell shaded
-adverse (rose) / intermediate (amber) / reassuring (green). When
-\code{districts} is NULL, four archetype districts (reassuring, watch, flag,
-corroborated flag) are chosen by rule.
+\item \code{"scan"} -- one row per district for the focal year, with the
+STEPS components and the judgement; the judgement cell is shaded.
+\item \code{"worked"} -- the field guide's teaching layout: the five STEPS
+components, the conventional NPAFP rate and the judgement as rows, a
+few districts as columns, every cell shaded as adding to concern
+(rose), intermediate (amber) or reassuring (green). When \code{districts} is
+NULL, four districts (at or above expectation, an uncertain shortfall,
+a large corroborated shortfall, a shortfall without spatial
+corroboration) are chosen by rule.
 }
 }
 \examples{

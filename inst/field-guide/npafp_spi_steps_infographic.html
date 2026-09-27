@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Using NPAFP, SPI and STEPS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div style="width: 1240px; padding: 22px 24px 26px; box-sizing: border-box; background: #ffffff; color: #12365f; font-family: 'Source Sans 3', system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px;">
+
+  <div style="display: flex; gap: 18px; align-items: flex-start;">
+    <div style="flex: 1 1 auto; min-width: 0;">
+      <div style="font-family: Archivo, sans-serif; font-weight: 800; font-size: 41px; line-height: 1.05; letter-spacing: -0.8px; color: #10284f;">Using NPAFP, SPI and STEPS</div>
+      <div style="margin-top: 8px; font-size: 17.5px; color: #16406e;">Combining detection, timeliness and adequacy to assess AFP surveillance.</div>
+    </div>
+    <div style="flex: 0 0 388px; background: #dceefb; border: 1px solid #b6d9f3; border-radius: 7px; padding: 10px 14px 12px;">
+      <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; color: #10284f;">Goal</div>
+      <div style="margin-top: 3px; font-size: 14.5px; line-height: 1.32; color: #16406e;">Identify and prioritise areas of surveillance concern so that AFP systems are stronger and more sensitive.</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 14px; align-items: stretch;">
+
+    <div style="flex: 1.42 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">1</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">What a good AFP surveillance system looks like</div>
+      </div>
+      <div style="margin-top: 11px; font-size: 14.5px; color: #16406e;">A sensitive AFP system relies on three essential components.</div>
+      <div style="margin-top: 12px; display: flex; gap: 10px; flex: 1 1 auto;">
+
+        <div style="flex: 1 1 0; background: #ddeffc; border: 1px solid #b7dbf3; border-radius: 7px; padding: 12px 11px 13px; display: flex; flex-direction: column; width: 131px; height: 356px">
+          <div style="display: flex; justify-content: center; margin-bottom: 8px;">
+            <svg width="54" height="42" viewBox="0 0 54 42" fill="#1565c0"><circle cx="27" cy="9" r="8"></circle><path d="M12 42c0-9 7-15 15-15s15 6 15 15z"></path><circle cx="7.5" cy="15" r="6.5"></circle><path d="M0 42c0-7 3.5-12 9-13.5C6 31 4.5 36 4.5 42z"></path><circle cx="46.5" cy="15" r="6.5"></circle><path d="M54 42c0-7-3.5-12-9-13.5C48 31 49.5 36 49.5 42z"></path></svg>
+          </div>
+          <div style="text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 16px; color: #14477e; line-height: 1.15;">Detection<br>(volume)</div>
+          <div style="margin-top: 11px; font-size: 14px; line-height: 1.3; color: #16406e;">Are we detecting enough non-polio AFP cases?</div>
+          <div style="margin-top: 12px; border-top: 1px solid #b7dbf3; padding-top: 9px; font-size: 13.5px; color: #16406e;">Measured by:</div>
+          <ul style="margin: 5px 0 0; padding-left: 15px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
+            <li style="margin-bottom: 5px;"><span style="font-weight: 700;">NPAFP</span><br>(absolute target)</li>
+            <li><span style="font-weight: 700;">SPI</span><br>(relative to expected)</li>
+          </ul>
+        </div>
+
+        <div style="flex: 1 1 0; background: #e4f6ec; border: 1px solid #b9e2c9; border-radius: 7px; padding: 12px 11px 13px; display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: center; margin-bottom: 8px;">
+            <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="#123a2a" stroke-width="2.6"><circle cx="21" cy="24" r="14"></circle><path d="M21 24V15" stroke-linecap="round"></path><path d="M21 6.5v3.5M15 5h12" stroke-linecap="round"></path><path d="M31.5 12.5l2.5-2.5"></path></svg>
+          </div>
+          <div style="text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 16px; color: #14477e; line-height: 1.15;">Timeliness</div>
+          <div style="margin-top: 11px; font-size: 14px; line-height: 1.3; color: #16406e;">Are cases notified, investigated and transported quickly?</div>
+          <div style="margin-top: 12px; border-top: 1px solid #b9e2c9; padding-top: 9px; font-size: 13.5px; color: #16406e;">Key indicators:</div>
+          <ul style="margin: 5px 0 0; padding-left: 15px; font-size: 13px; line-height: 1.3; color: #16406e;">
+            <li style="margin-bottom: 4px;">Notification within 7 days</li>
+            <li style="margin-bottom: 4px;">Investigation within 48 hours</li>
+            <li>Specimen transport to lab within 3 days</li>
+          </ul>
+        </div>
+
+        <div style="flex: 1 1 0; background: #fdf1e3; border: 1px solid #f2d5b4; border-radius: 7px; padding: 12px 11px 13px; display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: center; margin-bottom: 8px;">
+            <svg width="26" height="42" viewBox="0 0 26 42" fill="none"><rect x="6" y="1.5" width="14" height="5" rx="1.5" fill="#6b3a10"></rect><path d="M8 7h10v27a5 5 0 0 1-10 0z" fill="#ffffff" stroke="#2a2a2a" stroke-width="2"></path><path d="M8 22h10v12a5 5 0 0 1-10 0z" fill="#d93025"></path></svg>
+          </div>
+          <div style="text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 16px; color: #14477e; line-height: 1.15;">Stool adequacy</div>
+          <div style="margin-top: 11px; font-size: 14px; line-height: 1.3; color: #16406e;">Are adequate stool specimens collected?</div>
+          <div style="margin-top: 12px; border-top: 1px solid #f2d5b4; padding-top: 9px; font-size: 13.5px; color: #16406e;">Key indicator:</div>
+          <ul style="margin: 5px 0 0; padding-left: 15px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
+            <li>Two adequate stool specimens<br><span style="font-size: 11.5px;">(correct timing and condition)</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 0.95 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">2</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">The conventional NPAFP indicator</div>
+      </div>
+      <div style="margin-top: 11px; font-size: 14.5px; line-height: 1.32; color: #16406e;">NPAFP measures whether the absolute minimum target for non-polio AFP is met.</div>
+      <div style="margin-top: 12px; display: flex; align-items: stretch; border: 1px solid #b7dbf3; border-radius: 6px; overflow: hidden;">
+        <div style="background: #d3e9fb; padding: 11px 14px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 22px; color: #10284f; display: flex; align-items: center; width: 117px; height: 50px">NPAFP ≥ 3</div>
+        <div style="background: #ffffff; padding: 9px 12px; font-size: 13px; line-height: 1.25; color: #16406e; display: flex; align-items: center;">non-polio AFP cases<br>per 100 000 under 15 years</div>
+      </div>
+      <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 11px;">
+          <svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#1e9e4a"></circle><path d="M8 15.5l4.5 4.5L22 10.5" stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="font-size: 14.5px; line-height: 1.3; color: #16406e;">Widely used and easy to interpret</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 11px;">
+          <svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#1e9e4a"></circle><path d="M8 15.5l4.5 4.5L22 10.5" stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="font-size: 14.5px; line-height: 1.3; color: #16406e;">Provides a minimum standard for all districts</div>
+        </div>
+      </div>
+      <div style="margin-top: 14px; display: flex; gap: 11px; align-items: flex-start;">
+        <svg width="30" height="30" viewBox="0 0 30 30" style="flex: 0 0 auto; margin-top: 1px;"><circle cx="15" cy="15" r="15" fill="#d81b1b"></circle><rect x="13.3" y="6.5" width="3.4" height="11.5" rx="1.7" fill="#ffffff"></rect><circle cx="15" cy="22" r="2.1" fill="#ffffff"></circle></svg>
+        <div style="flex: 1 1 auto; min-width: 0;">
+          <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 16px; color: #1b62b3;">Important limitations:</div>
+          <ul style="margin: 6px 0 0; padding-left: 16px; font-size: 14px; line-height: 1.32; color: #16406e;">
+            <li style="margin-bottom: 4px;">Uses a single, fixed target for all settings</li>
+            <li style="margin-bottom: 4px;">Does not account for population size, seasonality or historical levels</li>
+            <li style="margin-bottom: 4px;">Can miss districts reporting below their own expected level, including large or high-performing districts</li>
+            <li>Can appear adequate even when non-polio AFP detection is lower than expected</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1.02 1 0; min-width: 0; background: #f1effb; border: 1px solid #d0c9ee; border-radius: 9px; padding: 14px 15px 16px;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #6d4fb3; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">3</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">The Surveillance Performance Index (SPI)</div>
+      </div>
+      <div style="margin-top: 11px; font-size: 14.5px; line-height: 1.32; color: #16406e;">SPI compares the observed number of non-polio AFP cases with the number expected for each district, based on its own characteristics (e.g. population, season, history and neighbours).</div>
+      <div style="margin-top: 12px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 9px 13px; display: flex; align-items: center; gap: 13px;">
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 22px; color: #10284f;">SPI =</div>
+        <div style="flex: 1 1 auto; background: #ffffff; border: 1px solid #cfc6ec; border-radius: 4px; padding: 4px 10px; text-align: center; font-size: 14px; color: #16406e;">
+          <div style="padding-bottom: 3px;">Observed non-polio AFP cases</div>
+          <div style="border-top: 1.5px solid #10284f; padding-top: 3px;">Expected non-polio AFP cases</div>
+        </div>
+      </div>
+      <div style="margin-top: 13px; display: flex; flex-direction: column; gap: 11px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="22" height="30" viewBox="0 0 22 30" style="flex: 0 0 auto;"><path d="M11 30L1 15h6.5V0h7v15H21z" fill="#e8492b"></path></svg>
+          <div style="flex: 0 0 82px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 18px; color: #d13c1f;">SPI &lt; 1</div>
+          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Estimated below expectation (fewer cases than expected)</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="22" height="30" viewBox="0 0 22 30" style="flex: 0 0 auto;"><rect x="0" y="11" width="22" height="8" rx="4" fill="#5d7085"></rect></svg>
+          <div style="flex: 0 0 82px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 18px; color: #5d7085;">SPI = 1</div>
+          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Observed equals expected</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="22" height="30" viewBox="0 0 22 30" style="flex: 0 0 auto;"><path d="M11 0l10 15h-6.5v15h-7V15H1z" fill="#1e9e4a"></path></svg>
+          <div style="flex: 0 0 82px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 18px; color: #1a8f42;">SPI &gt; 1</div>
+          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Estimated above expectation (more cases than expected)</div>
+        </div>
+      </div>
+      <div style="margin-top: 13px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 10px 12px; font-size: 13.5px; line-height: 1.32; color: #16406e;">SPI complements NPAFP by adding the relative volume perspective, helping to identify districts where non-polio AFP detection is lower or higher than expected, even when the NPAFP target is met.</div>
+      <div style="margin-top: 9px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 10px 12px; font-size: 13.5px; line-height: 1.32; color: #16406e;">The size of the shortfall is read from the SPI itself: an SPI of 0.95 means observed reporting was 5% below the modelled expectation, and 0.70 means 30% below. There is no second cutoff below 1.</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 14px; align-items: stretch;">
+
+    <div style="flex: 1.52 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">4</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">From indicators to review groups</div>
+      </div>
+      <div style="margin-top: 11px; font-size: 14.5px; color: #16406e;">Combining an absolute and a relative measure identifies districts for further review.</div>
+      <div style="margin-top: 11px; display: flex;">
+        <div style="flex: 0 0 34px; background: #14477e; border-radius: 4px 0 0 4px; display: flex; align-items: center; justify-content: center;">
+          <div style="writing-mode: vertical-rl; transform: rotate(180deg); color: #ffffff; font-size: 12.5px; font-weight: 700; text-align: center; line-height: 1.2; letter-spacing: 0.2px;">NPAFP<br>(absolute target)</div>
+        </div>
+        <div style="flex: 1 1 auto; min-width: 0;">
+          <div style="background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 15.5px; text-align: center; padding: 6px 0;">SPI (relative to expected)</div>
+          <div style="display: flex;">
+            <div style="flex: 0 0 82px; background: #ffffff; border-right: 1px solid #c3dff5; border-bottom: 1px solid #c3dff5;"></div>
+            <div style="flex: 1 1 0; background: #dceefb; border-bottom: 1px solid #c3dff5; border-right: 1px solid #c3dff5; text-align: center; padding: 6px 4px; font-size: 13.5px; color: #16406e;"><span style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #10284f;">≥ 1</span><br>(at or above expectation)</div>
+            <div style="flex: 1 1 0; background: #dceefb; border-bottom: 1px solid #c3dff5; text-align: center; padding: 6px 4px; font-size: 13.5px; color: #16406e;"><span style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #10284f;">&lt; 1</span><br>(below expectation)</div>
+          </div>
+          <div style="display: flex; align-items: stretch;">
+            <div style="flex: 0 0 82px; background: #ffffff; border-right: 1px solid #c3dff5; border-bottom: 1px solid #c3dff5; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 4px; font-size: 13px; color: #16406e; text-align: center;"><span style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #10284f;">≥ 3</span><br>(target met)</div>
+            <div style="flex: 1 1 0; background: #ddf1e4; border-right: 1px solid #ffffff; border-bottom: 1px solid #ffffff; padding: 9px 10px 11px; text-align: center;">
+              <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15.5px; color: #14477e; line-height: 1.2;">Neither below target/expectation</div>
+              <div style="margin-top: 3px; font-size: 14px; color: #16406e;">(no volume concern on either measure)</div>
+              <div style="margin-top: 7px; font-size: 12.5px; line-height: 1.28; color: #2b5679;">Review timeliness and adequacy. Meeting both volume measures does not imply adequate surveillance if timeliness or stool adequacy is poor.</div>
+            </div>
+            <div style="flex: 1 1 0; background: #fdf0c9; border-bottom: 1px solid #ffffff; padding: 9px 10px 11px; text-align: center;">
+              <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15.5px; color: #14477e; line-height: 1.2;">SPI below expectation only</div>
+              <div style="margin-top: 3px; font-size: 14px; line-height: 1.3; color: #16406e;">(review with STEPS)</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: stretch;">
+            <div style="flex: 0 0 82px; background: #ffffff; border-right: 1px solid #c3dff5; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 4px; font-size: 13px; color: #16406e; text-align: center;"><span style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #10284f;">&lt; 3</span><br>(target not met)</div>
+            <div style="flex: 1 1 0; background: #fde0bd; border-right: 1px solid #ffffff; padding: 9px 10px 11px; text-align: center;">
+              <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15.5px; color: #14477e; line-height: 1.2;">NPAFP below target only</div>
+              <div style="margin-top: 3px; font-size: 14px; line-height: 1.3; color: #16406e;">(address absolute volume; explore reasons)</div>
+            </div>
+            <div style="flex: 1 1 0; background: #f8ccb8; padding: 9px 10px 11px; text-align: center;">
+              <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15.5px; color: #14477e; line-height: 1.2;">Both below target/expectation</div>
+              <div style="margin-top: 3px; font-size: 14px; line-height: 1.3; color: #16406e;">(address absolute volume; assess with STEPS)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 0.83 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">5</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">STEPS: a structured review</div>
+      </div>
+      <div style="margin-top: 11px; font-size: 14.5px; line-height: 1.32; color: #16406e;">For districts with SPI &lt; 1, use STEPS to assess the overall surveillance concern.</div>
+      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 7px;">
+        <div style="background: #ddeffc; border-radius: 5px; padding: 7px 12px; display: flex; align-items: center; gap: 13px;">
+          <div style="flex: 0 0 18px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 21px; color: #10284f;">S</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex: 0 0 24px;"><rect width="24" height="24" rx="4" fill="#1565c0"></rect><rect x="5" y="13" width="3.4" height="6" fill="#ffffff"></rect><rect x="10.3" y="9" width="3.4" height="10" fill="#ffffff"></rect><rect x="15.6" y="5.5" width="3.4" height="13.5" fill="#ffffff"></rect></svg>
+          <div style="font-size: 14.5px; line-height: 1.22; color: #16406e;"><span style="font-family: Archivo, sans-serif; font-weight: 700; color: #14477e;">Strength</span><br>(of the SPI signal)</div>
+        </div>
+        <div style="background: #e4f6ec; border-radius: 5px; padding: 9px 12px; display: flex; align-items: center; gap: 13px;">
+          <div style="flex: 0 0 18px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 21px; color: #10284f;">T</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#123a2a" stroke-width="1.9" style="flex: 0 0 24px;"><circle cx="12" cy="14" r="8"></circle><path d="M12 14V9" stroke-linecap="round"></path><path d="M12 3v2.5M9 2.5h6" stroke-linecap="round"></path></svg>
+          <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">Timeliness</div>
+        </div>
+        <div style="background: #fdf6de; border-radius: 5px; padding: 9px 12px; display: flex; align-items: center; gap: 13px;">
+          <div style="flex: 0 0 18px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 21px; color: #10284f;">E</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex: 0 0 24px;"><path d="M12 1.5c-4.4 0-8 3.6-8 8 0 5.6 8 13 8 13s8-7.4 8-13c0-4.4-3.6-8-8-8z" fill="#14477e"></path><circle cx="12" cy="9.5" r="3" fill="#ffffff"></circle></svg>
+          <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">Extent</div>
+        </div>
+        <div style="background: #ecf0fb; border-radius: 5px; padding: 9px 12px; display: flex; align-items: center; gap: 13px;">
+          <div style="flex: 0 0 18px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 21px; color: #10284f;">P</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex: 0 0 24px;"><rect x="2.5" y="4.5" width="19" height="17" rx="2.5" fill="#14477e"></rect><rect x="2.5" y="4.5" width="19" height="5" rx="2.5" fill="#0f3562"></rect><rect x="6.5" y="2" width="2.6" height="5" rx="1.3" fill="#0f3562"></rect><rect x="14.9" y="2" width="2.6" height="5" rx="1.3" fill="#0f3562"></rect><rect x="5.6" y="12" width="3" height="3" fill="#ffffff"></rect><rect x="10.5" y="12" width="3" height="3" fill="#ffffff"></rect><rect x="15.4" y="12" width="3" height="3" fill="#ffffff"></rect><rect x="5.6" y="16.6" width="3" height="3" fill="#ffffff"></rect><rect x="10.5" y="16.6" width="3" height="3" fill="#ffffff"></rect></svg>
+          <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">Persistence</div>
+        </div>
+        <div style="background: #fdf1e3; border-radius: 5px; padding: 7px 12px; display: flex; align-items: center; gap: 13px;">
+          <div style="flex: 0 0 18px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 21px; color: #10284f;">S</div>
+          <svg width="24" height="26" viewBox="0 0 16 26" fill="none" style="flex: 0 0 24px;"><rect x="3" y="1" width="10" height="3.6" rx="1.2" fill="#6b3a10"></rect><path d="M4.5 5h7v15.5a3.5 3.5 0 0 1-7 0z" fill="#ffffff" stroke="#2a2a2a" stroke-width="1.6"></path><path d="M4.5 13h7v7.5a3.5 3.5 0 0 1-7 0z" fill="#d93025"></path></svg>
+          <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">Stool adequacy</div>
+        </div>
+      </div>
+      <div style="margin-top: 13px; font-size: 13.5px; line-height: 1.32; color: #16406e;">Each component provides different information about the surveillance system. They are interpreted together, not combined into a score.</div>
+    </div>
+
+    <div style="flex: 1.09 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">6</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">What each STEPS component tells us</div>
+      </div>
+      <div style="margin-top: 12px; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: stretch; background: #dceefb;">
+          <div style="flex: 0 0 96px; padding: 7px 9px; font-size: 12.5px; font-weight: 700; color: #14477e; border-right: 1px solid #ffffff;">Component</div>
+          <div style="flex: 1 1 0; padding: 7px 9px; font-size: 12.5px; font-weight: 700; color: #14477e; border-right: 1px solid #ffffff;">What it asks</div>
+          <div style="flex: 0 0 100px; padding: 7px 9px; font-size: 12px; font-weight: 700; color: #14477e; text-align: center; line-height: 1.18;">Corroborates<br>the SPI signal?</div>
+        </div>
+        <div style="display: flex; align-items: stretch;">
+          <div style="flex: 0 0 96px; background: #ffffff; padding: 9px; font-size: 13px; font-weight: 700; color: #14477e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Strength (S)</div>
+          <div style="flex: 1 1 0; background: #ffffff; padding: 9px; font-size: 13px; line-height: 1.26; color: #16406e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">How large and how certain is the shortfall? Read from the SPI value and whether its 90% credible interval lies entirely below 1.</div>
+          <div style="flex: 0 0 100px; background: #fbdcd5; border-bottom: 1px solid #ffffff; display: flex; align-items: center; justify-content: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14px; color: #c0392b;">No</div>
+        </div>
+        <div style="display: flex; align-items: stretch;">
+          <div style="flex: 0 0 96px; background: #ffffff; padding: 9px; font-size: 13px; font-weight: 700; color: #14477e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Timeliness (T)</div>
+          <div style="flex: 1 1 0; background: #ffffff; padding: 9px; font-size: 13px; line-height: 1.26; color: #16406e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Are specimens reaching the laboratory within 3 days?</div>
+          <div style="flex: 0 0 100px; background: #fbdcd5; border-bottom: 1px solid #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #c0392b;"><span style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 14px;">No</span><span style="font-size: 12px;">(independent)</span></div>
+        </div>
+        <div style="display: flex; align-items: stretch;">
+          <div style="flex: 0 0 96px; background: #ffffff; padding: 9px; font-size: 13px; font-weight: 700; color: #14477e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Extent (E)</div>
+          <div style="flex: 1 1 0; background: #ffffff; padding: 9px; font-size: 13px; line-height: 1.26; color: #16406e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Are other LGAs in the same state also below expectation?</div>
+          <div style="flex: 0 0 100px; background: #d7f0df; border-bottom: 1px solid #ffffff; display: flex; align-items: center; justify-content: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14px; color: #1a7f3c;">Yes</div>
+        </div>
+        <div style="display: flex; align-items: stretch;">
+          <div style="flex: 0 0 96px; background: #ffffff; padding: 9px; font-size: 13px; font-weight: 700; color: #14477e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Persistence (P)</div>
+          <div style="flex: 1 1 0; background: #ffffff; padding: 9px; font-size: 13px; line-height: 1.26; color: #16406e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Was the SPI also below 1 in the previous year?</div>
+          <div style="flex: 0 0 100px; background: #d7f0df; border-bottom: 1px solid #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #1a7f3c;"><span style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 14px;">Yes</span><span style="font-size: 12px;">(supporting)</span></div>
+        </div>
+        <div style="display: flex; align-items: stretch;">
+          <div style="flex: 0 0 96px; background: #ffffff; padding: 9px; font-size: 13px; font-weight: 700; color: #14477e; border-right: 1px solid #dceefb;">Stool adequacy (S)</div>
+          <div style="flex: 1 1 0; background: #ffffff; padding: 9px; font-size: 13px; line-height: 1.26; color: #16406e; border-right: 1px solid #dceefb;">Are stool specimens adequate?</div>
+          <div style="flex: 0 0 100px; background: #fbdcd5; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #c0392b;"><span style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 14px;">No</span><span style="font-size: 12px;">(independent)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 14px; align-items: stretch;">
+
+    <div style="flex: 1.82 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px; width: 582px; height: 520px">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">7</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">How to interpret STEPS concerns</div>
+      </div>
+      <div style="margin-top: 11px; font-size: 14.5px; color: #16406e;">The pattern of concerns helps prioritise, but the components do not all carry the same weight.</div>
+      <div style="margin-top: 11px; display: flex; gap: 10px; align-items: stretch;">
+        <div style="flex: 1 1 0; background: #ddeffc; border-radius: 6px; overflow: hidden;">
+          <div style="background: #c9e4f8; padding: 6px 10px; text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">Key points</div>
+          <ul style="margin: 0; padding: 9px 10px 11px 25px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
+            <li style="margin-bottom: 6px;">Extent is the strongest corroborator of the SPI signal.</li>
+            <li style="margin-bottom: 6px;">Persistence also supports the signal, but is common.</li>
+            <li style="margin-bottom: 6px;">Timeliness and stool adequacy are important surveillance dimensions, but are not validated corroborators of the SPI signal.</li>
+            <li>Other individual concerns (besides extent) do not, on their own, raise the level of concern.</li>
+          </ul>
+        </div>
+        <div style="flex: 1 1 0; background: #ecf0fb; border-radius: 6px; overflow: hidden; width: 101px; height: 448px">
+          <div style="background: #dbe2f7; padding: 6px 10px; text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">What a single concern means</div>
+          <ul style="margin: 0; padding: 9px 10px 11px 25px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
+            <li style="margin-bottom: 6px;">Extent alone raises the level of concern.</li>
+            <li style="margin-bottom: 6px;">Other single concerns do not; they add weight only in combination.</li>
+            <li>There is no requirement for agreement across all STEPS components.</li>
+          </ul>
+        </div>
+        <div style="flex: 1 1 0; background: #fdf1e3; border-radius: 6px; overflow: hidden;">
+          <div style="background: #fae0c4; padding: 6px 10px; text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">How to prioritise</div>
+          <ul style="margin: 0; padding: 9px 10px 11px 25px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
+            <li style="margin-bottom: 5px;">Consider SPI &lt; 1 for review.</li>
+            <li style="margin-bottom: 5px;">Priority rises with the size of the shortfall, read from the continuous SPI, and when the shortfall is geographically corroborated, persistent, and accompanied by weaknesses in other surveillance processes (e.g. timeliness or stool adequacy).</li>
+            <li style="margin-bottom: 5px;">There is no second SPI cutoff below 1.</li>
+            <li>Ranks where to look first; it is not a forecast.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 0.72 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">8</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">Using the findings</div>
+      </div>
+      <div style="margin-top: 13px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; gap: 13px; align-items: flex-start;">
+          <svg width="46" height="46" viewBox="0 0 46 46" style="flex: 0 0 46px;"><circle cx="23" cy="23" r="23" fill="#14477e"></circle><circle cx="21" cy="21" r="8.5" fill="none" stroke="#ffffff" stroke-width="3"></circle><path d="M27.5 27.5l7 7" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round"></path></svg>
+          <div style="flex: 1 1 auto; min-width: 0;">
+            <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #1b62b3;">1. Review</div>
+            <div style="font-size: 13px; line-height: 1.28; color: #16406e;">Use NPAFP and SPI to identify districts for review.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 13px; align-items: flex-start;">
+          <svg width="46" height="46" viewBox="0 0 46 46" style="flex: 0 0 46px;"><circle cx="23" cy="23" r="23" fill="#14477e"></circle><rect x="14" y="11.5" width="18" height="23" rx="2.5" fill="none" stroke="#ffffff" stroke-width="2.6"></rect><path d="M18.5 18h11M18.5 23h11M18.5 28h7" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"></path></svg>
+          <div style="flex: 1 1 auto; min-width: 0;">
+            <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #1b62b3;">2. Assess</div>
+            <div style="font-size: 13px; line-height: 1.28; color: #16406e;">Use STEPS to understand the pattern of surveillance concern.</div>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: center;">
+          <svg width="18" height="26" viewBox="0 0 18 26"><path d="M9 26L1.5 14h5V0h5v14h5z" fill="#1b62b3"></path></svg>
+        </div>
+        <div style="display: flex; gap: 13px; align-items: flex-start;">
+          <svg width="46" height="46" viewBox="0 0 46 46" style="flex: 0 0 46px;"><circle cx="23" cy="23" r="23" fill="#14477e"></circle><path d="M23 13.5l2.4 1 2.3-1.2 1.6 2 2.6.2.2 2.6 2 1.6-1.2 2.3 1 2.4-2 1.6-.4 2.6-2.6.2-1.6 2-2.3-1.2-2.4 1-1.6-2-2.6-.4-.2-2.6-2-1.6 1.2-2.3-1-2.4 2-1.6.4-2.6 2.6-.2z" fill="#ffffff"></path><circle cx="23" cy="23" r="5" fill="#14477e"></circle></svg>
+          <div style="flex: 1 1 auto; min-width: 0;">
+            <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #1b62b3;">3. Respond</div>
+            <div style="font-size: 13px; line-height: 1.28; color: #16406e;">Prioritise and tailor actions based on the overall picture (e.g. supportive supervision, specimen transport, investigation quality, community engagement).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 0.82 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px;">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">9</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">Key messages</div>
+      </div>
+      <div style="margin-top: 13px; display: flex; flex-direction: column; gap: 11px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">NPAFP and SPI provide complementary information.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">STEPS brings together five dimensions of surveillance concern.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Extent is the strongest corroborator of the SPI signal. Persistence adds support.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Timeliness and stool adequacy are important surveillance dimensions, but are not validated corroborators of the SPI signal.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Priority depends on the pattern of concerns, not the 2×2 cell alone. STEPS is a review framework, not a score.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

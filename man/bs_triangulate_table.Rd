@@ -41,7 +41,7 @@ The \code{gt_tbl} or \code{flextable} object, invisibly when \code{file} is set.
 \description{
 Renders the \code{\link[=bs_triangulate]{bs_triangulate()}} classification for one focal year as a
 \code{gt} or \code{flextable} table: one row per district, ordered by triage
-priority, with the field-guide verdict, ES and AFP status, the resulting
+priority, with the field-guide judgement, ES and AFP status, the resulting
 triangulation class, and its priority. The triangulation cell is shaded by
 priority (adverse / intermediate / reassuring), reusing the field-guide
 palette so the two tables read alike.

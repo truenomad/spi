@@ -11,8 +11,8 @@
 #   bs_spi                    surveillance performance index (3 grains)
 #   bs_concordance            SPI vs conventional NPAFP threshold (+ strata)
 #   bs_concordance_maps       three-panel choropleth
-#   bs_field_guide            seven-signal reading -> FLAG / REVIEW / WATCH / No action
-#   bs_field_guide_help       learn to read the verdict
+#   bs_field_guide            STEPS review -> review priority / monitor / no indication
+#   bs_field_guide_help       learn to read the review
 #   bs_field_guide_table      publication-ready gt / flextable
 #   as_tibble / print / summary / plot methods
 #
@@ -370,12 +370,14 @@ if (interactive()) {
 # )
 
 ## ---------------------------------------------------------------------------##
-# SPI field guide -- seven-signal reading + verdict (paper: 2t) ----------------
+# SPI field guide -- STEPS review + judgement (paper: 2t) ---------------------
 ## ---------------------------------------------------------------------------##
 
-# Reads every district-year through the seven signals (S1-S7) and assigns a
-# FLAG / REVIEW / WATCH / No-action verdict. S6 needs the adjacency graph, S7
-# needs the monthly SPI (seasonal) and an orphan-poliovirus table (genomic).
+# Reviews every district-year with an SPI below 1 through the five STEPS
+# components (strength, timeliness, extent, persistence, stool adequacy) and
+# assigns review priority / monitor / no SPI indication. Timeliness and stool
+# adequacy need the AFP process counts; the adjacency graph, monthly SPI and
+# orphan-poliovirus table add context outside STEPS.
 
 cli::cli_h2("SPI field guide")
 
@@ -383,6 +385,7 @@ genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
 
 fg <- blindspot::bs_field_guide(
   concordance = conc,
+  process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
   genomic = genomic[, c("adm2_guid", "year")],
@@ -390,16 +393,16 @@ fg <- blindspot::bs_field_guide(
 )
 
 print(fg)
-summary(fg) # adds signal fire-counts + the seven-signal reference
+summary(fg) # adds STEPS concern counts + the STEPS reference
 
-# Learn to read the verdict, narrated on this run's worked example:
+# Learn to read the review, narrated on this run's worked example:
 if (interactive()) {
   blindspot::bs_field_guide_help("all", guide = fg)
 }
 
-# Paper's teaching table (Table S15/S16 style): the seven signals for four
-# rule-selected districts, cells shaded by concern. "scan" lists every flagged
-# district; "worked" walks the four archetypes.
+# Field guide teaching table (Table 2 style): the five STEPS components for
+# four rule-selected districts, cells shaded by concern. "scan" lists every
+# district by judgement; "worked" walks the four teaching cases.
 scan <- blindspot::bs_field_guide_table(fg, engine = "gt", layout = "scan")
 worked <- blindspot::bs_field_guide_table(fg, engine = "gt", layout = "worked")
 if (interactive()) {
