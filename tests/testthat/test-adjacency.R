@@ -1,5 +1,5 @@
-# bs_adjacency() island handling, contiguity rule, validation, and the
-# blindspot_nb print method.
+# spi_adjacency() island handling, contiguity rule, validation, and the
+# spi_nb print method.
 
 # a 3-polygon layer: A and B share an edge, C sits far away as an island
 island_layer <- function(ids = c("A", "B", "C")) {
@@ -13,31 +13,31 @@ island_layer <- function(ids = c("A", "B", "C")) {
   )
 }
 
-test_that("bs_adjacency attaches islands to their nearest neighbour", {
+test_that("spi_adjacency attaches islands to their nearest neighbour", {
   skip_if_not_installed("sf")
   skip_if_not_installed("spdep")
   bnd <- island_layer()
 
-  adj <- suppressMessages(bs_adjacency(bnd, id_col = "id"))
-  expect_s3_class(adj, "blindspot_nb")
+  adj <- suppressMessages(spi_adjacency(bnd, id_col = "id"))
+  expect_s3_class(adj, "spi_nb")
   # after attachment no district is left without a neighbour
   expect_equal(sum(spdep::card(adj) == 0), 0L)
   expect_equal(attr(adj, "region.id"), c("A", "B", "C"))
 })
 
-test_that("bs_adjacency leaves islands disconnected when asked", {
+test_that("spi_adjacency leaves islands disconnected when asked", {
   skip_if_not_installed("sf")
   skip_if_not_installed("spdep")
   bnd <- island_layer()
 
   adj <- suppressMessages(
-    bs_adjacency(bnd, id_col = "id", handle_islands = FALSE)
+    spi_adjacency(bnd, id_col = "id", handle_islands = FALSE)
   )
   # the far polygon stays an island
   expect_gt(sum(spdep::card(adj) == 0), 0L)
 })
 
-test_that("bs_adjacency attaches an island whose nearest is also an island", {
+test_that("spi_adjacency attaches an island whose nearest is also an island", {
   skip_if_not_installed("sf")
   skip_if_not_installed("spdep")
   # A-B adjacent; C and D are separate islands, nearest to each other
@@ -48,32 +48,32 @@ test_that("bs_adjacency attaches an island whose nearest is also an island", {
     id = c("A", "B", "C", "D"),
     geometry = sf::st_sfc(sq(0, 0), sq(1, 0), sq(10, 10), sq(12, 10))
   )
-  adj <- suppressMessages(bs_adjacency(bnd, id_col = "id"))
+  adj <- suppressMessages(spi_adjacency(bnd, id_col = "id"))
   expect_equal(sum(spdep::card(adj) == 0), 0L)   # both islands attached
 })
 
-test_that("bs_adjacency honours the rook contiguity rule", {
+test_that("spi_adjacency honours the rook contiguity rule", {
   skip_if_not_installed("sf")
   skip_if_not_installed("spdep")
   bnd <- island_layer()
   expect_no_error(
-    suppressMessages(bs_adjacency(bnd, id_col = "id", contiguity = "rook"))
+    suppressMessages(spi_adjacency(bnd, id_col = "id", contiguity = "rook"))
   )
 })
 
-test_that("bs_adjacency rejects duplicate ids and bad arguments", {
+test_that("spi_adjacency rejects duplicate ids and bad arguments", {
   skip_if_not_installed("sf")
   skip_if_not_installed("spdep")
   dup <- island_layer(ids = c("A", "A", "B"))
-  expect_error(bs_adjacency(dup, id_col = "id"), "duplicate")
+  expect_error(spi_adjacency(dup, id_col = "id"), "duplicate")
 
   bnd <- island_layer()
-  expect_error(bs_adjacency(bnd, id_col = "missing"))     # id not a column
-  expect_error(bs_adjacency(bnd, id_col = "id", contiguity = "bishop"))
-  expect_error(bs_adjacency(list(), id_col = "id"))        # not sf
+  expect_error(spi_adjacency(bnd, id_col = "missing"))     # id not a column
+  expect_error(spi_adjacency(bnd, id_col = "id", contiguity = "bishop"))
+  expect_error(spi_adjacency(list(), id_col = "id"))        # not sf
 })
 
-test_that("print.blindspot_nb reports regions, links, and subgraphs", {
+test_that("print.spi_nb reports regions, links, and subgraphs", {
   # a hand-built graph with two components exercises the subgraph line
   nb <- make_nb(c("A", "B", "C", "D"))     # island_last -> 2 components
   expect_output(print(nb), "Neighbour list object")
@@ -83,6 +83,6 @@ test_that("print.blindspot_nb reports regions, links, and subgraphs", {
   # a connected real graph takes the no-subgraph path
   skip_if_not_installed("sf")
   skip_if_not_installed("spdep")
-  adj <- suppressMessages(bs_adjacency(island_layer(), id_col = "id"))
+  adj <- suppressMessages(spi_adjacency(island_layer(), id_col = "id"))
   expect_output(print(adj), "Number of regions")
 })

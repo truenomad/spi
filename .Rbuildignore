@@ -1,6 +1,6 @@
 ^renv$
 ^renv\.lock$
-^blindspot\.Rproj$
+^spi\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^docs$

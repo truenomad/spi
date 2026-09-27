@@ -1,12 +1,12 @@
-# Generate blindspot::synth_field_guide -- a precomputed SPI field guide on the
-# synthetic bundle, so bs_field_guide_help(), the bs_field_guide_table()
+# Generate spi::synth_field_guide -- a precomputed SPI field guide on the
+# synthetic bundle, so spi_field_guide_help(), the spi_field_guide_table()
 # examples, and the render/help/print tests run instantly WITHOUT INLA. Run:
 #   Rscript data-raw/synth_field_guide.R
 # Writes data/synth_field_guide.rda (lazy-loaded via
-# `data("synth_field_guide", package = "blindspot")`).
+# `data("synth_field_guide", package = "spi")`).
 #
-# Requires INLA locally (for the one-off bs_expected() fit). The shipped object
-# is a `blindspot_field_guide` with all five STEPS components and every
+# Requires INLA locally (for the one-off spi_expected() fit). The shipped object
+# is a `spi_field_guide` with all five STEPS components and every
 # context signal active. Pinned seed keeps it byte-stable across runs.
 
 suppressPackageStartupMessages({
@@ -20,10 +20,10 @@ set.seed(20260710)
 synth <- synth_surveillance
 
 # 1. spatial adjacency ---------------------------------------------------------
-adj <- bs_adjacency(synth$boundaries, id_col = "adm2_guid")
+adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 
 # 2. BYM2 expected-count fit (bare spec; matches the paper's PRIMARY_SPEC) ------
-fit <- bs_expected(
+fit <- spi_expected(
   cases = synth$cases,
   population = synth$population,
   adjacency = adj,
@@ -37,11 +37,11 @@ fit <- bs_expected(
 )
 
 # 3. SPI at district-year and district-month levels ----------------------------
-spi_dy <- bs_spi(fit, level = "district_year")
-spi_dm <- bs_spi(fit, level = "district_month")
+spi_dy <- spi_index(fit, level = "district_year")
+spi_dm <- spi_index(fit, level = "district_month")
 
 # 4. concordance ---------------------------------------------------------------
-conc <- bs_concordance(
+conc <- spi_concordance(
   spi = spi_dy,
   cases = synth$cases,
   population = synth$population,
@@ -64,7 +64,7 @@ genomic <- dplyr::bind_rows(
     dplyr::transmute(adm2_guid, year, serotype = "WPV1")
 )
 
-synth_field_guide <- bs_field_guide(
+synth_field_guide <- spi_field_guide(
   concordance = conc,
   process = synth$afp_process,
   adjacency = adj,
@@ -77,7 +77,7 @@ synth_field_guide <- bs_field_guide(
 )
 
 # drop the bulky matched call so the shipped object stays small and stable
-synth_field_guide$call <- quote(bs_field_guide(concordance = conc))
+synth_field_guide$call <- quote(spi_field_guide(concordance = conc))
 
 usethis::use_data(synth_field_guide, overwrite = TRUE, compress = "xz")
 

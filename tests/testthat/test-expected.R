@@ -1,4 +1,4 @@
-# bs_expected() splits into (a) pure-R validation + data prep, (b) the INLA
+# spi_expected() splits into (a) pure-R validation + data prep, (b) the INLA
 # fit, and (c) S3 methods / diagnostics that only index into the fitted object.
 # (a) is exercised by error paths that abort before the fit; (c) by the
 # make_expected() fixture (helper-fixtures.R); the fit itself by a few small,
@@ -24,103 +24,103 @@ mk_valid <- function(n_dist = 4L, id_col = "district_id") {
 # (a) validation error paths -- these abort before INLA is ever called
 # ---------------------------------------------------------------------------
 
-test_that("bs_expected rejects malformed priors", {
-  # bs_expected() checks for INLA before it validates; mock that check away so
+test_that("spi_expected rejects malformed priors", {
+  # spi_expected() checks for INLA before it validates; mock that check away so
   # the pure-R validation branches run on CI where INLA is not installed. The
   # abort fires long before any INLA call is reached.
   local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj, prior_phi = "nope"),
+    spi_expected(v$cases, v$pop, v$adj, prior_phi = "nope"),
     "must be a list"
   )
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj, prior_phi = list(U = 2, alpha = 0.5)),
+    spi_expected(v$cases, v$pop, v$adj, prior_phi = list(U = 2, alpha = 0.5)),
     "U must be in"
   )
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj, prior_phi = list(U = 0.5, alpha = 5)),
+    spi_expected(v$cases, v$pop, v$adj, prior_phi = list(U = 0.5, alpha = 5)),
     "alpha must be in"
   )
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj,
+    spi_expected(v$cases, v$pop, v$adj,
                 prior_precision = list(U = -1, alpha = 0.01)),
     "U must be in"
   )
   # year prior only validated when a year effect is requested
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj, year_effect = "iid",
+    spi_expected(v$cases, v$pop, v$adj, year_effect = "iid",
                 prior_precision_year = list(U = 0, alpha = 0.01)),
     "U must be in"
   )
 })
 
 test_that("defaults are the paper specification", {
-  f <- formals(bs_expected)
+  f <- formals(spi_expected)
   expect_identical(eval(f$overdispersion)[[1]], "nb")
   expect_identical(eval(f$year_effect)[[1]], "iid")
   expect_identical(eval(f$season)[[1]], "harmonic")
 })
 
-test_that("bs_expected rejects bad n_draws and unknown spec strings", {
+test_that("spi_expected rejects bad n_draws and unknown spec strings", {
   local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
-  expect_error(bs_expected(v$cases, v$pop, v$adj, n_draws = 0))
-  expect_error(bs_expected(v$cases, v$pop, v$adj, n_draws = 2.5))
-  expect_error(bs_expected(v$cases, v$pop, v$adj, season = "weekly"))
-  expect_error(bs_expected(v$cases, v$pop, v$adj, overdispersion = "banana"))
+  expect_error(spi_expected(v$cases, v$pop, v$adj, n_draws = 0))
+  expect_error(spi_expected(v$cases, v$pop, v$adj, n_draws = 2.5))
+  expect_error(spi_expected(v$cases, v$pop, v$adj, season = "weekly"))
+  expect_error(spi_expected(v$cases, v$pop, v$adj, overdispersion = "banana"))
 })
 
-test_that("bs_expected validates id / pop columns", {
+test_that("spi_expected validates id / pop columns", {
   local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj, id_col = "not_here"),
+    spi_expected(v$cases, v$pop, v$adj, id_col = "not_here"),
     "not found in cases"
   )
   # id present in cases but not population
   cases2 <- dplyr::rename(v$cases, adm2_guid = district_id)
   expect_error(
-    bs_expected(cases2, v$pop, v$adj, id_col = "adm2_guid"),
+    spi_expected(cases2, v$pop, v$adj, id_col = "adm2_guid"),
     "not found in population"
   )
-  # pop_col missing is caught by the pre-flight bs_check_inputs()
+  # pop_col missing is caught by the pre-flight spi_check_inputs()
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj, pop_col = "ghost"),
+    spi_expected(v$cases, v$pop, v$adj, pop_col = "ghost"),
     "denominator column"
   )
 })
 
-test_that("bs_expected validates counts, coverage, and adjacency ids", {
+test_that("spi_expected validates counts, coverage, and adjacency ids", {
   local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
 
   # non-integer counts
   frac <- v$cases
   frac$count <- frac$count + 0.5
-  expect_error(bs_expected(frac, v$pop, v$adj), "integer-valued")
+  expect_error(spi_expected(frac, v$pop, v$adj), "integer-valued")
 
   # population covers < 80% of district-years
   thin_pop <- v$pop[1, ]
-  expect_error(bs_expected(v$cases, thin_pop, v$adj), "covers only")
+  expect_error(spi_expected(v$cases, thin_pop, v$adj), "covers only")
 
   # id present in cases but missing from the shapefile / adjacency graph:
-  # the pre-flight bs_check_inputs() catches this first (check = TRUE default)
+  # the pre-flight spi_check_inputs() catches this first (check = TRUE default)
   v8 <- mk_valid(8L)
   adj7 <- make_nb(v8$ids[1:7], island_last = FALSE)
-  expect_error(bs_expected(v8$cases, v8$pop, adj7), "not found in")
+  expect_error(spi_expected(v8$cases, v8$pop, adj7), "not found in")
 
   # a district-year with no population row (coverage still >= 80%)
   drop_pop <- v8$pop[v8$pop$district_id != "D08", ]
-  expect_error(bs_expected(v8$cases, drop_pop, v8$adj), "missing population")
+  expect_error(spi_expected(v8$cases, drop_pop, v8$adj), "missing population")
 })
 
-test_that("bs_expected validates covariate log-transform names", {
+test_that("spi_expected validates covariate log-transform names", {
   local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   cov <- tibble::tibble(district_id = v$ids, year = 2015L, xcov = 1:4)
   expect_error(
-    bs_expected(v$cases, v$pop, v$adj, covariates = cov,
+    spi_expected(v$cases, v$pop, v$adj, covariates = cov,
                 log_transform = "not_a_cov"),
     "Log-transform column"
   )
@@ -130,12 +130,12 @@ test_that("bs_expected validates covariate log-transform names", {
 # (b) pre-flight input check wiring (check = TRUE) + the check-once guard
 # ---------------------------------------------------------------------------
 
-test_that("bs_expected aborts on error-level inputs before fitting", {
+test_that("spi_expected aborts on error-level inputs before fitting", {
   local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
   v <- mk_valid()
   bad <- v$cases
   bad$count[1] <- -1L
-  expect_error(bs_expected(bad, v$pop, v$adj), "Input validation")
+  expect_error(spi_expected(bad, v$pop, v$adj), "Input validation")
 })
 
 test_that("check = FALSE skips the pre-flight reconciliation", {
@@ -145,29 +145,29 @@ test_that("check = FALSE skips the pre-flight reconciliation", {
   v8 <- mk_valid(8L)
   adj7 <- make_nb(v8$ids[1:7], island_last = FALSE)
   expect_error(
-    bs_expected(v8$cases, v8$pop, adj7, check = FALSE),
+    spi_expected(v8$cases, v8$pop, adj7, check = FALSE),
     "adjacency"
   )
 })
 
-test_that("bs_compare_overdispersion checks inputs exactly once", {
+test_that("spi_compare_overdispersion checks inputs exactly once", {
   n <- 0L
   local_mocked_bindings(
     .check_pkg = function(...) invisible(TRUE),
-    bs_check_inputs = function(...) {
+    spi_check_inputs = function(...) {
       n <<- n + 1L
       structure(
         list(ok = TRUE, n_warning = 0L, n_error = 0L),
-        class = "blindspot_input_check"
+        class = "spi_input_check"
       )
     },
-    bs_expected = function(...) NULL
+    spi_expected = function(...) NULL
   )
   v <- mk_valid()
   # downstream diagnostics choke on the NULL mock fits; we only assert that the
   # single pre-flight ran before the per-spec (check = FALSE) fits
   try(
-    bs_compare_overdispersion(
+    spi_compare_overdispersion(
       v$cases, v$pop, v$adj, specs = c("none", "iid", "nb")
     ),
     silent = TRUE
@@ -175,14 +175,14 @@ test_that("bs_compare_overdispersion checks inputs exactly once", {
   expect_equal(n, 1L)
 })
 
-test_that("bs_compare_overdispersion rejects conflicting arguments", {
+test_that("spi_compare_overdispersion rejects conflicting arguments", {
   v <- mk_valid()
   expect_error(
-    bs_compare_overdispersion(v$cases, v$pop, v$adj, specs = c("none")),
+    spi_compare_overdispersion(v$cases, v$pop, v$adj, specs = c("none")),
     "length"
   )
   expect_error(
-    bs_compare_overdispersion(v$cases, v$pop, v$adj,
+    spi_compare_overdispersion(v$cases, v$pop, v$adj,
                               overdispersion = "iid"),
     "named arguments"
   )
@@ -198,7 +198,7 @@ test_that("print / summary handle the covariate and bare specs", {
   expect_identical(print(bare), bare)
 
   s_bare <- summary(bare)
-  expect_s3_class(s_bare, "summary.blindspot_expected")
+  expect_s3_class(s_bare, "summary.spi_expected")
   expect_null(s_bare$effects)                 # no covariates
   expect_no_error(print(s_bare))
 
@@ -237,9 +237,9 @@ test_that("print handles the none-overdispersion / no-cpo path", {
   expect_true(is.na(s$diagnostics$value[s$diagnostics$metric == "cpo_valid_pct"]))
 })
 
-test_that(".bs_expected_diagnostics covers its branches", {
+test_that(".spi_expected_diagnostics covers its branches", {
   # iid: CPO skipped as structurally unreliable; phi ~0.6 -> mostly structured
-  expect_no_error(blindspot:::.bs_expected_diagnostics(
+  expect_no_error(spi:::.spi_expected_diagnostics(
     make_expected(overdispersion = "iid")
   ))
   # nb + disconnected adjacency + high phi -> the CPO-failure & component paths
@@ -247,40 +247,40 @@ test_that(".bs_expected_diagnostics covers its branches", {
   nb_fit$cpo$failure <- rep(c(0, 1), length.out = nrow(nb_fit$cpo))  # 50% fail
   nb_fit$hyperparameters$q500[nb_fit$hyperparameters$parameter ==
                                 "phi_spatial"] <- 0.95
-  expect_no_error(blindspot:::.bs_expected_diagnostics(nb_fit))
+  expect_no_error(spi:::.spi_expected_diagnostics(nb_fit))
 
   # phi <= 0.1 -> the "almost entirely iid" interpretation
   iid_phi <- make_expected(overdispersion = "iid")
   iid_phi$hyperparameters$q500[iid_phi$hyperparameters$parameter ==
                                  "phi_spatial"] <- 0.05
-  expect_no_error(blindspot:::.bs_expected_diagnostics(iid_phi))
+  expect_no_error(spi:::.spi_expected_diagnostics(iid_phi))
 
   # ratio off by >10x triggers the danger alert
   off <- make_expected(overdispersion = "none")
   off$summary$expected_median <- off$summary$expected_median * 100
-  expect_no_error(blindspot:::.bs_expected_diagnostics(off))
+  expect_no_error(spi:::.spi_expected_diagnostics(off))
 
   # median observed count of 0 -> ratio is NA (neither success nor danger)
   zero <- make_expected(overdispersion = "none")
   zero$summary$count <- 0L
-  expect_no_error(blindspot:::.bs_expected_diagnostics(zero))
+  expect_no_error(spi:::.spi_expected_diagnostics(zero))
 })
 
 test_that("small numeric helpers behave", {
   # .fmt_ic: NULL / non-finite -> "NA"; finite -> rounded with commas
-  expect_equal(blindspot:::.fmt_ic(NULL), "NA")
-  expect_equal(blindspot:::.fmt_ic(Inf), "NA")
-  expect_equal(blindspot:::.fmt_ic(1234.6), "1,235")
+  expect_equal(spi:::.fmt_ic(NULL), "NA")
+  expect_equal(spi:::.fmt_ic(Inf), "NA")
+  expect_equal(spi:::.fmt_ic(1234.6), "1,235")
 
   # .pit_ks: NULL / too-few valid PITs -> NA; enough -> a KS statistic
-  expect_true(is.na(blindspot:::.pit_ks(NULL)))
+  expect_true(is.na(spi:::.pit_ks(NULL)))
   few <- list(pit = runif(20), failure = rep(0, 20))
-  expect_true(is.na(blindspot:::.pit_ks(few)))
+  expect_true(is.na(spi:::.pit_ks(few)))
   many <- list(pit = runif(200), failure = rep(0, 200))
-  expect_true(is.finite(blindspot:::.pit_ks(many)))
+  expect_true(is.finite(spi:::.pit_ks(many)))
 
   # .clean_hyper_names maps the verbose INLA labels
-  cleaned <- blindspot:::.clean_hyper_names(
+  cleaned <- spi:::.clean_hyper_names(
     c("Precision for idx_space", "Phi for idx_space",
       "size for the nbinomial observations")
   )
@@ -301,7 +301,7 @@ test_that("overdispersion comparison helpers cover recommend branches", {
   }
   # all pass -> chosen by best PIT calibration
   all_pass <- dplyr::bind_rows(ok("none", 0.10), ok("iid", 0.05))
-  rec1 <- blindspot:::.recommend_overdispersion(all_pass)
+  rec1 <- spi:::.recommend_overdispersion(all_pass)
   expect_equal(rec1$choice, "iid")
   expect_match(rec1$reasoning, "All specs passed")
 
@@ -312,21 +312,21 @@ test_that("overdispersion comparison helpers cover recommend branches", {
     ok("nb", 0.15, phi_pegged = TRUE),          # phi pegged
     ok("clean", 0.05)                            # survives
   )
-  rec2 <- blindspot:::.recommend_overdispersion(excl)
+  rec2 <- spi:::.recommend_overdispersion(excl)
   expect_equal(rec2$choice, "clean")
   expect_true(all(c("none", "iid", "nb") %in% rec2$excluded))
 
   # nothing survives
   none_ok <- dplyr::bind_rows(ok("none", 0.2, cpo_valid = 0.1),
                               ok("iid", 0.2, cpo_valid = 0.1))
-  rec3 <- blindspot:::.recommend_overdispersion(none_ok)
+  rec3 <- spi:::.recommend_overdispersion(none_ok)
   expect_true(is.na(rec3$choice))
   expect_match(rec3$reasoning, "No specification passed")
 
   # print paths for both a comparison object and the internal printer
   cmp <- structure(
     list(fits = list(), summary = excl, recommendation = rec2),
-    class = "blindspot_comparison"
+    class = "spi_comparison"
   )
   expect_no_error(print(cmp))
   expect_identical(print(cmp), cmp)
@@ -334,13 +334,13 @@ test_that("overdispersion comparison helpers cover recommend branches", {
   # a recommendation with multiple survivors prints the "other survivors" line
   cmp_multi <- structure(
     list(fits = list(), summary = all_pass, recommendation = rec1),
-    class = "blindspot_comparison"
+    class = "spi_comparison"
   )
   expect_no_error(print(cmp_multi))
 
   # .extract_diagnostics over each overdispersion flavour (sd_extra branches)
   for (od in c("iid", "nb", "none")) {
-    d <- blindspot:::.extract_diagnostics(
+    d <- spi:::.extract_diagnostics(
       make_expected(overdispersion = od), od
     )
     expect_equal(d$spec, od)
@@ -371,7 +371,7 @@ sub_inputs <- function(n = 6L, n_month = 24L) {
   )
 }
 
-test_that("bs_expected fits with covariates, iid year, and annual pop", {
+test_that("spi_expected fits with covariates, iid year, and annual pop", {
   skip_on_cran()
   skip_if_not_installed("INLA")
   d <- sub_inputs(6L, 24L)
@@ -391,7 +391,7 @@ test_that("bs_expected fits with covariates, iid year, and annual pop", {
     log_transform = "travel_time_min", n_draws = 30L, seed = 1L,
     verbose = FALSE
   )
-  expect_s3_class(fit, "blindspot_expected")
+  expect_s3_class(fit, "spi_expected")
   expect_equal(fit$id_col, "adm2_guid")
   expect_equal(ncol(fit$draws), nrow(fit$data))
   # the constant covariate was dropped, the real ones kept
@@ -401,7 +401,7 @@ test_that("bs_expected fits with covariates, iid year, and annual pop", {
   expect_s3_class(as_tibble(fit), "tbl_df")
 })
 
-test_that("bs_expected fits rw2 season, rw1 year, nb, keep_draws=FALSE", {
+test_that("spi_expected fits rw2 season, rw1 year, nb, keep_draws=FALSE", {
   skip_on_cran()
   skip_if_not_installed("INLA")
   d <- sub_inputs(6L, 24L)
@@ -412,12 +412,12 @@ test_that("bs_expected fits rw2 season, rw1 year, nb, keep_draws=FALSE", {
     overdispersion = "nb", keep_draws = FALSE, n_draws = 30L,
     seed = 2L, verbose = TRUE, debug = TRUE
   )
-  expect_s3_class(fit, "blindspot_expected")
+  expect_s3_class(fit, "spi_expected")
   expect_null(fit$draws)                       # keep_draws = FALSE
   expect_equal(fit$overdispersion, "nb")
 })
 
-test_that("bs_expected fits monthly population, monthly season, no od", {
+test_that("spi_expected fits monthly population, monthly season, no od", {
   skip_on_cran()
   skip_if_not_installed("INLA")
   d <- sub_inputs(6L, 24L)
@@ -436,24 +436,24 @@ test_that("bs_expected fits monthly population, monthly season, no od", {
     id_col = "adm2_guid", season = "monthly", year_effect = "none",
     overdispersion = "none", n_draws = 30L, seed = 3L, verbose = FALSE
   )
-  expect_s3_class(fit, "blindspot_expected")
+  expect_s3_class(fit, "spi_expected")
   expect_equal(fit$offset$granularity, "monthly")
 })
 
-test_that("bs_compare_overdispersion and auto selection run end to end", {
+test_that("spi_compare_overdispersion and auto selection run end to end", {
   skip_on_cran()
   skip_if_not_installed("INLA")
   d <- sub_inputs(4L, 12L)
 
   cmp <- tryCatch(
-    bs_compare_overdispersion(
+    spi_compare_overdispersion(
       d$cases, d$pop, d$bnd, specs = c("none", "iid"),
       id_col = "adm2_guid", season = "none", year_effect = "none",
       n_draws = 20L, verbose = TRUE
     ),
     error = function(e) skip(paste("INLA unavailable:", conditionMessage(e)))
   )
-  expect_s3_class(cmp, "blindspot_comparison")
+  expect_s3_class(cmp, "spi_comparison")
   expect_equal(nrow(cmp$summary), 2L)
   expect_no_error(print(cmp))
 
@@ -462,7 +462,7 @@ test_that("bs_compare_overdispersion and auto selection run end to end", {
     id_col = "adm2_guid", season = "none", year_effect = "none",
     overdispersion = "auto", n_draws = 20L, seed = 4L, verbose = FALSE
   )
-  expect_s3_class(auto, "blindspot_expected")
+  expect_s3_class(auto, "spi_expected")
   expect_true(auto$overdispersion %in% c("none", "iid", "nb"))
 })
 
@@ -477,7 +477,7 @@ test_that("bs_compare_overdispersion and auto selection run end to end", {
 test_that("seed argument is validated", {
   d <- sub_inputs(4L, 12L)
   bad <- function(s) {
-    bs_expected(
+    spi_expected(
       cases = d$cases, population = d$pop, adjacency = d$bnd,
       id_col = "adm2_guid", seed = s, verbose = FALSE
     )
@@ -504,7 +504,7 @@ test_that("a seeded fit is reproducible and leaves the caller's RNG alone", {
   set.seed(99L)
   before <- .Random.seed
   a <- run()
-  # bs_expected must not displace the stream the caller is drawing from
+  # spi_expected must not displace the stream the caller is drawing from
   expect_identical(.Random.seed, before)
 
   b <- run()

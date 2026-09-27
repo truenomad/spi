@@ -1,9 +1,9 @@
-# bs_triangulate() crosses the shipped field guide against the detection
-# channels. These tests stub a minimal blindspot_field_guide for the join /
+# spi_triangulate() crosses the shipped field guide against the detection
+# channels. These tests stub a minimal spi_field_guide for the join /
 # lag / classification logic, and use the shipped synth_field_guide +
 # synth_surveillance$detections for the end-to-end and renderer checks.
 
-# minimal field-guide stub: only what bs_triangulate() reads.
+# minimal field-guide stub: only what spi_triangulate() reads.
 make_fg <- function(dy, read_year = 2020L) {
   structure(
     list(
@@ -12,7 +12,7 @@ make_fg <- function(dy, read_year = 2020L) {
       thresholds = list(spi = 1, npafp = 3),
       id_col = "adm2_guid"
     ),
-    class = "blindspot_field_guide"
+    class = "spi_field_guide"
   )
 }
 
@@ -40,7 +40,7 @@ test_that("all ten triangulation classes are reachable", {
     es_covered = c(TRUE, TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, TRUE,
                    FALSE, TRUE)
   )
-  tri <- bs_triangulate(make_fg(dy), det, verbose = FALSE)
+  tri <- spi_triangulate(make_fg(dy), det, verbose = FALSE)
   cls <- tri$district_year
   got <- as.character(cls$triangulation[match(ids, cls$adm2_guid)])
 
@@ -86,7 +86,7 @@ test_that("a Monitor judgement preceding an AFP detection counts as forewarned",
     adm2_guid = c("D1", "D2"), year = 2020L,
     afp_detected = TRUE, es_detected = FALSE, es_covered = TRUE
   )
-  cls <- bs_triangulate(make_fg(dy), det, verbose = FALSE)$district_year
+  cls <- spi_triangulate(make_fg(dy), det, verbose = FALSE)$district_year
   fp <- cls$flag_preceded[match(c("D1", "D2"), cls$adm2_guid)]
   expect_true(fp[1])
   expect_false(fp[2])
@@ -105,9 +105,9 @@ test_that("detection_lag aligns verdict[t] with detection[t+lag]", {
     afp_detected = FALSE, es_detected = TRUE, es_covered = TRUE
   )
 
-  tri0 <- bs_triangulate(make_fg(dy, 2020L), det, detection_lag = 0L,
+  tri0 <- spi_triangulate(make_fg(dy, 2020L), det, detection_lag = 0L,
                          verbose = FALSE)
-  tri1 <- bs_triangulate(make_fg(dy, 2020L), det, detection_lag = 1L,
+  tri1 <- spi_triangulate(make_fg(dy, 2020L), det, detection_lag = 1L,
                          verbose = FALSE)
 
   cls0 <- tri0$district_year
@@ -136,7 +136,7 @@ test_that("district-years absent from detections read as no detection", {
     adm2_guid = "D1", year = 2020L,
     afp_detected = FALSE, es_detected = TRUE, es_covered = TRUE
   )
-  tri <- bs_triangulate(make_fg(dy), det, verbose = FALSE)
+  tri <- spi_triangulate(make_fg(dy), det, verbose = FALSE)
   cls <- tri$district_year
   expect_equal(as.character(cls$triangulation[cls$adm2_guid == "D1"]),
                "confirmed blindspot")
@@ -144,7 +144,7 @@ test_that("district-years absent from detections read as no detection", {
                "uncorroborated clear")
 })
 
-test_that("bs_triangulate validates its inputs", {
+test_that("spi_triangulate validates its inputs", {
   dy <- tibble::tibble(
     adm2_guid = "D1", year = 2020L,
     verdict = factor("Review priority", levels = .FG_VERDICT_LEVELS)
@@ -154,29 +154,29 @@ test_that("bs_triangulate validates its inputs", {
     afp_detected = FALSE, es_detected = FALSE, es_covered = FALSE
   )
 
-  expect_error(bs_triangulate(list(), det))                 # not a field guide
-  expect_error(bs_triangulate(make_fg(dy), 1L))             # det not a df
+  expect_error(spi_triangulate(list(), det))                 # not a field guide
+  expect_error(spi_triangulate(make_fg(dy), 1L))             # det not a df
 
   # missing a detection column
   expect_error(
-    bs_triangulate(make_fg(dy), det[, c("adm2_guid", "year", "afp_detected")]),
+    spi_triangulate(make_fg(dy), det[, c("adm2_guid", "year", "afp_detected")]),
     "missing"
   )
   # missing the verdict column on the guide
   bad_fg <- make_fg(dy)
   bad_fg$district_year$verdict <- NULL
-  expect_error(bs_triangulate(bad_fg, det), "missing")
+  expect_error(spi_triangulate(bad_fg, det), "missing")
 
   # more than one detection row per district-year
   dup <- dplyr::bind_rows(det, det)
-  expect_error(bs_triangulate(make_fg(dy), dup), ">1 row")
+  expect_error(spi_triangulate(make_fg(dy), dup), ">1 row")
 })
 
-test_that("bs_triangulate runs end to end on the shipped bundle", {
-  tri <- bs_triangulate(synth_field_guide, synth_surveillance$detections,
+test_that("spi_triangulate runs end to end on the shipped bundle", {
+  tri <- spi_triangulate(synth_field_guide, synth_surveillance$detections,
                         detection_lag = 1L, verbose = FALSE)
 
-  expect_s3_class(tri, "blindspot_triangulation")
+  expect_s3_class(tri, "spi_triangulation")
   # row count preserved through the join
   expect_equal(nrow(tri$district_year), nrow(synth_field_guide$district_year))
   expect_s3_class(tri$district_year$triangulation, "factor")
@@ -189,28 +189,28 @@ test_that("bs_triangulate runs end to end on the shipped bundle", {
 })
 
 test_that("print returns invisibly and the renderers produce objects", {
-  tri <- bs_triangulate(synth_field_guide, synth_surveillance$detections,
+  tri <- spi_triangulate(synth_field_guide, synth_surveillance$detections,
                         verbose = FALSE)
 
   expect_no_error(print(tri))
   expect_identical(print(tri), tri) # returns invisibly
 
   skip_if_not_installed("gt")
-  expect_s3_class(bs_triangulate_table(tri, engine = "gt"), "gt_tbl")
+  expect_s3_class(spi_triangulate_table(tri, engine = "gt"), "gt_tbl")
 
   skip_if_not_installed("flextable")
   skip_if_not_installed("officer")
-  expect_s3_class(bs_triangulate_table(tri, engine = "flextable"), "flextable")
+  expect_s3_class(spi_triangulate_table(tri, engine = "flextable"), "flextable")
 })
 
-test_that("bs_triangulate_map returns a ggplot", {
+test_that("spi_triangulate_map returns a ggplot", {
   skip_if_not_installed("ggplot2")
   skip_if_not_installed("sf")
-  tri <- bs_triangulate(synth_field_guide, synth_surveillance$detections,
+  tri <- spi_triangulate(synth_field_guide, synth_surveillance$detections,
                         verbose = FALSE)
 
-  p <- bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2020L)
+  p <- spi_triangulate_map(tri, synth_surveillance$boundaries, year = 2020L)
   expect_s3_class(p, "ggplot")
-  p2 <- bs_triangulate_map(tri, synth_surveillance$boundaries, by = "priority")
+  p2 <- spi_triangulate_map(tri, synth_surveillance$boundaries, by = "priority")
   expect_s3_class(p2, "ggplot")
 })

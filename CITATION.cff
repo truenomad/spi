@@ -1,7 +1,7 @@
 cff-version: 1.2.0
-message: "If you use blindspot in your work, please cite it as below."
+message: "If you use spi in your work, please cite it as below."
 type: software
-title: "blindspot: Bayesian Spatiotemporal Surveillance Quality Monitoring"
+title: "spi: Bayesian Spatiotemporal Surveillance Quality Monitoring"
 version: 0.0.0.9000
 abstract: >-
   Estimates district-level expected case detection rates using Bayesian
@@ -15,8 +15,8 @@ authors:
     email: mohamedayusuf87@gmail.com
     orcid: "https://orcid.org/0000-0002-9339-4613"
 license: MIT
-repository-code: "https://github.com/truenomad/blindspot"
-url: "https://truenomad.github.io/blindspot/"
+repository-code: "https://github.com/truenomad/spi"
+url: "https://truenomad.github.io/spi/"
 date-released: "2026-07-02"
 keywords:
   - polio

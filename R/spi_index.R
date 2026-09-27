@@ -7,8 +7,8 @@
 #' indicates underdetection (a surveillance blind spot); SPI > 1 indicates
 #' over-detection or genuine excess.
 #'
-#' @param expected Object of class `blindspot_expected` returned by
-#'   [bs_expected()].
+#' @param expected Object of class `spi_expected` returned by
+#'   [spi_expected()].
 #' @param cases Optional tibble with the district identifier column (matching
 #'   `expected$id_col`), `month` (Date), and `count`. If NULL (default), uses
 #'   the observed counts already in the expected model fit.
@@ -41,7 +41,7 @@
 #'   is still computed but unreliable. Default: 1.
 #' @param verbose Logical. Progress messages via cli. Default: TRUE.
 #'
-#' @return Object of class `blindspot_spi`. A list containing:
+#' @return Object of class `spi_index`. A list containing:
 #' \describe{
 #'   \item{draws}{Matrix `[n_draws x n_groups]` of posterior SPI samples.}
 #'   \item{summary}{Tibble with grouping variables and SPI summaries (median,
@@ -76,13 +76,13 @@
 #' period with no detections nationally has no ratio to divide by; its rows
 #' become `NA` and a warning names the affected periods.
 #'
-#' @seealso [bs_expected()], [bs_concordance()]
-#' @family blindspot core functions
+#' @seealso [spi_expected()], [spi_concordance()]
+#' @family spi core functions
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' fit <- bs_expected(
+#' fit <- spi_expected(
 #'   cases = cases,
 #'   population = pop_u15,
 #'   adjacency = adj,
@@ -92,10 +92,10 @@
 #' )
 #'
 #' # pass boundaries to carry adm1/adm2 names next to the district id
-#' spi_dy <- bs_spi(fit, level = "district_year", boundaries = boundaries)
+#' spi_dy <- spi_index(fit, level = "district_year", boundaries = boundaries)
 #' print(spi_dy)
 #' }
-bs_spi <- function(
+spi_index <- function(
   expected,
   cases = NULL,
   boundaries = NULL,
@@ -118,7 +118,7 @@ bs_spi <- function(
 
   # --- validate inputs ----------------------------------
   stopifnot(
-    inherits(expected, "blindspot_expected"),
+    inherits(expected, "spi_expected"),
     is.numeric(min_expected),
     min_expected >= 0
   )
@@ -237,7 +237,7 @@ bs_spi <- function(
       national = national,
       call = match.call()
     ),
-    class = "blindspot_spi"
+    class = "spi_index"
   )
 
   if (verbose) {
@@ -264,7 +264,7 @@ bs_spi <- function(
 
 # --- internal helpers -------------------------------------
 
-# the low-information rows and the totals row of a blindspot_spi. Every
+# the low-information rows and the totals row of a spi_index. Every
 # district-month falls in exactly one summary row, so the summed `observed`
 # column equals the summed monthly counts. `expected_draws` is any matrix of
 # expected counts whose row sums give the total expected count per draw.
@@ -441,7 +441,7 @@ bs_spi <- function(
 # --- print method -----------------------------------------
 
 #' @export
-print.blindspot_spi <- function(x, ...) {
+print.spi_index <- function(x, ...) {
   rlang::check_dots_empty()
   fmt_int <- function(v) format(v, big.mark = ",")
 
@@ -507,7 +507,7 @@ print.blindspot_spi <- function(x, ...) {
 }
 
 #' @export
-summary.blindspot_spi <- function(object, ...) {
+summary.spi_index <- function(object, ...) {
   rlang::check_dots_empty()
 
   sm <- object$summary
@@ -692,19 +692,19 @@ summary.blindspot_spi <- function(object, ...) {
 }
 
 #' @export
-as_tibble.blindspot_spi <- function(x, ...) {
+as_tibble.spi_index <- function(x, ...) {
   rlang::check_dots_empty()
   x$summary
 }
 
 #' @export
-as.data.frame.blindspot_spi <- function(x, ...) {
+as.data.frame.spi_index <- function(x, ...) {
   rlang::check_dots_empty()
   as.data.frame(x$summary)
 }
 
 #' @export
-plot.blindspot_spi <- function(
+plot.spi_index <- function(
   x,
   type = c("distribution", "funnel", "caterpillar", "calibration"),
   thresholds = c(0.5, 1, 1.5),
@@ -714,7 +714,7 @@ plot.blindspot_spi <- function(
   ...
 ) {
   rlang::check_dots_empty()
-  .check_pkg("ggplot2", reason = "to plot a blindspot_spi object")
+  .check_pkg("ggplot2", reason = "to plot a spi_index object")
   type <- match.arg(type)
 
   sm <- x$summary
@@ -733,10 +733,10 @@ plot.blindspot_spi <- function(
 
 # --- internal plot helpers --------------------------------
 
-# package-level palette used by every plot.blindspot_* method
+# package-level palette used by every plot.spi_* method
 # so the visual identity stays consistent.
 # @noRd
-.bs_palette <- list(
+.spi_palette <- list(
   primary = "#4682B4",       # steelblue: histogram / point fill
   primary_dark = "#2C5E8A",  # darker steelblue: stroke / accent / high band
   burgundy = "#7B1D3D",      # threshold lines, calibration diagonal, low band
@@ -746,11 +746,11 @@ plot.blindspot_spi <- function(
 
 # package-level theme: minimal base, panel border, padded axis titles
 # @noRd
-.bs_theme <- function() {
+.spi_theme <- function() {
   ggplot2::theme_minimal(base_size = 11) +
     ggplot2::theme(
       panel.border = ggplot2::element_rect(
-        colour = .bs_palette$grey_border,
+        colour = .spi_palette$grey_border,
         fill = NA,
         linewidth = 0.4
       ),
@@ -797,8 +797,8 @@ plot.blindspot_spi <- function(
   ) +
     ggplot2::geom_histogram(
       bins = 50,
-      fill = .bs_palette$primary,
-      colour = .bs_palette$primary_dark,
+      fill = .spi_palette$primary,
+      colour = .spi_palette$primary_dark,
       alpha = 0.7,
       linewidth = 0.3
     ) +
@@ -810,7 +810,7 @@ plot.blindspot_spi <- function(
     ggplot2::geom_vline(
       xintercept = thresholds[thresholds != 1],
       linetype = "dotted",
-      colour = .bs_palette$burgundy,
+      colour = .spi_palette$burgundy,
       linewidth = 0.5
     ) +
     ggplot2::scale_x_log10(
@@ -826,7 +826,7 @@ plot.blindspot_spi <- function(
       x = "SPI (log scale)",
       y = "count"
     ) +
-    .bs_theme()
+    .spi_theme()
 }
 
 # funnel plot: SPI vs expected total
@@ -878,7 +878,7 @@ plot.blindspot_spi <- function(
       ggplot2::scale_colour_manual(
         name = NULL,
         values = stats::setNames(
-          c(.bs_palette$primary_dark, "#D55E00"),
+          c(.spi_palette$primary_dark, "#D55E00"),
           c(lab_adequate, lab_below)
         )
       ) +
@@ -889,7 +889,7 @@ plot.blindspot_spi <- function(
     p <- p +
       ggplot2::geom_point(
         alpha = 0.4, size = 1.5, shape = 16, stroke = 0,
-        colour = .bs_palette$primary_dark
+        colour = .spi_palette$primary_dark
       )
   }
 
@@ -897,7 +897,7 @@ plot.blindspot_spi <- function(
     ggplot2::geom_hline(yintercept = 1, linetype = "dashed", linewidth = 0.5) +
     ggplot2::geom_hline(
       yintercept = spi_cut, linetype = "dotted",
-      colour = .bs_palette$burgundy, linewidth = 0.5
+      colour = .spi_palette$burgundy, linewidth = 0.5
     ) +
     ggplot2::scale_x_log10() +
     ggplot2::scale_y_log10(breaks = c(0.1, 0.25, 0.5, 1, 2, 5)) +
@@ -910,7 +910,7 @@ plot.blindspot_spi <- function(
       x = "expected count (log scale)",
       y = "SPI (log scale)"
     ) +
-    .bs_theme() +
+    .spi_theme() +
     ggplot2::theme(legend.position = "bottom")
 }
 
@@ -948,7 +948,7 @@ plot.blindspot_spi <- function(
       ),
       width = 0,
       alpha = 0.55,
-      colour = .bs_palette$grey_mid
+      colour = .spi_palette$grey_mid
     ) +
     ggplot2::geom_point(
       ggplot2::aes(colour = .data$band),
@@ -956,8 +956,8 @@ plot.blindspot_spi <- function(
     ) +
     ggplot2::scale_colour_manual(
       values = c(
-        lowest = .bs_palette$burgundy,
-        highest = .bs_palette$primary_dark
+        lowest = .spi_palette$burgundy,
+        highest = .spi_palette$primary_dark
       )
     ) +
     # visual divider between the lowest and highest blocks
@@ -974,7 +974,7 @@ plot.blindspot_spi <- function(
     ggplot2::geom_hline(
       yintercept = thresholds[thresholds != 1],
       linetype = "dotted",
-      colour = .bs_palette$burgundy,
+      colour = .spi_palette$burgundy,
       linewidth = 0.5
     ) +
     ggplot2::scale_y_log10(
@@ -987,7 +987,7 @@ plot.blindspot_spi <- function(
       x = "rank (within displayed subset)",
       y = "SPI (log scale)"
     ) +
-    .bs_theme() +
+    .spi_theme() +
     ggplot2::theme(legend.position = "none")
 }
 
@@ -1008,13 +1008,13 @@ plot.blindspot_spi <- function(
       slope = 1,
       intercept = 0,
       linetype = "dashed",
-      colour = .bs_palette$burgundy,
+      colour = .spi_palette$burgundy,
       linewidth = 0.5
     ) +
     ggplot2::geom_point(
       alpha = 0.55,
       size = 1.1,
-      colour = .bs_palette$primary_dark
+      colour = .spi_palette$primary_dark
     ) +
     ggplot2::scale_x_log10() +
     ggplot2::scale_y_log10() +
@@ -1024,5 +1024,5 @@ plot.blindspot_spi <- function(
       x = "expected (log scale)",
       y = "observed (log scale)"
     ) +
-    .bs_theme()
+    .spi_theme()
 }

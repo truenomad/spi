@@ -1,4 +1,4 @@
 library(testthat)
-library(blindspot)
+library(spi)
 
-test_check("blindspot")
+test_check("spi")

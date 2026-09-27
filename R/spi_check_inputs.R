@@ -3,13 +3,13 @@
 #' Reconciles the three tables a fit consumes -- case counts, population
 #' denominators, and the district shapefile -- **before** a model is run, and
 #' returns every mismatch at once as a graded report. This is the input-side
-#' counterpart to [bs_concordance()], which grades the *output*; the two do
+#' counterpart to [spi_concordance()], which grades the *output*; the two do
 #' unrelated jobs at opposite ends of the pipeline, hence the distinct name.
 #'
 #' The most common silent failure in practice is district ids that don't line
-#' up across the three tables: [bs_expected()] will otherwise run anyway and
+#' up across the three tables: [spi_expected()] will otherwise run anyway and
 #' return numbers that look fine but are wrong for the affected districts, with
-#' no warning. `bs_check_inputs()` surfaces that, plus panel gaps, zero or
+#' no warning. `spi_check_inputs()` surfaces that, plus panel gaps, zero or
 #' negative populations, and invalid geometry, in a single pass.
 #'
 #' Every issue is graded so the whole picture arrives in one report rather than
@@ -22,7 +22,7 @@
 #'   invalid geometry, covariate ids off the panel).
 #' * **note** -- informational (adjacency components).
 #'
-#' [bs_expected()] calls this internally and aborts only on error-level issues.
+#' [spi_expected()] calls this internally and aborts only on error-level issues.
 #' Run it yourself first to see warnings you may want to act on before
 #' committing to a fit.
 #'
@@ -42,18 +42,18 @@
 #'   Default `"pop_u15"` (the under-15 at-risk population used for AFP).
 #' @param verbose Logical. Print the report once built. Default `TRUE`.
 #'
-#' @return A `blindspot_input_check` object: a list with `issues` (a tibble of
+#' @return A `spi_input_check` object: a list with `issues` (a tibble of
 #'   graded findings, one row each with `severity`, `code`, `message`, and the
 #'   offending `ids`), `gaps` (a `district_id` x `month` tibble of missing
 #'   panel cells, ready for a future fill helper), `n_error` / `n_warning` /
 #'   `n_note` counts, `ok` (`TRUE` when there are no error-level issues), and
 #'   the panel dimensions. Has a `print` method.
 #'
-#' @seealso [bs_expected()], [bs_adjacency()]
+#' @seealso [spi_expected()], [spi_adjacency()]
 #'
 #' @examples
 #' \dontrun{
-#' rpt <- bs_check_inputs(
+#' rpt <- spi_check_inputs(
 #'   cases = synth_surveillance$cases,
 #'   population = synth_surveillance$population,
 #'   shapefile = synth_surveillance$boundaries
@@ -62,7 +62,7 @@
 #' rpt$gaps
 #' }
 #' @export
-bs_check_inputs <- function(cases,
+spi_check_inputs <- function(cases,
                             population,
                             shapefile,
                             covariates = NULL,
@@ -121,7 +121,7 @@ bs_check_inputs <- function(cases,
   }
 
   # --- normalise id + denominator to the internal names -
-  # bs_expected() renames id_col -> district_id and pop_col -> pop before it
+  # spi_expected() renames id_col -> district_id and pop_col -> pop before it
   # fits; mirror that here so a check catches the same problems a fit would.
   cases <- .ic_rename(cases, id_col, "district_id")
   population <- .ic_rename(population, id_col, "district_id")
@@ -334,7 +334,7 @@ bs_check_inputs <- function(cases,
       pop_col = pop_col,
       call = match.call()
     ),
-    class = "blindspot_input_check"
+    class = "spi_input_check"
   )
 
   if (verbose) {
@@ -344,8 +344,8 @@ bs_check_inputs <- function(cases,
 }
 
 #' @export
-print.blindspot_input_check <- function(x, ...) {
-  cli::cli_h1("blindspot input check")
+print.spi_input_check <- function(x, ...) {
+  cli::cli_h1("spi input check")
 
   d <- x$dims
   dim_str <- if (!is.na(d$n_months)) {
@@ -394,7 +394,7 @@ print.blindspot_input_check <- function(x, ...) {
 # internal helpers
 # ---------------------------------------------------------------------------
 
-# Abort with the error-level issues from a bs_check_inputs() report, so a fit
+# Abort with the error-level issues from a spi_check_inputs() report, so a fit
 # fails fast with the same graded detail the standalone check would show.
 .abort_input_errors <- function(report, call = rlang::caller_env()) {
   errs <- report$issues[report$issues$severity == "error", ]
@@ -403,7 +403,7 @@ print.blindspot_input_check <- function(x, ...) {
     c(
       "Input validation failed with {report$n_error} error{?s}:",
       bullets,
-      "i" = "Run {.fn bs_check_inputs} on these inputs for the full report."
+      "i" = "Run {.fn spi_check_inputs} on these inputs for the full report."
     ),
     call = call
   )

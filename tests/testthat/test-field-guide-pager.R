@@ -1,4 +1,4 @@
-# bs_field_guide_pager() renders a single district's reading to self-contained
+# spi_field_guide_pager() renders a single district's reading to self-contained
 # HTML. Driven by the shipped synth_field_guide, so no INLA is needed. District
 # names are derived from the data rather than hard-coded, so the tests survive
 # a regeneration of the synthetic bundle.
@@ -25,9 +25,9 @@ test_that("a review priority district renders a well-formed pager object", {
   d <- priority_district(fg)
   skip_if(is.na(d))
 
-  p <- bs_field_guide_pager(fg, district = d, verbose = FALSE)
+  p <- spi_field_guide_pager(fg, district = d, verbose = FALSE)
 
-  expect_s3_class(p, "blindspot_pager")
+  expect_s3_class(p, "spi_pager")
   expect_identical(p$verdict, "Review priority")
   expect_identical(as.character(p), p$html)
   expect_length(p$paths, 0L)
@@ -52,7 +52,7 @@ test_that("an at-or-above district switches the accent to green", {
   d <- adequate_district(fg)
   skip_if(is.na(d))
 
-  p <- bs_field_guide_pager(fg, district = d, verbose = FALSE)
+  p <- spi_field_guide_pager(fg, district = d, verbose = FALSE)
   expect_identical(p$verdict, "No SPI indication")
   expect_match(p$html, "--accent:#1f6f43", fixed = TRUE)
   expect_match(p$html, "STEPS is not applied", fixed = TRUE)
@@ -64,7 +64,7 @@ test_that("a monitored shortfall names why it is not a priority", {
   d <- monitor_district(fg)
   skip_if(is.na(d))
 
-  p <- bs_field_guide_pager(fg, district = d, verbose = FALSE)
+  p <- spi_field_guide_pager(fg, district = d, verbose = FALSE)
   expect_identical(p$verdict, "Monitor")
   h <- p$html
   expect_match(h, "--accent:#e87722", fixed = TRUE)
@@ -81,10 +81,10 @@ test_that("monitor names the reason the shortfall is held back", {
     ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
                 observed = c(1, 1, 0, 0, 0), expected = 2)
   ))
-  fg <- bs_field_guide(conc, noise_alpha = 0.05, verbose = FALSE)
+  fg <- spi_field_guide(conc, noise_alpha = 0.05, verbose = FALSE)
   expect_identical(as.character(fg$focal$verdict), "Monitor")
 
-  h <- bs_field_guide_pager(fg, district = "ZERO", verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = "ZERO", verbose = FALSE)$html
   expect_no_match(h, "includes one", fixed = TRUE)
   expect_no_match(h, "interval includes 1", fixed = TRUE)
   expect_match(h, "noise not ruled out", fixed = TRUE)
@@ -95,9 +95,9 @@ test_that("monitor names the reason the shortfall is held back", {
     WIDE = list(spi = rep(0.6, 5), q95 = rep(1.2, 5),
                 observed = 6, expected = 10)
   ))
-  fgw <- bs_field_guide(wide, verbose = FALSE)
+  fgw <- spi_field_guide(wide, verbose = FALSE)
   expect_identical(as.character(fgw$focal$verdict), "Monitor")
-  hw <- bs_field_guide_pager(fgw, district = "WIDE", verbose = FALSE)$html
+  hw <- spi_field_guide_pager(fgw, district = "WIDE", verbose = FALSE)$html
   expect_match(hw, "interval includes 1", fixed = TRUE)
   expect_match(hw, "still includes one", fixed = TRUE)
   expect_no_match(hw, "noise not ruled out", fixed = TRUE)
@@ -107,7 +107,7 @@ test_that("monitor names the reason the shortfall is held back", {
     LONE = list(spi = c(1.1, 0.6), q95 = c(1.3, 0.7),
                 observed = 6, expected = 10)
   ))
-  hl <- bs_field_guide_pager(bs_field_guide(lone, verbose = FALSE),
+  hl <- spi_field_guide_pager(spi_field_guide(lone, verbose = FALSE),
                              district = "LONE", verbose = FALSE)$html
   expect_match(hl, "below cut \u00b7 not corroborated", fixed = TRUE)
   expect_match(hl, "neither extent nor persistence supports", fixed = TRUE)
@@ -121,7 +121,7 @@ test_that("a detection is context, never a counted STEPS signal", {
   skip_if(nrow(cand) == 0)
   d <- cand[["adm2_name"]][1]
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   # it reads in the context row as a detection box
   expect_match(h, "<div class=\"itile det hit\">", fixed = TRUE)
   expect_match(h, "detection</div>")
@@ -139,15 +139,15 @@ test_that("clearing the cut is not reported as detecting adequately", {
     OK = list(spi = rep(1.0, 3), q95 = rep(1.2, 3),
               observed = 20, expected = 20)
   ))
-  fg <- bs_field_guide(conc, spi_cut = 0.8, verbose = FALSE)
+  fg <- spi_field_guide(conc, spi_cut = 0.8, verbose = FALSE)
 
-  h <- bs_field_guide_pager(fg, district = "SHORT", verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = "SHORT", verbose = FALSE)$html
   expect_no_match(h, "--accent:#1f6f43", fixed = TRUE)
   expect_match(h, "--accent:#5a6883", fixed = TRUE)
   expect_match(h, "at cut \u00b7 interval below 1", fixed = TRUE)
   expect_match(h, "STEPS does not reach it", fixed = TRUE)
 
-  hok <- bs_field_guide_pager(fg, district = "OK", verbose = FALSE)$html
+  hok <- spi_field_guide_pager(fg, district = "OK", verbose = FALSE)$html
   expect_match(hok, "--accent:#1f6f43", fixed = TRUE)
   expect_match(hok, "No SPI indication for additional review", fixed = TRUE)
 })
@@ -165,7 +165,7 @@ test_that("the onset tile rests on the bundle's own timeliness counts", {
   d <- fat$name[1]
   n_expected <- tl$n_assessable[tl$adm2_guid == fat$guid[1]]
 
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = d, indicators_df = ind, verbose = FALSE
   )$html
   onset <- regmatches(
@@ -179,7 +179,7 @@ test_that("the pager prescribes no follow-up action", {
   d <- priority_district(fg)
   skip_if(is.na(d))
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   for (phrase in c("Supervisory review", "active case search",
                    "routine monitoring", "collect another year",
                    "no action is warranted", "class=\"va\"")) {
@@ -192,7 +192,7 @@ test_that("strength does not claim the interval rules out sampling noise", {
   foc <- fg$focal
   for (nm in foc[foc$verdict == "Review priority", ][["adm2_name"]]) {
     expect_no_match(
-      bs_field_guide_pager(fg, district = nm, verbose = FALSE)$html,
+      spi_field_guide_pager(fg, district = nm, verbose = FALSE)$html,
       "unlikely to be noise", fixed = TRUE
     )
   }
@@ -209,7 +209,7 @@ test_that("a small-count shortfall names the sampling-variability caveat", {
   skip_if(nrow(cand) == 0)
   d <- cand[["adm2_name"]][1]
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_match(h, "by chance alone", fixed = TRUE)
 
   # a well-powered shortfall carries no such caveat
@@ -218,7 +218,7 @@ test_that("a small-count shortfall names the sampling-variability caveat", {
       stats::ppois(foc$observed, lambda = foc$expected_total) < 0.01,
   ]
   if (nrow(solid) > 0) {
-    hs <- bs_field_guide_pager(
+    hs <- spi_field_guide_pager(
       fg, district = solid[["adm2_name"]][1], verbose = FALSE
     )$html
     expect_no_match(hs, "by chance alone", fixed = TRUE)
@@ -232,7 +232,7 @@ test_that("a zero count is not credited with clearing uncertainty", {
   skip_if(nrow(cand) == 0)
   d <- cand[["adm2_name"]][1]
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   # the interval collapses to a point mass at zero; never call that evidence
   expect_match(h, "the interval carries no evidence", fixed = TRUE)
   expect_match(h, "reported no non-polio AFP cases", fixed = TRUE)
@@ -250,7 +250,7 @@ test_that("a small expected count keeps a decimal so it matches the ratio", {
   exp_dot <- gsub(".", "\u00b7", sprintf("%.1f", cand$expected_total[1]),
                   fixed = TRUE)
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_match(h, paste0("against ", exp_dot, " expected"), fixed = TRUE)
 })
 
@@ -261,7 +261,7 @@ test_that("persistence reads the previous year's SPI", {
   skip_if(nrow(cand) == 0)
   r <- cand[1, ]
 
-  h <- bs_field_guide_pager(fg, district = r$adm2_name, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = r$adm2_name, verbose = FALSE)$html
   expect_match(
     h, sprintf("SPI %s in %d, %s the cut.",
                gsub(".", "\u00b7", sprintf("%.2f", r$spi_previous),
@@ -279,7 +279,7 @@ test_that("timeliness and stool adequacy rows read the process counts", {
   skip_if(nrow(cand) == 0)
   r <- cand[1, ]
 
-  h <- bs_field_guide_pager(fg, district = r$adm2_name, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = r$adm2_name, verbose = FALSE)$html
   expect_match(
     h, sprintf("%d of %d specimens at the laboratory within 3 days",
                r$n_transport_timely, r$n_transport),
@@ -293,7 +293,7 @@ test_that("timeliness and stool adequacy rows read the process counts", {
 
   thin <- foc[foc$spi_below & foc$n_cases < 5, ]
   skip_if(nrow(thin) == 0)
-  ht <- bs_field_guide_pager(fg, district = thin$adm2_name[1],
+  ht <- spi_field_guide_pager(fg, district = thin$adm2_name[1],
                              verbose = FALSE)$html
   expect_match(ht, "fewer than 5, not assessed", fixed = TRUE)
 })
@@ -308,7 +308,7 @@ test_that("the endpoint label clears the locator badge", {
   skip_if(nrow(cand) == 0)
   d <- cand[["adm2_name"]][1]
 
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = d, boundaries = synth_surveillance$boundaries,
     id_col = "adm2_guid", verbose = FALSE
   )$html
@@ -326,7 +326,7 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
   d <- priority_district(fg)
   skip_if(is.na(d))
 
-  # strip the out-of-grid channels the way bs_field_guide() does when they are
+  # strip the out-of-grid channels the way spi_field_guide() does when they are
   # not supplied: the flags go off and the year strings go empty
   bare <- fg
   bare$signals_active[c("seasonal", "detect_afp", "detect_es")] <- FALSE
@@ -336,7 +336,7 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
     bare[[df]]$es_years <- NA_character_
   }
 
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     bare, district = d, detection_label = "cVDPV2", verbose = FALSE
   )$html
   # an unsupplied channel says so rather than reading as a clean search
@@ -353,7 +353,7 @@ test_that("an unsupplied channel reads as unsupplied, not as a finding", {
     quiet[[df]]$orphan_years <- NA_character_
     quiet[[df]]$es_years <- NA_character_
   }
-  hq <- bs_field_guide_pager(
+  hq <- spi_field_guide_pager(
     quiet, district = d, detection_label = "cVDPV2", verbose = FALSE
   )$html
   expect_equal(
@@ -369,7 +369,7 @@ test_that("the masthead carries the under-15 denominator", {
   pop <- fg$focal$pop_u15[fg$focal[["adm2_name"]] == d][1]
   skip_if(is.na(pop))
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_match(
     h,
     paste0("pop u15 ", formatC(round(pop), format = "d", big.mark = ",")),
@@ -381,7 +381,7 @@ test_that("the masthead carries the under-15 denominator", {
   bare$focal$pop_u15 <- NULL
   bare$district_year$pop_u15 <- NULL
   expect_no_match(
-    bs_field_guide_pager(bare, district = d, verbose = FALSE)$html,
+    spi_field_guide_pager(bare, district = d, verbose = FALSE)$html,
     "pop u15 ", fixed = TRUE
   )
 })
@@ -391,10 +391,10 @@ test_that("note is untagged by default and opt-in when supplied", {
   d <- priority_district(fg)
   skip_if(is.na(d))
 
-  bare <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  bare <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_no_match(bare, "illustrative", fixed = TRUE)
 
-  tagged <- bs_field_guide_pager(
+  tagged <- spi_field_guide_pager(
     fg, district = d, note = "illustrative", verbose = FALSE
   )$html
   # the footer carries it, once
@@ -417,12 +417,12 @@ test_that("indicators_df is off by default and out of the STEPS grid", {
 
   # the context row always renders, since it carries the detection channels;
   # the indicator half is what `indicators_df` switches on
-  bare <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  bare <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_match(bare, "<div class=\"istrip\">", fixed = TRUE)
   expect_no_match(bare, "class=\"ipanel\"", fixed = TRUE)
   expect_no_match(bare, "class=\"itiles\"", fixed = TRUE)
 
-  with_ind <- bs_field_guide_pager(
+  with_ind <- spi_field_guide_pager(
     fg, district = d, indicators_df = make_indicators(fg), verbose = FALSE
   )$html
   expect_match(with_ind, "class=\"ipanel\"", fixed = TRUE)
@@ -446,7 +446,7 @@ test_that("a thin pass rate shows the cases behind it and is not graded", {
   # a district whose percentages rest on one or two assessable cases
   thin <- foc[foc$afp_cases > 0 & foc$afp_cases < 5, ]
   skip_if(nrow(thin) == 0)
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = thin$name[1], indicators_df = ind, verbose = FALSE
   )$html
   strip <- regmatches(h, regexpr("class=\"istrip\".*", h))
@@ -465,7 +465,7 @@ test_that("a thin pass rate shows the cases behind it and is not graded", {
   # a well-populated district keeps percentages and gets graded
   fat <- foc[foc$afp_cases > 50, ]
   skip_if(nrow(fat) == 0)
-  hf <- bs_field_guide_pager(
+  hf <- spi_field_guide_pager(
     fg, district = fat$name[1], indicators_df = ind, verbose = FALSE
   )$html
   expect_match(hf, "%</div>")
@@ -483,7 +483,7 @@ test_that("no ES site is claimed only when no ES detection backs it", {
   skip_if(is.na(seen))
   blanked <- ind
   blanked$ev_rate[blanked$name == seen] <- NA_real_
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = seen, indicators_df = blanked, verbose = FALSE
   )$html
   expect_match(h, "rate not reported", fixed = TRUE)
@@ -495,7 +495,7 @@ test_that("no ES site is claimed only when no ES detection backs it", {
   skip_if(is.na(quiet))
   blanked2 <- ind
   blanked2$ev_rate[blanked2$name == quiet] <- NA_real_
-  hq <- bs_field_guide_pager(
+  hq <- spi_field_guide_pager(
     fg, district = quiet, indicators_df = blanked2, verbose = FALSE
   )$html
   expect_match(hq, "No ES site", fixed = TRUE)
@@ -509,7 +509,7 @@ test_that("no assessable cases reads as absent, never as zero", {
   none <- foc[foc$afp_cases == 0, ]
   skip_if(nrow(none) == 0)
 
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = none$name[1], indicators_df = ind, verbose = FALSE
   )$html
   expect_match(h, "none assessable", fixed = TRUE)
@@ -525,7 +525,7 @@ test_that("a district absent from the panel simply omits the strip", {
   ind <- make_indicators(fg)
 
   gone <- ind[ind$name != d, ]
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = d, indicators_df = gone, verbose = FALSE
   )$html
   expect_no_match(h, "class=\"ipanel\"", fixed = TRUE)
@@ -534,7 +534,7 @@ test_that("a district absent from the panel simply omits the strip", {
   expect_match(h, "ES detection", fixed = TRUE)
   # a panel missing its keys is an error, not a silent omission
   expect_error(
-    bs_field_guide_pager(
+    spi_field_guide_pager(
       fg, district = d, indicators_df = ind[, c("name", "npafp_rate")],
       verbose = FALSE
     ),
@@ -548,7 +548,7 @@ test_that("path writes an auto-named html file", {
   skip_if(is.na(d))
 
   dir <- withr::local_tempdir()
-  p <- bs_field_guide_pager(
+  p <- spi_field_guide_pager(
     fg, district = d, path = dir, format = "html", verbose = FALSE
   )
 
@@ -564,7 +564,7 @@ test_that("an explicit file path is honoured", {
   skip_if(is.na(d))
 
   f <- withr::local_tempfile(fileext = ".html")
-  p <- bs_field_guide_pager(fg, district = d, file = f, verbose = FALSE)
+  p <- spi_field_guide_pager(fg, district = d, file = f, verbose = FALSE)
   expect_identical(p$paths, f)
   expect_true(file.exists(f))
 })
@@ -575,7 +575,7 @@ test_that("an unsupported file extension is rejected", {
   skip_if(is.na(d))
 
   expect_error(
-    bs_field_guide_pager(
+    spi_field_guide_pager(
       fg, district = d, file = tempfile(fileext = ".pdf"), verbose = FALSE
     ),
     "html"
@@ -585,7 +585,7 @@ test_that("an unsupported file extension is rejected", {
 test_that("an unknown district errors with a suggestion", {
   fg <- synth_field_guide
   expect_error(
-    bs_field_guide_pager(fg, district = "Nowhere-at-all", verbose = FALSE),
+    spi_field_guide_pager(fg, district = "Nowhere-at-all", verbose = FALSE),
     "no district matches"
   )
 })
@@ -595,7 +595,7 @@ test_that("the chart plots the focal district alone, with no neighbour lines", {
   d <- priority_district(fg)
   skip_if(is.na(d))
 
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
 
   # no muted neighbour polylines, cluster label or legend key
   expect_no_match(h, "stroke=\"#94a0b3\"", fixed = TRUE)
@@ -616,17 +616,17 @@ test_that("adjacency is inert and says so", {
   skip_if_not_installed("spdep")
 
   adj <- suppressMessages(
-    bs_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
+    spi_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
   )
-  with_adj <- bs_field_guide_pager(
+  with_adj <- spi_field_guide_pager(
     fg, district = d, adjacency = adj, verbose = FALSE
   )$html
-  without <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  without <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   # the graph changes nothing on the page
   expect_identical(with_adj, without)
   # and a caller passing one is told it is redundant
   expect_message(
-    bs_field_guide_pager(fg, district = d, adjacency = adj, verbose = TRUE),
+    spi_field_guide_pager(fg, district = d, adjacency = adj, verbose = TRUE),
     "no longer affects the pager"
   )
 })
@@ -638,7 +638,7 @@ test_that("boundaries locate the district in the whole country", {
   skip_if_not_installed("sf")
   b <- synth_surveillance$boundaries
 
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = d, boundaries = b, id_col = "adm2_guid", verbose = FALSE
   )$html
 
@@ -653,7 +653,7 @@ test_that("boundaries locate the district in the whole country", {
   expect_match(h, "stroke-opacity=\"0.7\"", fixed = TRUE)
 
   # no shapefile -> no inset div
-  without <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  without <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_no_match(without, "<div class=\"locbadge\">", fixed = TRUE)
 })
 
@@ -671,10 +671,10 @@ test_that("a multi-country layer is cut to the focal district's country", {
   sf::st_geometry(far) <- sf::st_geometry(far) + c(60, 0)
   two <- rbind(b, far)
 
-  one_html <- bs_field_guide_pager(
+  one_html <- spi_field_guide_pager(
     fg, district = d, boundaries = b, id_col = "adm2_guid", verbose = FALSE
   )$html
-  two_html <- bs_field_guide_pager(
+  two_html <- spi_field_guide_pager(
     fg, district = d, boundaries = two, id_col = "adm2_guid", verbose = FALSE
   )$html
   inset <- function(h) {
@@ -692,7 +692,7 @@ test_that("ES detections from the field guide reach the context row and chart", 
   skip_if(is.na(d))
 
   # no `es` argument -- ES is read straight from the field guide
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   es_box <- regmatches(
     h, regexpr("<div class=\"k\">ES detection.*?</div></div>", h)
   )
@@ -702,7 +702,7 @@ test_that("ES detections from the field guide reach the context row and chart", 
   # a district with no ES positives says so, rather than dropping the box
   none <- foc[foc$es_detected %in% FALSE, ][["adm2_name"]][1]
   if (!is.na(none)) {
-    hn <- bs_field_guide_pager(fg, district = none, verbose = FALSE)$html
+    hn <- spi_field_guide_pager(fg, district = none, verbose = FALSE)$html
     hn_box <- regmatches(
       hn, regexpr("<div class=\"k\">ES detection.*?</div></div>", hn)
     )
@@ -716,8 +716,8 @@ test_that("a district resolves by id as well as by name", {
   skip_if(is.na(d))
   gid <- fg$focal[["adm2_guid"]][fg$focal[["adm2_name"]] == d][1]
 
-  by_name <- bs_field_guide_pager(fg, district = d, verbose = FALSE)
-  by_id <- bs_field_guide_pager(fg, district = gid, verbose = FALSE)
+  by_name <- spi_field_guide_pager(fg, district = d, verbose = FALSE)
+  by_id <- spi_field_guide_pager(fg, district = gid, verbose = FALSE)
   expect_identical(by_id$id, by_name$id)
 })
 
@@ -746,11 +746,11 @@ test_that("adm1-level inputs render without an adm2 column", {
   b[["adm1_guid"]] <- b[["adm2_guid"]]
 
   # the inset lookup used to hard-code adm2_name
-  p <- bs_field_guide_pager(
+  p <- spi_field_guide_pager(
     fg, district = d, boundaries = b, id_col = "adm1_guid",
     admin_label = "province", verbose = FALSE
   )
-  expect_s3_class(p, "blindspot_pager")
+  expect_s3_class(p, "spi_pager")
   h <- p$html
   expect_match(h, "<!DOCTYPE html>", fixed = TRUE)
   # the unit name still labels the chart endpoint
@@ -762,7 +762,7 @@ test_that("unit_noun rewords the reading; default stays \"district\"", {
   d <- fg$focal[fg$focal$verdict == "Review priority", ][["adm1_name"]][1]
   skip_if(is.na(d))
 
-  prov <- bs_field_guide_pager(
+  prov <- spi_field_guide_pager(
     fg, district = d, id_col = "adm1_guid", unit_noun = "province",
     verbose = FALSE
   )$html
@@ -771,7 +771,7 @@ test_that("unit_noun rewords the reading; default stays \"district\"", {
 
   # default is unchanged: adm2 output still reads "district"
   d2 <- priority_district(synth_field_guide)
-  h2 <- bs_field_guide_pager(
+  h2 <- spi_field_guide_pager(
     synth_field_guide, district = d2, verbose = FALSE
   )$html
   expect_match(h2, "STEPS is applied to a district", fixed = TRUE)
@@ -784,7 +784,7 @@ test_that("adm1 auto-name keeps each admin level once", {
   skip_if(is.na(d))
 
   dir <- withr::local_tempdir()
-  p <- bs_field_guide_pager(
+  p <- spi_field_guide_pager(
     fg, district = d, id_col = "adm1_guid", path = dir,
     format = "html", verbose = FALSE
   )
@@ -803,7 +803,7 @@ test_that("the detection boxes name whatever serotypes were recorded", {
   d <- d[["adm2_name"]][1]
 
   # one recorded serotype is named on its own
-  h <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  h <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   afp <- regmatches(
     h, regexpr("<div class=\"k\">AFP detection.*?</div></div>", h)
   )
@@ -815,7 +815,7 @@ test_that("the detection boxes name whatever serotypes were recorded", {
     hit <- mixed[[df]]$genomic_orphan %in% TRUE
     mixed[[df]]$orphan_serotypes[hit] <- "cVDPV2, WPV1"
   }
-  hm <- bs_field_guide_pager(mixed, district = d, verbose = FALSE)$html
+  hm <- spi_field_guide_pager(mixed, district = d, verbose = FALSE)$html
   afp_m <- regmatches(
     hm, regexpr("<div class=\"k\">AFP detection.*?</div></div>", hm)
   )
@@ -827,7 +827,7 @@ test_that("the detection boxes name whatever serotypes were recorded", {
     none[[df]]$orphan_serotypes <- NA_character_
     none[[df]]$es_serotypes <- NA_character_
   }
-  hn <- bs_field_guide_pager(
+  hn <- spi_field_guide_pager(
     none, district = d, detection_label = "WPV3", verbose = FALSE
   )$html
   expect_match(hn, "WPV3", fixed = TRUE)
@@ -845,7 +845,7 @@ test_that("a long unit name is fitted rather than run off the page", {
     hit <- renamed[[df]][["adm2_name"]] == d
     renamed[[df]][["adm2_name"]][hit] <- long
   }
-  h <- bs_field_guide_pager(renamed, district = long, verbose = FALSE)$html
+  h <- spi_field_guide_pager(renamed, district = long, verbose = FALSE)$html
 
   # the endpoint label breaks after a solidus instead of running past the
   # frame, and every piece of the name survives the break
@@ -861,7 +861,7 @@ test_that("a long unit name is fitted rather than run off the page", {
   expect_gt(size, 20)
 
   # a short name is left at full size and on one line
-  hs <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  hs <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   short <- regmatches(hs, regexpr("class=\"unit\"[^>]*", hs))
   expect_match(short, "font-size:46.0px", fixed = TRUE)
   expect_length(
@@ -879,7 +879,7 @@ test_that("a failed indicator target reads in the blind-spot red", {
 
   fail <- fat[fat$stool_adequacy_cond_pct < 80, ]
   if (nrow(fail) > 0) {
-    h <- bs_field_guide_pager(
+    h <- spi_field_guide_pager(
       fg, district = fail$name[1], indicators_df = ind, verbose = FALSE
     )$html
     expect_match(h, "itile ok fail", fixed = TRUE)
@@ -887,7 +887,7 @@ test_that("a failed indicator target reads in the blind-spot red", {
 
   pass <- fat[fat$stool_adequacy_cond_pct >= 80, ]
   if (nrow(pass) > 0) {
-    hp <- bs_field_guide_pager(
+    hp <- spi_field_guide_pager(
       fg, district = pass$name[1], indicators_df = ind, verbose = FALSE
     )$html
     stool <- regmatches(
@@ -899,7 +899,7 @@ test_that("a failed indicator target reads in the blind-spot red", {
   # a thin rate is never graded, so never reddened
   thin <- foc[foc$afp_cases > 0 & foc$afp_cases < 5, ]
   if (nrow(thin) > 0) {
-    ht <- bs_field_guide_pager(
+    ht <- spi_field_guide_pager(
       fg, district = thin$name[1], indicators_df = ind, verbose = FALSE
     )$html
     strip <- regmatches(ht, regexpr("class=\"istrip\".*", ht))
@@ -916,20 +916,20 @@ test_that("no serotype is named unless the caller names one", {
 
   # the guide records detection years but not serotypes, so the default page
   # must not assert one
-  bare <- bs_field_guide_pager(fg, district = d, verbose = FALSE)$html
+  bare <- spi_field_guide_pager(fg, district = d, verbose = FALSE)$html
   expect_match(bare, "poliovirus", fixed = TRUE)
   expect_no_match(bare, "cVDPV", fixed = TRUE)
   expect_no_match(bare, "WPV", fixed = TRUE)
 
   # and it uses whatever the caller declares they filtered down to
-  named <- bs_field_guide_pager(
+  named <- spi_field_guide_pager(
     fg, district = d, detection_label = "cVDPV1", verbose = FALSE
   )$html
   expect_match(named, "cVDPV1", fixed = TRUE)
   expect_no_match(named, "poliovirus", fixed = TRUE)
 
   # an empty declaration is treated as no declaration
-  blank <- bs_field_guide_pager(
+  blank <- spi_field_guide_pager(
     fg, district = d, detection_label = "", verbose = FALSE
   )$html
   expect_match(blank, "poliovirus", fixed = TRUE)
@@ -940,7 +940,7 @@ test_that("detection_label controls the serotype wording", {
   d <- priority_district(fg)
   skip_if(is.na(d))
 
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = d, es = synth_surveillance$es_district_year,
     es_col = "n_positive", id_col = "adm2_guid",
     detection_label = "WPV1", verbose = FALSE
@@ -966,7 +966,7 @@ test_that("the detection tile counts years and says years", {
   skip_if(nrow(cand) == 0)
   n <- max(yrs)
 
-  h <- bs_field_guide_pager(
+  h <- spi_field_guide_pager(
     fg, district = cand[["adm2_name"]][which.max(yrs[yrs > 1])],
     verbose = FALSE
   )$html
@@ -990,7 +990,7 @@ test_that("a unit sharing its parent's name keeps the parent", {
     clash$district_year[["adm2_guid"]] == foc[["adm2_guid"]][1]
   ] <- parent
 
-  h <- bs_field_guide_pager(clash, district = parent, verbose = FALSE)$html
+  h <- spi_field_guide_pager(clash, district = parent, verbose = FALSE)$html
   hier <- regmatches(h, regexpr("(?<=class=\"parent\">).*?(?=</div>)", h,
                                 perl = TRUE))
   # the LGA is still inside its state; dropping the state left the page
@@ -1003,8 +1003,8 @@ test_that("two levels sharing a name get two file names", {
   row <- tibble::tibble(
     adm0_name = "Nigeria", adm1_name = "Bauchi", adm2_name = "Bauchi"
   )
-  state <- blindspot:::.pager_autoname(row, "adm1_name")
-  lga <- blindspot:::.pager_autoname(row, "adm2_name")
+  state <- spi:::.pager_autoname(row, "adm1_name")
+  lga <- spi:::.pager_autoname(row, "adm2_name")
 
   expect_identical(state, "spi_nigeria_bauchi_field_pager")
   expect_identical(lga, "spi_nigeria_bauchi_bauchi_field_pager")

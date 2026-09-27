@@ -3,24 +3,24 @@
 #' @description
 #' Computes a district-year Surveillance Performance Index in which each
 #' assessment year is scored by a model that has not seen that year's counts.
-#' For every assessment year, [bs_expected()] is refitted on the years before
+#' For every assessment year, [spi_expected()] is refitted on the years before
 #' it. The assessment year's counts are masked (set to `NA`), so the model
 #' predicts them from the earlier years, and later years are dropped. The
 #' year's observed counts are then compared with that prediction through
-#' [bs_spi()]. At least `min_history` years of history are required before the
-#' first assessment year.
+#' [spi_index()]. At least `min_history` years of history are required before
+#' the first assessment year.
 #'
 #' By default the index is centred on each assessment year's national
 #' observed-to-expected ratio. The model defaults are those of
-#' [bs_expected()], which are the paper specification.
+#' [spi_expected()], which are the paper specification.
 #'
 #' @param cases Tibble with the district identifier (see `id_col`), `month`
 #'   (Date) and `count`. One row per district-month, covering the history and
 #'   every assessment year.
 #' @param population Tibble with the district identifier and the denominator
 #'   column named by `pop_col`, keyed by `year` (integer) or by `month`
-#'   (Date), as in [bs_expected()].
-#' @param adjacency nb object or sf object, as in [bs_expected()].
+#'   (Date), as in [spi_expected()].
+#' @param adjacency nb object or sf object, as in [spi_expected()].
 #' @param first_assessment Integer. The first year to assess. It must be at
 #'   least `min_history` years after the first year in `cases`.
 #' @param last_assessment Integer or `NULL`. The last year to assess. `NULL`
@@ -29,16 +29,16 @@
 #'   before the year it assesses. Default: 3.
 #' @param centre Character. "national" (default) divides each assessment
 #'   year's SPI by that year's national observed-to-expected ratio. "none"
-#'   leaves the raw ratio untouched. See [bs_spi()].
+#'   leaves the raw ratio untouched. See [spi_index()].
 #' @param covariates Optional tibble of covariates keyed by `year` or
-#'   `month`, as in [bs_expected()]. Each fit receives only the rows up to its
+#'   `month`, as in [spi_expected()]. Each fit receives only the rows up to its
 #'   assessment year. Default: `NULL`.
 #' @param id_col Character. Name of the district identifier column. Default:
 #'   "district_id".
 #' @param pop_col Character. Name of the denominator column in `population`.
 #'   Default: "pop_u15".
 #' @param boundaries Optional `sf` object or data frame carrying the id column
-#'   plus admin name columns, joined onto the summary as in [bs_spi()].
+#'   plus admin name columns, joined onto the summary as in [spi_index()].
 #'   Default: `NULL`.
 #' @param min_expected Numeric. District-years with a total expected count
 #'   below this threshold are flagged as low-information. Default: 1.
@@ -46,13 +46,13 @@
 #'   `FALSE` is supported at present. Default: `FALSE`.
 #' @param verbose Logical. Print one progress step per assessment year.
 #'   Default: `TRUE`.
-#' @param ... Further arguments passed to [bs_expected()], such as `season`,
+#' @param ... Further arguments passed to [spi_expected()], such as `season`,
 #'   `year_effect`, `overdispersion`, `n_draws` or `seed`. The arguments this
 #'   function sets itself (`cases`, `population`, `adjacency`, `covariates`,
 #'   `id_col`, `pop_col`, `keep_draws` and `verbose`) cannot be passed here.
 #'
-#' @return Object of class `blindspot_spi` at `level = "district_year"`, with
-#'   the elements described in [bs_spi()] (`draws`, `summary`,
+#' @return Object of class `spi_index` at `level = "district_year"`, with
+#'   the elements described in [spi_index()] (`draws`, `summary`,
 #'   `low_information`, `totals`, `id_col`, `centre`, `national`, `call`),
 #'   plus `prospective`: a tibble with one row per assessment year and the
 #'   columns `year`, `training_start`, `training_end` and `districts`.
@@ -71,14 +71,14 @@
 #' the number of assessment years. Every fit uses the same `...` arguments,
 #' including `n_draws`.
 #'
-#' @seealso [bs_expected()], [bs_spi()], [bs_concordance()]
-#' @family blindspot core functions
+#' @seealso [spi_expected()], [spi_index()], [spi_concordance()]
+#' @family spi core functions
 #'
 #' @export
 #' @examples
 #' \dontrun{
 #' s <- synth_surveillance
-#' spi <- bs_spi_prospective(
+#' spi <- spi_prospective(
 #'   cases = s$cases,
 #'   population = s$population,
 #'   adjacency = s$boundaries,
@@ -88,7 +88,7 @@
 #' )
 #' spi$prospective
 #' }
-bs_spi_prospective <- function(
+spi_prospective <- function(
   cases,
   population,
   adjacency,
@@ -120,14 +120,14 @@ bs_spi_prospective <- function(
   )
   if (length(reserved) > 0) {
     cli::cli_abort(
-      "{.arg {reserved}} {?is/are} set by {.fn bs_spi_prospective} and \\
+      "{.arg {reserved}} {?is/are} set by {.fn spi_prospective} and \\
        cannot be passed through {.arg ...}."
     )
   }
   if (isTRUE(predictive)) {
     cli::cli_abort(
       "{.code predictive = TRUE} is not yet supported by \\
-       {.fn bs_spi_prospective}."
+       {.fn spi_prospective}."
     )
   }
   centre <- match.arg(centre)
@@ -182,7 +182,7 @@ bs_spi_prospective <- function(
     # model predicts the year it assesses
     window <- .up_to_year(cases, target)
     window$count[.year_of(window$month) == target] <- NA
-    fit <- bs_expected(
+    fit <- spi_expected(
       cases = window,
       population = .up_to_year(population, target),
       adjacency = adjacency,
@@ -194,7 +194,7 @@ bs_spi_prospective <- function(
       ...
     )
     # the full cases table supplies the target year's real counts
-    spi <- bs_spi(
+    spi <- spi_index(
       fit,
       cases = cases,
       level = "district_year",
@@ -260,7 +260,7 @@ bs_spi_prospective <- function(
       prospective = prospective,
       call = match.call()
     ),
-    class = "blindspot_spi"
+    class = "spi_index"
   )
 
   if (verbose) {

@@ -1,4 +1,4 @@
-# bs_check_inputs() -- graded pre-flight reconciliation of the three input
+# spi_check_inputs() -- graded pre-flight reconciliation of the three input
 # tables. Pure data checking, so every test runs without INLA. Most tests
 # start from a clean fixture and mutate one thing, asserting that issue's code
 # and severity in isolation; the mixed-severity test guards the "one report,
@@ -49,18 +49,18 @@ ic_issue <- function(rpt, code) {
 # --- happy path ------------------------------------------------------------
 
 test_that("clean inputs produce no errors or warnings", {
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     ic_cases(), ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
-  expect_s3_class(rpt, "blindspot_input_check")
+  expect_s3_class(rpt, "spi_input_check")
   expect_true(rpt$ok)
   expect_equal(rpt$n_error, 0)
   expect_equal(rpt$n_warning, 0)
 })
 
 test_that("print method summarises a clean and a dirty report", {
-  clean <- bs_check_inputs(
+  clean <- spi_check_inputs(
     ic_cases(), ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -69,7 +69,7 @@ test_that("print method summarises a clean and a dirty report", {
 
   cases <- ic_cases()
   cases$count[1] <- -1L
-  dirty <- bs_check_inputs(
+  dirty <- spi_check_inputs(
     cases, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -81,7 +81,7 @@ test_that("print method summarises a clean and a dirty report", {
 
 test_that("case id absent from the shapefile is an error", {
   cases <- rbind(ic_cases(), ic_cases(ids = "ZZZ"))
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     cases, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -94,7 +94,7 @@ test_that("case id absent from the shapefile is an error", {
 test_that("negative counts are an error", {
   cases <- ic_cases()
   cases$count[c(1, 5)] <- -1L
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     cases, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -105,7 +105,7 @@ test_that("negative counts are an error", {
 test_that("negative population is an error", {
   pop <- ic_pop()
   pop$pop_u15[1] <- -5
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     ic_cases(), pop, make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -114,13 +114,13 @@ test_that("negative population is an error", {
 })
 
 test_that("missing required columns are errors on each table", {
-  rpt_c <- bs_check_inputs(
+  rpt_c <- spi_check_inputs(
     ic_cases()[, c("district_id", "month")], ic_pop(),
     make_nb(ic_ids, island_last = FALSE), verbose = FALSE
   )
   expect_equal(ic_issue(rpt_c, "cases_missing_cols")$severity, "error")
 
-  rpt_p <- bs_check_inputs(
+  rpt_p <- spi_check_inputs(
     ic_cases(), ic_pop()[, c("district_id", "month")],
     make_nb(ic_ids, island_last = FALSE), verbose = FALSE
   )
@@ -129,7 +129,7 @@ test_that("missing required columns are errors on each table", {
 
 test_that("duplicate district-months are an error", {
   cases <- rbind(ic_cases(), ic_cases()[1, ])
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     cases, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -139,7 +139,7 @@ test_that("duplicate district-months are an error", {
 test_that("wrong month class and non-numeric count are errors", {
   cases <- ic_cases()
   cases$month <- as.character(cases$month)
-  rpt_m <- bs_check_inputs(
+  rpt_m <- spi_check_inputs(
     cases, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -147,7 +147,7 @@ test_that("wrong month class and non-numeric count are errors", {
 
   cases2 <- ic_cases()
   cases2$count <- as.character(cases2$count)
-  rpt_n <- bs_check_inputs(
+  rpt_n <- spi_check_inputs(
     cases2, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -159,7 +159,7 @@ test_that("wrong month class and non-numeric count are errors", {
 test_that("zero population warns, names the district, and does not block", {
   pop <- ic_pop()
   pop$pop_u15[pop$district_id == "D03"] <- 0
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     ic_cases(), pop, make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -173,7 +173,7 @@ test_that("a dropped district-month is reported as a gap with the right row", {
   cases <- ic_cases()
   drop <- cases$district_id == "D02" & cases$month == ic_months[3]
   cases <- cases[!drop, ]
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     cases, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -187,7 +187,7 @@ test_that("a dropped district-month is reported as a gap with the right row", {
 test_that("partial population coverage warns", {
   pop <- ic_pop()
   pop <- pop[!(pop$district_id == "D04"), ]
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     ic_cases(), pop, make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -196,7 +196,7 @@ test_that("partial population coverage warns", {
 
 test_that("shapefile district with no case rows warns", {
   nb <- make_nb(c(ic_ids, "D99"), island_last = FALSE)
-  rpt <- bs_check_inputs(ic_cases(), ic_pop(), nb, verbose = FALSE)
+  rpt <- spi_check_inputs(ic_cases(), ic_pop(), nb, verbose = FALSE)
   iss <- ic_issue(rpt, "shapefile_no_cases")
   expect_equal(iss$severity, "warning")
   expect_true("D99" %in% iss$ids[[1]])
@@ -204,7 +204,7 @@ test_that("shapefile district with no case rows warns", {
 
 test_that("invalid geometry is reported, not repaired", {
   suppressWarnings(
-    rpt <- bs_check_inputs(
+    rpt <- spi_check_inputs(
       ic_cases(), ic_pop(), ic_sf(invalid_last = TRUE),
       verbose = FALSE
     )
@@ -215,7 +215,7 @@ test_that("invalid geometry is reported, not repaired", {
 
 test_that("covariate id off the panel warns", {
   cov <- tibble::tibble(district_id = c(ic_ids, "COV9"), dtp3 = 80)
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     ic_cases(), ic_pop(), make_nb(ic_ids, island_last = FALSE),
     covariates = cov, verbose = FALSE
   )
@@ -234,7 +234,7 @@ test_that("one error and two warnings all surface, routing on the error", {
   pop <- ic_pop()
   pop$pop_u15[pop$district_id == "D06"] <- 0              # warning: zero pop
 
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     cases, pop, make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -252,7 +252,7 @@ test_that("one error and two warnings all surface, routing on the error", {
 
 test_that("an empty cases table yields a clean error, not an internal crash", {
   empty <- ic_cases()[0, ]
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     empty, ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -263,7 +263,7 @@ test_that("an empty cases table yields a clean error, not an internal crash", {
 test_that("a single district-month panel has no spurious gap warning", {
   one <- ic_cases(ids = "D01", months = ic_months[1])
   pop <- ic_pop(ids = "D01", months = ic_months[1])
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     one, pop, make_nb("D01", island_last = FALSE),
     verbose = FALSE
   )
@@ -277,7 +277,7 @@ test_that("annual-grain population validates", {
     year = 2020L,
     pop_u15 = 1e5
   )
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     ic_cases(), pop, make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -293,15 +293,15 @@ test_that("a non-default id_col is honoured across all three tables", {
   sf_obj <- ic_sf()
   names(sf_obj)[names(sf_obj) == "district_id"] <- "adm2_guid"
 
-  rpt <- bs_check_inputs(
+  rpt <- spi_check_inputs(
     cases, pop, sf_obj, id_col = "adm2_guid", verbose = FALSE
   )
   expect_true(rpt$ok)
 })
 
 test_that("sf and nb shapefile inputs validate identically", {
-  rpt_sf <- bs_check_inputs(ic_cases(), ic_pop(), ic_sf(), verbose = FALSE)
-  rpt_nb <- bs_check_inputs(
+  rpt_sf <- spi_check_inputs(ic_cases(), ic_pop(), ic_sf(), verbose = FALSE)
+  rpt_nb <- spi_check_inputs(
     ic_cases(), ic_pop(), make_nb(ic_ids, island_last = FALSE),
     verbose = FALSE
   )
@@ -311,7 +311,7 @@ test_that("sf and nb shapefile inputs validate identically", {
 
 test_that("a bad shapefile class is a hard argument error", {
   expect_error(
-    bs_check_inputs(ic_cases(), ic_pop(), shapefile = list(), verbose = FALSE),
+    spi_check_inputs(ic_cases(), ic_pop(), shapefile = list(), verbose = FALSE),
     "sf"
   )
 })

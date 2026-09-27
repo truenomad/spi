@@ -10,8 +10,8 @@
 #' district `i`'s neighbours. It is the graph form of a sparse adjacency
 #' matrix W with `W[i, j] = 1` iff districts i and j share a boundary.
 #'
-#' **Why blindspot needs it.** The BYM2 spatial random effect fitted inside
-#' [bs_expected()] decomposes risk into a structured component (correlated
+#' **Why the package needs it.** The BYM2 spatial random effect fitted inside
+#' [spi_expected()] decomposes risk into a structured component (correlated
 #' across neighbours) and an unstructured component. The structured part is
 #' a Gaussian Markov random field whose precision matrix is built directly
 #' from this neighbour graph. Districts with no neighbours contribute no
@@ -79,10 +79,10 @@
 #'     \item `ncomp` -- list describing the connected components.
 #'   }
 #'
-#' @seealso [bs_expected()], [spdep::poly2nb()], [spdep::summary.nb()]
+#' @seealso [spi_expected()], [spdep::poly2nb()], [spdep::summary.nb()]
 #'
 #' @export
-bs_adjacency <- function(
+spi_adjacency <- function(
   boundaries,
   id_col,
   contiguity = "queen",
@@ -182,12 +182,12 @@ bs_adjacency <- function(
     )
   )
 
-  class(nb) <- c("blindspot_nb", "nb")
+  class(nb) <- c("spi_nb", "nb")
   nb
 }
 
 #' @export
-print.blindspot_nb <- function(x, ...) {
+print.spi_nb <- function(x, ...) {
   n_regions <- length(x)
   cards <- spdep::card(x)
   n_links <- sum(cards)

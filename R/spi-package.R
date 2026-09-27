@@ -13,10 +13,10 @@ utils::globalVariables(c(
   "count", "district_id", "log_offset", "month", "month_num", "pop", "year"
 ))
 
-#' blindspot: Bayesian Spatiotemporal Surveillance Quality Monitoring
+#' spi: Bayesian Spatiotemporal Surveillance Quality Monitoring
 #'
 #' @description
-#' blindspot estimates district-level expected case detection rates using
+#' spi estimates district-level expected case detection rates using
 #' Bayesian spatiotemporal models (BYM2 via INLA) and classifies surveillance
 #' quality into operational response categories.
 #'
@@ -46,14 +46,14 @@ utils::globalVariables(c(
 #'
 #' @section Main functions:
 #'
-#' - [bs_adjacency()]: Build spatial neighbour matrix
-#' - [bs_expected()]: Fit BYM2 expected rate model
-#' - [bs_compare_overdispersion()]: Compare Poisson vs negative-binomial fits
-#' - [bs_spi()]: Compute surveillance performance index
-#' - [bs_concordance()]: Cross-classify SPI against the NPAFP-rate threshold
-#' - [bs_field_guide()]: Review a low SPI through the five STEPS components
-#' - [bs_field_guide_table()]: Render the field guide (gt / flextable)
-#' - [bs_field_guide_help()]: Learn to read the field guide
+#' - [spi_adjacency()]: Build spatial neighbour matrix
+#' - [spi_expected()]: Fit BYM2 expected rate model
+#' - [spi_compare_overdispersion()]: Compare Poisson vs negative-binomial fits
+#' - [spi_index()]: Compute surveillance performance index
+#' - [spi_concordance()]: Cross-classify SPI against the NPAFP-rate threshold
+#' - [spi_field_guide()]: Review a low SPI through the five STEPS components
+#' - [spi_field_guide_table()]: Render the field guide (gt / flextable)
+#' - [spi_field_guide_help()]: Learn to read the field guide
 #'
 #' @section Design principles:
 #' 1. One function, one job
@@ -83,11 +83,11 @@ utils::globalVariables(c(
 #' automatically configures the INLA repository.
 #'
 #' @section Citation:
-#' If you use blindspot in published work, please cite:
+#' If you use spi in published work, please cite:
 #'
-#' Yusuf MA, Ahmed J (2026). blindspot: Bayesian spatiotemporal surveillance
+#' Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal surveillance
 #' quality monitoring. R package version 0.1.0.
-#' \url{https://github.com/truenomad/blindspot}
+#' \url{https://github.com/truenomad/spi}
 #'
 #' Associated paper:
 #' Yusuf MA, et al. (2026). From threshold to model: a Bayesian spatiotemporal
@@ -95,12 +95,12 @@ utils::globalVariables(c(
 #' Lancet Global Health.
 #'
 #' @section Package philosophy:
-#' blindspot replaces binary pass/fail threshold classifications with
+#' spi replaces binary pass/fail threshold classifications with
 #' continuous, uncertainty-quantified surveillance quality measures that map to
 #' specific operational responses. The framework learns what each district
 #' should be
 #' detecting from the data rather than imposing fixed targets.
 #'
 #' @docType package
-#' @name blindspot-package
+#' @name spi-package
 NULL

@@ -1,19 +1,19 @@
-##################  blindspot -- reproduce the paper's analysis  ##############
+##################  spi -- reproduce the paper's analysis  ####################
 #
-# A guided tour of the whole blindspot API on the synthetic toy dataset shipped
-# with the package (`blindspot::synth_surveillance`), so anyone can execute it
+# A guided tour of the whole spi API on the synthetic toy dataset shipped
+# with the package (`spi::synth_surveillance`), so anyone can execute it
 # end-to-end without WHO-restricted POLIS data. It exercises every exported
 # function:
 #
-#   bs_adjacency              spatial neighbour graph
-#   bs_expected               BYM2 expected-count model (bare + adjusted specs)
-#   bs_compare_overdispersion Poisson / iid / NB likelihood comparison
-#   bs_spi                    surveillance performance index (3 grains)
-#   bs_concordance            SPI vs conventional NPAFP threshold (+ strata)
-#   bs_concordance_maps       three-panel choropleth
-#   bs_field_guide            STEPS review -> review priority / monitor / no indication
-#   bs_field_guide_help       learn to read the review
-#   bs_field_guide_table      publication-ready gt / flextable
+#   spi_adjacency              spatial neighbour graph
+#   spi_expected               BYM2 expected-count model (bare + adjusted specs)
+#   spi_compare_overdispersion Poisson / iid / NB likelihood comparison
+#   spi_index                  surveillance performance index (3 grains)
+#   spi_concordance            SPI vs conventional NPAFP threshold (+ strata)
+#   spi_concordance_maps       three-panel choropleth
+#   spi_field_guide            STEPS review -> priority / monitor / none
+#   spi_field_guide_help       learn to read the review
+#   spi_field_guide_table      publication-ready gt / flextable
 #   as_tibble / print / summary / plot methods
 #
 # Mirrors:
@@ -27,7 +27,7 @@
 # person-years.
 #
 # Locate this file after installation:
-#   file <- system.file("examples/paper_analysis.R", package = "blindspot")
+#   file <- system.file("examples/paper_analysis.R", package = "spi")
 #   file.edit(file)
 #
 # Requires: INLA -- https://inla.r-inla-download.org/R/stable/
@@ -35,7 +35,7 @@
 # specs); expect a few minutes on the toy data.
 ###############################################################################
 
-cli::cli_h1("blindspot -- paper reproduction on synthetic data")
+cli::cli_h1("spi -- paper reproduction on synthetic data")
 
 ## ---------------------------------------------------------------------------##
 # Setup and parameters ---------------------------------------------------------
@@ -53,7 +53,7 @@ n_draws <- 1000L
 
 cli::cli_h2("Load synthetic bundle")
 
-synth <- blindspot::synth_surveillance
+synth <- spi::synth_surveillance
 cases <- synth$cases
 population <- synth$population
 boundaries <- synth$boundaries
@@ -79,7 +79,7 @@ cli::cli_alert_info(
 
 cli::cli_h2("Build spatial neighbour graph")
 
-adj <- blindspot::bs_adjacency(
+adj <- spi::spi_adjacency(
   boundaries = boundaries,
   id_col = "adm2_guid"
 )
@@ -90,7 +90,7 @@ print(adj)
 # Fit the expected-count model: bare vs adjusted ------------------------------
 ## ---------------------------------------------------------------------------##
 
-# bs_expected() is the core engine, and covariates are OPTIONAL -- so there are
+# spi_expected() is the core engine, and covariates are OPTIONAL -- so there are
 # two specs. We fit BOTH so you can see the difference and choose deliberately:
 #
 #   * BARE (Option A) -- intercept + BYM2 spatial + IID year + harmonic season
@@ -108,7 +108,7 @@ print(adj)
 
 cli::cli_h2("Option A -- bare spec (primary)")
 
-fit_bare <- blindspot::bs_expected(
+fit_bare <- spi::spi_expected(
   cases = cases,
   population = population,
   adjacency = adj,
@@ -124,7 +124,7 @@ fit_bare <- blindspot::bs_expected(
 print(fit_bare)
 summary(fit_bare)
 
-# Any blindspot object coerces to a tibble for joins / CSV export:
+# Any spi object coerces to a tibble for joins / CSV export:
 expected_tbl <- tibble::as_tibble(fit_bare)
 cli::cli_alert_info(
   "as_tibble(fit_bare): {format(nrow(expected_tbl), big.mark = ',')} rows \\
@@ -149,7 +149,7 @@ covariates <- synth$covariates
 print(utils::head(covariates))
 
 # The ONLY change from the bare call is the covariates + log_transform args:
-fit_adj <- blindspot::bs_expected(
+fit_adj <- spi::spi_expected(
   cases = cases,
   population = population,
   adjacency = adj,
@@ -182,12 +182,12 @@ print(tibble::tibble(
 cli::cli_alert_info("Downstream steps use the bare (primary) fit.")
 
 ## ---------------------------------------------------------------------------##
-# Overdispersion sanity check (paper: bs_compare_overdispersion in 2e) ---------
+# Overdispersion sanity check (paper: spi_compare_overdispersion in 2e) --------
 ## ---------------------------------------------------------------------------##
 
 cli::cli_h2("Compare overdispersion specs")
 
-overdisp <- blindspot::bs_compare_overdispersion(
+overdisp <- spi::spi_compare_overdispersion(
   cases = cases,
   population = population,
   adjacency = adj,
@@ -207,11 +207,11 @@ print(overdisp)
 cli::cli_h2("Compute SPI at three aggregation levels")
 
 # pass boundaries so saved SPI tables carry adm1/adm2 names next to the id
-spi_dy <- blindspot::bs_spi(fit_bare, level = "district_year",
+spi_dy <- spi::spi_index(fit_bare, level = "district_year",
                             boundaries = boundaries)
-spi_dm <- blindspot::bs_spi(fit_bare, level = "district_month",
+spi_dm <- spi::spi_index(fit_bare, level = "district_month",
                             boundaries = boundaries)
-spi_total <- blindspot::bs_spi(fit_bare, level = "district_total",
+spi_total <- spi::spi_index(fit_bare, level = "district_total",
                                boundaries = boundaries)
 
 cli::cli_h3("District-year SPI (primary reporting level)")
@@ -256,7 +256,7 @@ if (interactive()) {
 
 cli::cli_h2("SPI x NPAFP concordance (pooled)")
 
-conc <- blindspot::bs_concordance(
+conc <- spi::spi_concordance(
   spi = spi_dy,
   cases = cases,
   population = population,
@@ -278,7 +278,7 @@ if (interactive()) {
 
 cli::cli_h2("Stratified concordance")
 
-conc_by_year <- blindspot::bs_concordance(
+conc_by_year <- spi::spi_concordance(
   spi = spi_dy,
   cases = cases,
   population = population,
@@ -289,7 +289,7 @@ conc_by_year <- blindspot::bs_concordance(
   verbose = FALSE
 )
 
-conc_by_prov <- blindspot::bs_concordance(
+conc_by_prov <- spi::spi_concordance(
   spi = spi_dy,
   cases = cases,
   population = population,
@@ -351,7 +351,7 @@ cli::cli_alert_info(
 
 cli::cli_h2("Three-panel concordance map for {focal_year}")
 
-maps <- blindspot::bs_concordance_maps(
+maps <- spi::spi_concordance_maps(
   concordance = conc,
   boundaries = boundaries,
   year = focal_year
@@ -383,7 +383,7 @@ cli::cli_h2("SPI field guide")
 
 genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
 
-fg <- blindspot::bs_field_guide(
+fg <- spi::spi_field_guide(
   concordance = conc,
   process = synth$afp_process,
   adjacency = adj,
@@ -397,20 +397,20 @@ summary(fg) # adds STEPS concern counts + the STEPS reference
 
 # Learn to read the review, narrated on this run's worked example:
 if (interactive()) {
-  blindspot::bs_field_guide_help("all", guide = fg)
+  spi::spi_field_guide_help("all", guide = fg)
 }
 
 # Field guide teaching table (Table 2 style): the five STEPS components for
 # four rule-selected districts, cells shaded by concern. "scan" lists every
 # district by judgement; "worked" walks the four teaching cases.
-scan <- blindspot::bs_field_guide_table(fg, engine = "gt", layout = "scan")
-worked <- blindspot::bs_field_guide_table(fg, engine = "gt", layout = "worked")
+scan <- spi::spi_field_guide_table(fg, engine = "gt", layout = "scan")
+worked <- spi::spi_field_guide_table(fg, engine = "gt", layout = "worked")
 if (interactive()) {
   print(worked)
 }
 
 # Save for the manuscript / desk-review folder (format inferred from extension):
-# blindspot::bs_field_guide_table(
+# spi::spi_field_guide_table(
 #   fg, engine = "flextable", layout = "worked",
 #   file = "03_output/main/tables/spi_field_guide_2023.docx"
 # )

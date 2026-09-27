@@ -1,8 +1,8 @@
-# bs_spi_prospective() refits bs_expected() once per assessment year. The unit
-# tests stub bs_expected() with a fake fit built from the window it is handed,
+# spi_prospective() refits spi_expected() once per assessment year. The unit
+# tests stub spi_expected() with a fake fit built from the window it is handed,
 # so the masking and dropping can be checked without INLA.
 
-# a blindspot_expected built from the window it is handed; `data` carries the
+# a spi_expected built from the window it is handed; `data` carries the
 # id column, month, count and pop, as the real fit's does
 fake_fit <- function(cases, population, id_col, pop_col = "pop_u15", ...) {
   pop <- dplyr::rename(population, pop = dplyr::all_of(pop_col))
@@ -22,22 +22,22 @@ fake_fit <- function(cases, population, id_col, pop_col = "pop_u15", ...) {
   )
   structure(
     list(draws = draws, data = data, id_col = id_col),
-    class = "blindspot_expected"
+    class = "spi_expected"
   )
 }
 
 test_that("each window masks its target year and drops later years", {
   seen <- list()
-  local_mocked_bindings(bs_expected = function(cases, population, ...) {
+  local_mocked_bindings(spi_expected = function(cases, population, ...) {
     seen[[length(seen) + 1L]] <<- list(cases = cases, population = population)
     fake_fit(cases, population, ...)
   })
   d <- toy_panel(years = 2015:2020)
-  res <- bs_spi_prospective(
+  res <- spi_prospective(
     d$cases, d$population, d$adj,
     first_assessment = 2018, id_col = "adm2_guid", verbose = FALSE
   )
-  expect_s3_class(res, "blindspot_spi")
+  expect_s3_class(res, "spi_index")
   expect_identical(res$level, "district_year")
   expect_length(seen, 3L)
   for (i in seq_along(seen)) {
@@ -67,11 +67,11 @@ test_that("each window masks its target year and drops later years", {
 })
 
 test_that("last_assessment stops the refits early", {
-  local_mocked_bindings(bs_expected = function(cases, population, ...) {
+  local_mocked_bindings(spi_expected = function(cases, population, ...) {
     fake_fit(cases, population, ...)
   })
   d <- toy_panel(years = 2015:2020)
-  res <- bs_spi_prospective(
+  res <- spi_prospective(
     d$cases, d$population, d$adj,
     first_assessment = 2018, last_assessment = 2019,
     id_col = "adm2_guid", verbose = FALSE
@@ -82,7 +82,7 @@ test_that("last_assessment stops the refits early", {
 test_that("min_history is enforced", {
   d <- toy_panel(years = 2015:2020)
   expect_error(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2017, id_col = "adm2_guid"),
     "at least 3 years"
   )
@@ -91,7 +91,7 @@ test_that("min_history is enforced", {
 test_that("an assessment year past the data aborts", {
   d <- toy_panel(years = 2015:2020)
   expect_error(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2021, id_col = "adm2_guid"),
     "2020"
   )
@@ -100,7 +100,7 @@ test_that("an assessment year past the data aborts", {
 test_that("arguments the wrapper controls are refused in ...", {
   d <- toy_panel(years = 2015:2020)
   expect_error(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2018, id_col = "adm2_guid", keep_draws = FALSE),
     "keep_draws"
   )
@@ -109,21 +109,21 @@ test_that("arguments the wrapper controls are refused in ...", {
 test_that("predictive = TRUE is not yet supported", {
   d <- toy_panel(years = 2015:2020)
   expect_error(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2018, id_col = "adm2_guid", predictive = TRUE),
     "not yet supported"
   )
 })
 
 test_that("a part-year target is kept, flagged and warned about", {
-  local_mocked_bindings(bs_expected = function(cases, population, ...) {
+  local_mocked_bindings(spi_expected = function(cases, population, ...) {
     fake_fit(cases, population, ...)
   })
   d <- toy_panel(years = 2015:2020)
   # drop July to December of the last year
   d$cases <- d$cases[d$cases$month < as.Date("2020-07-01"), ]
   expect_warning(
-    res <- bs_spi_prospective(
+    res <- spi_prospective(
       d$cases, d$population, d$adj,
       first_assessment = 2018, id_col = "adm2_guid", verbose = FALSE
     ),
@@ -137,14 +137,14 @@ test_that("a part-year target is kept, flagged and warned about", {
 
 test_that("monthly population is filtered by month", {
   max_pop_month <- list()
-  local_mocked_bindings(bs_expected = function(cases, population, ...) {
+  local_mocked_bindings(spi_expected = function(cases, population, ...) {
     max_pop_month[[length(max_pop_month) + 1L]] <<- max(population$month)
     fake_fit(cases, population, ...)
   })
   d <- toy_panel(years = 2015:2020)
   pop_month <- dplyr::distinct(d$cases, adm2_guid, month) |>
     dplyr::mutate(pop_u15 = 1e5 / 12)
-  res <- bs_spi_prospective(
+  res <- spi_prospective(
     d$cases, pop_month, d$adj,
     first_assessment = 2018, id_col = "adm2_guid", verbose = FALSE
   )
@@ -155,7 +155,7 @@ test_that("monthly population is filtered by month", {
 })
 
 test_that("centring is per assessment year", {
-  local_mocked_bindings(bs_expected = function(cases, population, ...) {
+  local_mocked_bindings(spi_expected = function(cases, population, ...) {
     fake_fit(cases, population, ...)
   })
   d <- toy_panel(years = 2015:2020)
@@ -163,8 +163,8 @@ test_that("centring is per assessment year", {
     d$cases, d$population, d$adj,
     first_assessment = 2018, id_col = "adm2_guid", verbose = FALSE
   )
-  cen <- do.call(bs_spi_prospective, args)
-  raw <- do.call(bs_spi_prospective, c(args, centre = "none"))
+  cen <- do.call(spi_prospective, args)
+  raw <- do.call(spi_prospective, c(args, centre = "none"))
   expect_identical(cen$centre, "national")
   expect_null(raw$national)
   expect_false("national_oe" %in% names(raw$summary))
@@ -186,14 +186,14 @@ test_that("centring is per assessment year", {
 })
 
 test_that("boundaries attach admin names to the summary", {
-  local_mocked_bindings(bs_expected = function(cases, population, ...) {
+  local_mocked_bindings(spi_expected = function(cases, population, ...) {
     fake_fit(cases, population, ...)
   })
   d <- toy_panel(years = 2015:2020)
   bnd <- tibble::tibble(
     adm2_guid = paste0("D", 1:6), adm2_name = paste("District", 1:6)
   )
-  res <- bs_spi_prospective(
+  res <- spi_prospective(
     d$cases, d$population, d$adj,
     first_assessment = 2018, id_col = "adm2_guid", boundaries = bnd,
     verbose = FALSE
@@ -201,15 +201,15 @@ test_that("boundaries attach admin names to the summary", {
   expect_identical(names(res$summary)[1:2], c("adm2_name", "adm2_guid"))
 })
 
-test_that("bs_spi_prospective fits synth_surveillance end to end", {
+test_that("spi_prospective fits synth_surveillance end to end", {
   skip_on_cran()
   skip_if_not_installed("INLA")
   s <- synth_surveillance
   yrs <- as.integer(format(s$cases$month, "%Y"))
   last_three <- max(yrs) - 2:0
-  adj <- bs_adjacency(s$boundaries, id_col = "adm2_guid")
+  adj <- spi_adjacency(s$boundaries, id_col = "adm2_guid")
   res <- tryCatch(
-    bs_spi_prospective(
+    spi_prospective(
       s$cases, s$population, adj,
       first_assessment = last_three[[1]], id_col = "adm2_guid",
       n_draws = 200L, verbose = FALSE
@@ -218,7 +218,7 @@ test_that("bs_spi_prospective fits synth_surveillance end to end", {
       skip(paste0("INLA fit unavailable: ", conditionMessage(e)))
     }
   )
-  expect_s3_class(res, "blindspot_spi")
+  expect_s3_class(res, "spi_index")
   n_dist <- dplyr::n_distinct(s$cases$adm2_guid)
   expect_identical(nrow(res$summary), 3L * n_dist)
   expect_identical(
@@ -227,34 +227,34 @@ test_that("bs_spi_prospective fits synth_surveillance end to end", {
   expect_equal(sort(unique(res$summary$year)), last_three)
   ok <- res$summary$expected_total >= 1
   expect_true(all(is.finite(res$summary$spi_median[ok])))
-  conc <- bs_concordance(
+  conc <- spi_concordance(
     res, cases = s$cases, population = s$population, verbose = FALSE
   )
-  expect_s3_class(conc, "blindspot_concordance")
+  expect_s3_class(conc, "spi_concordance")
 })
 
 test_that("the verbose path reports each year and inputs are validated", {
-  local_mocked_bindings(bs_expected = function(cases, population, ...) {
+  local_mocked_bindings(spi_expected = function(cases, population, ...) {
     fake_fit(cases, population, ...)
   })
   d <- toy_panel(years = 2015:2020)
   expect_message(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2020, id_col = "adm2_guid"),
     "Fitting 2020: training 2015 to 2019"
   )
   expect_error(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2018.5, id_col = "adm2_guid"),
     "single whole number"
   )
   expect_error(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2018, id_col = "district_id"),
     "missing"
   )
   expect_error(
-    bs_spi_prospective(d$cases, d$population, d$adj,
+    spi_prospective(d$cases, d$population, d$adj,
       first_assessment = 2019, last_assessment = 2018, id_col = "adm2_guid"),
     "within the data"
   )

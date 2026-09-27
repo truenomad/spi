@@ -2,7 +2,7 @@
 #'
 #' @description
 #' Fits an INLA BYM2 Poisson model to estimate expected case counts per
-#' district-month. This is the core engine of the blindspot framework.
+#' district-month. This is the core engine of the spi package.
 #'
 #' @param cases Tibble with columns: the district identifier (see `id_col`,
 #'   character), `month` (Date), `count` (integer). One row per district-month.
@@ -12,7 +12,7 @@
 #'   joined month-by-month and the offset is `log(pop)`; otherwise `year`
 #'   (integer) is required and the offset is `log(pop / 12)`.
 #' @param adjacency nb object OR sf object. If sf, adjacency is computed
-#'   internally via [bs_adjacency()] using `id_col`. Values of the id column
+#'   internally via [spi_adjacency()] using `id_col`. Values of the id column
 #'   must match those in `cases`.
 #' @param covariates Tibble with columns: the district identifier (see
 #'   `id_col`), `month` (Date) OR `year` (int), plus one or more numeric
@@ -21,7 +21,7 @@
 #'   NULL.
 #' @param id_col Character. Name of the district identifier column in `cases`,
 #'   `population`, and `covariates`. Must match the `id_col` used when building
-#'   `adjacency` via [bs_adjacency()]. The function renames this column to
+#'   `adjacency` via [spi_adjacency()]. The function renames this column to
 #'   `district_id` internally and renames it back on output. Default:
 #'   "district_id".
 #' @param pop_col Character. Name of the denominator column in `population`.
@@ -48,7 +48,7 @@
 #'   (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month),
 #'   "none" (plain Poisson, not recommended for sparse data), or "auto" (fit
 #'   all three and pick the recommended spec via
-#'   [bs_compare_overdispersion()], then refit it at the requested
+#'   [spi_compare_overdispersion()], then refit it at the requested
 #'   `n_draws`). Default: "nb".
 #' @param prior_phi Named list with elements `U` and `alpha` giving the BYM2
 #'   mixing parameter PC prior `P(phi < U) = alpha`. Default:
@@ -73,10 +73,10 @@
 #'   quantiles and save memory.
 #' @param verbose Logical. Progress messages via cli. FALSE for batch jobs.
 #'   Default: TRUE.
-#' @param check Logical. Run [bs_check_inputs()] on `cases`, `population`, and
+#' @param check Logical. Run [spi_check_inputs()] on `cases`, `population`, and
 #'   `adjacency` before fitting and abort on error-level issues. Default TRUE.
 #'   Set FALSE only to skip a redundant re-check (the auto path and
-#'   [bs_compare_overdispersion()] set it internally so the check runs once).
+#'   [spi_compare_overdispersion()] set it internally so the check runs once).
 #' @param debug Logical. If TRUE, runs INLA in verbose mode (prints its raw
 #'   stdout/stderr, including VB-correction notes), prints model
 #'   diagnostics (CPO failure rate, hyperparameter posterior summary,
@@ -97,7 +97,7 @@
 #'   parallel speed at the cost of determinism. Ignored when `seed = NULL`
 #'   unless given explicitly.
 #'
-#' @return Object of class `blindspot_expected`. A list containing:
+#' @return Object of class `spi_expected`. A list containing:
 #' \describe{
 #'   \item{draws}{Matrix `[n_draws x n_district_months]` of posterior draws of
 #'     `exp(eta)`, with `colnames` of the form `"<id>|YYYY-MM"`. NULL if
@@ -149,7 +149,7 @@
 #' - `Matrix is not positive definite` *during fitting* -- usually means
 #'   the BYM2 precision matrix is singular; check that the adjacency
 #'   graph is symmetric and that disconnected components are handled
-#'   (see [bs_adjacency()]).
+#'   (see [spi_adjacency()]).
 #'
 #' **CPO / PIT and `overdispersion = "iid"`.** When the model has an iid
 #' effect per observation, conditional predictive ordinate (CPO) and the
@@ -161,7 +161,7 @@
 #' @section Paper specification:
 #' The call the paper uses is `season = "harmonic"`, `year_effect = "iid"`,
 #' `overdispersion = "nb"`, with no covariates -- the defaults below. The
-#' published index, \code{bs_spi_prospective()}, is built on a fit with
+#' published index, \code{spi_prospective()}, is built on a fit with
 #' these defaults.
 #'
 #' @section Choosing a seasonal specification:
@@ -233,7 +233,7 @@
 #'    thread scheduling, so the draws are taken from a slightly different
 #'    posterior. `num_threads` governs this.
 #'
-#' `bs_expected()` handles (1) and (2) whenever `seed` is non-NULL, restoring
+#' `spi_expected()` handles (1) and (2) whenever `seed` is non-NULL, restoring
 #' the caller's RNG state afterwards. (3) is why `num_threads` defaults to
 #' `"1:1"` alongside a seed.
 #'
@@ -260,14 +260,14 @@
 #' mapping that accounts for scaling. Statistical Methods in Medical Research,
 #' 25(4), 1145-1165.
 #'
-#' @seealso [bs_spi()], [bs_adjacency()]
+#' @seealso [spi_index()], [spi_adjacency()]
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' data(synth_surveillance, package = "blindspot")
+#' data(synth_surveillance, package = "spi")
 #'
-#' fit <- bs_expected(
+#' fit <- spi_expected(
 #'   cases = synth_surveillance$cases,
 #'   population = synth_surveillance$population,
 #'   adjacency = synth_surveillance$boundaries,
@@ -277,7 +277,7 @@
 #'
 #' print(fit)
 #' }
-bs_expected <- function(
+spi_expected <- function(
   cases,
   population,
   adjacency,
@@ -416,9 +416,9 @@ bs_expected <- function(
   # --- pre-flight input check ---------------------------
   # One graded reconciliation of cases / population / shapefile before any
   # fitting. Aborts on error-level issues. Skipped on the recursive calls from
-  # the auto path and bs_compare_overdispersion(), which check once up front.
+  # the auto path and spi_compare_overdispersion(), which check once up front.
   if (check) {
-    rpt <- bs_check_inputs(
+    rpt <- spi_check_inputs(
       cases = cases,
       population = population,
       shapefile = adjacency,
@@ -432,14 +432,14 @@ bs_expected <- function(
     }
     if (rpt$n_warning > 0 && verbose) {
       cli::cli_alert_info(
-        "{rpt$n_warning} input warning{?s}; run {.fn bs_check_inputs} \\
+        "{rpt$n_warning} input warning{?s}; run {.fn spi_check_inputs} \\
          to see {?it/them}."
       )
     }
   }
 
   # --- auto overdispersion selection --------------------
-  # "auto" runs the same none/iid/nb comparison as bs_compare_overdispersion()
+  # "auto" runs the same none/iid/nb comparison as spi_compare_overdispersion()
   # (the section-3 diagnostic), takes the recommended spec, then falls through
   # to a single full fit at the requested n_draws with that spec. The
   # comparison fits at reduced draws for speed; WAIC/DIC/PIT drive the choice
@@ -448,7 +448,7 @@ bs_expected <- function(
     if (verbose) {
       cli::cli_h1("Auto-selecting the overdispersion mechanism")
     }
-    cmp <- bs_compare_overdispersion(
+    cmp <- spi_compare_overdispersion(
       cases = cases,
       population = population,
       adjacency = adjacency,
@@ -543,7 +543,7 @@ bs_expected <- function(
     if (verbose) {
       cli::cli_alert_info("Computing adjacency from sf object.")
     }
-    adjacency <- bs_adjacency(
+    adjacency <- spi_adjacency(
       boundaries = adjacency,
       id_col = id_col
     )
@@ -1036,7 +1036,7 @@ bs_expected <- function(
       pop_col = pop_col,
       call = match.call()
     ),
-    class = "blindspot_expected"
+    class = "spi_expected"
   )
 
   if (verbose) {
@@ -1058,7 +1058,7 @@ bs_expected <- function(
 
   # --- debug diagnostics --------------------------------
   if (debug) {
-    .bs_expected_diagnostics(result)
+    .spi_expected_diagnostics(result)
   }
 
   result
@@ -1106,8 +1106,8 @@ bs_expected <- function(
 }
 
 # debug diagnostics -- print signals that tell the user whether the fit
-# looks healthy. Run when bs_expected(..., debug = TRUE).
-.bs_expected_diagnostics <- function(x) {
+# looks healthy. Run when spi_expected(..., debug = TRUE).
+.spi_expected_diagnostics <- function(x) {
   fmt_int <- function(v) format(v, big.mark = ",")
   fmt_pct <- function(v) sprintf("%.1f%%", 100 * v)
 
@@ -1220,7 +1220,7 @@ bs_expected <- function(
 }
 
 #' @export
-print.blindspot_expected <- function(x, ...) {
+print.spi_expected <- function(x, ...) {
   id_col <- if (is.null(x$id_col)) "district_id" else x$id_col
   fmt_int <- function(v) format(v, big.mark = ",")
 
@@ -1391,7 +1391,7 @@ print.blindspot_expected <- function(x, ...) {
 }
 
 #' @export
-summary.blindspot_expected <- function(object, ...) {
+summary.spi_expected <- function(object, ...) {
   # --- covariate effects --------------------------------
   fixed <- object$model$summary.fixed
   effects <- NULL
@@ -1491,12 +1491,12 @@ summary.blindspot_expected <- function(object, ...) {
     diagnostics = diagnostics,
     call = object$call
   )
-  class(out) <- "summary.blindspot_expected"
+  class(out) <- "summary.spi_expected"
   out
 }
 
 #' @export
-print.summary.blindspot_expected <- function(x, ...) {
+print.summary.spi_expected <- function(x, ...) {
   cli::cli_h2("Covariate effects")
   if (is.null(x$effects)) {
     cli::cli_alert_info("No covariates in this fit (bare model).")
@@ -1518,42 +1518,42 @@ print.summary.blindspot_expected <- function(x, ...) {
 NULL
 
 #' @export
-as_tibble.blindspot_expected <- function(x, ...) {
+as_tibble.spi_expected <- function(x, ...) {
   x$summary
 }
 
 #' @export
-as.data.frame.blindspot_expected <- function(x, ...) {
+as.data.frame.spi_expected <- function(x, ...) {
   as.data.frame(x$summary)
 }
 
-#' Compare blindspot expected models across overdispersion specifications
+#' Compare spi expected models across overdispersion specifications
 #'
 #' @description
 #' Fits the same model with different overdispersion specifications and
 #' returns a side-by-side comparison of fit, complexity, and calibration
 #' diagnostics. Used to justify the choice of overdispersion mechanism in
-#' [bs_expected()].
+#' [spi_expected()].
 #'
-#' @param cases Tibble with the required columns for [bs_expected()].
+#' @param cases Tibble with the required columns for [spi_expected()].
 #' @param population Tibble with population data.
 #' @param adjacency nb object or sf object.
 #' @param specs Character vector of overdispersion specifications to compare.
 #'   Default: `c("none", "iid", "nb")`. Each must be a valid `overdispersion`
-#'   argument to [bs_expected()].
-#' @param ... Additional arguments passed to [bs_expected()] (e.g. `season`,
+#'   argument to [spi_expected()].
+#' @param ... Additional arguments passed to [spi_expected()] (e.g. `season`,
 #'   `prior_phi`, `id_col`). Must not include `overdispersion`, `n_draws`,
 #'   or `verbose`; those are controlled by this function.
 #' @param n_draws Integer. Posterior draws per fit. Lower than the
-#'   [bs_expected()] default for speed during comparison. Default: 200L.
+#'   [spi_expected()] default for speed during comparison. Default: 200L.
 #' @param verbose Logical. Print progress messages. Default: TRUE.
-#' @param check Logical. Run [bs_check_inputs()] once before comparing, and
+#' @param check Logical. Run [spi_check_inputs()] once before comparing, and
 #'   abort on error-level issues. Each per-spec fit is then run with
 #'   `check = FALSE`. Default TRUE.
 #'
-#' @return Object of class `blindspot_comparison`. A list containing:
+#' @return Object of class `spi_comparison`. A list containing:
 #' \describe{
-#'   \item{fits}{Named list of `blindspot_expected` objects, keyed by spec.}
+#'   \item{fits}{Named list of `spi_expected` objects, keyed by spec.}
 #'   \item{summary}{Tibble of key diagnostics, one row per specification.}
 #'   \item{recommendation}{List with `choice` (recommended specification),
 #'     `reasoning` (string explaining the choice), `excluded` (specs failing
@@ -1561,7 +1561,7 @@ as.data.frame.blindspot_expected <- function(x, ...) {
 #' }
 #'
 #' @details
-#' For each spec the function refits [bs_expected()] and extracts: DIC, WAIC,
+#' For each spec the function refits [spi_expected()] and extracts: DIC, WAIC,
 #' effective parameter count, spatial SD (`1/sqrt(tau_spatial)`), BYM2 phi
 #' posterior median (with a "pegged" flag for boundary values), an
 #' overdispersion SD (`1/sqrt(tau_obs)` for "iid", `1/sqrt(nb_size)` for "nb",
@@ -1572,12 +1572,12 @@ as.data.frame.blindspot_expected <- function(x, ...) {
 #' but if a simpler spec (in the order `none > iid > nb`) is within 5 WAIC
 #' units of the best, that simpler spec is preferred for parsimony.
 #'
-#' @seealso [bs_expected()]
+#' @seealso [spi_expected()]
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' cmp <- bs_compare_overdispersion(
+#' cmp <- spi_compare_overdispersion(
 #'   cases = cases,
 #'   population = pop_u15,
 #'   adjacency = adj,
@@ -1587,7 +1587,7 @@ as.data.frame.blindspot_expected <- function(x, ...) {
 #' cmp$summary
 #' cmp$recommendation
 #' }
-bs_compare_overdispersion <- function(
+spi_compare_overdispersion <- function(
   cases,
   population,
   adjacency,
@@ -1617,7 +1617,7 @@ bs_compare_overdispersion <- function(
   if (length(bad) > 0) {
     cli::cli_abort(
       "Pass {.arg {bad}} as named arguments to \\
-       {.fn bs_compare_overdispersion} directly, not via {.arg ...}."
+       {.fn spi_compare_overdispersion} directly, not via {.arg ...}."
     )
   }
 
@@ -1626,7 +1626,7 @@ bs_compare_overdispersion <- function(
   # reconciliation runs a single time no matter how many specs are compared.
   if (check) {
     dots <- list(...)
-    rpt <- bs_check_inputs(
+    rpt <- spi_check_inputs(
       cases = cases,
       population = population,
       shapefile = adjacency,
@@ -1647,7 +1647,7 @@ bs_compare_overdispersion <- function(
       cli::cli_h2("Fitting overdispersion = {.val {spec}}")
     }
 
-    fits[[spec]] <- bs_expected(
+    fits[[spec]] <- spi_expected(
       cases = cases,
       population = population,
       adjacency = adjacency,
@@ -1683,7 +1683,7 @@ bs_compare_overdispersion <- function(
       summary = summary_tbl,
       recommendation = recommendation
     ),
-    class = "blindspot_comparison"
+    class = "spi_comparison"
   )
 }
 
@@ -1867,7 +1867,7 @@ bs_compare_overdispersion <- function(
 }
 
 #' @export
-print.blindspot_comparison <- function(x, ...) {
+print.spi_comparison <- function(x, ...) {
   .print_comparison(x$summary, x$recommendation)
   invisible(x)
 }

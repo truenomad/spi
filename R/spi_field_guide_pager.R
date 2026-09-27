@@ -1,7 +1,7 @@
 #' Render a one-page SPI pager for a single district
 #'
 #' @description
-#' Turns one district's [bs_field_guide()] reading into a self-contained,
+#' Turns one district's [spi_field_guide()] reading into a self-contained,
 #' print-ready HTML "pager": a masthead with the review judgement, an
 #' SPI-over-time chart for the district (with the 90% credible-interval ribbon
 #' and any poliovirus detections marked), the five STEPS components (strength,
@@ -9,7 +9,7 @@
 #' what the judgement rests on. The pager reports the reading; it recommends
 #' no follow-up.
 #'
-#' It is the single-district companion to [bs_field_guide_table()]: where the
+#' It is the single-district companion to [spi_field_guide_table()]: where the
 #' table scans many districts at once, the pager is the tear-sheet you hand to
 #' a reviewer for the one district you are about to investigate.
 #'
@@ -51,7 +51,7 @@
 #' The accent colour tracks the judgement: rose for review priority, amber for
 #' monitor, green for no SPI indication.
 #'
-#' @param x A [bs_field_guide()] result (class `blindspot_field_guide`).
+#' @param x A [spi_field_guide()] result (class `spi_field_guide`).
 #' @param district District to profile: either an id (e.g. the admin-2 GUID)
 #'   in the id column, or a district name matched (case-insensitively) against
 #'   `name_col`. Ids are tried first, so an id is unambiguous.
@@ -96,7 +96,7 @@
 #'   panel, per 100,000 under 15. Default: NULL (`x$thresholds$npafp`).
 #' @param es Optional ad-hoc environmental-surveillance detections keyed by
 #'   `id_col` and `year`, overriding the field guide's own ES channel. Normally
-#'   ES is supplied once to [bs_field_guide()] (via its `es` argument) and read
+#'   ES is supplied once to [spi_field_guide()] (via its `es` argument) and read
 #'   from there, so this is only needed for a field guide built without ES.
 #'   Each row (or each `es_col`-positive row) is an ES positive. Default: NULL
 #'   (use the field guide's `es_years`).
@@ -135,26 +135,26 @@
 #'   `"illustrative"` for a worked example. Default: NULL (untagged).
 #' @param verbose Logical. Emit a cli summary on build. Default: TRUE.
 #'
-#' @return An object of class `blindspot_pager`: a list with the rendered
+#' @return An object of class `spi_pager`: a list with the rendered
 #'   `html` string, the resolved `district`, `year`, `verdict` (the review
 #'   judgement), and `paths` (the files written, empty when neither `path` nor
 #'   `file` is set). Printing it reports the judgement and any written files. Recover the markup with
 #'   `as.character()`.
 #'
-#' @seealso [bs_field_guide()] for the reading and [bs_field_guide_table()] for
-#'   the multi-district table.
+#' @seealso [spi_field_guide()] for the reading and [spi_field_guide_table()]
+#'   for the multi-district table.
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
 #' fg <- synth_field_guide
-#' pager <- bs_field_guide_pager(fg, district = "Tirwen")
+#' pager <- spi_field_guide_pager(fg, district = "Tirwen")
 #' pager
 #' \dontrun{
 #' # self-contained: hand it the shapefile and it draws the locator inset, and
 #' # reads both detection channels (AFP + ES, already carried by the field
 #' # guide) into the out-of-grid detection row
-#' bs_field_guide_pager(
+#' spi_field_guide_pager(
 #'   fg,
 #'   district = "Tirwen",
 #'   boundaries = synth_surveillance$boundaries,
@@ -162,7 +162,7 @@
 #'   path = "."
 #' )
 #' }
-bs_field_guide_pager <- function(
+spi_field_guide_pager <- function(
   x,
   district,
   adjacency = NULL,
@@ -187,7 +187,7 @@ bs_field_guide_pager <- function(
   verbose = TRUE
 ) {
   .check_pkg(c("dplyr", "cli"), reason = "to render the SPI pager")
-  stopifnot(inherits(x, "blindspot_field_guide"))
+  stopifnot(inherits(x, "spi_field_guide"))
 
   id_col <- id_col %||% x$id_col %||% "district_id"
   dy <- x$district_year
@@ -304,12 +304,12 @@ bs_field_guide_pager <- function(
       verdict = as.character(focal$verdict),
       paths = targets
     ),
-    class = "blindspot_pager"
+    class = "spi_pager"
   )
 }
 
 #' @export
-print.blindspot_pager <- function(x, ...) {
+print.spi_pager <- function(x, ...) {
   cli::cli_h1("SPI pager")
   cli::cli_inform(
     "{.strong {x$district}} | {x$year} | {.val {x$verdict}}"
@@ -326,7 +326,7 @@ print.blindspot_pager <- function(x, ...) {
 }
 
 #' @export
-as.character.blindspot_pager <- function(x, ...) {
+as.character.spi_pager <- function(x, ...) {
   x$html
 }
 
@@ -1753,7 +1753,7 @@ as.character.blindspot_pager <- function(x, ...) {
     as.character(year_label)
   }
   eyebrow <- paste(
-    c("blindspot", "SPI reading", adm0[nzchar(adm0)], yr_lbl),
+    c("spi", "SPI reading", adm0[nzchar(adm0)], yr_lbl),
     collapse = " \u00b7 "
   )
 

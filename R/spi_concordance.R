@@ -36,7 +36,7 @@
 #' Concordance is quantified as raw percent agreement and Cohen's kappa,
 #' plus a McNemar chi-square testing marginal-shift.
 #'
-#' @param spi Object of class `blindspot_spi` at `district_year` level.
+#' @param spi Object of class `spi_index` at `district_year` level.
 #' @param cases Optional tibble with the district id column and `count`
 #'   (integer). Pass to override the counts stored in `spi$data`. Default:
 #'   NULL (use `spi$data`).
@@ -73,7 +73,7 @@
 #'   region/country labels. Default: NULL.
 #' @param verbose Logical. Progress messages via cli. Default: TRUE.
 #'
-#' @return An object of class `blindspot_concordance`. A list with:
+#' @return An object of class `spi_concordance`. A list with:
 #' \describe{
 #'   \item{district_year}{Tibble with per-district-year classification:
 #'     `{id_col}`, `year`, `count_annual`, `pop_u15`, `npafp_rate`,
@@ -94,15 +94,15 @@
 #'   \item{call}{Matched call.}
 #' }
 #'
-#' @seealso [bs_spi()], [bs_expected()]
+#' @seealso [spi_index()], [spi_expected()]
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
 #' \dontrun{
-#' spi_dy <- bs_spi(fit_bare, level = "district_year")
+#' spi_dy <- spi_index(fit_bare, level = "district_year")
 #'
-#' conc <- bs_concordance(
+#' conc <- spi_concordance(
 #'   spi             = spi_dy,
 #'   population      = synth_surveillance$population,
 #'   spi_threshold   = 1,
@@ -115,7 +115,7 @@
 #' summary(conc)
 #' plot(conc)
 #' }
-bs_concordance <- function(
+spi_concordance <- function(
   spi,
   cases = NULL,
   population,
@@ -134,7 +134,7 @@ bs_concordance <- function(
              reason = "to run the SPI x NPAFP concordance analysis")
   spi_rule <- match.arg(spi_rule)
 
-  stopifnot(inherits(spi, "blindspot_spi"))
+  stopifnot(inherits(spi, "spi_index"))
 
   id_col <- id_col %||% spi$id_col %||% "district_id"
   if (!id_col %in% names(spi$summary)) {
@@ -144,8 +144,8 @@ bs_concordance <- function(
   }
   if (!"year" %in% names(spi$summary)) {
     cli::cli_abort(
-      "{.fn bs_concordance} expects a district-year SPI; got level \\
-       {.val {spi$level}}. Re-run {.fn bs_spi} with \\
+      "{.fn spi_concordance} expects a district-year SPI; got level \\
+       {.val {spi$level}}. Re-run {.fn spi_index} with \\
        {.code level = \"district_year\"}."
     )
   }
@@ -283,7 +283,7 @@ bs_concordance <- function(
       id_col = id_col,
       call = match.call()
     ),
-    class = "blindspot_concordance"
+    class = "spi_concordance"
   )
 }
 
@@ -372,7 +372,7 @@ bs_concordance <- function(
 # ---------------------------------------------------------------------------
 
 #' @export
-print.blindspot_concordance <- function(x, ...) {
+print.spi_concordance <- function(x, ...) {
   cli::cli_h1("SPI x NPAFP concordance")
   cli::cli_inform(c(
     "SPI cut: {.val {x$thresholds$spi}} ({x$thresholds$rule} rule) \\
@@ -403,7 +403,7 @@ print.blindspot_concordance <- function(x, ...) {
 }
 
 #' @export
-summary.blindspot_concordance <- function(object, ...) {
+summary.spi_concordance <- function(object, ...) {
   print(object, ...)
   cli::cli_h2("2x2 crosstab (counts)")
   print(object$crosstab$counts)
@@ -414,12 +414,12 @@ summary.blindspot_concordance <- function(object, ...) {
 
 #' @export
 #' @importFrom tibble as_tibble
-as_tibble.blindspot_concordance <- function(x, ...) {
+as_tibble.spi_concordance <- function(x, ...) {
   x$district_year
 }
 
 #' @export
-plot.blindspot_concordance <- function(x, ...) {
+plot.spi_concordance <- function(x, ...) {
   .check_pkg(c("ggplot2"), reason = "to plot concordance")
   dy <- x$district_year
   spi_cut  <- x$thresholds$spi
@@ -577,7 +577,7 @@ plot.blindspot_concordance <- function(x, ...) {
 #' height = 5)`); a portrait territory wants a taller one. Saving too
 #' tall leaves large empty bands above and below the maps.
 #'
-#' @param concordance A `blindspot_concordance` object. `$district_year`
+#' @param concordance A `spi_concordance` object. `$district_year`
 #'   must contain `year`, `npafp_rate`, `spi_median`, and `concordance`.
 #' @param boundaries `sf` object with the district id column matching
 #'   `concordance$id_col` and a POLYGON geometry column.
@@ -604,21 +604,21 @@ plot.blindspot_concordance <- function(x, ...) {
 #'
 #' @return A `patchwork` object plotting the three panels side by side.
 #'
-#' @seealso [bs_concordance()]
+#' @seealso [spi_concordance()]
 #'
 #' @export
 #' @examples
 #' \dontrun{
-#' spi_dy <- bs_spi(fit_bare, level = "district_year")
-#' conc <- bs_concordance(
+#' spi_dy <- spi_index(fit_bare, level = "district_year")
+#' conc <- spi_concordance(
 #'   spi        = spi_dy,
 #'   cases      = synth_surveillance$cases,
 #'   population = synth_surveillance$population,
 #'   boundaries = synth_surveillance$boundaries
 #' )
-#' bs_concordance_maps(conc, synth_surveillance$boundaries, year = 2023)
+#' spi_concordance_maps(conc, synth_surveillance$boundaries, year = 2023)
 #' }
-bs_concordance_maps <- function(
+spi_concordance_maps <- function(
   concordance,
   boundaries,
   year = NULL,
@@ -633,7 +633,7 @@ bs_concordance_maps <- function(
 ) {
   .check_pkg(c("ggplot2", "patchwork", "sf", "dplyr"),
              reason = "to draw the three-panel concordance map")
-  stopifnot(inherits(concordance, "blindspot_concordance"),
+  stopifnot(inherits(concordance, "spi_concordance"),
             inherits(boundaries, "sf"))
 
   id_col        <- id_col        %||% concordance$id_col

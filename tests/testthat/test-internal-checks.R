@@ -1,4 +1,4 @@
-# Direct unit tests for the validation helpers. bs_expected() exercises them
+# Direct unit tests for the validation helpers. spi_expected() exercises them
 # on the happy path, but the individual abort branches are cheaper to hit here.
 
 good_cases <- function() {
@@ -10,30 +10,30 @@ good_cases <- function() {
 }
 
 test_that(".validate_cases accepts a well-formed table", {
-  expect_true(blindspot:::.validate_cases(good_cases()))
+  expect_true(spi:::.validate_cases(good_cases()))
 })
 
 test_that(".validate_cases rejects each malformed input", {
   # missing a required column
   expect_error(
-    blindspot:::.validate_cases(tibble::tibble(district_id = "A")),
+    spi:::.validate_cases(tibble::tibble(district_id = "A")),
     "missing columns"
   )
   # month not a Date
   bad_month <- good_cases()
   bad_month$month <- as.character(bad_month$month)
-  expect_error(blindspot:::.validate_cases(bad_month), "must be Date")
+  expect_error(spi:::.validate_cases(bad_month), "must be Date")
   # count not numeric
   bad_num <- good_cases()
   bad_num$count <- as.character(bad_num$count)
-  expect_error(blindspot:::.validate_cases(bad_num), "must be numeric")
+  expect_error(spi:::.validate_cases(bad_num), "must be numeric")
   # negative counts
   bad_neg <- good_cases()
   bad_neg$count[1] <- -1L
-  expect_error(blindspot:::.validate_cases(bad_neg), "negative")
+  expect_error(spi:::.validate_cases(bad_neg), "negative")
   # duplicate district-month rows
   dup <- rbind(good_cases(), good_cases()[1, ])
-  expect_error(blindspot:::.validate_cases(dup), "duplicate")
+  expect_error(spi:::.validate_cases(dup), "duplicate")
 })
 
 test_that(".validate_population handles both grains and rejects bad tables", {
@@ -43,7 +43,7 @@ test_that(".validate_population handles both grains and rejects bad tables", {
   pop_year <- tibble::tibble(
     district_id = c("A", "B"), year = 2015L, pop = 1e5
   )
-  expect_true(blindspot:::.validate_population(pop_year, cases))
+  expect_true(spi:::.validate_population(pop_year, cases))
 
   # monthly grain, full coverage
   pop_month <- tibble::tibble(
@@ -51,25 +51,25 @@ test_that(".validate_population handles both grains and rejects bad tables", {
     month = rep(seq(as.Date("2015-01-01"), by = "month", length.out = 3), 2),
     pop = 1e5
   )
-  expect_true(blindspot:::.validate_population(pop_month, cases))
+  expect_true(spi:::.validate_population(pop_month, cases))
 
   # neither a month nor a year column
   expect_error(
-    blindspot:::.validate_population(
+    spi:::.validate_population(
       tibble::tibble(district_id = "A", pop = 1e5), cases
     ),
     "either"
   )
   # missing the pop column
   expect_error(
-    blindspot:::.validate_population(
+    spi:::.validate_population(
       tibble::tibble(district_id = "A", year = 2015L), cases
     ),
     "missing columns"
   )
   # coverage below 80% aborts
   expect_error(
-    blindspot:::.validate_population(
+    spi:::.validate_population(
       tibble::tibble(district_id = "A", year = 2015L, pop = 1e5), cases
     ),
     "covers only"
@@ -84,9 +84,9 @@ test_that(".validate_population warns on partial (<100%) coverage", {
     count = 1L
   )
   pop <- tibble::tibble(district_id = LETTERS[1:4], year = 2015L, pop = 1e5)
-  expect_true(blindspot:::.validate_population(pop, cases))
+  expect_true(spi:::.validate_population(pop, cases))
 })
 
 test_that(".check_pkg passes for an installed package", {
-  expect_true(blindspot:::.check_pkg("stats"))
+  expect_true(spi:::.check_pkg("stats"))
 })

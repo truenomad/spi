@@ -1,4 +1,4 @@
-##################  blindspot -- build the synthetic boundary layer  ##########
+##################  spi -- build the synthetic boundary layer  ################
 #
 # Creates the synthetic admin-2 shapefile shipped with the package
 # (inst/extdata/synth_admin_polygons.gpkg): the fictional country "Harad", with
@@ -11,8 +11,8 @@
 # RELABELLED so the shipped data is unambiguously fictional (no real place name
 # survives). Finally the layer is ROTATED onto a local grid with its CRS dropped
 # so the shape cannot be traced back to the real region. The result is a single,
-# fully-connected neighbour graph for exercising blindspot's spatial models
-# (bs_adjacency / bs_expected BYM2). The schema matches
+# fully-connected neighbour graph for exercising spi's spatial models
+# (spi_adjacency / spi_expected BYM2). The schema matches
 # synth_surveillance$boundaries: adm2_guid, adm2_name, adm1_name, adm0_name.
 #
 # Run from the project root:
@@ -24,7 +24,7 @@
 # once via GitHub's LFS media endpoint and cached under data-raw/ (gitignored).
 ###############################################################################
 
-cli::cli_h1("blindspot -- build synthetic boundary layer")
+cli::cli_h1("spi -- build synthetic boundary layer")
 
 ## ---------------------------------------------------------------------------##
 # Setup and parameters ---------------------------------------------------------
@@ -325,7 +325,7 @@ sf::st_write(boundaries, out_path, delete_dsn = TRUE, quiet = TRUE)
 
 writeLines(
   c(
-    "synth_admin_polygons.gpkg -- synthetic adm2 boundaries for blindspot",
+    "synth_admin_polygons.gpkg -- synthetic adm2 boundaries for spi",
     "",
     "FICTIONAL. Country, province, and district names are invented; they do",
     "not correspond to any real place. Geometry is DERIVED from real adm2",

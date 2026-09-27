@@ -30,13 +30,13 @@ if (requireNamespace("INLA", quietly = TRUE)) {
 set.seed(1)
 ```
 
-# blindspot <img src="man/figures/logo.png" align="right" height="139" alt="" />
+# spi <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
 <!-- badges: start -->
 
-[![R-CMD-check](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/R-CMD-check.yaml)
-[![codecov](https://codecov.io/gh/truenomad/blindspot/graph/badge.svg?token=vBneu9acox)](https://codecov.io/gh/truenomad/blindspot)
-[![pkgdown](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/blindspot/actions/workflows/pkgdown.yaml)
+[![R-CMD-check](https://github.com/truenomad/spi/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/truenomad/spi/actions/workflows/R-CMD-check.yaml)
+[![codecov](https://codecov.io/gh/truenomad/spi/graph/badge.svg?token=vBneu9acox)](https://codecov.io/gh/truenomad/spi)
+[![pkgdown](https://github.com/truenomad/spi/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/spi/actions/workflows/pkgdown.yaml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![R >= 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
 
@@ -46,7 +46,7 @@ set.seed(1)
 
 _In the districts that report no cases, is the silence real?_
 
-blindspot estimates, for each district in each month, how many cases a surveillance system should be detecting given its health facilities, population, care-seeking patterns, conflict exposure, and the detection history of its neighbours. The ratio of what is detected to what is expected defines a surveillance performance index (SPI): a continuous, uncertainty-quantified measure of detection capacity that refines and corroborates the conventional NPAFP-rate threshold (one example of the flat indicators surveillance leans on) rather than replacing it. It is diagnostic, not predictive: it grades current detection performance, and does not forecast where poliovirus is circulating.
+spi estimates, for each district in each month, how many cases a surveillance system should be detecting given its health facilities, population, care-seeking patterns, conflict exposure, and the detection history of its neighbours. The ratio of what is detected to what is expected defines a surveillance performance index (SPI): a continuous, uncertainty-quantified measure of detection capacity that refines and corroborates the conventional NPAFP-rate threshold (one example of the flat indicators surveillance leans on) rather than replacing it. It is diagnostic, not predictive: it grades current detection performance, and does not forecast where poliovirus is circulating.
 
 **Designed for polio AFP surveillance. Applicable to any case-based VPD surveillance system.**
 
@@ -70,7 +70,7 @@ where
 - $\kappa$ is the negative binomial dispersion, the default `overdispersion = "nb"`
 - $x_{it}^{\top}\beta$ is the optional district-covariate term (DTP3 coverage, urbanicity, travel time to care)
 
-`overdispersion = "iid"` swaps the negative binomial likelihood for Poisson plus an observation-level term $\epsilon_{it}$ added to the linear predictor, and `"none"` drops overdispersion and fits a plain Poisson; `bs_compare_overdispersion()` scores the three so the choice is justified rather than assumed.
+`overdispersion = "iid"` swaps the negative binomial likelihood for Poisson plus an observation-level term $\epsilon_{it}$ added to the linear predictor, and `"none"` drops overdispersion and fits a plain Poisson; `spi_compare_overdispersion()` scores the three so the choice is justified rather than assumed.
 
 <details>
 <summary><b>Method notes — estimand, model, and what the SPI is for</b> (click to expand)</summary>
@@ -96,7 +96,7 @@ A blindspot is a district where the surveillance system cannot see. The package 
 ```r
 # from r-universe (recommended)
 install.packages(
-  "blindspot",
+  "spi",
   repos = c(
     "https://truenomad.r-universe.dev",
     "https://cloud.r-project.org"
@@ -104,15 +104,15 @@ install.packages(
 )
 
 # or from github
-pak::pak("truenomad/blindspot")
+pak::pak("truenomad/spi")
 ```
 
 ## Walkthrough
 
-This runs the whole chain on the bundled synthetic data, so you can reproduce every step without POLIS access. It is the short version of `inst/examples/paper_analysis.R`, which you can open with `file.edit(system.file("examples/paper_analysis.R", package = "blindspot"))`.
+This runs the whole chain on the bundled synthetic data, so you can reproduce every step without POLIS access. It is the short version of `inst/examples/paper_analysis.R`, which you can open with `file.edit(system.file("examples/paper_analysis.R", package = "spi"))`.
 
 ```{r library, cache = FALSE}
-library(blindspot)
+library(spi)
 ```
 
 ### The data
@@ -128,10 +128,10 @@ head(synth$cases)
 
 ### Check the inputs first
 
-Before fitting anything, reconcile the three tables the model consumes: the case counts, the population denominators, and the district shapefile. `bs_check_inputs()` grades every mismatch at once (error, warning, note), so a silent id misalignment or a hole in the monthly panel surfaces here rather than as wrong numbers later. `bs_expected()` runs it for you and stops on any error; run it yourself first to see the warnings too.
+Before fitting anything, reconcile the three tables the model consumes: the case counts, the population denominators, and the district shapefile. `spi_check_inputs()` grades every mismatch at once (error, warning, note), so a silent id misalignment or a hole in the monthly panel surfaces here rather than as wrong numbers later. `spi_expected()` runs it for you and stops on any error; run it yourself first to see the warnings too.
 
 ```{r check-inputs, message = TRUE}
-bs_check_inputs(
+spi_check_inputs(
   cases = synth$cases,
   population = synth$population,
   shapefile = synth$boundaries,
@@ -146,7 +146,7 @@ bad <- synth$cases
 bad$count[1] <- -1                   # a data-entry slip
 bad <- bad[-(2:4), ]                 # three missing district-months
 
-bs_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
+spi_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
 ```
 
 ### 1. Spatial neighbours
@@ -154,16 +154,16 @@ bs_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
 The model shares information between neighbouring districts, so the first step turns the polygons into a neighbour graph.
 
 ```{r adjacency}
-adj <- bs_adjacency(synth$boundaries, id_col = "adm2_guid")
+adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
 ```
 
 ### 2. Expected counts
 
-`bs_expected()` is the core model. It estimates how many cases each district should report each month, given its population, its neighbours, and the season. The bare spec, and the paper's own, is a BYM2 spatial term, an IID year effect (which soaks up system-wide shifts such as the COVID drop), a harmonic season, and negative binomial overdispersion, all on a log person-time offset. The `overdispersion` argument takes `"nb"` (default), `"iid"`, or `"none"`; pass `"auto"` to have it run the comparison in step 3 for you and refit with the best-calibrated spec.
+`spi_expected()` is the core model. It estimates how many cases each district should report each month, given its population, its neighbours, and the season. The bare spec, and the paper's own, is a BYM2 spatial term, an IID year effect (which soaks up system-wide shifts such as the COVID drop), a harmonic season, and negative binomial overdispersion, all on a log person-time offset. The `overdispersion` argument takes `"nb"` (default), `"iid"`, or `"none"`; pass `"auto"` to have it run the comparison in step 3 for you and refit with the best-calibrated spec.
 
 ```{r fit-bare}
-fit_bare <- bs_expected(
+fit_bare <- spi_expected(
   cases = synth$cases,
   population = synth$population,
   adjacency = adj,
@@ -188,7 +188,7 @@ as_tibble(fit_bare) |>
 
 ### Adjusting for covariates
 
-For those who want to use their own covariates, such as health-system reach, urbanicity, or access to care, `bs_expected()` takes them as a district-year tibble through the `covariates` argument. The toy ships three you can use straight away:
+For those who want to use their own covariates, such as health-system reach, urbanicity, or access to care, `spi_expected()` takes them as a district-year tibble through the `covariates` argument. The toy ships three you can use straight away:
 
 ```{r covariates}
 head(synth$covariates)
@@ -197,7 +197,7 @@ head(synth$covariates)
 Pass them in, log-transforming the skewed travel-time column:
 
 ```{r fit-adjusted}
-fit_adj <- bs_expected(
+fit_adj <- spi_expected(
   cases = synth$cases,
   population = synth$population,
   adjacency = adj,
@@ -225,7 +225,7 @@ One caveat, and the table shows it: most of these effects are muted, because the
 A quick likelihood check across none, IID, and negative-binomial, so the choice is justified rather than assumed.
 
 ```{r overdispersion}
-od <- bs_compare_overdispersion(
+od <- spi_compare_overdispersion(
   cases = synth$cases,
   population = synth$population,
   adjacency = adj,
@@ -240,15 +240,15 @@ od <- bs_compare_overdispersion(
 od$summary
 ```
 
-To skip the manual step, `bs_expected(overdispersion = "auto")` runs this same comparison internally and refits with the recommended spec.
+To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same comparison internally and refits with the recommended spec.
 
 ### 4. Surveillance Performance Index
 
 The SPI is observed over expected, computed for every posterior draw so the uncertainty in the denominator carries through. It can be summarised at any grain:
 
 ```{r spi}
-spi_dy <- bs_spi(fit_bare, level = "district_year")  # annual per district
-spi_dm <- bs_spi(fit_bare, level = "district_month")  # monthly per district
+spi_dy <- spi_index(fit_bare, level = "district_year")  # annual per district
+spi_dm <- spi_index(fit_bare, level = "district_month")  # monthly per district
 ```
 
 ```{r spi-show}
@@ -259,7 +259,7 @@ head(as_tibble(spi_dy)[, c(
 
 **Why the yearly SPI is the one we act on.** The index is defined at any grain, but the verdict is annual. In most districts the monthly AFP count is 0 or 1, so the monthly SPI is mostly structural zeros with credible intervals too wide to act on, and reacting to it spends trust on noise. The sample size only settles over a full year, so the year is the unit we classify. We keep the monthly series to read the trend, and to feed the seasonal signal in the field guide.
 
-The reading year does not have to be a calendar year. `bs_spi(level = "district_year", year_end_month = 4)` groups May through April, so a review can close on the month the decision was actually taken; each window is labelled by the calendar year it closes in, and the returned `n_months` marks the partial windows at either end of the series, which should normally be dropped.
+The reading year does not have to be a calendar year. `spi_index(level = "district_year", year_end_month = 4)` groups May through April, so a review can close on the month the decision was actually taken; each window is labelled by the calendar year it closes in, and the returned `n_months` marks the partial windows at either end of the series, which should normally be dropped.
 
 The `plot()` method gives four diagnostic views (`distribution`, `funnel`, `caterpillar`, `calibration`). The funnel plots each district-year against its expected count (the paper's Figure 3): detection scatters around 1, and the spread narrows as the expected count grows, so a low SPI at a high expected count is a genuine shortfall rather than small-number noise.
 
@@ -278,7 +278,7 @@ plot(spi_dy)
 Instead of a hard pass/fail, each district-year's SPI is crossed with the WHO NPAFP-rate target (at least 3 non-polio AFP per 100,000 under-15 person-years) into a 2x2. The cell that matters is false reassurance: the NPAFP rate looks fine, but the SPI still flags under-detection. That is the blindspot a plain threshold walks past.
 
 ```{r concordance}
-conc <- bs_concordance(
+conc <- spi_concordance(
   spi = spi_dy,
   cases = synth$cases,
   population = synth$population,
@@ -304,12 +304,12 @@ plot(conc)
 Three panels for one year: the conventional NPAFP rate, the posterior median SPI, and where the two disagree.
 
 ```{r maps, fig.width = 15, fig.height = 6}
-bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
+spi_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 ```
 
 ### 7. The STEPS field guide
 
-`bs_field_guide()` applies the SPI field guide's review framework to each district-year. For districts with an SPI below 1, five components, **STEPS**, help assess the wider surveillance picture:
+`spi_field_guide()` applies the SPI field guide's review framework to each district-year. For districts with an SPI below 1, five components, **STEPS**, help assess the wider surveillance picture:
 
 | Letter | Component | What it asks |
 | --- | --- | --- |
@@ -321,9 +321,9 @@ bs_concordance_maps(conc, boundaries = synth$boundaries, year = 2023)
 
 The components are interpreted together, not combined into a score, and they do not carry the same weight. Extent is the strongest corroborator of the SPI signal. Persistence also supports it, but is common. Timeliness and stool adequacy are important surveillance dimensions, but are not validated corroborators, so they are reported and never change the judgement. Each district-year receives one of the field guide's three review judgements: **Review priority** when the interval lies entirely below 1 and extent or persistence corroborates the shortfall, **Monitor** for any other SPI below 1, and **No SPI indication** at or above 1.
 
-Timeliness and stool adequacy come from `process`, a district-year table of AFP case counts (`n_cases`, `n_adequate`, `n_transport`, `n_transport_timely`). Extent uses the `adm1_name` column that `bs_concordance()` carries when given `boundaries`. The trend, the neighbour contrast, seasonal detection and any poliovirus found through AFP (`genomic`) or environmental surveillance (`es`) are still computed and reported as context outside STEPS.
+Timeliness and stool adequacy come from `process`, a district-year table of AFP case counts (`n_cases`, `n_adequate`, `n_transport`, `n_transport_timely`). Extent uses the `adm1_name` column that `spi_concordance()` carries when given `boundaries`. The trend, the neighbour contrast, seasonal detection and any poliovirus found through AFP (`genomic`) or environmental surveillance (`es`) are still computed and reported as context outside STEPS.
 
-The one-page infographic that summarises NPAFP, the SPI and STEPS ships with the package at `system.file("field-guide", "npafp_spi_steps_infographic.html", package = "blindspot")`.
+The one-page infographic that summarises NPAFP, the SPI and STEPS ships with the package at `system.file("field-guide", "npafp_spi_steps_infographic.html", package = "spi")`.
 
 <details>
 <summary>Using NPAFP, SPI and STEPS (infographic)</summary>
@@ -335,7 +335,7 @@ The one-page infographic that summarises NPAFP, the SPI and STEPS ships with the
 ```{r field-guide}
 genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
 
-fg <- bs_field_guide(
+fg <- spi_field_guide(
   concordance = conc,
   process = synth$afp_process,
   adjacency = adj,
@@ -349,24 +349,24 @@ fg <- bs_field_guide(
 fg
 ```
 
-`summary(fg)` adds how often each STEPS component raises concern and the STEPS reference table, and `bs_field_guide_help()` walks the field guide's four worked examples in the console.
+`summary(fg)` adds how often each STEPS component raises concern and the STEPS reference table, and `spi_field_guide_help()` walks the field guide's four worked examples in the console.
 
-For a report, `bs_field_guide_table()` renders the worked example as a publication-ready `gt` or `flextable`: four rule-picked districts (by name) read down the five STEPS components, each cell shaded by concern. (The image below is a snapshot; the live call returns a `gt` object whose cell shading GitHub would otherwise strip.)
+For a report, `spi_field_guide_table()` renders the worked example as a publication-ready `gt` or `flextable`: four rule-picked districts (by name) read down the five STEPS components, each cell shaded by concern. (The image below is a snapshot; the live call returns a `gt` object whose cell shading GitHub would otherwise strip.)
 
 ```{r fg-table-code, eval = FALSE}
-bs_field_guide_table(fg, engine = "gt", layout = "worked")
+spi_field_guide_table(fg, engine = "gt", layout = "worked")
 ```
 
 ```{r fg-table, echo = FALSE, fig.alt = "Field guide table: four districts read down the five STEPS components, cells shaded green for reassuring, amber for intermediate, and rose where the finding adds to concern."}
-fg_tbl <- bs_field_guide_table(fg, engine = "gt", layout = "worked")
+fg_tbl <- spi_field_guide_table(fg, engine = "gt", layout = "worked")
 gt::gtsave(fg_tbl, "man/figures/README-fg-table.png", expand = 5)
 knitr::include_graphics("man/figures/README-fg-table.png")
 ```
 
-For the one district you are about to investigate, `bs_field_guide_pager()` renders a single-district **field pager**: a self-contained, print-ready A4 tear-sheet. Hand it the field guide and the shapefile and it draws everything it needs from those two, with no adjacency object required. The masthead carries the review judgement; the chart plots the district's own SPI (with the 90% credible-interval ribbon and AFP / ES detection markers) and a locator inset drawn from the real geometry, with the neighbour median read out as a figure rather than a line; the five STEPS components are read out one per row, with the season, trend and detections shown as context; and a banner states what the judgement rests on. The pager reports the reading and recommends no follow-up, and it is explicit about the limits of the credible interval: that interval carries uncertainty in the *expected* count, not sampling variability in the observed one, so a shortfall resting on a handful of cases says so on its face. `path` writes an auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`. Three optional arguments add context the field guide does not carry itself: `region` places the district in its region with a rank that is triage only, `year_label` names a reading window that is not a calendar year, and `prob_under` prints the posterior `P(SPI < 1)` on the strength line, which is otherwise only pass or fail.
+For the one district you are about to investigate, `spi_field_guide_pager()` renders a single-district **field pager**: a self-contained, print-ready A4 tear-sheet. Hand it the field guide and the shapefile and it draws everything it needs from those two, with no adjacency object required. The masthead carries the review judgement; the chart plots the district's own SPI (with the 90% credible-interval ribbon and AFP / ES detection markers) and a locator inset drawn from the real geometry, with the neighbour median read out as a figure rather than a line; the five STEPS components are read out one per row, with the season, trend and detections shown as context; and a banner states what the judgement rests on. The pager reports the reading and recommends no follow-up, and it is explicit about the limits of the credible interval: that interval carries uncertainty in the *expected* count, not sampling variability in the observed one, so a shortfall resting on a handful of cases says so on its face. `path` writes an auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`. Three optional arguments add context the field guide does not carry itself: `region` places the district in its region with a rank that is triage only, `year_label` names a reading window that is not a calendar year, and `prob_under` prints the posterior `P(SPI < 1)` on the strength line, which is otherwise only pass or fail.
 
 ```{r pager-code, eval = FALSE}
-bs_field_guide_pager(
+spi_field_guide_pager(
   fg, district = "Tirwen", boundaries = synth$boundaries,
   id_col = "adm2_guid", path = "reports/"
 )
@@ -380,7 +380,7 @@ priority <- fg$focal$verdict == "Review priority" & fg$focal$observed > 0
 pager_id <- fg$focal$adm2_guid[priority][
   which.min(fg$focal$spi_median[priority])
 ]
-bs_field_guide_pager(
+spi_field_guide_pager(
   fg, district = pager_id, boundaries = synth$boundaries,
   id_col = "adm2_guid", file = "man/figures/README-pager.png",
   verbose = FALSE
@@ -396,10 +396,10 @@ knitr::include_graphics("man/figures/README-pager.png")
 
 ### 8. Triangulating the judgement against independent detection
 
-The field guide judges the *net*, not the *fish*: a review priority says a silence may be untrustworthy, not that the silence hid virus. Every component it uses comes from the AFP stream itself, so it cannot corroborate its own judgement without arguing in a circle. `bs_triangulate()` crosses the judgement against the one largely-independent channel, environmental surveillance (ES), and against AFP detections, and sorts each district-year into a ten-class triage grid with a three-level priority.
+The field guide judges the *net*, not the *fish*: a review priority says a silence may be untrustworthy, not that the silence hid virus. Every component it uses comes from the AFP stream itself, so it cannot corroborate its own judgement without arguing in a circle. `spi_triangulate()` crosses the judgement against the one largely-independent channel, environmental surveillance (ES), and against AFP detections, and sorts each district-year into a ten-class triage grid with a three-level priority.
 
 ```{r triangulate, eval = FALSE}
-tri <- bs_triangulate(
+tri <- spi_triangulate(
   fg,
   detections = synth_surveillance$detections,
   detection_lag = 1L,
@@ -421,13 +421,13 @@ tri$district_year |>
 Read as a grid, the field-guide judgement runs down the rows and the independent ES read across the columns, so every cell is one triage class. `detection_lag = 1L` tests the year-*t* judgement against year *t + 1* detections, so the reading is taken before the detection's own case-finding could inflate it. The cells that carry the weight sit off the reassuring bottom-right: **Review priority × positive** (confirmed blindspots, where ES caught what AFP missed), **No SPI indication × positive** (virus found where the guide saw no shortfall), **Review priority × no site** (a priority with no ES site to check, the highest-value place to deploy ES or an active search), and **Monitor × positive** (a monitored shortfall that the ES hit corroborates). The district-years where AFP itself already detected virus sit outside the grid.
 
 ```{r tri-map, eval = FALSE, fig.width = 9, fig.height = 7}
-bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2020)
+spi_triangulate_map(tri, synth_surveillance$boundaries, year = 2020)
 ```
 
-The 2020 judgements (the COVID-crash trough, tested against 2021 detections) map the triage: reds and magenta are the districts to act on or instrument, greens the trustworthy silences. `bs_triangulate_table()` renders the same panel as a `gt` / `flextable` for a report.
+The 2020 judgements (the COVID-crash trough, tested against 2021 detections) map the triage: reds and magenta are the districts to act on or instrument, greens the trustworthy silences. `spi_triangulate_table()` renders the same panel as a `gt` / `flextable` for a report.
 
 ```{r tri-table, eval = FALSE, results = "asis"}
-bs_triangulate_table(tri, engine = "gt", year = 2020) |>
+spi_triangulate_table(tri, engine = "gt", year = 2020) |>
   gt::as_raw_html()
 ```
 
@@ -436,38 +436,39 @@ bs_triangulate_table(tri, engine = "gt", year = 2020) |>
 ## Exported functions
 
 ```r
-bs_check_inputs()           # pre-flight: reconcile cases / population / shapefile
-bs_adjacency()              # spatial neighbour graph from sf boundaries
-bs_expected()               # fit BYM2 expected-count model (INLA)
-bs_compare_overdispersion() # none vs IID vs negative-binomial diagnostic
-bs_spi()                    # surveillance performance index + posterior draws
-bs_concordance()            # cross-classify SPI vs the NPAFP-rate threshold
-bs_concordance_maps()       # three-panel concordance map (ggplot2/patchwork)
-bs_field_guide()            # STEPS review: priority / monitor / no indication
-bs_field_guide_table()      # render the field guide (gt / flextable)
-bs_field_guide_pager()      # one-district A4 field pager (html / png)
-bs_field_guide_help()       # learn to read the field guide (worked example)
-bs_triangulate()            # cross the judgement with ES / AFP detections
-bs_triangulate_table()      # render the triangulation panel (gt / flextable)
-bs_triangulate_map()        # map the triage classes over districts (ggplot2)
+spi_check_inputs()           # pre-flight: reconcile cases / population / shapefile
+spi_adjacency()              # spatial neighbour graph from sf boundaries
+spi_expected()               # fit BYM2 expected-count model (INLA)
+spi_compare_overdispersion() # none vs IID vs negative-binomial diagnostic
+spi_index()                  # surveillance performance index + posterior draws
+spi_prospective()            # annually updated index from past years only
+spi_concordance()            # cross-classify SPI vs the NPAFP-rate threshold
+spi_concordance_maps()       # three-panel concordance map (ggplot2/patchwork)
+spi_field_guide()            # STEPS review: priority / monitor / no indication
+spi_field_guide_table()      # render the field guide (gt / flextable)
+spi_field_guide_pager()      # one-district A4 field pager (html / png)
+spi_field_guide_help()       # learn to read the field guide (worked example)
+spi_triangulate()            # cross the judgement with ES / AFP detections
+spi_triangulate_table()      # render the triangulation panel (gt / flextable)
+spi_triangulate_map()        # map the triage classes over districts (ggplot2)
 ```
 
-`bs_expected()`, `bs_spi()`, `bs_concordance()`, `bs_field_guide()`, and
-`bs_triangulate()` each return a typed object with `print` (and, where useful,
-`summary` / `as_tibble`) methods; the `bs_spi()` and `bs_concordance()` objects
+`spi_expected()`, `spi_index()`, `spi_concordance()`, `spi_field_guide()`, and
+`spi_triangulate()` each return a typed object with `print` (and, where useful,
+`summary` / `as_tibble`) methods; the `spi_index()` and `spi_concordance()` objects
 also have a `plot()` method.
 
 ## Citation
 
 ```r
-Yusuf MA (2026). blindspot: Bayesian spatiotemporal
+Yusuf MA (2026). spi: Bayesian spatiotemporal
   surveillance quality monitoring. R package version 0.1.0.9000.
-  https://github.com/truenomad/blindspot
+  https://github.com/truenomad/spi
 ```
 
 ## Related packages
 
-**poliprep:** POLIS data cleaning and preparation. Upstream of blindspot.
+**poliprep:** POLIS data cleaning and preparation. Upstream of spi.
 
 **AgePopDenom:** DHS-anchored age-structured population estimates. Provides the denominator input.
 

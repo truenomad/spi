@@ -1,4 +1,4 @@
-# Generate blindspot::synth_surveillance -- a self-contained toy AFP
+# Generate spi::synth_surveillance -- a self-contained toy AFP
 # surveillance dataset for examples and tests. Run:
 #   Rscript data-raw/synth_admin_polygons.R   # first: builds the boundaries
 #   Rscript data-raw/synth_surveillance.R     # then: simulates on them
@@ -75,7 +75,7 @@ if (!file.exists(boundaries_path)) {
 boundaries <- sf::st_read(boundaries_path, quiet = TRUE)
 # GeoPackage cannot store an absent CRS, so it round-trips as an "engineering"
 # CRS that GDAL refuses to transform -- which breaks coord_sf() inside
-# bs_concordance_maps(). Reset to a true NA so downstream sf / ggplot treat the
+# spi_concordance_maps(). Reset to a true NA so downstream sf / ggplot treat the
 # local grid as planar and skip datum transformation.
 sf::st_crs(boundaries) <- NA
 N_DISTRICTS <- nrow(boundaries)
@@ -132,7 +132,7 @@ message("wards built: ", nrow(ward_boundaries), " total (", WARDS_MIN, "-",
         WARDS_MAX, " per district)")
 
 # ---------------------------------------------------------------------------
-# 3. Adjacency (spdep::poly2nb directly -- same substrate as bs_adjacency())
+# 3. Adjacency (spdep::poly2nb directly -- same substrate as spi_adjacency())
 # ---------------------------------------------------------------------------
 
 adj_nb <- spdep::poly2nb(boundaries, queen = TRUE)
@@ -383,7 +383,7 @@ es_district_year <- es_data |>
   )
 
 # ---------------------------------------------------------------------------
-# 9b. District-level covariates for the adjusted bs_expected() spec
+# 9b. District-level covariates for the adjusted spi_expected() spec
 # ---------------------------------------------------------------------------
 # Three district-year layers a real analysis would pull from DHS / HMIS /
 # travel-time surfaces:
@@ -428,7 +428,7 @@ covariates <- population |>
   select(adm2_guid, year, dtp3, urban_prop, travel_time_min)
 
 # ---------------------------------------------------------------------------
-# 9c. Detection channels for bs_triangulate() -- afp vs es, district-year
+# 9c. Detection channels for spi_triangulate() -- afp vs es, district-year
 # ---------------------------------------------------------------------------
 # Independent read on whether virus was *found* (not whether it could be seen).
 # afp_detected reuses virus_outcome (the AFP/genomic isolation channel that the

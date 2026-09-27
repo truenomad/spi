@@ -15,7 +15,7 @@
 #' Review a low SPI through the five STEPS components
 #'
 #' @description
-#' Turns a [bs_concordance()] result into the review reading of the SPI field
+#' Turns a [spi_concordance()] result into the review reading of the SPI field
 #' guide for every district-year: the five **STEPS** components (strength,
 #' timeliness, extent, persistence, stool adequacy) and one of the field
 #' guide's three review judgements (`Review priority`, `Monitor`,
@@ -79,8 +79,8 @@
 #' or an `extent_col` the corresponding component is `NA`. `signals_active`
 #' records which components and context signals were computable.
 #'
-#' @param concordance A [bs_concordance()] result (class
-#'   `blindspot_concordance`). Supplies fused SPI + NPAFP for every
+#' @param concordance A [spi_concordance()] result (class
+#'   `spi_concordance`). Supplies fused SPI + NPAFP for every
 #'   district-year.
 #' @param process Optional district-year tibble of AFP process counts, keyed
 #'   by the district id column and `year`, with columns `n_cases` (AFP cases),
@@ -92,15 +92,15 @@
 #'   cases. Default: NULL.
 #' @param extent_col Name of the admin-1 column in `concordance$district_year`
 #'   that defines the area for extent (E). Default: NULL (`"adm1_name"` when
-#'   present, as it is when [bs_concordance()] was given `boundaries`).
+#'   present, as it is when [spi_concordance()] was given `boundaries`).
 #' @param process_target Numeric target, in percent, for timeliness and stool
 #'   adequacy. Default: 80.
 #' @param process_min_cases Integer. Fewest cases for timeliness or stool
 #'   adequacy to be assessed. Default: 5.
-#' @param adjacency Optional spatial neighbour object from [bs_adjacency()]
-#'   (class `blindspot_nb`). Enables the neighbour contrast, reported as
+#' @param adjacency Optional spatial neighbour object from [spi_adjacency()]
+#'   (class `spi_nb`). Enables the neighbour contrast, reported as
 #'   context. Default: NULL.
-#' @param spi_month Optional [bs_spi()] result at `district_month` level.
+#' @param spi_month Optional [spi_index()] result at `district_month` level.
 #'   Enables seasonal detection, reported as context. Default: NULL.
 #' @param genomic Optional tibble of case-based (AFP) poliovirus detections
 #'   with the district id column and `year`. Reported as context. Rows are
@@ -156,7 +156,7 @@
 #' @param verbose Logical. Progress and degradation messages via cli.
 #'   Default: TRUE.
 #'
-#' @return An object of class `blindspot_field_guide`. A list with:
+#' @return An object of class `spi_field_guide`. A list with:
 #' \describe{
 #'   \item{district_year}{Tibble, one row per district-year, carrying the
 #'     inputs plus every component: strength (`spi_below`, `cri_excludes_1`,
@@ -181,11 +181,11 @@
 #'     computed, the id column, and the matched call.}
 #' }
 #'
-#' @seealso [bs_field_guide_table()] to render it, [bs_field_guide_help()]
-#'   to learn to read it, [bs_concordance()] for the input, and the one-page
+#' @seealso [spi_field_guide_table()] to render it, [spi_field_guide_help()]
+#'   to learn to read it, [spi_concordance()] for the input, and the one-page
 #'   infographic at
 #'   `system.file("field-guide", "npafp_spi_steps_infographic.html", package =
-#'   "blindspot")`.
+#'   "spi")`.
 #'
 #' @importFrom rlang %||%
 #' @export
@@ -196,18 +196,18 @@
 #' head(as_tibble(fg))
 #' \dontrun{
 #' # build one from scratch (needs INLA for the upstream fit)
-#' adj  <- bs_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
-#' fit  <- bs_expected(
+#' adj  <- spi_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
+#' fit  <- spi_expected(
 #'   synth_surveillance$cases, synth_surveillance$population, adj,
 #'   id_col = "adm2_guid"
 #' )
-#' cy   <- bs_spi(fit, level = "district_year")
-#' cm   <- bs_spi(fit, level = "district_month")
-#' conc <- bs_concordance(
+#' cy   <- spi_index(fit, level = "district_year")
+#' cm   <- spi_index(fit, level = "district_month")
+#' conc <- spi_concordance(
 #'   cy, synth_surveillance$cases, synth_surveillance$population,
 #'   boundaries = synth_surveillance$boundaries
 #' )
-#' fg <- bs_field_guide(
+#' fg <- spi_field_guide(
 #'   conc,
 #'   process = synth_surveillance$afp_process,
 #'   adjacency = adj,
@@ -219,7 +219,7 @@
 #'   es_col = "n_positive"
 #' )
 #' }
-bs_field_guide <- function(
+spi_field_guide <- function(
   concordance,
   process = NULL,
   extent_col = NULL,
@@ -247,7 +247,7 @@ bs_field_guide <- function(
     reason = "to read the SPI through the field guide"
   )
 
-  stopifnot(inherits(concordance, "blindspot_concordance"))
+  stopifnot(inherits(concordance, "spi_concordance"))
 
   id_col <- id_col %||% concordance$id_col %||% "district_id"
   npafp_target <- concordance$thresholds$npafp
@@ -358,10 +358,10 @@ bs_field_guide <- function(
   # --- context: seasonal detection ------------------------------------
   have_seasonal <- !is.null(spi_month)
   if (have_seasonal) {
-    stopifnot(inherits(spi_month, "blindspot_spi"))
+    stopifnot(inherits(spi_month, "spi_index"))
     if (!identical(spi_month$level, "district_month")) {
       cli::cli_abort(
-        "{.arg spi_month} must be a {.fn bs_spi} result at \\
+        "{.arg spi_month} must be a {.fn spi_index} result at \\
          {.val district_month} level; got {.val {spi_month$level}}."
       )
     }
@@ -455,7 +455,7 @@ bs_field_guide <- function(
       id_col = id_col,
       call = match.call()
     ),
-    class = "blindspot_field_guide"
+    class = "spi_field_guide"
   )
 }
 
@@ -944,7 +944,7 @@ bs_field_guide <- function(
 # ---------------------------------------------------------------------------
 
 #' @export
-print.blindspot_field_guide <- function(x, ...) {
+print.spi_field_guide <- function(x, ...) {
   cli::cli_h1("SPI field guide")
   cli::cli_inform(c(
     "Read year: {.val {x$read_year}} \\
@@ -986,14 +986,14 @@ print.blindspot_field_guide <- function(x, ...) {
     print(.fg_scan_tibble(x, priority), n = n_show)
   }
   cli::cli_alert_info(
-    "See {.fn bs_field_guide_help} to learn the reading, \\
-     {.fn bs_field_guide_table} to render it."
+    "See {.fn spi_field_guide_help} to learn the reading, \\
+     {.fn spi_field_guide_table} to render it."
   )
   invisible(x)
 }
 
 #' @export
-summary.blindspot_field_guide <- function(object, ...) {
+summary.spi_field_guide <- function(object, ...) {
   print(object, ...)
   foc <- object$focal
   below <- foc[foc$spi_below %in% TRUE, ]
@@ -1024,7 +1024,7 @@ summary.blindspot_field_guide <- function(object, ...) {
 
 #' @export
 #' @importFrom tibble as_tibble
-as_tibble.blindspot_field_guide <- function(x, ...) {
+as_tibble.spi_field_guide <- function(x, ...) {
   x$district_year
 }
 
@@ -1058,7 +1058,7 @@ as_tibble.blindspot_field_guide <- function(x, ...) {
 #'
 #' @description
 #' An interpretation aid for the console. Explains the five STEPS components
-#' and the review judgements behind [bs_field_guide()], lists common errors in
+#' and the review judgements behind [spi_field_guide()], lists common errors in
 #' interpreting the SPI, and walks through a **live worked example**: four
 #' districts (at or above expectation, an uncertain shortfall, a large
 #' corroborated shortfall, and a shortfall without spatial corroboration)
@@ -1067,26 +1067,26 @@ as_tibble.blindspot_field_guide <- function(x, ...) {
 #' @details
 #' By default the worked example is narrated from `synth_field_guide`, the
 #' precomputed field guide on the synthetic bundle, so it runs instantly with
-#' no model fit. Pass `guide` to narrate your own [bs_field_guide()] result.
+#' no model fit. Pass `guide` to narrate your own [spi_field_guide()] result.
 #'
 #' @param topic One or more of `"all"`, `"signals"`, `"verdict"`,
 #'   `"misreadings"`, `"example"`. Default: `"all"`.
-#' @param guide A [bs_field_guide()] result to narrate for the worked example.
+#' @param guide A [spi_field_guide()] result to narrate for the worked example.
 #'   Default: NULL (use `synth_field_guide`).
 #' @param year Focal year for the worked example. Default: NULL
 #'   (`guide$read_year`).
 #'
 #' @return The narrated worked-example tibble, invisibly.
 #'
-#' @seealso [bs_field_guide()], [bs_field_guide_table()].
+#' @seealso [spi_field_guide()], [spi_field_guide_table()].
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
-#' bs_field_guide_help("signals")
-#' bs_field_guide_help("verdict")
-#' bs_field_guide_help("example")
-bs_field_guide_help <- function(
+#' spi_field_guide_help("signals")
+#' spi_field_guide_help("verdict")
+#' spi_field_guide_help("example")
+spi_field_guide_help <- function(
   topic = c("all", "signals", "verdict", "misreadings", "example"),
   guide = NULL,
   year = NULL
@@ -1168,7 +1168,7 @@ bs_field_guide_help <- function(
   worked <- NULL
   if ("example" %in% topic) {
     guide <- guide %||% .fg_load_synth()
-    stopifnot(inherits(guide, "blindspot_field_guide"))
+    stopifnot(inherits(guide, "spi_field_guide"))
     year <- as.integer(year %||% guide$read_year)
     foc <- guide$district_year[guide$district_year$year == year, ,
                                drop = FALSE]
@@ -1199,13 +1199,13 @@ bs_field_guide_help <- function(
 .fg_load_synth <- function() {
   e <- new.env()
   ok <- tryCatch({
-    utils::data("synth_field_guide", package = "blindspot", envir = e)
+    utils::data("synth_field_guide", package = "spi", envir = e)
     TRUE
   }, error = function(err) FALSE)
   if (!ok || !exists("synth_field_guide", envir = e)) {
     cli::cli_abort(
       "{.val synth_field_guide} is not available; pass a \\
-       {.fn bs_field_guide} result via {.arg guide}."
+       {.fn spi_field_guide} result via {.arg guide}."
     )
   }
   e$synth_field_guide
@@ -1316,7 +1316,7 @@ bs_field_guide_help <- function(
 #' Render the SPI field guide as a gt or flextable table
 #'
 #' @description
-#' Turns a [bs_field_guide()] result into a publication-ready table, in
+#' Turns a [spi_field_guide()] result into a publication-ready table, in
 #' either of two layouts, using `gt` or `flextable`. Optionally saves to
 #' file; the format is inferred from the extension (html / docx / pdf / rtf /
 #' png / pptx).
@@ -1335,7 +1335,7 @@ bs_field_guide_help <- function(
 #'     corroboration) are chosen by rule.
 #' }
 #'
-#' @param x A [bs_field_guide()] result (class `blindspot_field_guide`).
+#' @param x A [spi_field_guide()] result (class `spi_field_guide`).
 #' @param engine Table engine: `"gt"` or `"flextable"`.
 #' @param layout `"scan"` (districts as rows) or `"worked"` (components as
 #'   rows).
@@ -1353,20 +1353,20 @@ bs_field_guide_help <- function(
 #'
 #' @return The `gt_tbl` or `flextable` object, invisibly when `file` is set.
 #'
-#' @seealso [bs_field_guide()], [bs_field_guide_help()].
+#' @seealso [spi_field_guide()], [spi_field_guide_help()].
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
 #' fg <- synth_field_guide
 #' \dontrun{
-#' bs_field_guide_table(fg, engine = "gt", layout = "worked")
-#' bs_field_guide_table(fg, engine = "gt", layout = "scan",
+#' spi_field_guide_table(fg, engine = "gt", layout = "worked")
+#' spi_field_guide_table(fg, engine = "gt", layout = "scan",
 #'                      file = tempfile(fileext = ".html"))
-#' bs_field_guide_table(fg, engine = "flextable", layout = "worked",
+#' spi_field_guide_table(fg, engine = "flextable", layout = "worked",
 #'                      file = tempfile(fileext = ".docx"))
 #' }
-bs_field_guide_table <- function(
+spi_field_guide_table <- function(
   x,
   engine = c("gt", "flextable"),
   layout = c("scan", "worked"),
@@ -1378,7 +1378,7 @@ bs_field_guide_table <- function(
   max_rows = 50L,
   ...
 ) {
-  stopifnot(inherits(x, "blindspot_field_guide"))
+  stopifnot(inherits(x, "spi_field_guide"))
   engine <- match.arg(engine)
   layout <- match.arg(layout)
 

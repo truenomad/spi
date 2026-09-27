@@ -9,7 +9,7 @@
 # the results can be reviewed in the repo. PNG output needs webshot2 and a
 # headless Chrome.
 #
-#   source(system.file("examples/pager_demo.R", package = "blindspot"))
+#   source(system.file("examples/pager_demo.R", package = "spi"))
 # or, from a source checkout:
 #   Rscript inst/examples/pager_demo.R
 #
@@ -18,7 +18,7 @@
 # levers that decide what the page says are all at the *build* of the guide,
 # not at the pager call. Two matter:
 #
-#   fg <- bs_field_guide(conc, process = p, adjacency = adj, spi_month = cm,
+#   fg <- spi_field_guide(conc, process = p, adjacency = adj, spi_month = cm,
 #                        genomic = g, es = e,
 #                        traj_alpha = 0.1,     # gate the trend test (context)
 #                        noise_alpha = 0.05)   # gate strength on sampling noise
@@ -128,7 +128,7 @@ districts <- unique(c(
 ))
 
 pagers <- lapply(districts, function(d) {
-  bs_field_guide_pager(
+  spi_field_guide_pager(
     fg,
     district = d,
     boundaries = synth_surveillance$boundaries,

@@ -1,11 +1,11 @@
-# The heavy upstream chain (bs_expected -> INLA) is exercised once in
+# The heavy upstream chain (spi_expected -> INLA) is exercised once in
 # data-raw/synth_field_guide.R; the shipped `synth_field_guide` lets these
 # tests run without INLA. Only the recompute test gates on INLA.
 
 test_that("synth_field_guide has the expected structure", {
-  data("synth_field_guide", package = "blindspot")
+  data("synth_field_guide", package = "spi")
 
-  expect_s3_class(synth_field_guide, "blindspot_field_guide")
+  expect_s3_class(synth_field_guide, "spi_field_guide")
   expect_named(
     synth_field_guide,
     c("district_year", "focal", "reference", "read_year", "thresholds",
@@ -73,12 +73,12 @@ test_that("timeliness and stool adequacy never move the judgement", {
       thresholds = list(spi = 0.8, npafp = fg$thresholds$npafp),
       id_col = "adm2_guid"
     ),
-    class = "blindspot_concordance"
+    class = "spi_concordance"
   )
-  with_process <- bs_field_guide(
+  with_process <- spi_field_guide(
     conc, process = synth_surveillance$afp_process, verbose = FALSE
   )
-  without <- bs_field_guide(conc, verbose = FALSE)
+  without <- spi_field_guide(conc, verbose = FALSE)
   expect_identical(with_process$district_year$verdict,
                    without$district_year$verdict)
   expect_true(all(is.na(without$district_year$timeliness_concern)))
@@ -113,7 +113,7 @@ test_that("persistence reads the previous year's SPI", {
 test_that("graceful degradation without optional inputs", {
   fg <- synth_field_guide
   # rebuild a minimal concordance-like object from the shipped guide so we can
-  # call bs_field_guide() with no process / admin-1 / adjacency / spi_month
+  # call spi_field_guide() with no process / admin-1 / adjacency / spi_month
   conc <- structure(
     list(
       district_year = fg$district_year[, c(
@@ -123,10 +123,10 @@ test_that("graceful degradation without optional inputs", {
       thresholds = list(spi = fg$thresholds$spi, npafp = fg$thresholds$npafp),
       id_col = "adm2_guid"
     ),
-    class = "blindspot_concordance"
+    class = "spi_concordance"
   )
 
-  bare <- bs_field_guide(conc, verbose = FALSE)
+  bare <- spi_field_guide(conc, verbose = FALSE)
   expect_false(any(bare$signals_active))
   expect_true(all(is.na(bare$district_year$extent_concern)))
   expect_true(all(is.na(bare$district_year$pct_adequate)))
@@ -137,38 +137,38 @@ test_that("graceful degradation without optional inputs", {
   expect_true(all(pri$persistence_concern))
 })
 
-test_that("bs_field_guide_table renders both layouts on both engines", {
+test_that("spi_field_guide_table renders both layouts on both engines", {
   skip_if_not_installed("gt")
   skip_if_not_installed("flextable")
   fg <- synth_field_guide
 
   expect_s3_class(
-    bs_field_guide_table(fg, engine = "gt", layout = "scan"), "gt_tbl"
+    spi_field_guide_table(fg, engine = "gt", layout = "scan"), "gt_tbl"
   )
   expect_s3_class(
-    bs_field_guide_table(fg, engine = "gt", layout = "worked"), "gt_tbl"
+    spi_field_guide_table(fg, engine = "gt", layout = "worked"), "gt_tbl"
   )
   expect_s3_class(
-    bs_field_guide_table(fg, engine = "flextable", layout = "scan"),
+    spi_field_guide_table(fg, engine = "flextable", layout = "scan"),
     "flextable"
   )
   expect_s3_class(
-    bs_field_guide_table(fg, engine = "flextable", layout = "worked"),
+    spi_field_guide_table(fg, engine = "flextable", layout = "worked"),
     "flextable"
   )
 })
 
-test_that("bs_field_guide_table saves to file by extension", {
+test_that("spi_field_guide_table saves to file by extension", {
   skip_if_not_installed("gt")
   skip_if_not_installed("flextable")
   fg <- synth_field_guide
 
   f_html <- withr::local_tempfile(fileext = ".html")
-  bs_field_guide_table(fg, engine = "gt", layout = "scan", file = f_html)
+  spi_field_guide_table(fg, engine = "gt", layout = "scan", file = f_html)
   expect_true(file.exists(f_html) && file.info(f_html)$size > 0)
 
   f_docx <- withr::local_tempfile(fileext = ".docx")
-  bs_field_guide_table(fg, engine = "flextable", layout = "worked",
+  spi_field_guide_table(fg, engine = "flextable", layout = "worked",
                        file = f_docx)
   expect_true(file.exists(f_docx) && file.info(f_docx)$size > 0)
 })
@@ -181,12 +181,12 @@ test_that("worked-example selection honours explicit districts", {
   expect_equal(sel$adm2_guid, ids)
 })
 
-test_that("bs_field_guide_help runs each topic", {
+test_that("spi_field_guide_help runs each topic", {
   fg <- synth_field_guide
-  expect_no_error(bs_field_guide_help("signals"))
-  expect_no_error(bs_field_guide_help("verdict"))
-  expect_no_error(bs_field_guide_help("misreadings"))
-  w <- bs_field_guide_help("example", guide = fg)
+  expect_no_error(spi_field_guide_help("signals"))
+  expect_no_error(spi_field_guide_help("verdict"))
+  expect_no_error(spi_field_guide_help("misreadings"))
+  w <- spi_field_guide_help("example", guide = fg)
   expect_s3_class(w, "tbl_df")
   expect_true("case_label" %in% names(w))
 })
@@ -200,30 +200,30 @@ test_that("print / summary / as_tibble methods work", {
   expect_equal(nrow(as_tibble(fg)), nrow(fg$district_year))
 })
 
-test_that("bs_field_guide can be recomputed end to end", {
+test_that("spi_field_guide can be recomputed end to end", {
   skip_on_cran()
   skip_if_not_installed("INLA")
-  data("synth_surveillance", package = "blindspot")
+  data("synth_surveillance", package = "spi")
   s <- synth_surveillance
 
-  adj <- bs_adjacency(s$boundaries, id_col = "adm2_guid")
+  adj <- spi_adjacency(s$boundaries, id_col = "adm2_guid")
   fit <- fit_or_skip(
     s$cases, s$population, adj,
     id_col = "adm2_guid", season = "harmonic", year_effect = "iid",
     overdispersion = "iid", n_draws = 200L, seed = 42L, verbose = FALSE
   )
-  cy <- bs_spi(fit, level = "district_year", verbose = FALSE)
-  cm <- bs_spi(fit, level = "district_month", verbose = FALSE)
-  conc <- bs_concordance(
+  cy <- spi_index(fit, level = "district_year", verbose = FALSE)
+  cm <- spi_index(fit, level = "district_month", verbose = FALSE)
+  conc <- spi_concordance(
     cy, s$cases, s$population, boundaries = s$boundaries, verbose = FALSE
   )
-  fg <- bs_field_guide(
+  fg <- spi_field_guide(
     conc, process = s$afp_process, adjacency = adj, spi_month = cm,
     genomic = dplyr::filter(s$virus_outcome, any_cvdpv2 == 1)[, c("adm2_guid", "year")],
     es = s$es_district_year, es_col = "n_positive",
     verbose = FALSE
   )
-  expect_s3_class(fg, "blindspot_field_guide")
+  expect_s3_class(fg, "spi_field_guide")
   # every input supplied -> every component and context signal computable
   expect_true(all(fg$signals_active))
 })

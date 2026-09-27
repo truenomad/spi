@@ -1,7 +1,7 @@
 test_that("synth_surveillance has the expected structure", {
   skip_if_not_installed("sf")
 
-  data("synth_surveillance", package = "blindspot")
+  data("synth_surveillance", package = "spi")
   n_dist <- nrow(synth_surveillance$boundaries)
   n_es <- nrow(synth_surveillance$es_sites)
 
@@ -92,7 +92,7 @@ test_that("synth_surveillance has the expected structure", {
     c("adm2_guid", "year", "any_wpv1", "any_cvdpv2", "any_virus")
   )
 
-  # detections: district-year channels for bs_triangulate()
+  # detections: district-year channels for spi_triangulate()
   det <- synth_surveillance$detections
   expect_equal(nrow(det), n_dist * 10)
   expect_named(
@@ -124,13 +124,13 @@ test_that("synth_surveillance has the expected structure", {
   ))
 })
 
-test_that("bs_adjacency runs on the synthetic boundaries", {
+test_that("spi_adjacency runs on the synthetic boundaries", {
   skip_if_not_installed("spdep")
 
-  data("synth_surveillance", package = "blindspot")
-  adj <- bs_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
+  data("synth_surveillance", package = "spi")
+  adj <- spi_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
 
-  expect_s3_class(adj, "blindspot_nb")
+  expect_s3_class(adj, "spi_nb")
   expect_equal(length(adj), nrow(synth_surveillance$boundaries))
   # the welded boundary layer should give a connected graph with no islands
   expect_equal(sum(spdep::card(adj) == 0), 0L)
@@ -141,7 +141,7 @@ test_that("overdispersion = 'auto' resolves to a concrete spec", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("sf")
 
-  data("synth_surveillance", package = "blindspot")
+  data("synth_surveillance", package = "spi")
 
   fit <- fit_or_skip(
     cases = synth_surveillance$cases,
@@ -153,7 +153,7 @@ test_that("overdispersion = 'auto' resolves to a concrete spec", {
     seed = 1L,
     verbose = FALSE
   )
-  expect_s3_class(fit, "blindspot_expected")
+  expect_s3_class(fit, "spi_expected")
   # "auto" is resolved internally; the stored spec is one of the three
   # concrete mechanisms, never the sentinel "auto".
   expect_true(fit$overdispersion %in% c("none", "iid", "nb"))
@@ -165,7 +165,7 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("sf")
 
-  data("synth_surveillance", package = "blindspot")
+  data("synth_surveillance", package = "spi")
 
   fit <- fit_or_skip(
     cases = synth_surveillance$cases,
@@ -179,12 +179,12 @@ test_that("full chain runs and recovers planted blindspots above chance", {
     seed = 1L,
     verbose = FALSE
   )
-  expect_s3_class(fit, "blindspot_expected")
+  expect_s3_class(fit, "spi_expected")
 
-  spi <- bs_spi(fit, level = "district_year", verbose = FALSE)
-  expect_s3_class(spi, "blindspot_spi")
+  spi <- spi_index(fit, level = "district_year", verbose = FALSE)
+  expect_s3_class(spi, "spi_index")
 
-  conc <- bs_concordance(
+  conc <- spi_concordance(
     spi = spi,
     cases = synth_surveillance$cases,
     population = synth_surveillance$population,
@@ -193,7 +193,7 @@ test_that("full chain runs and recovers planted blindspots above chance", {
     boundaries = synth_surveillance$boundaries,
     verbose = FALSE
   )
-  expect_s3_class(conc, "blindspot_concordance")
+  expect_s3_class(conc, "spi_concordance")
 
   dy <- conc$district_year
   spi_flagged_cells <- c("Both flagged", "SPI only")

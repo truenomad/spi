@@ -1,4 +1,14 @@
-# blindspot 0.1.0.9000
+# spi 0.1.0.9000
+
+### Package renamed to spi
+
+* The package is now `spi` (previously `blindspot`), at
+  https://github.com/truenomad/spi. Exported functions take the `spi_` prefix
+  in place of `bs_`: `bs_spi()` is `spi_index()`, `bs_spi_prospective()` is
+  `spi_prospective()`, and every other `bs_x()` is `spi_x()`. S3 classes take
+  the same prefix: `blindspot_spi` is `spi_index`, and every other
+  `blindspot_x` is `spi_x`. The old names are not kept, so objects saved under
+  the old classes need regenerating.
 
 ### Field guide
 
@@ -24,10 +34,10 @@
   `noise_alpha` is set.
 * Other arguments: `traj_alpha` (significance-gated trend), `es` / `es_col`
   (an ES detection channel), `serotype_col` and `detection_serotypes`.
-* `bs_field_guide_help()`, `bs_field_guide_table()` and the misreadings use the
+* `spi_field_guide_help()`, `spi_field_guide_table()` and the misreadings use the
   field guide's wording, and the worked layout picks the field guide's four
   teaching cases.
-* `bs_triangulate()` crosses the three judgements with ES status: ten classes,
+* `spi_triangulate()` crosses the three judgements with ES status: ten classes,
   with `priority, ES clear`, `monitor, *` and `no indication, ES positive`
   replacing the flag, review and watch classes.
 * `synth_surveillance` gains `afp_process`, drawn after every other table so
@@ -39,13 +49,13 @@
 
 ### Field pager
 
-* Added `bs_field_guide_pager()`, which renders one district's reading as a
+* Added `spi_field_guide_pager()`, which renders one district's reading as a
   self-contained, print-ready tear-sheet with a locator inset drawn from the
   real geometry. `district` resolves by id or name, and `path` writes an
   auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`. See
   `inst/examples/pager_demo.R`.
 * It charts the focal district alone and places it in its country, so
-  `adjacency` is ignored and neither `bs_adjacency()` nor spdep is called.
+  `adjacency` is ignored and neither `spi_adjacency()` nor spdep is called.
 * It reads the five STEPS components one per row and prescribes no follow-up.
   The masthead states where the reading sits, and the banner names what the
   judgement rests on. The season, trend and detections show as context.
@@ -69,21 +79,21 @@
 
 ### SPI, concordance and inputs
 
-* Added `bs_check_inputs()`, a graded pre-flight that reconciles case counts,
+* Added `spi_check_inputs()`, a graded pre-flight that reconciles case counts,
   population denominators and the shapefile before any model runs, reporting id
   mismatches, panel gaps, bad populations, partial coverage and invalid geometry
-  at once. `bs_expected()` and `bs_compare_overdispersion()` gained `check`
+  at once. `spi_expected()` and `spi_compare_overdispersion()` gained `check`
   (default `TRUE`) and route through it.
-* `bs_spi()` gained `year_end_month`, so a reading year can close on the month a
+* `spi_index()` gained `year_end_month`, so a reading year can close on the month a
   review closes. `year_end_month = 4` groups May through April, labelled by the
   year it closes in; `n_months` marks the partial window at each end.
-* `bs_concordance()` gained `year_end_month` too. Pass the same value the SPI
+* `spi_concordance()` gained `year_end_month` too. Pass the same value the SPI
   was computed with and the conventional NPAFP rate is grouped on the same
   rolling year; left at the calendar default against a rolling SPI, it counted
   part of the window against a whole-year denominator and understated the rate.
-* `bs_spi()` gained `boundaries`, joining admin names immediately before the
-  district id. `bs_concordance()` places its own name columns the same way.
-* `bs_spi()` gained `centre` (default `"national"`). Every district's SPI for
+* `spi_index()` gained `boundaries`, joining admin names immediately before the
+  district id. `spi_concordance()` places its own name columns the same way.
+* `spi_index()` gained `centre` (default `"national"`). Every district's SPI for
   a period is divided by that period's national observed-to-expected ratio,
   so a country-wide reporting change no longer moves every district the same
   way. The result gains `$national`, the per-period ratio; `centre = "none"`
@@ -95,15 +105,15 @@
 
 ### Model fitting
 
-* `bs_expected()` defaults changed to the paper specification:
+* `spi_expected()` defaults changed to the paper specification:
   `overdispersion = "nb"` (was `"iid"`) and `year_effect = "iid"` (was
   `"none"`). The previous bare spec still works, by passing both arguments
-  explicitly. `bs_compare_overdispersion()` is unaffected, since it already
+  explicitly. `spi_compare_overdispersion()` is unaffected, since it already
   sets `overdispersion` per spec.
-* `bs_expected(seed = )` now reaches INLA's own RNG rather than R's alone.
+* `spi_expected(seed = )` now reaches INLA's own RNG rather than R's alone.
   Seeding with `set.seed()` left `inla.posterior.sample()` unseeded, so two runs
   of identical seeded code disagreed by enough to move SPI and flip verdicts.
-* `bs_expected()` gained `num_threads`, which defaults to `"1:1"` alongside a
+* `spi_expected()` gained `num_threads`, which defaults to `"1:1"` alongside a
   seed, since a multithreaded fit drifts. Pass `NULL` to inherit INLA's global
   setting and trade determinism for speed. `seed` is validated ahead of the INLA
   availability check, and the caller's RNG state is restored on exit.

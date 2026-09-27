@@ -1,4 +1,4 @@
-Package: blindspot
+Package: spi
 Title: Bayesian Spatiotemporal Surveillance Quality Monitoring
 Version: 0.1.0.9000
 Authors@R:
@@ -27,9 +27,9 @@ Description: Estimates district-level expected case detection
     data, including measles discard surveillance, neonatal
     tetanus reporting, and DHIS2 completeness monitoring.
 License: MIT + file LICENSE
-URL: https://github.com/truenomad/blindspot,
-    https://truenomad.r-universe.dev/blindspot
-BugReports: https://github.com/truenomad/blindspot/issues
+URL: https://github.com/truenomad/spi,
+    https://truenomad.r-universe.dev/spi
+BugReports: https://github.com/truenomad/spi/issues
 Depends:
     R (>= 4.1.0)
 Imports:

@@ -1,11 +1,13 @@
-# Fixture constructors that build the blindspot S3 objects directly, so the
-# downstream functions (bs_spi, bs_concordance, bs_field_guide) can be tested
-# without a live INLA fit. Every constructor mirrors the exact object contract
-# the real functions produce (see bs_expected.R / bs_spi.R for the shapes).
+# Fixture constructors that build the spi S3 objects directly, so the
+# downstream functions (spi_index, spi_concordance, spi_field_guide) can be
+# tested without a live INLA fit. Every constructor mirrors the exact object
+# contract the real functions produce (see spi_expected.R / spi_index.R for the
+# shapes).
 
-# --- a blindspot_expected fixture -----------------------------------------
+# --- a spi_expected fixture -----------------------------------------
 # A 24-district x 24-month panel with a posterior-draw matrix, rich enough to
-# drive bs_spi() at every level and the print / summary / diagnostics methods.
+# drive spi_index() at every level and the print / summary / diagnostics
+# methods.
 make_expected <- function(id_col = "district_id",
                           overdispersion = "iid",
                           season = "harmonic",
@@ -147,13 +149,13 @@ make_expected <- function(id_col = "district_id",
       data = data_tbl,
       id_col = id_col,
       pop_col = "pop_u15",
-      call = quote(bs_expected())
+      call = quote(spi_expected())
     ),
-    class = "blindspot_expected"
+    class = "spi_expected"
   )
 }
 
-# --- a district-year blindspot_spi placed into all four concordance cells --
+# --- a district-year spi_index placed into all four concordance cells --
 make_spi_dy <- function(id_col = "district_id", years = 2015:2016) {
   # A: Neither flagged | B: Both flagged | C: SPI only | D: NPAFP only
   # pop = 1e5 so npafp_rate == annual count; target 3 => count >= 3 adequate
@@ -173,7 +175,7 @@ make_spi_dy <- function(id_col = "district_id", years = 2015:2016) {
     spi_q05 = pmax(grid$spi - 0.15, 0.01),
     spi_q95 = grid$spi + 0.15
   )
-  # spi$data: annual case rows, summed inside bs_concordance
+  # spi$data: annual case rows, summed inside spi_concordance
   data_tbl <- tibble::tibble(
     !!id_col := grid$id,
     year = grid$year,
@@ -188,9 +190,9 @@ make_spi_dy <- function(id_col = "district_id", years = 2015:2016) {
       totals = tibble::tibble(total_observed = sum(grid$count)),
       data = data_tbl,
       id_col = id_col,
-      call = quote(bs_spi())
+      call = quote(spi_index())
     ),
-    class = "blindspot_spi"
+    class = "spi_index"
   )
 }
 
@@ -211,7 +213,7 @@ make_population <- function(id_col = "district_id", years = 2015:2016,
   )
 }
 
-# --- a hand-built blindspot_nb adjacency ----------------------------------
+# --- a hand-built spi_nb adjacency ----------------------------------
 # chain over the given ids plus one deliberate island (last id, no neighbours).
 make_nb <- function(ids, island_last = TRUE) {
   n <- length(ids)
@@ -231,11 +233,11 @@ make_nb <- function(ids, island_last = TRUE) {
   }
   attr(nb, "region.id") <- as.character(ids)
   attr(nb, "ncomp") <- list(nc = if (island_last) 2L else 1L)
-  class(nb) <- c("blindspot_nb", "nb")
+  class(nb) <- c("spi_nb", "nb")
   nb
 }
 
-# --- a district-month blindspot_spi for the out-of-grid seasonal signal ----
+# --- a district-month spi_index for the out-of-grid seasonal signal ----
 # seasonal_map: named vector id -> "blind" | "muted" | "present" | "none"
 make_spi_month <- function(id_col, ids, years, seasonal_map) {
   rows <- list()
@@ -265,11 +267,11 @@ make_spi_month <- function(id_col, ids, years, seasonal_map) {
   summary_tbl <- dplyr::bind_rows(rows)
   structure(
     list(summary = summary_tbl, level = "district_month", id_col = id_col),
-    class = "blindspot_spi"
+    class = "spi_index"
   )
 }
 
-# --- a blindspot_concordance for the field guide --------------------------
+# --- a spi_concordance for the field guide --------------------------
 # Six districts across six years, engineered at a 0.8 cut to reach review
 # priority / monitor / no SPI indication and to light up persistence and the
 # trend / neighbour / seasonal / detection context signals.
@@ -322,9 +324,9 @@ make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
       thresholds = list(spi = spi_cut, npafp = npafp_target,
                         multiplier = 1e5),
       id_col = id_col,
-      call = quote(bs_concordance())
+      call = quote(spi_concordance())
     ),
-    class = "blindspot_concordance"
+    class = "spi_concordance"
   )
 }
 
@@ -402,9 +404,9 @@ make_count_concordance <- function(spec, spi_cut = 0.8,
       by_stratum = NULL,
       thresholds = list(spi = spi_cut, npafp = 3, multiplier = 1e5),
       id_col = id_col,
-      call = quote(bs_concordance())
+      call = quote(spi_concordance())
     ),
-    class = "blindspot_concordance"
+    class = "spi_concordance"
   )
 }
 
@@ -462,7 +464,7 @@ make_indicators <- function(fg = synth_field_guide, seed = 20260725) {
   )
 }
 
-# --- a small monthly panel for bs_spi_prospective() -----------------------
+# --- a small monthly panel for spi_prospective() -----------------------
 # Six districts in a chain, monthly Poisson counts and annual pop_u15.
 toy_panel <- function(years = 2015:2020, id_col = "adm2_guid") {
   ids <- paste0("D", 1:6)

@@ -1,8 +1,8 @@
 #' Synthetic AFP surveillance toy dataset
 #'
 #' A fully self-contained toy dataset that lets a user run the entire
-#' `blindspot` chain -- `bs_adjacency()` -> `bs_expected()` -> `bs_spi()` ->
-#' `bs_concordance()` -- without any real surveillance data. Every value is
+#' `spi` chain -- `spi_adjacency()` -> `spi_expected()` -> `spi_index()` ->
+#' `spi_concordance()` -- without any real surveillance data. Every value is
 #' simulated; no personally identifying or operationally sensitive information
 #' is present.
 #'
@@ -19,7 +19,7 @@
 #'     source geometry (range ~19k-900k), so the NPAFP denominators are
 #'     genuine.}
 #'   \item{covariates}{Tibble, 2,360 x 5. District-year covariate layers for the
-#'     adjusted `bs_expected()` spec. Columns: `adm2_guid`, `year` (integer,
+#'     adjusted `spi_expected()` spec. Columns: `adm2_guid`, `year` (integer,
 #'     2015-2024), `dtp3` (numeric, DTP3 immunisation coverage %, a
 #'     health-system-reach proxy), `urban_prop` (numeric, 0-1 urban share,
 #'     structural per district), `travel_time_min` (numeric, median minutes to
@@ -63,7 +63,7 @@
 #'   \item{es_district_year}{Tibble, 1,600 x 4. District-year ES rollup.
 #'     Columns: `adm2_guid`, `year`, `n_samples`, `n_positive`.}
 #'   \item{detections}{Tibble, 2,360 x 5. District-year detection channels for
-#'     [bs_triangulate()]. Columns: `adm2_guid`, `year`, `afp_detected`
+#'     [spi_triangulate()]. Columns: `adm2_guid`, `year`, `afp_detected`
 #'     (logical, poliovirus found through AFP surveillance), `es_detected`
 #'     (logical, found through environmental surveillance), `es_covered`
 #'     (logical, an ES site drains the district). Derived from `virus_outcome`,
@@ -79,7 +79,7 @@
 #'     window). Onset-to-notification is the one conventional AFP indicator
 #'     POLIS does not publish, so a reading has to build it from case data; this
 #'     is the district-year aggregate such a percentage is computed from, and
-#'     what [bs_field_guide_pager()]'s `indicators_df` expects behind
+#'     what [spi_field_guide_pager()]'s `indicators_df` expects behind
 #'     `onset_notify_pct` / `onset_notify_n`.}
 #'   \item{afp_process}{Tibble, 2,360 x 6. District-year AFP process counts
 #'     for the STEPS timeliness and stool adequacy components. Columns:
@@ -87,7 +87,7 @@
 #'     adequate stool specimens), `n_transport` (cases with both the second
 #'     stool collection and laboratory receipt dates), `n_transport_timely`
 #'     (of those, received by the laboratory within 3 days). The shape
-#'     [bs_field_guide()]'s `process` argument expects.}
+#'     [spi_field_guide()]'s `process` argument expects.}
 #'   \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 #'     `adm2_guid`, `surveillance_profile` (character: `"resilient"`,
 #'     `"early_improver"`, `"covid_transient"`, or `"persistent_laggard"`),
@@ -161,22 +161,22 @@
 #' pins `set.seed(20260702)` so the shipped `.rda` is byte-stable across runs.
 #'
 #' @examples
-#' data("synth_surveillance", package = "blindspot")
+#' data("synth_surveillance", package = "spi")
 #' names(synth_surveillance)
 #' head(synth_surveillance$cases)
 #' head(synth_surveillance$boundaries)
 #'
 #' \dontrun{
 #' # end-to-end demo (needs INLA)
-#' fit <- bs_expected(
+#' fit <- spi_expected(
 #'   cases      = synth_surveillance$cases,
 #'   population = synth_surveillance$population,
 #'   adjacency  = synth_surveillance$boundaries,
 #'   id_col     = "adm2_guid",
 #'   n_draws    = 200
 #' )
-#' spi <- bs_spi(fit, level = "district_year")
-#' conc <- bs_concordance(
+#' spi <- spi_index(fit, level = "district_year")
+#' conc <- spi_concordance(
 #'   spi           = spi,
 #'   cases         = synth_surveillance$cases,
 #'   population    = synth_surveillance$population,
@@ -190,25 +190,25 @@
 
 #' Precomputed SPI field guide on the synthetic bundle
 #'
-#' A [bs_field_guide()] result computed on [synth_surveillance], with all
+#' A [spi_field_guide()] result computed on [synth_surveillance], with all
 #' five STEPS components and the neighbour, seasonal and detection context
-#' supplied. It ships so that [bs_field_guide_help()], the
-#' [bs_field_guide_table()] examples, and the package tests run instantly
+#' supplied. It ships so that [spi_field_guide_help()], the
+#' [spi_field_guide_table()] examples, and the package tests run instantly
 #' without refitting the (INLA-based) upstream model. The full modelling chain
-#' that produced it is `bs_adjacency()` -> `bs_expected()` (bare spec) ->
-#' `bs_spi()` at district-year and district-month levels -> `bs_concordance()`
-#' -> `bs_field_guide()`.
+#' that produced it is `spi_adjacency()` -> `spi_expected()` (bare spec) ->
+#' `spi_index()` at district-year and district-month levels ->
+#' `spi_concordance()` -> `spi_field_guide()`.
 #'
-#' @format An object of class `blindspot_field_guide`; see the Value section
-#'   of [bs_field_guide()] for the element structure. Read year 2024; SPI cut
+#' @format An object of class `spi_field_guide`; see the Value section
+#'   of [spi_field_guide()] for the element structure. Read year 2024; SPI cut
 #'   1; NPAFP target 3 per 100,000 under-15-years.
 #'
 #' @section Reproducibility:
 #' Regenerate with `Rscript data-raw/synth_field_guide.R` (needs INLA). The
 #' generator pins `set.seed(20260710)` and the fit's `seed = 42L`.
 #'
-#' @seealso [bs_field_guide()], [bs_field_guide_table()],
-#'   [bs_field_guide_help()], [synth_surveillance].
+#' @seealso [spi_field_guide()], [spi_field_guide_table()],
+#'   [spi_field_guide_help()], [synth_surveillance].
 #'
 #' @examples
 #' print(synth_field_guide)

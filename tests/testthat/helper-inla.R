@@ -6,7 +6,7 @@
 # the message is attached to the skip for inspection.
 fit_or_skip <- function(...) {
   tryCatch(
-    bs_expected(...),
+    spi_expected(...),
     error = function(e) {
       testthat::skip(paste0("INLA fit unavailable: ", conditionMessage(e)))
     }

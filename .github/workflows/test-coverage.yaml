@@ -35,7 +35,7 @@ jobs:
       # Don't let the project's renv autoloader run in CI (see the strip step).
       RENV_CONFIG_AUTO_LOAD: FALSE
       # Run the NOT_CRAN-gated integration fits so coverage measures the model
-      # fit body of bs_expected(); without them bs_expected floors near 61% and
+      # fit body of spi_expected(); without them spi_expected floors near 61% and
       # the package total sits around 88%. Unlike R-CMD-check, the coverage job
       # installs INLA (next step) precisely so these fits execute here.
       NOT_CRAN: "true"
@@ -107,7 +107,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: truenomad/blindspot
+          slug: truenomad/spi
           files: ./cobertura.xml
           plugins: noop
           disable_search: true

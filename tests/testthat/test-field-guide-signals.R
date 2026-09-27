@@ -1,4 +1,4 @@
-# The optional machinery of bs_field_guide() -- the timeliness and stool
+# The optional machinery of spi_field_guide() -- the timeliness and stool
 # adequacy components and the neighbour / seasonal / genomic / ES context
 # helpers -- only runs when the optional inputs are supplied. These build a field guide from
 # constructed inputs (make_*, see helper-fixtures.R) so those branches run
@@ -17,14 +17,14 @@ build_full_guide <- function(genomic = make_genomic(), genomic_col = NULL,
   conc <- make_concordance()
   nb <- make_nb(ids6)
   sm <- make_spi_month("adm2_guid", ids6, 2019:2024, seasonal_map)
-  bs_field_guide(conc, process = process, adjacency = nb, spi_month = sm,
+  spi_field_guide(conc, process = process, adjacency = nb, spi_month = sm,
                  genomic = genomic, genomic_col = genomic_col, es = es,
                  es_col = es_col, spi_cut = spi_cut, verbose = verbose, ...)
 }
 
 test_that("all optional signals compute when the inputs are supplied", {
   fg <- build_full_guide()
-  expect_s3_class(fg, "blindspot_field_guide")
+  expect_s3_class(fg, "spi_field_guide")
   expect_true(all(fg$signals_active))
 
   dy <- fg$district_year
@@ -52,7 +52,7 @@ test_that("genomic_col filters detections and validates its name", {
 
 test_that("context signals never move the judgement", {
   full <- build_full_guide()
-  bare <- bs_field_guide(make_concordance(), spi_cut = 0.8, verbose = FALSE)
+  bare <- spi_field_guide(make_concordance(), spi_cut = 0.8, verbose = FALSE)
   expect_identical(full$district_year$verdict, bare$district_year$verdict)
 })
 
@@ -71,17 +71,17 @@ test_that("traj_alpha gates a volatile slope to flat, not falling", {
     list(
       district_year = dy,
       thresholds = list(spi = 0.8, npafp = 3, multiplier = 1e5),
-      id_col = "adm2_guid", call = quote(bs_concordance())
+      id_col = "adm2_guid", call = quote(spi_concordance())
     ),
-    class = "blindspot_concordance"
+    class = "spi_concordance"
   )
 
   foc <- function(fg) fg$focal[fg$focal$adm2_guid == "V1", ]
   # the default bare slope sign reads the endpoint drop as "falling"; the
   # recommended significance gate (traj_alpha = 0.1) calls it "flat"
-  expect_identical(foc(bs_field_guide(conc, verbose = FALSE))$trajectory,
+  expect_identical(foc(spi_field_guide(conc, verbose = FALSE))$trajectory,
                    "falling")
-  gated <- bs_field_guide(conc, traj_alpha = 0.1, verbose = FALSE)
+  gated <- spi_field_guide(conc, traj_alpha = 0.1, verbose = FALSE)
   expect_identical(foc(gated)$trajectory, "flat")
 })
 
@@ -99,7 +99,7 @@ test_that("neighbourhood_shortfall names the region-wide absorption case", {
                    na.rm = TRUE))
 
   # without adjacency the column is present but NA (graceful degradation)
-  bare <- bs_field_guide(make_concordance(), verbose = FALSE)
+  bare <- spi_field_guide(make_concordance(), verbose = FALSE)
   expect_true(all(is.na(bare$district_year$neighbourhood_shortfall)))
 })
 
@@ -127,10 +127,10 @@ test_that("process counts become timeliness and adequacy concerns", {
   expect_error(build_full_guide(process = bad), "n_transport_timely")
 })
 
-test_that("bs_field_guide degrades and warns without optional inputs", {
+test_that("spi_field_guide degrades and warns without optional inputs", {
   conc <- make_concordance()
   expect_message(
-    bare <- bs_field_guide(conc, spi_cut = 0.8, verbose = TRUE),
+    bare <- spi_field_guide(conc, spi_cut = 0.8, verbose = TRUE),
     "Not computed"
   )
   expect_identical(
@@ -144,33 +144,33 @@ test_that("bs_field_guide degrades and warns without optional inputs", {
   expect_true(all(is.na(bare$district_year$seasonal)))
 
   expect_error(
-    bs_field_guide(conc, extent_col = "state", verbose = FALSE), "extent_col"
+    spi_field_guide(conc, extent_col = "state", verbose = FALSE), "extent_col"
   )
 })
 
-test_that("bs_field_guide validates read_year, columns, and spi_month level", {
+test_that("spi_field_guide validates read_year, columns, and spi_month level", {
   conc <- make_concordance()
-  expect_error(bs_field_guide(conc, read_year = 1990L, verbose = FALSE),
+  expect_error(spi_field_guide(conc, read_year = 1990L, verbose = FALSE),
                "no district-year rows")
 
   bad <- conc
   bad$district_year$expected_total <- NULL
-  expect_error(bs_field_guide(bad, verbose = FALSE), "missing column")
+  expect_error(spi_field_guide(bad, verbose = FALSE), "missing column")
 
-  # spi_month must be a district_month bs_spi result
+  # spi_month must be a district_month spi_index result
   wrong_level <- make_spi_dy(id_col = "adm2_guid")
   expect_error(
-    bs_field_guide(conc, spi_month = wrong_level, verbose = FALSE),
+    spi_field_guide(conc, spi_month = wrong_level, verbose = FALSE),
     "district_month"
   )
 })
 
-test_that("bs_field_guide_help runs every topic and the synth fallback", {
+test_that("spi_field_guide_help runs every topic and the synth fallback", {
   fg <- build_full_guide()
-  expect_no_error(bs_field_guide_help("all"))            # expands to all topics
+  expect_no_error(spi_field_guide_help("all"))  # expands to all topics
 
   # worked example narrated from a supplied guide: the four teaching cases
-  w <- bs_field_guide_help("example", guide = fg)
+  w <- spi_field_guide_help("example", guide = fg)
   expect_s3_class(w, "tbl_df")
   expect_setequal(w$case_label, c(
     "At or above expectation", "Uncertain shortfall",
@@ -179,13 +179,13 @@ test_that("bs_field_guide_help runs every topic and the synth fallback", {
   ))
 
   # default guide argument loads the shipped synth_field_guide
-  expect_no_error(bs_field_guide_help("example"))
+  expect_no_error(spi_field_guide_help("example"))
 })
 
 test_that("worked-example selection handles explicit and missing districts", {
   fg <- build_full_guide()
   # explicit selection, including an id that does not exist -> dropped
-  sel <- blindspot:::.fg_select_worked(
+  sel <- spi:::.fg_select_worked(
     fg$focal, fg$id_col, fg$thresholds$spi,
     districts = c("FG1", "NOPE")
   )
@@ -198,21 +198,21 @@ test_that("field guide tables render and cover the cell factories", {
 
   # worked layout exercises .fg_cell_signals / .fg_cell_classes / s6 / s7 cells
   expect_s3_class(
-    bs_field_guide_table(fg, engine = "gt", layout = "worked"), "gt_tbl"
+    spi_field_guide_table(fg, engine = "gt", layout = "worked"), "gt_tbl"
   )
   expect_s3_class(
-    bs_field_guide_table(fg, engine = "gt", layout = "scan"), "gt_tbl"
+    spi_field_guide_table(fg, engine = "gt", layout = "scan"), "gt_tbl"
   )
 
   # a guide with no genomic input -> "genomic not assessed" cell branch
   fg_ng <- build_full_guide(genomic = NULL)
   expect_s3_class(
-    bs_field_guide_table(fg_ng, engine = "gt", layout = "worked"), "gt_tbl"
+    spi_field_guide_table(fg_ng, engine = "gt", layout = "worked"), "gt_tbl"
   )
 
   # a focal year with no rows aborts
   expect_error(
-    bs_field_guide_table(fg, engine = "gt", year = 1990L),
+    spi_field_guide_table(fg, engine = "gt", year = 1990L),
     "no district-year rows"
   )
 })
@@ -223,16 +223,16 @@ test_that("neighbour / seasonal signals degrade on odd adjacency inputs", {
   # adjacency without a region.id attribute -> indices used as ids
   nb_noid <- make_nb(ids6)
   attr(nb_noid, "region.id") <- NULL
-  expect_no_error(bs_field_guide(conc, adjacency = nb_noid, verbose = FALSE))
+  expect_no_error(spi_field_guide(conc, adjacency = nb_noid, verbose = FALSE))
 
   # adjacency where every node is an island -> no edges at all
   nb_islands <- structure(
     lapply(seq_along(ids6), function(i) 0L),
     region.id = as.character(ids6),
     ncomp = list(nc = length(ids6)),
-    class = c("blindspot_nb", "nb")
+    class = c("spi_nb", "nb")
   )
-  fg_isl <- bs_field_guide(conc, adjacency = nb_islands, verbose = FALSE)
+  fg_isl <- spi_field_guide(conc, adjacency = nb_islands, verbose = FALSE)
   expect_true(all(is.na(fg_isl$district_year$neighbour_spi)))
 
   # spi_month whose summary lacks the seasonal columns -> seasonal stays NA
@@ -241,63 +241,63 @@ test_that("neighbour / seasonal signals degrade on odd adjacency inputs", {
       summary = tibble::tibble(adm2_guid = "FG1", year = 2024L),
       level = "district_month", id_col = "adm2_guid"
     ),
-    class = "blindspot_spi"
+    class = "spi_index"
   )
-  fg_bs <- bs_field_guide(conc, spi_month = sm_bad, verbose = FALSE)
+  fg_bs <- spi_field_guide(conc, spi_month = sm_bad, verbose = FALSE)
   expect_true(all(is.na(fg_bs$district_year$seasonal)))
 })
 
 test_that("field-guide cell + narrative helpers cover their branches", {
   # shares that round alike print a decimal, so a concern never reads as a tie
-  expect_equal(blindspot:::.fg_pct_pair(55.6, 55.5), c("55.6%", "55.5%"))
-  expect_equal(blindspot:::.fg_pct_pair(60, 40), c("60%", "40%"))
+  expect_equal(spi:::.fg_pct_pair(55.6, 55.5), c("55.6%", "55.5%"))
+  expect_equal(spi:::.fg_pct_pair(60, 40), c("60%", "40%"))
 
   # process cells: not supplied, below the floor, and assessed
-  expect_equal(blindspot:::.fg_process_cell(NA, NA, "x", 5L), "Not supplied")
-  expect_match(blindspot:::.fg_process_cell(2, 3, "x", 5L), "not assessed")
-  expect_match(blindspot:::.fg_process_cell(6, 8, "x", 5L), "6 of 8 x \\(75%\\)")
+  expect_equal(spi:::.fg_process_cell(NA, NA, "x", 5L), "Not supplied")
+  expect_match(spi:::.fg_process_cell(2, 3, "x", 5L), "not assessed")
+  expect_match(spi:::.fg_process_cell(6, 8, "x", 5L), "6 of 8 x \\(75%\\)")
 
   # .fg_tag returns NULL for an empty pick
-  expect_null(blindspot:::.fg_tag(NULL, "Monitor"))
+  expect_null(spi:::.fg_tag(NULL, "Monitor"))
 
   # .fg_narrate fallback for an unrecognised case label
   r <- list(case_label = "Other", verdict = "Monitor", year = 2024L,
             spi_median = 0.9, spi_q05 = 0.8, spi_q95 = 1.0,
             spi_previous = NA_real_, extent_others = 0L,
             expected_total = 5)
-  expect_match(blindspot:::.fg_narrate(r, 1), "Judgement: Monitor")
-  expect_match(blindspot:::.fg_narrate(r, 1), "no SPI for the previous year")
+  expect_match(spi:::.fg_narrate(r, 1), "Judgement: Monitor")
+  expect_match(spi:::.fg_narrate(r, 1), "no SPI for the previous year")
 })
 
 test_that("worked table aborts when no districts can be selected", {
   skip_if_not_installed("gt")
   fg <- build_full_guide()
   expect_error(
-    bs_field_guide_table(fg, engine = "gt", layout = "worked",
+    spi_field_guide_table(fg, engine = "gt", layout = "worked",
                          districts = "NOPE"),
     "no districts"
   )
 })
 
-test_that("bs_field_guide_table save dispatch covers formats and errors", {
+test_that("spi_field_guide_table save dispatch covers formats and errors", {
   skip_if_not_installed("flextable")
   skip_if_not_installed("officer")
   fg <- build_full_guide()
 
   f_html <- withr::local_tempfile(fileext = ".html")
-  bs_field_guide_table(fg, engine = "flextable", layout = "scan",
+  spi_field_guide_table(fg, engine = "flextable", layout = "scan",
                        file = f_html)
   expect_true(file.exists(f_html) && file.info(f_html)$size > 0)
 
   f_pptx <- withr::local_tempfile(fileext = ".pptx")
-  bs_field_guide_table(fg, engine = "flextable", layout = "worked",
+  spi_field_guide_table(fg, engine = "flextable", layout = "worked",
                        file = f_pptx)
   expect_true(file.exists(f_pptx))
 
   # an unsupported flextable extension aborts with a helpful message
   f_bad <- withr::local_tempfile(fileext = ".rtf")
   expect_error(
-    bs_field_guide_table(fg, engine = "flextable", file = f_bad),
+    spi_field_guide_table(fg, engine = "flextable", file = f_bad),
     "cannot save"
   )
 })
@@ -308,7 +308,7 @@ test_that("gt save dispatch checks the docx dependency", {
   skip_if_not(rmarkdown::pandoc_available(), "pandoc not available")
   fg <- build_full_guide()
   f_docx <- withr::local_tempfile(fileext = ".docx")
-  bs_field_guide_table(fg, engine = "gt", layout = "scan", file = f_docx)
+  spi_field_guide_table(fg, engine = "gt", layout = "scan", file = f_docx)
   expect_true(file.exists(f_docx) && file.info(f_docx)$size > 0)
 })
 
@@ -322,7 +322,7 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
                 observed = c(1, 1, 0, 0, 0), expected = 2)
   ))
 
-  base <- bs_field_guide(conc, spi_cut = 0.8, verbose = FALSE)
+  base <- spi_field_guide(conc, spi_cut = 0.8, verbose = FALSE)
   f <- base$focal
   expect_true(f$cri_excludes_1)
   expect_true(f$gate_pass)
@@ -331,7 +331,7 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
   expect_equal(f$noise_tail, stats::ppois(0, 2), tolerance = 1e-9)
   expect_true(f$noise_plausible)
 
-  gated <- bs_field_guide(conc, noise_alpha = 0.05, spi_cut = 0.8,
+  gated <- spi_field_guide(conc, noise_alpha = 0.05, spi_cut = 0.8,
                           verbose = FALSE)
   g <- gated$focal
   # the interval still excludes one -- it collapsed to (0, 0). What shut is the
@@ -346,7 +346,7 @@ test_that("noise_alpha closes the gate a zero count opens for free", {
     ZERO = list(spi = c(0.5, 0.4, 0, 0, 0), q95 = c(0.6, 0.5, 0, 0, 0),
                 observed = c(1, 1, 0, 0, 0), expected = 30)
   ))
-  p <- bs_field_guide(powered, noise_alpha = 0.05, verbose = FALSE)$focal
+  p <- spi_field_guide(powered, noise_alpha = 0.05, verbose = FALSE)$focal
   expect_false(p$noise_plausible)
   expect_true(p$cri_excludes_1)
   expect_true(p$gate_pass)
@@ -357,13 +357,13 @@ test_that("noise_alpha leaves cri_excludes_1 and the default read alone", {
   # it gates, so folding it into `gate_pass` unconditionally would silently
   # apply a 5% noise gate to the published spec.
   conc <- make_concordance()
-  base <- bs_field_guide(conc, verbose = FALSE)$district_year
+  base <- spi_field_guide(conc, verbose = FALSE)$district_year
 
   expect_identical(base$cri_excludes_1, base$spi_q95 < 1)
   expect_identical(base$gate_pass, base$cri_excludes_1)
   expect_true(any(base$noise_plausible))
 
-  gated <- bs_field_guide(conc, noise_alpha = 0.05,
+  gated <- spi_field_guide(conc, noise_alpha = 0.05,
                           verbose = FALSE)$district_year
   # the interval column is the same object either way; only the gate moves
   expect_identical(gated$cri_excludes_1, base$cri_excludes_1)
@@ -379,7 +379,7 @@ test_that("a certain but uncorroborated shortfall reads Monitor", {
     LONE = list(spi = c(0.90, 0.60), q95 = c(1.10, 0.70),
                 observed = 6, expected = 10)
   ))
-  f <- bs_field_guide(conc, spi_cut = 0.8, verbose = FALSE)$focal
+  f <- spi_field_guide(conc, spi_cut = 0.8, verbose = FALSE)$focal
 
   expect_true(f$spi_below)
   expect_true(f$gate_pass)
@@ -393,9 +393,9 @@ test_that("a certain but uncorroborated shortfall reads Monitor", {
 
 test_that("noise_alpha must be a probability", {
   conc <- make_concordance()
-  expect_error(bs_field_guide(conc, noise_alpha = 0, verbose = FALSE),
+  expect_error(spi_field_guide(conc, noise_alpha = 0, verbose = FALSE),
                "probability")
-  expect_error(bs_field_guide(conc, noise_alpha = 1.5, verbose = FALSE),
+  expect_error(spi_field_guide(conc, noise_alpha = 1.5, verbose = FALSE),
                "probability")
 })
 
@@ -407,7 +407,7 @@ test_that("persistence reads the previous year, not a historical run", {
                  q95 = c(0.6, 0.6, 0.6, 1.3, 1.25, 0.75),
                  observed = 4, expected = 12)
   ))
-  f <- bs_field_guide(conc, spi_cut = 0.8, verbose = FALSE)$focal
+  f <- spi_field_guide(conc, spi_cut = 0.8, verbose = FALSE)$focal
 
   expect_equal(f$spi_previous, 1.05)
   expect_false(f$persistence_concern)
@@ -419,7 +419,7 @@ test_that("persistence reads the previous year, not a historical run", {
 
 test_that("the defaults follow the field guide", {
   conc <- make_concordance()
-  base <- bs_field_guide(conc, verbose = FALSE)
+  base <- spi_field_guide(conc, verbose = FALSE)
   # STEPS applies below 1 whatever cut the concordance used
   expect_equal(base$thresholds$spi, 1)
   expect_null(base$params$noise_alpha)
@@ -441,7 +441,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
   )
 
   # unfiltered, an ambiguous VDPV counts like any other row
-  all_in <- bs_field_guide(
+  all_in <- spi_field_guide(
     conc, genomic = g, serotype_col = "serotype", verbose = FALSE
   )$focal
   expect_equal(all_in$orphan_serotypes, "aVDPV2, cVDPV2")
@@ -449,7 +449,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
 
   # filtered, only the confirmed virus reaches the years, the flag and the
   # serotype string, so all three agree
-  kept <- bs_field_guide(
+  kept <- spi_field_guide(
     conc, genomic = g, serotype_col = "serotype",
     detection_serotypes = c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3"),
     verbose = FALSE
@@ -459,7 +459,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
   expect_true(kept$genomic_orphan)
 
   # filtering everything out leaves no detection at all
-  none <- bs_field_guide(
+  none <- spi_field_guide(
     conc, genomic = g, serotype_col = "serotype",
     detection_serotypes = "WPV1", verbose = FALSE
   )$focal
@@ -468,7 +468,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
 
   # and asking to filter without saying where the serotype lives is an error
   expect_error(
-    bs_field_guide(
+    spi_field_guide(
       conc, genomic = g, detection_serotypes = "cVDPV2", verbose = FALSE
     ),
     "serotype_col"

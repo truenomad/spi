@@ -18,7 +18,7 @@ annual under-15 counts extracted from the WorldPop 0-14 rasters over the
 source geometry (range ~19k-900k), so the NPAFP denominators are
 genuine.}
 \item{covariates}{Tibble, 2,360 x 5. District-year covariate layers for the
-adjusted \code{bs_expected()} spec. Columns: \code{adm2_guid}, \code{year} (integer,
+adjusted \code{spi_expected()} spec. Columns: \code{adm2_guid}, \code{year} (integer,
 2015-2024), \code{dtp3} (numeric, DTP3 immunisation coverage \%, a
 health-system-reach proxy), \code{urban_prop} (numeric, 0-1 urban share,
 structural per district), \code{travel_time_min} (numeric, median minutes to
@@ -62,7 +62,7 @@ proxies are internally consistent.}
 \item{es_district_year}{Tibble, 1,600 x 4. District-year ES rollup.
 Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
 \item{detections}{Tibble, 2,360 x 5. District-year detection channels for
-\code{\link[=bs_triangulate]{bs_triangulate()}}. Columns: \code{adm2_guid}, \code{year}, \code{afp_detected}
+\code{\link[=spi_triangulate]{spi_triangulate()}}. Columns: \code{adm2_guid}, \code{year}, \code{afp_detected}
 (logical, poliovirus found through AFP surveillance), \code{es_detected}
 (logical, found through environmental surveillance), \code{es_covered}
 (logical, an ES site drains the district). Derived from \code{virus_outcome},
@@ -78,7 +78,7 @@ with a usable onset date), \code{n_within_7d} (of those, notified inside the
 window). Onset-to-notification is the one conventional AFP indicator
 POLIS does not publish, so a reading has to build it from case data; this
 is the district-year aggregate such a percentage is computed from, and
-what \code{\link[=bs_field_guide_pager]{bs_field_guide_pager()}}'s \code{indicators_df} expects behind
+what \code{\link[=spi_field_guide_pager]{spi_field_guide_pager()}}'s \code{indicators_df} expects behind
 \code{onset_notify_pct} / \code{onset_notify_n}.}
 \item{afp_process}{Tibble, 2,360 x 6. District-year AFP process counts
 for the STEPS timeliness and stool adequacy components. Columns:
@@ -86,7 +86,7 @@ for the STEPS timeliness and stool adequacy components. Columns:
 adequate stool specimens), \code{n_transport} (cases with both the second
 stool collection and laboratory receipt dates), \code{n_transport_timely}
 (of those, received by the laboratory within 3 days). The shape
-\code{\link[=bs_field_guide]{bs_field_guide()}}'s \code{process} argument expects.}
+\code{\link[=spi_field_guide]{spi_field_guide()}}'s \code{process} argument expects.}
 \item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
 \code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
 \code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),
@@ -103,8 +103,8 @@ synth_surveillance
 }
 \description{
 A fully self-contained toy dataset that lets a user run the entire
-\code{blindspot} chain -- \code{bs_adjacency()} -> \code{bs_expected()} -> \code{bs_spi()} ->
-\code{bs_concordance()} -- without any real surveillance data. Every value is
+\code{spi} chain -- \code{spi_adjacency()} -> \code{spi_expected()} -> \code{spi_index()} ->
+\code{spi_concordance()} -- without any real surveillance data. Every value is
 simulated; no personally identifying or operationally sensitive information
 is present.
 }
@@ -178,22 +178,22 @@ pins \code{set.seed(20260702)} so the shipped \code{.rda} is byte-stable across 
 }
 
 \examples{
-data("synth_surveillance", package = "blindspot")
+data("synth_surveillance", package = "spi")
 names(synth_surveillance)
 head(synth_surveillance$cases)
 head(synth_surveillance$boundaries)
 
 \dontrun{
 # end-to-end demo (needs INLA)
-fit <- bs_expected(
+fit <- spi_expected(
   cases      = synth_surveillance$cases,
   population = synth_surveillance$population,
   adjacency  = synth_surveillance$boundaries,
   id_col     = "adm2_guid",
   n_draws    = 200
 )
-spi <- bs_spi(fit, level = "district_year")
-conc <- bs_concordance(
+spi <- spi_index(fit, level = "district_year")
+conc <- spi_concordance(
   spi           = spi,
   cases         = synth_surveillance$cases,
   population    = synth_surveillance$population,

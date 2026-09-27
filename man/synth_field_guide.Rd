@@ -5,22 +5,22 @@
 \alias{synth_field_guide}
 \title{Precomputed SPI field guide on the synthetic bundle}
 \format{
-An object of class \code{blindspot_field_guide}; see the Value section
-of \code{\link[=bs_field_guide]{bs_field_guide()}} for the element structure. Read year 2024; SPI cut
+An object of class \code{spi_field_guide}; see the Value section
+of \code{\link[=spi_field_guide]{spi_field_guide()}} for the element structure. Read year 2024; SPI cut
 1; NPAFP target 3 per 100,000 under-15-years.
 }
 \usage{
 synth_field_guide
 }
 \description{
-A \code{\link[=bs_field_guide]{bs_field_guide()}} result computed on \link{synth_surveillance}, with all
+A \code{\link[=spi_field_guide]{spi_field_guide()}} result computed on \link{synth_surveillance}, with all
 five STEPS components and the neighbour, seasonal and detection context
-supplied. It ships so that \code{\link[=bs_field_guide_help]{bs_field_guide_help()}}, the
-\code{\link[=bs_field_guide_table]{bs_field_guide_table()}} examples, and the package tests run instantly
+supplied. It ships so that \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}, the
+\code{\link[=spi_field_guide_table]{spi_field_guide_table()}} examples, and the package tests run instantly
 without refitting the (INLA-based) upstream model. The full modelling chain
-that produced it is \code{bs_adjacency()} -> \code{bs_expected()} (bare spec) ->
-\code{bs_spi()} at district-year and district-month levels -> \code{bs_concordance()}
--> \code{bs_field_guide()}.
+that produced it is \code{spi_adjacency()} -> \code{spi_expected()} (bare spec) ->
+\code{spi_index()} at district-year and district-month levels ->
+\code{spi_concordance()} -> \code{spi_field_guide()}.
 }
 \section{Reproducibility}{
 
@@ -33,7 +33,7 @@ print(synth_field_guide)
 head(as_tibble(synth_field_guide))
 }
 \seealso{
-\code{\link[=bs_field_guide]{bs_field_guide()}}, \code{\link[=bs_field_guide_table]{bs_field_guide_table()}},
-\code{\link[=bs_field_guide_help]{bs_field_guide_help()}}, \link{synth_surveillance}.
+\code{\link[=spi_field_guide]{spi_field_guide()}}, \code{\link[=spi_field_guide_table]{spi_field_guide_table()}},
+\code{\link[=spi_field_guide_help]{spi_field_guide_help()}}, \link{synth_surveillance}.
 }
 \keyword{datasets}

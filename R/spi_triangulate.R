@@ -1,7 +1,7 @@
 #' Triangulate a field-guide judgement against independent virus detection
 #'
 #' @description
-#' Cross-references the [bs_field_guide()] review judgement, which reads
+#' Cross-references the [spi_field_guide()] review judgement, which reads
 #' whether AFP reporting in a district-year is below expectation, against
 #' the two channels that record whether virus was actually *found*: AFP
 #' detection and environmental surveillance (ES). Because ES is largely
@@ -51,8 +51,8 @@
 #' poliovirus isolations by channel, distinct from the orphan-sequence signal
 #' the field guide reports as detection context.
 #'
-#' @param field_guide A [bs_field_guide()] result (class
-#'   `blindspot_field_guide`). Supplies the judgement per district-year.
+#' @param field_guide A [spi_field_guide()] result (class
+#'   `spi_field_guide`). Supplies the judgement per district-year.
 #' @param detections A data frame at district-year level holding the id and
 #'   `year` columns plus the three detection columns named below.
 #' @param afp_detected Name of a logical / 0-1 column: poliovirus found
@@ -72,7 +72,7 @@
 #' @param verbose Logical. Progress and join-check messages via cli.
 #'   Default: TRUE.
 #'
-#' @return An object of class `blindspot_triangulation`. A list with:
+#' @return An object of class `spi_triangulation`. A list with:
 #' \describe{
 #'   \item{district_year}{Tibble, one row per district-year, carrying the
 #'     judgement (`verdict`), `es_status`, `afp_hit`, `flag_preceded`, `triangulation`
@@ -82,19 +82,19 @@
 #'   \item{read_year, thresholds, params, id_col, call}{Metadata.}
 #' }
 #'
-#' @seealso [bs_field_guide()] for the judgement input,
-#'   [bs_triangulate_table()] and [bs_triangulate_map()] for rendering the
-#'   result, and [bs_field_guide_table()] for rendering the guide itself.
+#' @seealso [spi_field_guide()] for the judgement input,
+#'   [spi_triangulate_table()] and [spi_triangulate_map()] for rendering the
+#'   result, and [spi_field_guide_table()] for rendering the guide itself.
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
 #' fg <- synth_field_guide
 #' det <- synth_surveillance$detections # afp_detected, es_detected, es_covered
-#' tri <- bs_triangulate(fg, det, detection_lag = 1L, verbose = FALSE)
+#' tri <- spi_triangulate(fg, det, detection_lag = 1L, verbose = FALSE)
 #' print(tri)
 #' dplyr::count(tri$district_year, triangulation)
-bs_triangulate <- function(
+spi_triangulate <- function(
   field_guide,
   detections,
   afp_detected = "afp_detected",
@@ -110,7 +110,7 @@ bs_triangulate <- function(
     reason = "to triangulate the field guide against detection"
   )
 
-  stopifnot(inherits(field_guide, "blindspot_field_guide"))
+  stopifnot(inherits(field_guide, "spi_field_guide"))
   if (!is.data.frame(detections)) {
     cli::cli_abort("{.arg detections} must be a data frame.")
   }
@@ -199,7 +199,7 @@ bs_triangulate <- function(
       id_col = id_col,
       call = match.call()
     ),
-    class = "blindspot_triangulation"
+    class = "spi_triangulation"
   )
 }
 
@@ -327,7 +327,7 @@ bs_triangulate <- function(
 # ---------------------------------------------------------------------------
 
 #' @export
-print.blindspot_triangulation <- function(x, ...) {
+print.spi_triangulation <- function(x, ...) {
   cli::cli_h1("SPI triangulation")
   cli::cli_inform(c(
     "Read year: {.val {x$read_year}} \\
@@ -361,20 +361,20 @@ print.blindspot_triangulation <- function(x, ...) {
 }
 
 # ---------------------------------------------------------------------------
-# table renderer (mirrors bs_field_guide_table's scan layout)
+# table renderer (mirrors spi_field_guide_table's scan layout)
 # ---------------------------------------------------------------------------
 
 #' Render a triangulation panel as a publication table
 #'
 #' @description
-#' Renders the [bs_triangulate()] classification for one focal year as a
+#' Renders the [spi_triangulate()] classification for one focal year as a
 #' `gt` or `flextable` table: one row per district, ordered by triage
 #' priority, with the field-guide judgement, ES and AFP status, the resulting
 #' triangulation class, and its priority. The triangulation cell is shaded by
 #' priority (adverse / intermediate / reassuring), reusing the field-guide
 #' palette so the two tables read alike.
 #'
-#' @param x A [bs_triangulate()] result (class `blindspot_triangulation`).
+#' @param x A [spi_triangulate()] result (class `spi_triangulation`).
 #' @param engine Table engine: `"gt"` or `"flextable"`.
 #' @param year Focal year. Default: NULL (`x$read_year`).
 #' @param name_col Column to label districts by. Default: NULL (first of
@@ -388,19 +388,19 @@ print.blindspot_triangulation <- function(x, ...) {
 #'
 #' @return The `gt_tbl` or `flextable` object, invisibly when `file` is set.
 #'
-#' @seealso [bs_triangulate()], [bs_triangulate_map()].
+#' @seealso [spi_triangulate()], [spi_triangulate_map()].
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
 #' \dontrun{
 #' fg <- synth_field_guide
-#' tri <- bs_triangulate(fg, synth_surveillance$detections, verbose = FALSE)
-#' bs_triangulate_table(tri, engine = "gt")
-#' bs_triangulate_table(tri, engine = "flextable",
+#' tri <- spi_triangulate(fg, synth_surveillance$detections, verbose = FALSE)
+#' spi_triangulate_table(tri, engine = "gt")
+#' spi_triangulate_table(tri, engine = "flextable",
 #'                      file = tempfile(fileext = ".docx"))
 #' }
-bs_triangulate_table <- function(
+spi_triangulate_table <- function(
   x,
   engine = c("gt", "flextable"),
   year = NULL,
@@ -410,7 +410,7 @@ bs_triangulate_table <- function(
   max_rows = 60L,
   ...
 ) {
-  stopifnot(inherits(x, "blindspot_triangulation"))
+  stopifnot(inherits(x, "spi_triangulation"))
   engine <- match.arg(engine)
 
   .check_pkg(
@@ -493,7 +493,7 @@ bs_triangulate_table <- function(
 }
 
 # ---------------------------------------------------------------------------
-# choropleth (mirrors bs_concordance_maps, single panel)
+# choropleth (mirrors spi_concordance_maps, single panel)
 # ---------------------------------------------------------------------------
 
 # ten-class triage palette; keys match .tri_levels exactly. Built for the
@@ -524,13 +524,13 @@ TRI_PRIORITY_FILL <- c(
 #' Map a triangulation panel over district polygons
 #'
 #' @description
-#' Draws a single-panel choropleth of the [bs_triangulate()] classification
+#' Draws a single-panel choropleth of the [spi_triangulate()] classification
 #' for one focal year, colouring each district by its triangulation class (the
 #' full ten-class triage grid) or by its coarser priority. Mirrors
-#' [bs_concordance_maps()]: the result object carries no geometry, so
+#' [spi_concordance_maps()]: the result object carries no geometry, so
 #' `boundaries` is supplied separately and joined by the district id column.
 #'
-#' @param x A [bs_triangulate()] result (class `blindspot_triangulation`).
+#' @param x A [spi_triangulate()] result (class `spi_triangulation`).
 #' @param boundaries An `sf` polygon layer with the district id column.
 #' @param year Focal year. Default: NULL (`x$read_year`).
 #' @param by Fill by `"triangulation"` (ten classes) or `"priority"` (four
@@ -542,18 +542,18 @@ TRI_PRIORITY_FILL <- c(
 #'
 #' @return A `ggplot` object.
 #'
-#' @seealso [bs_triangulate()], [bs_triangulate_table()],
-#'   [bs_concordance_maps()].
+#' @seealso [spi_triangulate()], [spi_triangulate_table()],
+#'   [spi_concordance_maps()].
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
 #' \dontrun{
 #' fg <- synth_field_guide
-#' tri <- bs_triangulate(fg, synth_surveillance$detections, verbose = FALSE)
-#' bs_triangulate_map(tri, synth_surveillance$boundaries, year = 2021)
+#' tri <- spi_triangulate(fg, synth_surveillance$detections, verbose = FALSE)
+#' spi_triangulate_map(tri, synth_surveillance$boundaries, year = 2021)
 #' }
-bs_triangulate_map <- function(
+spi_triangulate_map <- function(
   x,
   boundaries,
   year = NULL,
@@ -564,7 +564,7 @@ bs_triangulate_map <- function(
 ) {
   .check_pkg(c("ggplot2", "sf", "dplyr"),
              reason = "to draw the triangulation map")
-  stopifnot(inherits(x, "blindspot_triangulation"),
+  stopifnot(inherits(x, "spi_triangulation"),
             inherits(boundaries, "sf"))
   by <- match.arg(by)
   id_col <- id_col %||% x$id_col
@@ -618,7 +618,7 @@ bs_triangulate_map <- function(
     )
 
   if (by == "triangulation") {
-    # Full ten-class detail (the labels survive in bs_triangulate_table()).
+    # Full ten-class detail (the labels survive in spi_triangulate_table()).
     bnd_slice$fill_cat <- bnd_slice$triangulation
     title <- title %||%
       sprintf("Triangulation classes, verdict %d vs detection %d", yr, det_year)

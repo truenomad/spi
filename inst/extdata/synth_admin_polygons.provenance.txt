@@ -1,4 +1,4 @@
-synth_admin_polygons.gpkg -- synthetic adm2 boundaries for blindspot
+synth_admin_polygons.gpkg -- synthetic adm2 boundaries for spi
 
 FICTIONAL. Country, province, and district names are invented; they do
 not correspond to any real place. Geometry is DERIVED from real adm2
