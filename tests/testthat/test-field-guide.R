@@ -219,7 +219,7 @@ test_that("spi_field_guide can be recomputed end to end", {
   )
   fg <- spi_field_guide(
     conc, process = s$afp_process, adjacency = adj, spi_month = cm,
-    genomic = dplyr::filter(s$virus_outcome, any_cvdpv2 == 1)[, c("adm2_guid", "year")],
+    detections = dplyr::filter(s$virus_outcome, any_cvdpv2 == 1)[, c("adm2_guid", "year")],
     es = s$es_district_year, es_col = "n_positive",
     verbose = FALSE
   )

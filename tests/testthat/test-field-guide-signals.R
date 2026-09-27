@@ -1,5 +1,5 @@
 # The optional machinery of spi_field_guide() -- the timeliness and stool
-# adequacy components and the neighbour / seasonal / genomic / ES context
+# adequacy components and the neighbour / seasonal / detections / ES context
 # helpers -- only runs when the optional inputs are supplied. These build a field guide from
 # constructed inputs (make_*, see helper-fixtures.R) so those branches run
 # without an INLA fit.
@@ -10,7 +10,7 @@ seasonal_map <- list(FG1 = "present", FG2 = "blind", FG3 = "muted",
 
 # the fixtures are engineered around a 0.8 cut, so the tests pass it
 # explicitly rather than take the field guide's default of 1
-build_full_guide <- function(genomic = make_genomic(), genomic_col = NULL,
+build_full_guide <- function(detections = make_detections(), detection_col = NULL,
                              es = make_es(), es_col = "n_positive",
                              process = make_process(), spi_cut = 0.8,
                              verbose = FALSE, ...) {
@@ -18,7 +18,7 @@ build_full_guide <- function(genomic = make_genomic(), genomic_col = NULL,
   nb <- make_nb(ids6)
   sm <- make_spi_month("adm2_guid", ids6, 2019:2024, seasonal_map)
   spi_field_guide(conc, process = process, adjacency = nb, spi_month = sm,
-                 genomic = genomic, genomic_col = genomic_col, es = es,
+                 detections = detections, detection_col = detection_col, es = es,
                  es_col = es_col, spi_cut = spi_cut, verbose = verbose, ...)
 }
 
@@ -34,7 +34,7 @@ test_that("all optional signals compute when the inputs are supplied", {
   # seasonal produced blind / muted / present / not-assessed labels
   expect_true(any(dy$seasonally_blind, na.rm = TRUE))
   expect_true(all(c("blind", "muted", "present") %in% dy$seasonal))
-  # genomic orphan attached to FG1 / FG2
+  # AFP detection context attached to FG1 / FG2
   expect_true(any(dy$genomic_orphan, na.rm = TRUE))
   # every judgement reachable
   expect_setequal(
@@ -43,11 +43,11 @@ test_that("all optional signals compute when the inputs are supplied", {
   )
 })
 
-test_that("genomic_col filters detections and validates its name", {
-  fg <- build_full_guide(genomic_col = "any_cvdpv2")
+test_that("detection_col filters detections and validates its name", {
+  fg <- build_full_guide(detection_col = "any_cvdpv2")
   expect_true(any(fg$district_year$genomic_orphan, na.rm = TRUE))
 
-  expect_error(build_full_guide(genomic_col = "missing_flag"), "genomic_col")
+  expect_error(build_full_guide(detection_col = "missing_flag"), "detection_col")
 })
 
 test_that("context signals never move the judgement", {
@@ -204,8 +204,8 @@ test_that("field guide tables render and cover the cell factories", {
     spi_field_guide_table(fg, engine = "gt", layout = "scan"), "gt_tbl"
   )
 
-  # a guide with no genomic input -> "genomic not assessed" cell branch
-  fg_ng <- build_full_guide(genomic = NULL)
+  # a guide with no detections input -> "detections not assessed" cell branch
+  fg_ng <- build_full_guide(detections = NULL)
   expect_s3_class(
     spi_field_guide_table(fg_ng, engine = "gt", layout = "worked"), "gt_tbl"
   )
@@ -442,7 +442,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
 
   # unfiltered, an ambiguous VDPV counts like any other row
   all_in <- spi_field_guide(
-    conc, genomic = g, serotype_col = "serotype", verbose = FALSE
+    conc, detections = g, serotype_col = "serotype", verbose = FALSE
   )$focal
   expect_equal(all_in$orphan_serotypes, "aVDPV2, cVDPV2")
   expect_equal(all_in$orphan_years, "2023, 2024")
@@ -450,7 +450,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
   # filtered, only the confirmed virus reaches the years, the flag and the
   # serotype string, so all three agree
   kept <- spi_field_guide(
-    conc, genomic = g, serotype_col = "serotype",
+    conc, detections = g, serotype_col = "serotype",
     detection_serotypes = c("WPV1", "cVDPV1", "cVDPV2", "cVDPV3"),
     verbose = FALSE
   )$focal
@@ -460,7 +460,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
 
   # filtering everything out leaves no detection at all
   none <- spi_field_guide(
-    conc, genomic = g, serotype_col = "serotype",
+    conc, detections = g, serotype_col = "serotype",
     detection_serotypes = "WPV1", verbose = FALSE
   )$focal
   expect_equal(none$orphan_years, "")
@@ -469,7 +469,7 @@ test_that("detection_serotypes keeps ambiguous virus out of the channels", {
   # and asking to filter without saying where the serotype lives is an error
   expect_error(
     spi_field_guide(
-      conc, genomic = g, detection_serotypes = "cVDPV2", verbose = FALSE
+      conc, detections = g, detection_serotypes = "cVDPV2", verbose = FALSE
     ),
     "serotype_col"
   )

@@ -12,7 +12,7 @@
 # sampling-noise options when building the guide:
 #
 #   fg <- spi_field_guide(conc, process = p, adjacency = adj, spi_month = cm,
-#                        genomic = g, es = e,
+#                        detections = g, es = e,
 #                        traj_alpha = 0.1,     # trend significance level
 #                        noise_alpha = 0.05)   # sampling-noise threshold
 #
@@ -120,7 +120,7 @@ pagers <- lapply(districts, function(d) {
     boundaries = synth_surveillance$boundaries,
     id_col = "adm2_guid",
     indicators_df = indicators,
-    # the guide above was built from a cVDPV2-only genomic input, so the page
+    # the guide above was built from cVDPV2-only AFP detection records, so the page
     # may name that serotype; a mixed input would leave this NULL
     detection_label = "cVDPV2",
     path = out_dir

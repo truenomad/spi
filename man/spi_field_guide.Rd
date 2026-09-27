@@ -12,8 +12,8 @@ spi_field_guide(
   process_min_cases = 5L,
   adjacency = NULL,
   spi_month = NULL,
-  genomic = NULL,
-  genomic_col = NULL,
+  detections = NULL,
+  detection_col = NULL,
   es = NULL,
   es_col = NULL,
   serotype_col = NULL,
@@ -59,12 +59,12 @@ context. Default: NULL.}
 \item{spi_month}{Optional \code{\link[=spi_index]{spi_index()}} result at \code{district_month} level.
 Enables assessment of seasonal reporting patterns, reported as context. Default: NULL.}
 
-\item{genomic}{Optional tibble of case-based (AFP) poliovirus detections
+\item{detections}{Optional tibble of case-based (AFP) poliovirus detections
 with the district id column and \code{year}. Reported as context. Rows are
-detections; pass \code{genomic_col} to filter on a 0/1 flag column. Default:
+detections; pass \code{detection_col} to filter on a 0/1 flag column. Default:
 NULL.}
 
-\item{genomic_col}{Optional name of a logical / 0-1 column in \code{genomic};
+\item{detection_col}{Optional name of a logical / 0-1 column in \code{detections};
 only \code{TRUE} or 1 rows count as detections. Default: NULL (every row counts).}
 
 \item{es}{Optional tibble of environmental-surveillance (ES) detections with
@@ -76,7 +76,7 @@ NULL.}
 with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
 
-\item{serotype_col}{Optional name of a serotype column in \code{genomic} and / or
+\item{serotype_col}{Optional name of a serotype column in \code{detections} and / or
 \code{es}, e.g. holding \code{"cVDPV2"}, \code{"WPV1"}. When given, the distinct serotypes
 seen up to each year are recorded as \code{orphan_serotypes} / \code{es_serotypes},
 so a reading can name what was actually found rather than assuming one
@@ -245,9 +245,9 @@ fg <- spi_field_guide(
   process = synth_surveillance$afp_process,
   adjacency = adj,
   spi_month = cm,
-  genomic = dplyr::filter(
-    synth_surveillance$virus_outcome, any_cvdpv2 == 1
-  ),
+  detections = synth_surveillance$virus_outcome |>
+    dplyr::filter(any_cvdpv2 == 1) |>
+    dplyr::select(adm2_guid, year),
   es = synth_surveillance$es_district_year,
   es_col = "n_positive"
 )

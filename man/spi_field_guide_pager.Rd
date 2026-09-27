@@ -91,7 +91,7 @@ with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
 
 \item{detection_label}{What the detections in \code{x} and \code{es} actually are,
-e.g. \code{"cVDPV2"} or \code{"WPV1"}. Use this to name the serotype selected in \code{genomic} / \code{es}
+e.g. \code{"cVDPV2"} or \code{"WPV1"}. Use this to name the serotype selected in \code{detections} / \code{es}
 when building the guide. Leave it NULL for mixed serotypes; the report
 then uses "poliovirus". Default: NULL.}
 

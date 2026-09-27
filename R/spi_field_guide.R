@@ -103,11 +103,11 @@
 #'   context. Default: NULL.
 #' @param spi_month Optional [spi_index()] result at `district_month` level.
 #'   Enables assessment of seasonal reporting patterns, reported as context. Default: NULL.
-#' @param genomic Optional tibble of case-based (AFP) poliovirus detections
+#' @param detections Optional tibble of case-based (AFP) poliovirus detections
 #'   with the district id column and `year`. Reported as context. Rows are
-#'   detections; pass `genomic_col` to filter on a 0/1 flag column. Default:
+#'   detections; pass `detection_col` to filter on a 0/1 flag column. Default:
 #'   NULL.
-#' @param genomic_col Optional name of a logical / 0-1 column in `genomic`;
+#' @param detection_col Optional name of a logical / 0-1 column in `detections`;
 #'   only `TRUE` or 1 rows count as detections. Default: NULL (every row counts).
 #' @param es Optional tibble of environmental-surveillance (ES) detections with
 #'   the district id column and `year`. Reported as context. Rows are
@@ -116,7 +116,7 @@
 #' @param es_col Optional name of a count / logical column in `es`; only rows
 #'   with a positive count (or `TRUE`) count as detections. Default: NULL
 #'   (every row counts).
-#' @param serotype_col Optional name of a serotype column in `genomic` and / or
+#' @param serotype_col Optional name of a serotype column in `detections` and / or
 #'   `es`, e.g. holding `"cVDPV2"`, `"WPV1"`. When given, the distinct serotypes
 #'   seen up to each year are recorded as `orphan_serotypes` / `es_serotypes`,
 #'   so a reading can name what was actually found rather than assuming one
@@ -217,9 +217,9 @@
 #'   process = synth_surveillance$afp_process,
 #'   adjacency = adj,
 #'   spi_month = cm,
-#'   genomic = dplyr::filter(
-#'     synth_surveillance$virus_outcome, any_cvdpv2 == 1
-#'   ),
+#'   detections = synth_surveillance$virus_outcome |>
+#'     dplyr::filter(any_cvdpv2 == 1) |>
+#'     dplyr::select(adm2_guid, year),
 #'   es = synth_surveillance$es_district_year,
 #'   es_col = "n_positive"
 #' )
@@ -232,8 +232,8 @@ spi_field_guide <- function(
   process_min_cases = 5L,
   adjacency = NULL,
   spi_month = NULL,
-  genomic = NULL,
-  genomic_col = NULL,
+  detections = NULL,
+  detection_col = NULL,
   es = NULL,
   es_col = NULL,
   serotype_col = NULL,
@@ -376,11 +376,11 @@ spi_field_guide <- function(
   }
   dy$seasonally_blind <- !is.na(dy$seasonal) & dy$seasonal == "blind"
 
-  # --- context: detections, AFP (genomic) and ES ----------------------
-  have_genomic <- !is.null(genomic)
-  if (have_genomic) {
-    dy <- .fg_add_genomic(
-      dy, genomic, id_col, genomic_col, serotype_col, detection_serotypes
+  # --- context: AFP and ES detections ----------------------
+  have_detections <- !is.null(detections)
+  if (have_detections) {
+    dy <- .fg_add_detections(
+      dy, detections, id_col, detection_col, serotype_col, detection_serotypes
     )
   } else {
     dy$orphan_years <- NA_character_
@@ -420,7 +420,7 @@ spi_field_guide <- function(
     adequacy = have_process,
     surroundings = have_adjacency,
     seasonal = have_seasonal,
-    detect_afp = have_genomic,
+    detect_afp = have_detections,
     detect_es = have_es
   )
 
@@ -778,25 +778,25 @@ spi_field_guide <- function(
   }
 }
 
-# context genomic: orphan detection years up to and including each year.
+# AFP detection years up to and including each year.
 # @noRd
-.fg_add_genomic <- function(dy, genomic, id_col, genomic_col,
+.fg_add_detections <- function(dy, detections, id_col, detection_col,
                            serotype_col = NULL, keep_serotypes = NULL) {
   stopifnot(
-    is.data.frame(genomic),
-    id_col %in% names(genomic),
-    "year" %in% names(genomic)
+    is.data.frame(detections),
+    id_col %in% names(detections),
+    "year" %in% names(detections)
   )
-  g <- genomic
-  if (!is.null(genomic_col)) {
-    if (!genomic_col %in% names(g)) {
+  g <- detections
+  if (!is.null(detection_col)) {
+    if (!detection_col %in% names(g)) {
       cli::cli_abort(
-        "{.arg genomic_col} {.val {genomic_col}} not in {.arg genomic}."
+        "{.arg detection_col} {.val {detection_col}} not in {.arg detections}."
       )
     }
-    g <- g[as.logical(g[[genomic_col]]) %in% TRUE, , drop = FALSE]
+    g <- g[as.logical(g[[detection_col]]) %in% TRUE, , drop = FALSE]
   }
-  g <- .fg_keep_serotypes(g, serotype_col, keep_serotypes, "genomic")
+  g <- .fg_keep_serotypes(g, serotype_col, keep_serotypes, "detections")
   orphan_map <- split(as.integer(g$year), as.character(g[[id_col]]))
   ids <- as.character(dy[[id_col]])
   yrs <- as.integer(dy$year)

@@ -51,11 +51,11 @@ conc <- spi_concordance(
 )
 
 # 5. field guide (all STEPS components and context, both detection channels) --
-# The bundle records both serotypes, so the genomic input is stacked long with a
+# The bundle records both serotypes, so AFP detection records are stacked long with a
 # serotype column rather than filtered to one: a district can then report what
 # was actually found instead of the reading assuming a single serotype.
 vo <- synth$virus_outcome
-genomic <- dplyr::bind_rows(
+detections <- dplyr::bind_rows(
   vo |>
     dplyr::filter(any_cvdpv2 == 1) |>
     dplyr::transmute(adm2_guid, year, serotype = "cVDPV2"),
@@ -69,7 +69,7 @@ synth_field_guide <- spi_field_guide(
   process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
-  genomic = genomic,
+  detections = detections,
   es = synth$es_district_year,
   es_col = "n_positive",
   serotype_col = "serotype",

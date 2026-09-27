@@ -364,18 +364,20 @@ if (interactive()) {
 # components (strength, timeliness, extent, persistence, stool adequacy) and
 # assigns review priority / monitor / no SPI indication. Timeliness and stool
 # adequacy need the AFP process counts; the adjacency graph, monthly SPI and
-# orphan-poliovirus table add context outside STEPS.
+# AFP poliovirus detection table add context outside STEPS.
 
 cli::cli_h2("SPI field guide")
 
-genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
+detections <- synth$virus_outcome |>
+  dplyr::filter(any_cvdpv2 == 1) |>
+  dplyr::select(adm2_guid, year)
 
 fg <- spi::spi_field_guide(
   concordance = conc,
   process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
-  genomic = genomic[, c("adm2_guid", "year")],
+  detections = detections,
   verbose = TRUE
 )
 

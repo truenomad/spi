@@ -75,7 +75,7 @@
 #'   with a positive count (or `TRUE`) count as detections. Default: NULL
 #'   (every row counts).
 #' @param detection_label What the detections in `x` and `es` actually are,
-#'   e.g. `"cVDPV2"` or `"WPV1"`. Use this to name the serotype selected in `genomic` / `es`
+#'   e.g. `"cVDPV2"` or `"WPV1"`. Use this to name the serotype selected in `detections` / `es`
 #'   when building the guide. Leave it NULL for mixed serotypes; the report
 #'   then uses "poliovirus". Default: NULL.
 #' @param id_col District id column, shared by `adjacency` / `boundaries` /
@@ -726,7 +726,7 @@ as.character.spi_pager <- function(x, ...) {
       "stroke-width=\"1.6\"/>"
     )
   }
-  # AFP genomic positives: filled diamond
+  # AFP detections: filled diamond
   for (yr in afp) {
     p <- marker_xy(yr)
     if (is.null(p)) next

@@ -130,7 +130,10 @@ spi_dy <- spi_index(fit_bare, level = "district_year", centre = "national")
 ```
 
 ```{r quick-start-results}
-head(as_tibble(spi_dy)[, c("adm2_guid", "year", "spi_median", "spi_q05", "spi_q95")])
+spi_dy |>
+  tibble::as_tibble() |>
+  dplyr::select(adm2_guid, year, spi_median, spi_q05, spi_q95) |>
+  dplyr::slice_head(n = 6)
 ```
 
 `spi_dy$national` reports the national observed-to-expected ratio separately. Use `centre = "none"` in the same call for the district-only observed-to-expected ratio.
@@ -254,11 +257,18 @@ spi_check_inputs(
 Here is the report for data with one negative count and three missing months:
 
 ```{r check-inputs-broken, message = TRUE}
-bad <- synth$cases
-bad$count[1] <- -1                   # a data-entry slip
-bad <- bad[-(2:4), ]                 # three missing district-months
+bad_cases <- synth$cases |>
+  # Set the first count to -1 to simulate a data-entry error.
+  dplyr::mutate(count = dplyr::if_else(dplyr::row_number() == 1, -1, count)) |>
+  # Remove three district-months to simulate missing records.
+  dplyr::slice(-(2:4))
 
-spi_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
+spi_check_inputs(
+  cases = bad_cases,
+  population = synth$population,
+  shapefile = synth$boundaries,
+  id_col = "adm2_guid"
+)
 ```
 
 ### Spatial neighbours
@@ -274,13 +284,14 @@ The quick start used `spi_adjacency()` to turn district polygons into a neighbou
 The result includes posterior draws and summaries of expected counts for every district-month. Here are the observed counts, expected medians, and 90% credible intervals:
 
 ```{r fit-bare-show}
-as_tibble(fit_bare) |>
+fit_bare |>
+  tibble::as_tibble() |>
   dplyr::filter(count > 0) |>
   dplyr::select(
     adm2_guid, month, count,
     expected_median, expected_q05, expected_q95
   ) |>
-  head()
+  dplyr::slice_head(n = 6)
 ```
 
 ### Adjusting for covariates
@@ -288,7 +299,8 @@ as_tibble(fit_bare) |>
 Covariates are optional and are not part of the default SPI used in the accompanying study. Pass district-year covariates to `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
 
 ```{r covariates}
-head(synth$covariates)
+synth$covariates |>
+  dplyr::slice_head(n = 6)
 ```
 
 Pass them in, log-transforming the skewed travel-time column:
@@ -310,9 +322,9 @@ fit_adj <- spi_expected(
 Effects are reported as rate ratios per standard deviation of the covariate. The model standardises covariates internally. Here are the three covariate effects, excluding the seasonal terms:
 
 ```{r fit-adjusted-show}
-eff <- summary(fit_adj)$effects
-eff[eff$covariate %in% c("dtp3", "urban_prop", "travel_time_min"),
-    c("covariate", "rr_median", "rr_q025", "rr_q975", "signif")]
+summary(fit_adj)$effects |>
+  dplyr::filter(covariate %in% c("dtp3", "urban_prop", "travel_time_min")) |>
+  dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
 ```
 
 Optional covariates can be used for sensitivity analyses or alternative applications; the default SPI does not require them. The remaining examples use `fit_bare`, the model without covariates.
@@ -349,9 +361,10 @@ spi_dm <- spi_index(fit_bare, level = "district_month")
 
 
 ```{r spi-show}
-head(as_tibble(spi_dy)[, c(
-  "adm2_guid", "year", "observed", "spi_median", "spi_q05", "spi_q95"
-)])
+spi_dy |>
+  tibble::as_tibble() |>
+  dplyr::select(adm2_guid, year, observed, spi_median, spi_q05, spi_q95) |>
+  dplyr::slice_head(n = 6)
 ```
 
 **Use annual SPI for review.** Monthly AFP counts are often 0 or 1, so monthly ratios vary widely. Annual counts give a more stable basis for review. The monthly series is useful for trends and the field guide's seasonal assessment.
@@ -386,8 +399,9 @@ conc <- spi_concordance(
 
 Count the district-years in each category:
 
-```{r concordance-show}
-table(conc$district_year$concordance)
+```{r concordance-show, cache = FALSE}
+conc$district_year |>
+  dplyr::count(concordance, name = "district_years", .drop = FALSE)
 ```
 
 `plot()` shows the four cells as a scatter of NPAFP rate against SPI, split by the two thresholds (dashed). The `"SPI only"` points sit bottom-right: the NPAFP target is met, but SPI is below 1.
@@ -426,17 +440,20 @@ The field guide generates three review labels:
 
 These labels organise the findings for review; they are not validated judgements of surveillance adequacy or automatic recommendations for field action. Decisions require the underlying data and other surveillance evidence. The examples below use synthetic data.
 
-Timeliness and stool adequacy come from `process`, a district-year table of AFP case counts (`n_cases`, `n_adequate`, `n_transport`, `n_transport_timely`). Extent uses the `adm1_name` column that `spi_concordance()` carries when given `boundaries`. Trend, neighbouring-district context, seasonal patterns, and poliovirus detections through AFP (`genomic`) or environmental surveillance (`es`) are reported separately as supporting context.
+Timeliness and stool adequacy come from `process`, a district-year table of AFP case counts (`n_cases`, `n_adequate`, `n_transport`, `n_transport_timely`). Extent uses the `adm1_name` column that `spi_concordance()` carries when given `boundaries`. Trend, neighbouring-district context, seasonal patterns, and poliovirus detections through AFP (`detections`) or environmental surveillance (`es`) are reported separately as supporting context.
 
 ```{r field-guide, cache = FALSE}
-genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
+# Optional AFP poliovirus detection records, used only as supporting context.
+detections <- synth$virus_outcome |>
+  dplyr::filter(any_cvdpv2 == 1) |>
+  dplyr::select(adm2_guid, year)
 
 fg <- spi_field_guide(
   concordance = conc,
   process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
-  genomic = genomic[, c("adm2_guid", "year")],
+  detections = detections,
   es = synth$es_district_year,
   es_col = "n_positive",
   verbose = FALSE
@@ -497,10 +514,10 @@ spi_field_guide_pager(
 <summary>One-page field pager for a review priority district</summary>
 
 ```{r pager-img, cache = FALSE, echo = FALSE, fig.alt = "One-page SPI field pager: review label, an SPI chart with a credible interval and a location map, the five STEPS components, and a judgement banner."}
-priority <- fg$focal$verdict == "Review priority" & fg$focal$observed > 0
-pager_id <- fg$focal$adm2_guid[priority][
-  which.min(fg$focal$spi_median[priority])
-]
+pager_id <- fg$focal |>
+  dplyr::filter(verdict == "Review priority", observed > 0) |>
+  dplyr::slice_min(spi_median, n = 1, with_ties = FALSE) |>
+  dplyr::pull(adm2_guid)
 spi_field_guide_pager(
   fg, district = pager_id, boundaries = synth$boundaries,
   id_col = "adm2_guid", file = "man/figures/README-pager.png",

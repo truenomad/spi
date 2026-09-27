@@ -135,7 +135,10 @@ spi_dy <- spi_index(fit_bare, level = "district_year", centre = "national")
 ```
 
 ``` r
-head(as_tibble(spi_dy)[, c("adm2_guid", "year", "spi_median", "spi_q05", "spi_q95")])
+spi_dy |>
+  tibble::as_tibble() |>
+  dplyr::select(adm2_guid, year, spi_median, spi_q05, spi_q95) |>
+  dplyr::slice_head(n = 6)
 #> # A tibble: 6 x 5
 #>   adm2_guid                               year spi_median spi_q05 spi_q95
 #>   <chr>                                  <dbl>      <dbl>   <dbl>   <dbl>
@@ -357,11 +360,18 @@ Here is the report for data with one negative count and three missing
 months:
 
 ``` r
-bad <- synth$cases
-bad$count[1] <- -1                   # a data-entry slip
-bad <- bad[-(2:4), ]                 # three missing district-months
+bad_cases <- synth$cases |>
+  # Set the first count to -1 to simulate a data-entry error.
+  dplyr::mutate(count = dplyr::if_else(dplyr::row_number() == 1, -1, count)) |>
+  # Remove three district-months to simulate missing records.
+  dplyr::slice(-(2:4))
 
-spi_check_inputs(bad, synth$population, synth$boundaries, id_col = "adm2_guid")
+spi_check_inputs(
+  cases = bad_cases,
+  population = synth$population,
+  shapefile = synth$boundaries,
+  id_col = "adm2_guid"
+)
 #>
 #> -- spi input check -------------------------------------------------------------
 #> i 236 districts x 120 months (2015-01 to 2024-12)
@@ -391,13 +401,14 @@ every district-month. Here are the observed counts, expected medians,
 and 90% credible intervals:
 
 ``` r
-as_tibble(fit_bare) |>
+fit_bare |>
+  tibble::as_tibble() |>
   dplyr::filter(count > 0) |>
   dplyr::select(
     adm2_guid, month, count,
     expected_median, expected_q05, expected_q95
   ) |>
-  head()
+  dplyr::slice_head(n = 6)
 #> # A tibble: 6 x 6
 #>   adm2_guid           month      count expected_median expected_q05 expected_q95
 #>   <chr>               <date>     <int>           <dbl>        <dbl>        <dbl>
@@ -417,7 +428,8 @@ through the `covariates` argument. The example data include DTP3
 coverage, urban population share, and travel time to care:
 
 ``` r
-head(synth$covariates)
+synth$covariates |>
+  dplyr::slice_head(n = 6)
 #>                                adm2_guid year dtp3 urban_prop travel_time_min
 #> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2015 84.8      0.566            15.9
 #> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2016 89.9      0.566            16.5
@@ -448,9 +460,9 @@ covariate. The model standardises covariates internally. Here are the
 three covariate effects, excluding the seasonal terms:
 
 ``` r
-eff <- summary(fit_adj)$effects
-eff[eff$covariate %in% c("dtp3", "urban_prop", "travel_time_min"),
-    c("covariate", "rr_median", "rr_q025", "rr_q975", "signif")]
+summary(fit_adj)$effects |>
+  dplyr::filter(covariate %in% c("dtp3", "urban_prop", "travel_time_min")) |>
+  dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
 #> # A tibble: 3 x 5
 #>   covariate       rr_median rr_q025 rr_q975 signif
 #>   <chr>               <dbl>   <dbl>   <dbl> <lgl>
@@ -508,9 +520,10 @@ spi_dm <- spi_index(fit_bare, level = "district_month")
 ```
 
 ``` r
-head(as_tibble(spi_dy)[, c(
-  "adm2_guid", "year", "observed", "spi_median", "spi_q05", "spi_q95"
-)])
+spi_dy |>
+  tibble::as_tibble() |>
+  dplyr::select(adm2_guid, year, observed, spi_median, spi_q05, spi_q95) |>
+  dplyr::slice_head(n = 6)
 #> # A tibble: 6 x 6
 #>   adm2_guid                             year observed spi_median spi_q05 spi_q95
 #>   <chr>                                <dbl>    <int>      <dbl>   <dbl>   <dbl>
@@ -575,10 +588,15 @@ conc <- spi_concordance(
 Count the district-years in each category:
 
 ``` r
-table(conc$district_year$concordance)
-#>
-#> Neither flagged        SPI only      NPAFP only    Both flagged
-#>             972            1060              72             256
+conc$district_year |>
+  dplyr::count(concordance, name = "district_years", .drop = FALSE)
+#> # A tibble: 4 x 2
+#>   concordance     district_years
+#>   <fct>                    <int>
+#> 1 Neither flagged            972
+#> 2 SPI only                  1060
+#> 3 NPAFP only                  72
+#> 4 Both flagged               256
 ```
 
 `plot()` shows the four cells as a scatter of NPAFP rate against SPI,
@@ -644,18 +662,21 @@ of AFP case counts (`n_cases`, `n_adequate`, `n_transport`,
 `n_transport_timely`). Extent uses the `adm1_name` column that
 `spi_concordance()` carries when given `boundaries`. Trend,
 neighbouring-district context, seasonal patterns, and poliovirus
-detections through AFP (`genomic`) or environmental surveillance (`es`)
-are reported separately as supporting context.
+detections through AFP (`detections`) or environmental surveillance
+(`es`) are reported separately as supporting context.
 
 ``` r
-genomic <- dplyr::filter(synth$virus_outcome, any_cvdpv2 == 1)
+# Optional AFP poliovirus detection records, used only as supporting context.
+detections <- synth$virus_outcome |>
+  dplyr::filter(any_cvdpv2 == 1) |>
+  dplyr::select(adm2_guid, year)
 
 fg <- spi_field_guide(
   concordance = conc,
   process = synth$afp_process,
   adjacency = adj,
   spi_month = spi_dm,
-  genomic = genomic[, c("adm2_guid", "year")],
+  detections = detections,
   es = synth$es_district_year,
   es_col = "n_positive",
   verbose = FALSE

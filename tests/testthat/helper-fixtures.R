@@ -283,7 +283,7 @@ make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
   # per-district SPI trajectories (length ny, 2019..2024)
   traj <- list(
     FG1 = seq(0.75, 0.45, length.out = ny),   # falling, persistent, adequate
-    FG2 = seq(0.70, 0.40, length.out = ny),   # falling, persistent (no genomic)
+    FG2 = seq(0.70, 0.40, length.out = ny),   # falling, persistent (no detections)
     FG3 = rep(0.60, ny),                        # below cut, wide CrI -> monitor
     FG4 = rep(1.05, ny),                        # comfortably adequate
     FG5 = seq(0.9, 0.5, length.out = ny),      # island, falling
@@ -330,9 +330,8 @@ make_concordance <- function(id_col = "adm2_guid", spi_cut = 0.8,
   )
 }
 
-# genomic orphan table: FG1 and FG2 carry orphan detections, so both the
-# "corroborated" (genomic) and "persistent" corrob picks are reachable.
-make_genomic <- function(id_col = "adm2_guid") {
+# AFP detection records for FG1 and FG2, used as supporting context.
+make_detections <- function(id_col = "adm2_guid") {
   tibble::tibble(
     !!id_col := c("FG1", "FG1", "FG2"),
     year = c(2022L, 2023L, 2021L),

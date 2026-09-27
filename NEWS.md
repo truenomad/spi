@@ -12,6 +12,11 @@
 
 ### Field guide
 
+* Renamed the `spi_field_guide()` arguments `genomic` and `genomic_col` to
+  `detections` and `detection_col`. These inputs contain AFP poliovirus
+  detection records, not genetic data. They remain optional supporting
+  context and do not affect SPI or the STEPS review label.
+
 * STEPS now follows the SPI field guide: strength, timeliness, extent,
   persistence and stool adequacy, applied to districts with an SPI below 1.
   `spi_cut` defaults to 1 rather than the concordance cut. Extent compares the
