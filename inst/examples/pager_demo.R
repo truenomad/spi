@@ -1,33 +1,25 @@
 # Render one-page SPI pagers from the packaged synthetic field guide.
 #
-# The pager is self-contained: hand it the field guide and the shapefile and it
-# draws the locator inset from the real geometry, placing the district in its
-# country, and reads both detection channels (AFP + ES, already carried by the
-# field guide) into the context row. Each district is written as a
-# self-contained HTML tear-sheet plus a PNG preview, auto-named
-# spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}, into inst/examples/pager/ so
-# the results can be reviewed in the repo. PNG output needs webshot2 and a
-# headless Chrome.
+# Creates a district report with a location map, STEPS findings, and AFP / ES
+# detections. Saves HTML and PNG files in inst/examples/pager/ as
+# spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}.
+# PNG output needs webshot2 and headless Chrome.
 #
-#   source(system.file("examples/pager_demo.R", package = "spi"))
-# or, from a source checkout:
+# Run from a source checkout:
 #   Rscript inst/examples/pager_demo.R
 #
-# Operational note: the pager renders the STEPS components and the judgement
-# straight from the field-guide object; it does not recompute them. So the
-# levers that decide what the page says are all at the *build* of the guide,
-# not at the pager call. Two matter:
+# The pager uses the field guide's existing findings. Set trend and
+# sampling-noise options when building the guide:
 #
 #   fg <- spi_field_guide(conc, process = p, adjacency = adj, spi_month = cm,
 #                        genomic = g, es = e,
-#                        traj_alpha = 0.1,     # gate the trend test (context)
-#                        noise_alpha = 0.05)   # gate strength on sampling noise
+#                        traj_alpha = 0.1,     # trend significance level
+#                        noise_alpha = 0.05)   # sampling-noise threshold
 #
-# Both default off. For operational pagers that people act on, turn them on:
-# traj_alpha stops a single volatile year reading as a sustained decline, and
-# noise_alpha stops a shortfall that chance alone could produce from reading
-# as a certain one. This synthetic gallery renders from the precomputed
-# (default-settings) `synth_field_guide` so it runs instantly without INLA.
+# Both options are off by default. traj_alpha tests whether a trend differs
+# from zero. noise_alpha checks whether the shortfall could arise by chance.
+# This example uses the precomputed synth_field_guide with default settings,
+# so it runs without fitting an INLA model.
 
 devtools::load_all()
 
@@ -38,18 +30,12 @@ foc <- fg$focal
 cut <- fg$thresholds$spi
 
 # ---- illustrative indicator panel -----------------------------------------
-# `indicators_df` fills the context row with conventional AFP and ES indicators,
-# shaped as a district-year panel keyed by guid and year. In a real run this is
-# your polished indicator table. Nothing like it ships with the package, so the
-# gallery fabricates one to exercise the row: the case counts and rate come from
-# the guide, onset-to-notification from the bundle's own timeliness counts, and
-# the remaining quality percentages are SIMULATED. Do not read any meaning into
-# the stool-adequacy, notify-to-invest or EV figures in these PNGs.
-#
-# The percentages are drawn against the real assessable case counts on purpose.
-# That is what puts a district with two AFP cases, and one with none at all,
-# into the gallery -- the cases the strip has to report honestly rather than as
-# a confident "100%".
+# `indicators_df` contains conventional AFP and ES indicators by district-year.
+# Counts and rates come from the synthetic field guide; onset-to-notification
+# percentages come from the bundled timeliness data. The remaining percentages
+# are simulated for this example and have no surveillance interpretation.
+# Using the case counts as denominators also demonstrates reports for
+# districts with very few or no AFP cases.
 set.seed(20260725)
 dyi <- fg$district_year
 nrows <- nrow(dyi)

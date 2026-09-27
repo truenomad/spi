@@ -1,4 +1,4 @@
-# Generate spi::synth_surveillance -- a self-contained toy AFP
+# Generate spi::synth_surveillance -- a self-contained simulated AFP
 # surveillance dataset for examples and tests. Run:
 #   Rscript data-raw/synth_admin_polygons.R   # first: builds the boundaries
 #   Rscript data-raw/synth_surveillance.R     # then: simulates on them
@@ -284,7 +284,7 @@ grid <- tidyr::expand_grid(adm2_guid = boundaries$adm2_guid, month = months) |>
 cases <- grid |> select(adm2_guid, month, count)
 
 # ---------------------------------------------------------------------------
-# 7. Ground-truth cheat sheet
+# 7. Simulation settings
 # ---------------------------------------------------------------------------
 yr <- function(y) match(y, years)
 truth <- tibble(
@@ -434,7 +434,7 @@ covariates <- population |>
 # afp_detected reuses virus_outcome (the AFP/genomic isolation channel that the
 # field guide also consumes as its S7 orphan signal, so it is not independent of
 # the guide here); es_detected / es_covered come from the ES rollup and sites,
-# the genuinely separate corroborator. Pure joins on already-drawn columns -- no
+# a separate source of evidence. Pure joins on already-drawn columns -- no
 # RNG -- so the rest of the bundle is byte-stable.
 detections <- population |>
   distinct(adm2_guid, year) |>

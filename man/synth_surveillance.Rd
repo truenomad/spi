@@ -3,9 +3,9 @@
 \docType{data}
 \name{synth_surveillance}
 \alias{synth_surveillance}
-\title{Synthetic AFP surveillance toy dataset}
+\title{Synthetic AFP surveillance data}
 \format{
-A named list with twelve elements:
+A named list with thirteen elements:
 \describe{
 \item{cases}{Tibble, 28,320 x 3. Columns: \code{adm2_guid} (character district
 id, a POLIS-style GUID such as
@@ -15,25 +15,23 @@ with zero counts explicit.}
 \item{population}{Tibble, 2,360 x 3. Columns: \code{adm2_guid}, \code{year}
 (integer, 2015-2024), \code{pop_u15} (numeric, under-15 population). Real
 annual under-15 counts extracted from the WorldPop 0-14 rasters over the
-source geometry (range ~19k-900k), so the NPAFP denominators are
-genuine.}
+source geometry (range ~19k-900k).}
 \item{covariates}{Tibble, 2,360 x 5. District-year covariate layers for the
-adjusted \code{spi_expected()} spec. Columns: \code{adm2_guid}, \code{year} (integer,
+adjusted \code{spi_expected()} model. Columns: \code{adm2_guid}, \code{year} (integer,
 2015-2024), \code{dtp3} (numeric, DTP3 immunisation coverage \%, a
-health-system-reach proxy), \code{urban_prop} (numeric, 0-1 urban share,
+proxy for health service access), \code{urban_prop} (numeric, 0-1 urban share,
 structural per district), \code{travel_time_min} (numeric, median minutes to
 the nearest health facility, an access-to-care proxy; right-skewed, a
 \code{log_transform} candidate). Correlated with the planted blindspots (lower
 coverage, worse access) and population (denser is more urban).}
 \item{boundaries}{\code{sf} object, 236 x 4 (+ geometry). Columns: \code{adm2_guid},
-\code{adm2_name} (invented Haradwaith-flavoured toponyms), \code{adm1_name} (one of
+\code{adm2_name} (fictional place names), \code{adm1_name} (one of
 36 fictional provinces), \code{adm0_name} (\code{"Harad"}), \code{geometry} (POLYGON /
 MULTIPOLYGON on a local grid; CRS deliberately undefined). Derived from
 real Lake Chad adm2 boundaries (geoBoundaries) across four countries,
 merged into one gap-free landmass, partitioned into 36 contiguous
 provinces, relabelled, and rotated onto a local grid with the CRS
-dropped -- so the shape is unambiguously fictional and cannot be traced
-back to a real place.}
+removed for use as fictional geography.}
 \item{ward_boundaries}{\code{sf} object, ~1,548 x 6 (+ geometry). Columns:
 \code{adm3_guid} (the parent \code{adm2_guid} GUID suffixed \code{-W01}, \code{-W02}, ...),
 \code{adm3_name} (parent adm2 name plus a
@@ -42,13 +40,11 @@ e.g. \code{"Khandoth North Ward"}, \code{"Nenad Ford"}), \code{adm2_guid},
 \code{adm2_name}, \code{adm1_name}, \code{adm0_name}, \code{geometry}. Each adm2 is
 subdivided into 5-8 wards by nested Voronoi tessellation.}
 \item{virus_outcome}{Tibble, 2,360 x 5. Columns: \code{adm2_guid}, \code{year},
-\code{any_wpv1} (integer, 0/1; always 0 in this toy), \code{any_cvdpv2}
-(integer, 0/1), \code{any_virus} (integer, 0/1). cVDPV2 detections surface
+\code{any_wpv1} (integer, 0/1; always 0 in these data), \code{any_cvdpv2}
+(integer, 0/1), \code{any_virus} (integer, 0/1). cVDPV2 detections occur
 the year after a district's detection completeness falls well below the
 contemporaneous norm (relative completeness < 0.6), at rate
-\code{plogis(-0.6)}; background rate \code{plogis(-4)}. Retained as an ad-hoc
-validation anchor even though the framework is descriptive, not
-predictive.}
+\code{plogis(-0.6)}; background rate \code{plogis(-4)}. Included for comparison with SPI results.}
 \item{es_sites}{\code{sf} object, 160 x 5 (+ geometry). Environmental
 surveillance sentinel sites (~67\% of districts host one). Columns:
 \code{es_site_id}, \code{site_name}, \code{adm3_guid}, \code{adm2_guid}, \code{adm1_name},
@@ -59,27 +55,24 @@ centroid of a random ward.}
 \code{positive_cvdpv2} (integer, 0/1). Positivity probability shares the
 same true-vs-observed gap signal as \code{virus_outcome}, so the two ES
 proxies are internally consistent.}
-\item{es_district_year}{Tibble, 1,600 x 4. District-year ES rollup.
+\item{es_district_year}{Tibble, 1,600 x 4. Annual ES totals by district.
 Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
 \item{detections}{Tibble, 2,360 x 5. District-year detection channels for
 \code{\link[=spi_triangulate]{spi_triangulate()}}. Columns: \code{adm2_guid}, \code{year}, \code{afp_detected}
 (logical, poliovirus found through AFP surveillance), \code{es_detected}
 (logical, found through environmental surveillance), \code{es_covered}
 (logical, an ES site drains the district). Derived from \code{virus_outcome},
-\code{es_district_year}, and \code{es_sites}. Note: in this toy \code{afp_detected}
-reuses \code{virus_outcome}, which the field guide also consumes as its
-out-of-grid AFP orphan signal, so the AFP channel is \emph{not} independent of
-the guide here; the ES channel (\code{es_detected} / \code{es_covered}) is the
-genuinely separate corroborator. A real analysis would supply
-channel-separated detections.}
+\code{es_district_year}, and \code{es_sites}. Here, \code{afp_detected} reuses \code{virus_outcome}, which the field guide
+also uses for AFP detection context. The ES columns (\code{es_detected} /
+\code{es_covered}) provide a separate comparison. For an analysis of real
+data, supply detections separately for each channel.}
 \item{afp_timeliness}{Tibble, 2,360 x 5. District-year AFP timeliness
 counts. Columns: \code{adm2_guid}, \code{year}, \code{afp_cases}, \code{n_assessable} (cases
 with a usable onset date), \code{n_within_7d} (of those, notified inside the
 window). Onset-to-notification is the one conventional AFP indicator
-POLIS does not publish, so a reading has to build it from case data; this
-is the district-year aggregate such a percentage is computed from, and
-what \code{\link[=spi_field_guide_pager]{spi_field_guide_pager()}}'s \code{indicators_df} expects behind
-\code{onset_notify_pct} / \code{onset_notify_n}.}
+POLIS does not publish. Calculate it from case data. These counts
+supply \code{onset_notify_pct} / \code{onset_notify_n} in
+\code{\link[=spi_field_guide_pager]{spi_field_guide_pager()}}'s \code{indicators_df}.}
 \item{afp_process}{Tibble, 2,360 x 6. District-year AFP process counts
 for the STEPS timeliness and stool adequacy components. Columns:
 \code{adm2_guid}, \code{year}, \code{n_cases} (AFP cases), \code{n_adequate} (cases with
@@ -87,7 +80,7 @@ adequate stool specimens), \code{n_transport} (cases with both the second
 stool collection and laboratory receipt dates), \code{n_transport_timely}
 (of those, received by the laboratory within 3 days). The shape
 \code{\link[=spi_field_guide]{spi_field_guide()}}'s \code{process} argument expects.}
-\item{truth}{Tibble, 236 x 6. Ground-truth cheat sheet. Columns:
+\item{truth}{Tibble, 236 x 6. Simulation settings by district. Columns:
 \code{adm2_guid}, \code{surveillance_profile} (character: \code{"resilient"},
 \code{"early_improver"}, \code{"covid_transient"}, or \code{"persistent_laggard"}),
 \code{is_blindspot} (logical, TRUE for every non-resilient profile),
@@ -102,11 +95,9 @@ the district's relative detection completeness at the 2020 trough), and
 synth_surveillance
 }
 \description{
-A fully self-contained toy dataset that lets a user run the entire
-\code{spi} chain -- \code{spi_adjacency()} -> \code{spi_expected()} -> \code{spi_index()} ->
-\code{spi_concordance()} -- without any real surveillance data. Every value is
-simulated; no personally identifying or operationally sensitive information
-is present.
+Example data for \code{spi_adjacency()}, \code{spi_expected()}, \code{spi_index()}, and
+\code{spi_concordance()}. Surveillance counts are simulated. Population counts
+and the original boundary geometry come from the sources listed below.
 }
 \section{Data-generating process}{
 
@@ -118,16 +109,15 @@ likelihood with mean
 where \code{b_i} is a BYM2 spatial random effect (mixing parameter 0.6, marginal
 precision 4), \code{s(m_t)} is a 1st-order harmonic seasonal term, and
 \eqn{c_{it} = g_t \cdot r_{it}} is detection completeness. The global factor
-\code{g_t} improves through 2015-2019 to a pre-COVID peak, crashes ~30\% in 2020
+\code{g_t} improves through 2015-2019 to a pre-COVID peak, falls by about 30\% in 2020
 (COVID-19 disruption), and recovers by 2023-24. The relative factor \code{r_it}
 is 1 for \emph{resilient} districts (which track \code{g_t}) and dips below 1 for the
 other profiles in specific windows: \emph{early_improver} (poor 2015-17,
-maturing away by 2019), \emph{covid_transient} (extra hit 2020-21, recovered by
-2023), and \emph{persistent_laggard} (hit in 2020 and still degraded in 2024).
-Because the SPI model absorbs \code{g_t} into its year effect, SPI tracks \code{r_it}
--- so the SPI-flagged cells wax with the early-2010s immaturity, ebb to a
-pre-COVID low, spike in 2020-21, and recede as districts recover, leaving a
-residue of persistent laggards. \code{virus_outcome} marks the year after a
+recovered by 2019), \emph{covid_transient} (further decline in 2020-21,
+recovered by 2023), and \emph{persistent_laggard} (decline in 2020 that persists
+through 2024). The SPI model's year effect accounts for \code{g_t}, so SPI
+tracks \code{r_it}. Reporting shortfalls become less common before 2020,
+increase in 2020-21, and decrease as districts recover. \code{virus_outcome} marks the year after a
 completeness gap as cVDPV2-positive at elevated rate.
 
 Four spatially-contiguous clusters (25 districts, \code{is_low_incidence}) get a
@@ -144,12 +134,9 @@ populated and evolve realistically across the ten study years.
 
 \section{Fictional geography}{
 
-The country "Harad" is a fictional shell over real geometry: 36 invented
-provinces nest ~236 districts, all carrying invented Haradwaith-flavoured
-names (roots such as \verb{Har-}, \verb{Nen-}, \verb{Kir-}, \verb{Dol-} with assorted suffixes).
-No real place name survives, and the layer is rotated onto a local grid with
-the CRS dropped, so it cannot be traced back to its source. Purely for
-demonstrative colour; no lore relevance to surveillance.
+The fictional country Harad has 236 districts in 36 provinces. All place
+names are invented. The source geometry has been rotated onto a local grid
+and its CRS removed. The geography is used only for examples.
 }
 
 \section{Attribution}{
@@ -158,8 +145,8 @@ Geometry is derived from real admin-2 boundaries for four bordering Lake
 Chad countries (Nigeria, Niger, Chad, Cameroon) from \strong{geoBoundaries}
 gbOpen ADM2, redistributed under CC-BY 4.0 (Runfola et al. 2020,
 \doi{10.1371/journal.pone.0231866}, \url{https://www.geoboundaries.org}). The
-units are merged, cropped to an organic region around the basin, welded into
-a gap-free coverage, relabelled, and rotated (see
+units are merged, cropped to a region around the basin, joined without
+gaps, renamed, and rotated (see
 \code{data-raw/synth_admin_polygons.R} and the shipped
 \code{inst/extdata/synth_admin_polygons.provenance.txt}).
 
@@ -173,8 +160,7 @@ WorldPop is released under CC-BY 4.0 (\url{https://www.worldpop.org}).
 
 Build the boundary layer with \verb{Rscript data-raw/synth_admin_polygons.R}
 (writes \code{inst/extdata/synth_admin_polygons.gpkg}), then regenerate this
-object with \verb{Rscript --vanilla data-raw/synth_surveillance.R}. The generator
-pins \code{set.seed(20260702)} so the shipped \code{.rda} is byte-stable across runs.
+object with \verb{Rscript --vanilla data-raw/synth_surveillance.R}. The generator uses \code{set.seed(20260702)}.
 }
 
 \examples{

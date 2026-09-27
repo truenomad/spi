@@ -34,7 +34,7 @@ district-year. \code{es_detected} is only meaningful where this is true.
 Default: \code{"es_covered"}.}
 
 \item{detection_lag}{Integer years to shift detections later than the
-judgement they are tested against, to avoid response-amplified readings.
+judgement they are tested against, to assess reporting before the detection response.
 Default: 0.}
 
 \item{verdict_col}{Name of the judgement column in the field guide.
@@ -58,48 +58,40 @@ judgement (\code{verdict}), \code{es_status}, \code{afp_hit}, \code{flag_precede
 }
 }
 \description{
-Cross-references the \code{\link[=spi_field_guide]{spi_field_guide()}} review judgement, which reads
-whether AFP reporting in a district-year is below expectation, against
-the two channels that record whether virus was actually \emph{found}: AFP
-detection and environmental surveillance (ES). Because ES is largely
-independent of AFP surveillance quality, it is the channel that can confirm
-or contradict a review priority without arguing in a circle. The result is a
-per-district-year classification separating a trustworthy silence from a
-probable blind spot, and a three-level priority for triage.
+Compares the \code{\link[=spi_field_guide]{spi_field_guide()}} judgement with poliovirus detections
+through AFP and environmental surveillance (ES). ES provides a separate
+source of evidence about virus detection. The result assigns each
+district-year to a category and one of three priority levels.
 }
 \details{
-The field guide reads reporting against expectation from the AFP stream
-alone, so a \verb{Review priority} states that a silence may be untrustworthy
-but not that the silence hid virus. This function adds the independent
-read. For every district-year with no AFP detection it classifies the
-judgement against ES status (\code{positive}, \code{clear} where a site exists and
-found nothing, or \verb{no site}):
+A field-guide review priority indicates reporting below expectation; it
+does not establish whether poliovirus is present. For district-years with
+no AFP detection, this function compares the judgement with ES status:
+\code{positive}, \code{clear} (a site exists with no detections), or \verb{no site}.
 \itemize{
 \item \strong{confirmed blindspot} -- \verb{Review priority}, AFP silent, ES
 positive. The review priority is supported by an independent
-detection; the strongest corroboration the data offer.
+detection, supporting the need for review.
 \item \strong{blind, unverified} -- \verb{Review priority}, AFP silent, no ES site.
-A shortfall with no independent channel to check it; the highest-value
-place to deploy ES or an active search.
+A reporting shortfall without ES data to check it. Consider ES or
+active case finding.
 \item \strong{priority, ES clear} -- \verb{Review priority}, AFP silent, ES
-negative. The concern stands, but the independent channel is quiet.
+negative. The reporting shortfall remains, with no virus detected through ES.
 \item \strong{no indication, ES positive} -- \verb{No SPI indication}, AFP silent,
 ES positive. The guide saw no shortfall yet virus was found by the
 independent channel.
 \item \strong{corroborated / uncorroborated clear} -- \verb{No SPI indication}, AFP
-silent, ES negative or absent. A silence confirmed or unconfirmed by
-ES.
+silent, ES negative or absent. No virus was detected; ES data are negative or unavailable.
 }
 \code{Monitor} judgements take the parallel \verb{monitor, *} labels.
-\verb{monitor, ES positive} is high priority, since the ES hit supplies the
-corroboration the judgement lacked; the other two monitor classes are
+\verb{monitor, ES positive} is high priority, since ES provides additional evidence for review; the other two monitor classes are
 medium.
 
 A detection can inflate NPAFP through the active case finding it triggers,
 which lifts SPI and makes the preceding judgement look retrospectively
 correct. Set \code{detection_lag} to align the judgement in year \emph{t} against
 detections in year \emph{t + detection_lag}, so the reading is taken before the
-response contaminated it. \code{flag_preceded} records, for detected
+response changed reporting. \code{flag_preceded} records, for detected
 district-years, whether that aligned judgement was already \verb{Review priority} or \code{Monitor}.
 
 District-years present in \code{field_guide} but absent from \code{detections} are

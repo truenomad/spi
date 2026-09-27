@@ -1,5 +1,5 @@
 Package: spi
-Title: Bayesian Spatiotemporal Surveillance Quality Monitoring
+Title: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting
 Version: 0.1.0.9000
 Authors@R:
     c(person(
@@ -9,23 +9,15 @@ Authors@R:
         email = "moyusuf@who.int",
         comment = c(ORCID = "0000-0002-9339-4613")
     ))
-Description: Estimates district-level expected case detection
-    rates using Bayesian spatiotemporal models (BYM2 via INLA),
-    adjusts for reporting delays, monitors temporal trends via
-    first-order random walk smoothing, detects acute surveillance
-    disruptions via Bayesian online changepoint detection, and
-    classifies surveillance quality into operational response
-    categories. The core output is a surveillance performance
-    index (SPI) defined as the ratio of delay-adjusted observed
-    counts to model-estimated expected counts, with full
-    posterior uncertainty quantification. The SPI adapts the
-    standardised morbidity ratio (SMR) framework from disease
-    mapping to surveillance process monitoring. Designed for
-    acute flaccid paralysis (AFP) surveillance in the polio
-    endgame but applicable to any case-based disease surveillance
-    system with spatially distributed reporting units and count
-    data, including measles discard surveillance, neonatal
-    tetanus reporting, and DHIS2 completeness monitoring.
+Description: Estimates expected case counts for each district and month
+    using Bayesian spatial and temporal models fitted with INLA. The
+    surveillance performance index (SPI) compares observed and expected
+    counts, nationally centred by default, with credible intervals for
+    uncertainty in expected counts.
+    Functions check inputs, compare SPI with conventional reporting targets,
+    and produce tables, maps, and district reports for surveillance review.
+    Designed for acute flaccid paralysis (AFP) surveillance, with support
+    for other case-based surveillance data.
 License: MIT + file LICENSE
 URL: https://github.com/truenomad/spi,
     https://truenomad.r-universe.dev/spi

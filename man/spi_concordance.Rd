@@ -93,30 +93,20 @@ the NPAFP cuts used.}
 }
 }
 \description{
-Compares the model-based Surveillance Performance Index against the
-WHO conventional NPAFP-rate threshold on the same district-year units
-and summarises the four-cell concordance table. The SPI is a ratio of
-observed to context-conditional expected detections, so its neutral cut
-is 1: below 1 means fewer AFP cases were detected than the model expects
-given the district's size, rurality and neighbour profile. The four
-cells are named for what each side of the comparison flags, not for
-which side is presumed right:
+Compares the SPI and conventional NPAFP rate for each district-year.
+The default SPI threshold is 1. The four categories show which measure
+falls below its threshold:
 \itemize{
 \item \strong{Neither flagged} -- NPAFP >= target AND SPI >= threshold.
-Conventional monitoring and the model both read the district as
-adequate.
-\item \strong{Both flagged} -- NPAFP < target AND SPI < threshold. Both
-indicators agree the district is under-detecting.
-\item \strong{SPI only} -- NPAFP >= target BUT SPI < threshold. The
-conventional rate reads adequate; the model reads under-detection
-once size, rurality and neighbours are accounted for.
-\item \strong{NPAFP only} -- NPAFP < target BUT SPI >= threshold. The
-conventional rate is below target; the model reads the district as
-within its context-conditional expectation.
+\item \strong{Both flagged} -- NPAFP < target AND SPI < threshold.
+\item \strong{SPI only} -- NPAFP >= target BUT SPI < threshold.
+\item \strong{NPAFP only} -- NPAFP < target BUT SPI >= threshold.
 }
+These categories describe agreement between the measures; they do not
+establish whether surveillance is adequate.
 
 Concordance is quantified as raw percent agreement and Cohen's kappa,
-plus a McNemar chi-square testing marginal-shift.
+plus a McNemar chi-square test of whether one measure flags more often.
 }
 \examples{
 \dontrun{

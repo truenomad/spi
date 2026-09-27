@@ -3,7 +3,7 @@
 \docType{data}
 \name{synth_field_guide}
 \alias{synth_field_guide}
-\title{Precomputed SPI field guide on the synthetic bundle}
+\title{Precomputed SPI field guide for the synthetic data}
 \format{
 An object of class \code{spi_field_guide}; see the Value section
 of \code{\link[=spi_field_guide]{spi_field_guide()}} for the element structure. Read year 2024; SPI cut
@@ -15,17 +15,16 @@ synth_field_guide
 \description{
 A \code{\link[=spi_field_guide]{spi_field_guide()}} result computed on \link{synth_surveillance}, with all
 five STEPS components and the neighbour, seasonal and detection context
-supplied. It ships so that \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}, the
-\code{\link[=spi_field_guide_table]{spi_field_guide_table()}} examples, and the package tests run instantly
-without refitting the (INLA-based) upstream model. The full modelling chain
-that produced it is \code{spi_adjacency()} -> \code{spi_expected()} (bare spec) ->
+supplied. This lets \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}, the
+\code{\link[=spi_field_guide_table]{spi_field_guide_table()}} examples, and tests run without refitting the model.
+It was produced by \code{spi_adjacency()} -> \code{spi_expected()} (no covariates) ->
 \code{spi_index()} at district-year and district-month levels ->
 \code{spi_concordance()} -> \code{spi_field_guide()}.
 }
 \section{Reproducibility}{
 
 Regenerate with \verb{Rscript data-raw/synth_field_guide.R} (needs INLA). The
-generator pins \code{set.seed(20260710)} and the fit's \code{seed = 42L}.
+generator uses \code{set.seed(20260710)} and the fit's \code{seed = 42L}.
 }
 
 \examples{

@@ -30,7 +30,7 @@ spi_field_guide(
 }
 \arguments{
 \item{concordance}{A \code{\link[=spi_concordance]{spi_concordance()}} result (class
-\code{spi_concordance}). Supplies fused SPI + NPAFP for every
+\code{spi_concordance}). Supplies SPI and NPAFP results for every
 district-year.}
 
 \item{process}{Optional district-year tibble of AFP process counts, keyed
@@ -65,7 +65,7 @@ detections; pass \code{genomic_col} to filter on a 0/1 flag column. Default:
 NULL.}
 
 \item{genomic_col}{Optional name of a logical / 0-1 column in \code{genomic};
-only truthy rows count as detections. Default: NULL (every row counts).}
+only \code{TRUE} or 1 rows count as detections. Default: NULL (every row counts).}
 
 \item{es}{Optional tibble of environmental-surveillance (ES) detections with
 the district id column and \code{year}. Reported as context. Rows are
@@ -93,8 +93,12 @@ counts).}
 \item{read_year}{Integer focal year for \code{print()} and the default table /
 help rendering. Default: NULL (latest year present).}
 
-\item{spi_cut}{Numeric SPI cut below which STEPS is applied. Also the cut
-for persistence and extent. Default: 1, as in the field guide.}
+\item{spi_cut}{Numeric SPI cutoff below which STEPS is applied. Lower
+values such as 0.80, 0.60, or 0.40 focus review on larger reporting
+shortfalls. The same cutoff is used for persistence and extent; the
+credible-interval check still compares with 1. A district above a lower
+cutoff may still need review based on other surveillance indicators.
+Default: 1.}
 
 \item{traj_window}{Integer. Trend regression window in years, ending at
 each year (context). Default: 5.}
@@ -123,7 +127,7 @@ reported (\code{noise_tail}, \code{noise_plausible}). Default: NULL (no noise ga
 \item{id_col}{Character district id column. Default: NULL (take
 \code{concordance$id_col}).}
 
-\item{verbose}{Logical. Progress and degradation messages via cli.
+\item{verbose}{Logical. Progress and missing-input messages via cli.
 Default: TRUE.}
 }
 \value{
@@ -153,13 +157,15 @@ computed, the id column, and the matched call.}
 }
 }
 \description{
-Turns a \code{\link[=spi_concordance]{spi_concordance()}} result into the review reading of the SPI field
-guide for every district-year: the five \strong{STEPS} components (strength,
+Reviews each district-year in a \code{\link[=spi_concordance]{spi_concordance()}} result using the five
+\strong{STEPS} components (strength,
 timeliness, extent, persistence, stool adequacy) and one of the field
-guide's three review judgements (\verb{Review priority}, \code{Monitor},
+guide's three review labels (\verb{Review priority}, \code{Monitor},
 \verb{No SPI indication}). STEPS is applied only to districts with an SPI below
 \code{spi_cut} (1 by default, as in the field guide).
 
+SPI measures NPAFP reporting volume. STEPS brings this together with
+timeliness and stool quality, plus the extent and persistence of a shortfall.
 The five components and what each asks:
 \itemize{
 \item \strong{S: Strength} -- how large and how certain is the shortfall? Read
@@ -176,12 +182,11 @@ year?
 \code{process}.
 }
 
-The components are interpreted together, not combined into a score, and
-they do not carry the same weight. Extent is the strongest corroborator of
-the SPI signal. Persistence also supports the signal, but is common.
-Timeliness and stool adequacy are important surveillance dimensions, but are
-not validated corroborators of the SPI signal, so they are reported and
-never change the judgement.
+STEPS is not a combined score. Extent and persistence provide supporting
+context for a low SPI. Timeliness and stool adequacy describe separate
+dimensions of surveillance and do not change the generated label. These
+labels are not validated judgements of surveillance adequacy or automatic
+recommendations for field action.
 
 The trend, the neighbour contrast, seasonal detection and any poliovirus
 found through AFP or environmental surveillance are still computed when
@@ -189,7 +194,7 @@ their inputs are supplied. They are reported as context outside STEPS and
 never change the judgement.
 }
 \details{
-Each district-year receives one of three judgements, using the field
+Each district-year receives one of three review labels, using the field
 guide's descriptions:
 \itemize{
 \item \strong{Review priority} -- the SPI is below \code{spi_cut}, its 90\% credible
@@ -213,7 +218,7 @@ and raises concern when the area share is higher. Timeliness and stool
 adequacy are assessed on at least \code{process_min_cases} cases against a target
 of \code{process_target} percent; below that they are \code{NA} (not assessed).
 
-Components that need optional inputs degrade gracefully: without \code{process}
+Without \code{process}
 or an \code{extent_col} the corresponding component is \code{NA}. \code{signals_active}
 records which components and context signals were computable.
 }

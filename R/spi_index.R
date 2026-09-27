@@ -2,10 +2,11 @@
 #'
 #' @description
 #' Computes posterior draws of the Surveillance Performance Index, the
-#' ratio of observed to model-expected detections, with full uncertainty
-#' propagation. SPI ~= 1 indicates detection matches expectation; SPI < 1
-#' indicates underdetection (a surveillance blind spot); SPI > 1 indicates
-#' over-detection or genuine excess.
+#' ratio of observed to expected counts, centred by default on the national
+#' ratio for each period. Its credible interval reflects uncertainty in expected
+#' counts. With national centring, SPI ~= 1 means reporting matches the national
+#' pattern. With `centre = "none"`, the reference is the district's own expected
+#' count. Values below 1 mean reporting is below the chosen reference.
 #'
 #' @param expected Object of class `spi_expected` returned by
 #'   [spi_expected()].
@@ -450,7 +451,7 @@ print.spi_index <- function(x, ...) {
   n_groups <- x$totals$n_groups
   val_word <- ngettext(n_groups, "value", "values")
 
-  cli::cli_h2("Blindspot SPI")
+  cli::cli_h2("Surveillance Performance Index")
   cli::cli_bullets(c(
     "i" = "Level: {.val {x$level}}.",
     "i" = "{fmt_int(n_groups)} SPI {val_word} computed.",
@@ -579,7 +580,7 @@ summary.spi_index <- function(object, ...) {
     )
   )
 
-  cli::cli_h2("Blindspot SPI diagnostics")
+  cli::cli_h2("SPI diagnostics")
   cli::cli_alert_info("Level: {.val {object$level}}.")
   print(diagnostics)
 
@@ -769,7 +770,7 @@ plot.spi_index <- function(
     )
 }
 
-# headline SPI distribution histogram
+# SPI distribution histogram
 # @noRd
 .plot_distribution <- function(sm, thresholds) {
   n_total <- nrow(sm)

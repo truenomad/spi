@@ -76,11 +76,10 @@ The panels are composed via \code{patchwork} so the returned object plots
 as a single figure but each panel is a full \code{ggplot} you can extract
 or restyle.
 
-The maps hold a fixed geographic aspect ratio, so render at a shape
-that matches the boundaries or the panels float in whitespace. For a
-landscape territory the three side-by-side panels want a wide, short
-canvas -- roughly \code{width:height} of 3:1 (e.g. \code{ggsave(width = 15, height = 5)}); a portrait territory wants a taller one. Saving too
-tall leaves large empty bands above and below the maps.
+The maps keep their geographic aspect ratio. Choose image dimensions that
+match the boundaries to limit empty space. For a wide region, try a 3:1
+width-to-height ratio, such as \code{ggsave(width = 15, height = 5)}. A region
+that is taller than it is wide needs a taller image.
 }
 \examples{
 \dontrun{

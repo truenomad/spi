@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_expected.R
 \name{spi_expected}
 \alias{spi_expected}
-\title{Fit BYM2 Expected Rate Model}
+\title{Fit a BYM2 model of expected case counts}
 \usage{
 spi_expected(
   cases,
@@ -53,7 +53,7 @@ sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),
 component). Default: "harmonic".}
 
 \item{year_effect}{Character. Optional between-year random effect to
-absorb regime shifts in baseline detection that no within-year term
+absorb changes in baseline detection that no within-year term
 can capture (e.g. surveillance disruption from insecurity, transition,
 or pandemic). "iid" (default) lets each year find its own level
 independently; this is the paper specification, and is recommended
@@ -136,8 +136,8 @@ section. Default: 42L.}
 \code{inla.posterior.sample()} as \code{num.threads} (INLA's \code{"A:B"} form, e.g.
 \code{"1:1"} or \code{"12:1"}). Defaults to \code{"1:1"} whenever \code{seed} is set, because
 a multithreaded fit is not bit-reproducible even at a fixed seed; pass
-\code{NULL} to inherit \code{INLA::inla.getOption("num.threads")} and regain
-parallel speed at the cost of determinism. Ignored when \code{seed = NULL}
+\code{NULL} to inherit \code{INLA::inla.getOption("num.threads")} and use
+multiple threads, with some variation between runs. Ignored when \code{seed = NULL}
 unless given explicitly.}
 }
 \value{
@@ -162,11 +162,12 @@ covariate, for round-tripping in downstream \code{predict()}.}
 }
 }
 \description{
-Fits an INLA BYM2 Poisson model to estimate expected case counts per
-district-month. This is the core engine of the spi package.
+Estimates expected counts for each district-month using a negative binomial
+or Poisson model with BYM2 spatial effects, fitted with INLA.
 }
 \details{
-\strong{Model specification.} The expected count model is a Poisson regression
+\strong{Model specification.} The expected count model uses negative binomial
+(default) or Poisson regression
 with:
 \itemize{
 \item Log person-time offset
@@ -194,7 +195,7 @@ with:
 \item INLA uses sparse matrix methods for efficiency
 }
 
-\strong{Interpreting INLA's diagnostic chatter (\code{debug = TRUE}).}
+\strong{INLA diagnostic messages (\code{debug = TRUE}).}
 \itemize{
 \item \verb{vb.correction aborted} / \verb{iterative process seems to diverge} --
 INLA's variational Bayes correction is an \emph{optional} refinement on
@@ -226,9 +227,7 @@ these defaults.
 
 Surveillance counts often show within-year cycles driven by transmission
 biology, climate, school terms, or reporting patterns. Picking the wrong
-\code{season} term either under-fits (genuine cycles bleed into the spatial term
-and bias risk estimates) or over-fits (noisy month-of-year effects steal
-signal from the expected count).
+\code{season} term either under-fits (seasonal variation is attributed to spatial effects) or over-fits (monthly effects fit random variation).
 
 \strong{Quick diagnostic.} Before fitting, plot the monthly average count to see
 whether a cycle exists and what shape it has:
@@ -280,8 +279,7 @@ climate zone and surveillance system.
 
 \section{Reproducibility}{
 
-Three separate things have to be pinned before two runs of the same code
-agree, and \code{seed} on its own covers only one of them:
+Reproducible results depend on three settings:
 \enumerate{
 \item \strong{Which posterior configuration each draw comes from.}
 \code{inla.posterior.sample()} picks this with R's own RNG, so \code{set.seed()}
@@ -299,23 +297,17 @@ posterior. \code{num_threads} governs this.
 the caller's RNG state afterwards. (3) is why \code{num_threads} defaults to
 \code{"1:1"} alongside a seed.
 
-Leaving any one of them loose does not merely perturb the last decimal: it
-moves SPI values and flips field-guide verdicts, and it can do so for a
-district whose own numbers barely moved, because corroboration reads
-\emph{neighbouring} districts' posteriors, which drift too.
+Changes in these settings can affect SPI values and field-guide judgements.
+A district's judgement can also change when results for other districts
+change, because extent depends on their SPI values.
 
-The defaults are therefore reproducible but serial, which costs wall clock
-against a multithreaded fit. For exploratory work where determinism does
-not matter, pass \code{num_threads = NULL} to inherit INLA's global thread
-setting, or \code{seed = NULL} to opt out entirely.
+The defaults use one thread for reproducibility. To use INLA's global thread
+setting, pass \code{num_threads = NULL}. Set \code{seed = NULL} to use a new seed on
+each call.
 
-One caveat on how far this goes: the guarantee is agreement to numerical
-tolerance, not bit-identity. INLA's mode-finding is not bit-stable even
-pinned to one thread, so two seeded fits of the same data can still differ
-in the sixth significant figure, measured at up to \code{1.6e-6} relative. That
-is orders of magnitude smaller than anything that could move an SPI
-classification, and four orders below the drift described above, which a
-loose seed makes large enough to change a verdict.
+Small numerical differences remain possible with one thread and a fixed
+seed. Repeated fits have differed by up to \code{1.6e-6} in relative terms, much
+less than the differences observed with an unset seed.
 }
 
 \examples{

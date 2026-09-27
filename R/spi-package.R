@@ -13,36 +13,35 @@ utils::globalVariables(c(
   "count", "district_id", "log_offset", "month", "month_num", "pop", "year"
 ))
 
-#' spi: Bayesian Spatiotemporal Surveillance Quality Monitoring
+#' spi: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting
 #'
 #' @description
-#' spi estimates district-level expected case detection rates using
-#' Bayesian spatiotemporal models (BYM2 via INLA) and classifies surveillance
-#' quality into operational response categories.
+#' spi estimates district-level expected reported case counts using
+#' Bayesian spatiotemporal models (BYM2 via INLA) and summarises reporting
+#' shortfalls for surveillance review.
 #'
-#' @section Core framework:
+#' @section Model:
 #'
 #' **Expected rate model**
-#' - Poisson regression with BYM2 spatial random effects (INLA)
+#' - Negative binomial or Poisson regression with BYM2 spatial effects (INLA)
 #' - Log person-time offset
-#' - Estimates background detection rate from data rather than fixed thresholds
+#' - Estimates background reported NPAFP rate from data rather than fixed thresholds
 #' - Posterior draws of expected counts become SPI denominator
 #'
 #' @section Key concepts:
 #'
 #' **Surveillance Performance Index (SPI)**
-#' - Ratio of observed counts to expected counts
-#' - Full posterior uncertainty quantification
+#' - Ratio of observed to expected counts, nationally centred by default
+#' - Credible intervals for uncertainty in expected counts
 #' - Adapts standardised morbidity ratio (SMR) framework to surveillance
 #'   monitoring
 #'
 #' **Concordance and interpretation**
 #' - Cross-classify SPI against the conventional NPAFP-rate threshold into a
-#'   four-cell table (both adequate / true shortfall / false alarm / false
-#'   reassurance).
+#'   four-cell table (neither flagged / SPI only / NPAFP only / both flagged).
 #' - Review each district-year with an SPI below 1 through the five STEPS
 #'   components (strength, timeliness, extent, persistence, stool adequacy)
-#'   to a review priority / monitor / no SPI indication judgement.
+#'   to a review priority / monitor / no SPI indication review label. These labels do not establish surveillance adequacy.
 #'
 #' @section Main functions:
 #'
@@ -55,18 +54,6 @@ utils::globalVariables(c(
 #' - [spi_field_guide_table()]: Render the field guide (gt / flextable)
 #' - [spi_field_guide_help()]: Learn to read the field guide
 #'
-#' @section Design principles:
-#' 1. One function, one job
-#' 2. No side effects
-#' 3. Tibbles in, tibbles out
-#' 4. Fail early, fail clearly
-#' 5. Uncertainty is first-class output
-#' 6. Sensible defaults, full control
-#' 7. Disease-agnostic core
-#' 8. Consistent namespace (bs_ prefix)
-#' 9. Reproducibility by default
-#' 10. Progressive disclosure
-#'
 #' @section Applications:
 #' Designed for AFP/polio surveillance but applicable to any case-based
 #' disease surveillance system:
@@ -77,7 +64,7 @@ utils::globalVariables(c(
 #' - AEFI pharmacovigilance
 #'
 #' @section Dependencies:
-#' Core computational engine uses INLA for Bayesian inference. INLA is not on
+#' Model fitting uses INLA for Bayesian inference. INLA is not on
 #' CRAN and is distributed via
 #' \url{https://inla.r-inla-download.org/R/stable/}. The package installation
 #' automatically configures the INLA repository.
@@ -85,8 +72,8 @@ utils::globalVariables(c(
 #' @section Citation:
 #' If you use spi in published work, please cite:
 #'
-#' Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal surveillance
-#' quality monitoring. R package version 0.1.0.
+#' Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal modelling of
+#' relative surveillance reporting. R package version 0.1.0.
 #' \url{https://github.com/truenomad/spi}
 #'
 #' Associated paper:
@@ -94,12 +81,12 @@ utils::globalVariables(c(
 #' framework for AFP surveillance quality monitoring in the polio endgame.
 #' Lancet Global Health.
 #'
-#' @section Package philosophy:
-#' spi replaces binary pass/fail threshold classifications with
-#' continuous, uncertainty-quantified surveillance quality measures that map to
-#' specific operational responses. The framework learns what each district
-#' should be
-#' detecting from the data rather than imposing fixed targets.
+#' @section Interpretation:
+#' Read the SPI alongside conventional reporting targets and other surveillance
+#' indicators. With the default national centring, a low SPI indicates reporting below the
+#' national pattern. With `centre = "none"`, it indicates reporting below the
+#' district's own modelled expectation. Neither establishes the cause of the
+#' shortfall or shows whether poliovirus is present.
 #'
 #' @docType package
 #' @name spi-package

@@ -47,7 +47,7 @@ NULL (return the table object without saving).}
 The \code{gt_tbl} or \code{flextable} object, invisibly when \code{file} is set.
 }
 \description{
-Turns a \code{\link[=spi_field_guide]{spi_field_guide()}} result into a publication-ready table, in
+Turns a \code{\link[=spi_field_guide]{spi_field_guide()}} result into a formatted table, in
 either of two layouts, using \code{gt} or \code{flextable}. Optionally saves to
 file; the format is inferred from the extension (html / docx / pdf / rtf /
 png / pptx).

@@ -50,9 +50,8 @@ own country. Default: NULL (no inset).}
 one-row data frame. Recognised fields: \code{name} (or \code{region}/\code{adm1}), \code{rank}
 (or \code{region_rank}), \code{n} (or \code{n_regions}) and \code{spi} (or \code{region_spi}). It
 renders as a header line reading \verb{region SUD-OUEST}, \verb{SPI 0.70} and
-\verb{worst rank 1 of 22}, joined by middle dots. The rank orders regions that
-are already short and stays out of the verdict, since a rank exists
-whether or not anything is wrong. Default: NULL (no regional line).}
+\verb{worst rank 1 of 22}, joined by middle dots. The rank provides context and does not change
+the judgement. Default: NULL (no regional line).}
 
 \item{year_label}{Optional label for the reading year, shown in the masthead
 in place of the bare year. Use it when the window is not a calendar year,
@@ -62,11 +61,9 @@ e.g. \code{"rolling year to Apr 2025"}. Default: NULL (the year).}
 AFP detection} fell below the model expectation, i.e. \code{P(SPI < 1)}, as a
 single number on the 0 to 1 scale. It is appended to the strength line
 as a percentage, with the tails printed as "over 99\%" and "under 1\%" so
-the line reports only the certainty the draws support. It states how
-decisively the interval clears one, which the strength test otherwise
-reports only as pass or fail. Read it as a system signal, not a virus
-signal: it measures case-finding against expectation. Default: NULL (not
-shown).}
+reported precision matches the posterior draws. This probability describes
+reporting relative to expectation, not the presence of poliovirus.
+Default: NULL (not shown).}
 
 \item{indicators_df}{Optional district-year panel of conventional AFP and ES
 indicators, keyed by \code{guid} (or \code{id_col}) and \code{year}. When supplied, a
@@ -94,11 +91,9 @@ with a positive count (or \code{TRUE}) count as detections. Default: NULL
 (every row counts).}
 
 \item{detection_label}{What the detections in \code{x} and \code{es} actually are,
-e.g. \code{"cVDPV2"} or \code{"WPV1"}. The field guide records only the years a
-detection occurred, not its serotype, so this is your declaration of what
-you filtered \code{genomic} / \code{es} down to when you built the guide. Leave it
-NULL where the input mixes serotypes: the page then reads "poliovirus"
-rather than naming one it was never told. Default: NULL.}
+e.g. \code{"cVDPV2"} or \code{"WPV1"}. Use this to name the serotype selected in \code{genomic} / \code{es}
+when building the guide. Leave it NULL for mixed serotypes; the report
+then uses "poliovirus". Default: NULL.}
 
 \item{year}{Integer focal year for the reading. Default: NULL
 (\code{x$read_year}).}
@@ -143,64 +138,36 @@ judgement), and \code{paths} (the files written, empty when neither \code{path} 
 \code{as.character()}.
 }
 \description{
-Turns one district's \code{\link[=spi_field_guide]{spi_field_guide()}} reading into a self-contained,
-print-ready HTML "pager": a masthead with the review judgement, an
-SPI-over-time chart for the district (with the 90\% credible-interval ribbon
-and any poliovirus detections marked), the five STEPS components (strength,
-timeliness, extent, persistence, stool adequacy), and a banner summarising
-what the judgement rests on. The pager reports the reading; it recommends
-no follow-up.
-
-It is the single-district companion to \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}: where the
-table scans many districts at once, the pager is the tear-sheet you hand to
-a reviewer for the one district you are about to investigate.
+Creates a one-page district report from a \code{\link[=spi_field_guide]{spi_field_guide()}} result. It
+includes the review judgement, an SPI chart with a 90\% credible interval
+and detection markers, the five STEPS components, and a summary of the
+findings that support the judgement.
 }
 \details{
-The whole page is rendered server-side as static HTML and an inline SVG,
-so the output file needs no JavaScript and no network access (the only
-remote reference is a Google Fonts stylesheet, which degrades to system
-fonts offline). Every number is read from \code{x}; nothing is simulated.
+The report is static HTML with an SVG chart. It works offline, using system
+fonts when Google Fonts is unavailable.
 
-The chart plots the focal district alone: its SPI line, the 90\%
-credible-interval ribbon and any detection markers. Neighbours enter the
-page as the neighbour-median figure in the masthead, taken from the field
-guide, rather than as lines on the chart.
+The chart shows the district's SPI and any poliovirus detections. The
+header reports the neighbour median. Pass \code{boundaries} to add a location
+map with the district highlighted within its country and admin-1 divisions.
 
-Pass \code{boundaries} to draw the locator inset: the whole country in outline
-with its admin-1 divisions, and the focal district filled in the accent
-colour and ringed, so a reader can see where in the country it sits. There is
-no neighbour tier, because at badge size a district is only a few pixels
-across.
+Pass \code{indicators_df} to show the NPAFP rate, stool adequacy, timeliness,
+and EV rate. Percentages based on fewer than five assessable cases are
+shown as fractions and are not assessed against a target.
 
-Pass \code{indicators_df} to add conventional AFP and ES indicators to the context
-row below the chart: the non-polio AFP rate over the same years against its
-target, and tiles for stool adequacy, the two timeliness percentages and the
-EV rate (an ES measure, so it reads "no ES site" where the district has
-none). Its denominator is the case count, which in a district below
-expectation is usually a handful, so a percentage on fewer than five
-assessable cases prints as a fraction and is not graded against a target.
-These indicators are context: they never change the judgement. The STEPS
-timeliness and stool adequacy rows are read from the field guide itself.
+AFP detections appear as filled diamonds and ES detections as hollow
+circles. Seasonality and trend are also shown as context. These findings
+and the optional indicators do not change the STEPS judgement.
 
-The context row also reports poliovirus found there through either
-channel: the case-based (AFP) detections already carried by the field
-guide's \code{genomic} input, and any environmental-surveillance (ES) positives
-passed via \code{es}. Both are marked on the chart (AFP as a filled diamond, ES as
-a hollow ring). The seasonal reading and a falling or rising trend are shown
-beside them. All of these are context outside STEPS and never change the
-judgement.
-
-The accent colour tracks the judgement: rose for review priority, amber for
-monitor, green for no SPI indication.
+The report uses rose for review priority, amber for monitor, and green for
+no SPI indication.
 }
 \examples{
 fg <- synth_field_guide
 pager <- spi_field_guide_pager(fg, district = "Tirwen")
 pager
 \dontrun{
-# self-contained: hand it the shapefile and it draws the locator inset, and
-# reads both detection channels (AFP + ES, already carried by the field
-# guide) into the out-of-grid detection row
+# Add a location map and the AFP / ES detections from the field guide.
 spi_field_guide_pager(
   fg,
   district = "Tirwen",

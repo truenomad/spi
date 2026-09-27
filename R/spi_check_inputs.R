@@ -1,30 +1,20 @@
-#' Pre-flight check of the model inputs
+#' Check model inputs
 #'
-#' Reconciles the three tables a fit consumes -- case counts, population
-#' denominators, and the district shapefile -- **before** a model is run, and
-#' returns every mismatch at once as a graded report. This is the input-side
-#' counterpart to [spi_concordance()], which grades the *output*; the two do
-#' unrelated jobs at opposite ends of the pipeline, hence the distinct name.
+#' Checks case counts, population denominators, and district boundaries before
+#' fitting. Reports mismatched district IDs, missing months, invalid population
+#' values, and geometry problems together.
 #'
-#' The most common silent failure in practice is district ids that don't line
-#' up across the three tables: [spi_expected()] will otherwise run anyway and
-#' return numbers that look fine but are wrong for the affected districts, with
-#' no warning. `spi_check_inputs()` surfaces that, plus panel gaps, zero or
-#' negative populations, and invalid geometry, in a single pass.
-#'
-#' Every issue is graded so the whole picture arrives in one report rather than
-#' one-error-at-a-time:
+#' Issues have three severity levels:
 #'
 #' * **error** -- blocks the fit (missing columns, negative counts, negative
 #'   population, duplicate district-months, case ids absent from the shapefile).
-#' * **warning** -- the fit can proceed but the result is suspect (panel gaps,
-#'   zero population, partial coverage, shapefile districts with no case rows,
-#'   invalid geometry, covariate ids off the panel).
-#' * **note** -- informational (adjacency components).
+#' * **warning** -- needs review (panel gaps, zero population, partial coverage,
+#'   shapefile districts with no case rows, invalid geometry, covariate ids
+#'   absent from the case data).
+#' * **note** -- additional information (adjacency components).
 #'
-#' [spi_expected()] calls this internally and aborts only on error-level issues.
-#' Run it yourself first to see warnings you may want to act on before
-#' committing to a fit.
+#' [spi_expected()] calls this check and stops on errors. Run it separately
+#' to review warnings before fitting.
 #'
 #' @param cases Tibble with the district identifier (see `id_col`), `month`
 #'   (Date), and `count` (integer-valued).
@@ -45,7 +35,7 @@
 #' @return A `spi_input_check` object: a list with `issues` (a tibble of
 #'   graded findings, one row each with `severity`, `code`, `message`, and the
 #'   offending `ids`), `gaps` (a `district_id` x `month` tibble of missing
-#'   panel cells, ready for a future fill helper), `n_error` / `n_warning` /
+#'   district-months), `n_error` / `n_warning` /
 #'   `n_note` counts, `ok` (`TRUE` when there are no error-level issues), and
 #'   the panel dimensions. Has a `print` method.
 #'

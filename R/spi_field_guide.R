@@ -15,13 +15,15 @@
 #' Review a low SPI through the five STEPS components
 #'
 #' @description
-#' Turns a [spi_concordance()] result into the review reading of the SPI field
-#' guide for every district-year: the five **STEPS** components (strength,
+#' Reviews each district-year in a [spi_concordance()] result using the five
+#' **STEPS** components (strength,
 #' timeliness, extent, persistence, stool adequacy) and one of the field
-#' guide's three review judgements (`Review priority`, `Monitor`,
+#' guide's three review labels (`Review priority`, `Monitor`,
 #' `No SPI indication`). STEPS is applied only to districts with an SPI below
 #' `spi_cut` (1 by default, as in the field guide).
 #'
+#' SPI measures NPAFP reporting volume. STEPS brings this together with
+#' timeliness and stool quality, plus the extent and persistence of a shortfall.
 #' The five components and what each asks:
 #' \itemize{
 #'   \item **S: Strength** -- how large and how certain is the shortfall? Read
@@ -38,12 +40,11 @@
 #'     `process`.
 #' }
 #'
-#' The components are interpreted together, not combined into a score, and
-#' they do not carry the same weight. Extent is the strongest corroborator of
-#' the SPI signal. Persistence also supports the signal, but is common.
-#' Timeliness and stool adequacy are important surveillance dimensions, but are
-#' not validated corroborators of the SPI signal, so they are reported and
-#' never change the judgement.
+#' STEPS is not a combined score. Extent and persistence provide supporting
+#' context for a low SPI. Timeliness and stool adequacy describe separate
+#' dimensions of surveillance and do not change the generated label. These
+#' labels are not validated judgements of surveillance adequacy or automatic
+#' recommendations for field action.
 #'
 #' The trend, the neighbour contrast, seasonal detection and any poliovirus
 #' found through AFP or environmental surveillance are still computed when
@@ -51,7 +52,7 @@
 #' never change the judgement.
 #'
 #' @details
-#' Each district-year receives one of three judgements, using the field
+#' Each district-year receives one of three review labels, using the field
 #' guide's descriptions:
 #' \itemize{
 #'   \item **Review priority** -- the SPI is below `spi_cut`, its 90% credible
@@ -75,12 +76,12 @@
 #' adequacy are assessed on at least `process_min_cases` cases against a target
 #' of `process_target` percent; below that they are `NA` (not assessed).
 #'
-#' Components that need optional inputs degrade gracefully: without `process`
+#' Without `process`
 #' or an `extent_col` the corresponding component is `NA`. `signals_active`
 #' records which components and context signals were computable.
 #'
 #' @param concordance A [spi_concordance()] result (class
-#'   `spi_concordance`). Supplies fused SPI + NPAFP for every
+#'   `spi_concordance`). Supplies SPI and NPAFP results for every
 #'   district-year.
 #' @param process Optional district-year tibble of AFP process counts, keyed
 #'   by the district id column and `year`, with columns `n_cases` (AFP cases),
@@ -107,7 +108,7 @@
 #'   detections; pass `genomic_col` to filter on a 0/1 flag column. Default:
 #'   NULL.
 #' @param genomic_col Optional name of a logical / 0-1 column in `genomic`;
-#'   only truthy rows count as detections. Default: NULL (every row counts).
+#'   only `TRUE` or 1 rows count as detections. Default: NULL (every row counts).
 #' @param es Optional tibble of environmental-surveillance (ES) detections with
 #'   the district id column and `year`. Reported as context. Rows are
 #'   positives; pass `es_col` to filter on a count / flag column. Default:
@@ -129,8 +130,12 @@
 #'   counts).
 #' @param read_year Integer focal year for `print()` and the default table /
 #'   help rendering. Default: NULL (latest year present).
-#' @param spi_cut Numeric SPI cut below which STEPS is applied. Also the cut
-#'   for persistence and extent. Default: 1, as in the field guide.
+#' @param spi_cut Numeric SPI cutoff below which STEPS is applied. Lower
+#'   values such as 0.80, 0.60, or 0.40 focus review on larger reporting
+#'   shortfalls. The same cutoff is used for persistence and extent; the
+#'   credible-interval check still compares with 1. A district above a lower
+#'   cutoff may still need review based on other surveillance indicators.
+#'   Default: 1.
 #' @param traj_window Integer. Trend regression window in years, ending at
 #'   each year (context). Default: 5.
 #' @param traj_tol Numeric slope dead-band per year below which a trend is
@@ -153,7 +158,7 @@
 #'   `0.05` is the recommended setting for an operational reading.
 #' @param id_col Character district id column. Default: NULL (take
 #'   `concordance$id_col`).
-#' @param verbose Logical. Progress and degradation messages via cli.
+#' @param verbose Logical. Progress and missing-input messages via cli.
 #'   Default: TRUE.
 #'
 #' @return An object of class `spi_field_guide`. A list with:
@@ -896,23 +901,23 @@ spi_field_guide <- function(
     ~signal, ~asks, ~interpret, ~corroborates,
     "S: Strength",
     "How large and how certain is the shortfall? Read from the SPI value and whether its 90% credible interval lies entirely below 1.",
-    "The magnitude and certainty of the SPI signal. A larger shortfall with an interval below 1 is stronger evidence. The difference between observed and expected counts is not a count of missed cases.",
+    "A larger shortfall with an interval below 1 is stronger evidence. The difference between observed and expected counts is not a count of missed cases.",
     "No",
     "T: Timeliness",
     "Are specimens reaching the laboratory within 3 days?",
-    "Process performance after detection. An important surveillance dimension, but not a validated corroborator of the SPI signal.",
+    "Measures specimen transport after detection. It has not been validated as evidence for a low SPI and does not change the judgement.",
     "No (independent)",
     "E: Extent",
     "Are other districts in the same admin-1 area (other LGAs in the same state) also below expectation?",
-    "Spatial corroboration. The strongest corroborator of the SPI signal; on its own it raises the level of concern.",
+    "A shortfall shared by other districts in the area provides supporting context for a low SPI.",
     "Yes",
     "P: Persistence",
     "Was the SPI also below 1 in the previous year?",
-    "Temporal corroboration. It supports the signal, but is common.",
+    "A shortfall in the previous year adds support, but is common.",
     "Yes (supporting)",
     "S: Stool adequacy",
     "Are stool specimens adequate?",
-    "Investigation quality for classification. An important surveillance dimension, but not a validated corroborator of the SPI signal.",
+    "Measures stool specimen adequacy. It has not been validated as evidence for a low SPI and does not change the judgement.",
     "No (independent)"
   )
 }
@@ -966,7 +971,7 @@ print.spi_field_guide <- function(x, ...) {
   )
 
   foc <- x$focal
-  cli::cli_h2("Review judgements for {x$read_year}")
+  cli::cli_h2("Review labels for {x$read_year}")
   n <- vapply(
     .FG_VERDICT_LEVELS,
     function(v) sum(foc$verdict == v),
@@ -986,7 +991,7 @@ print.spi_field_guide <- function(x, ...) {
     print(.fg_scan_tibble(x, priority), n = n_show)
   }
   cli::cli_alert_info(
-    "See {.fn spi_field_guide_help} to learn the reading, \\
+    "See {.fn spi_field_guide_help} for worked examples, \\
      {.fn spi_field_guide_table} to render it."
   )
   invisible(x)
@@ -1122,7 +1127,7 @@ spi_field_guide_help <- function(
   }
 
   if ("verdict" %in% topic) {
-    cli::cli_h2("Review judgements")
+    cli::cli_h2("Review labels")
     cli::cli_text(
       "Extent alone raises the level of concern. Other single concerns add \\
        weight only in combination, and there is no requirement for agreement \\
@@ -1316,7 +1321,7 @@ spi_field_guide_help <- function(
 #' Render the SPI field guide as a gt or flextable table
 #'
 #' @description
-#' Turns a [spi_field_guide()] result into a publication-ready table, in
+#' Turns a [spi_field_guide()] result into a formatted table, in
 #' either of two layouts, using `gt` or `flextable`. Optionally saves to
 #' file; the format is inferred from the extension (html / docx / pdf / rtf /
 #' png / pptx).

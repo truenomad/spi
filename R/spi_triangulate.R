@@ -1,48 +1,40 @@
 #' Triangulate a field-guide judgement against independent virus detection
 #'
 #' @description
-#' Cross-references the [spi_field_guide()] review judgement, which reads
-#' whether AFP reporting in a district-year is below expectation, against
-#' the two channels that record whether virus was actually *found*: AFP
-#' detection and environmental surveillance (ES). Because ES is largely
-#' independent of AFP surveillance quality, it is the channel that can confirm
-#' or contradict a review priority without arguing in a circle. The result is a
-#' per-district-year classification separating a trustworthy silence from a
-#' probable blind spot, and a three-level priority for triage.
+#' Compares the [spi_field_guide()] judgement with poliovirus detections
+#' through AFP and environmental surveillance (ES). ES provides a separate
+#' source of evidence about virus detection. The result assigns each
+#' district-year to a category and one of three priority levels.
 #'
 #' @details
-#' The field guide reads reporting against expectation from the AFP stream
-#' alone, so a `Review priority` states that a silence may be untrustworthy
-#' but not that the silence hid virus. This function adds the independent
-#' read. For every district-year with no AFP detection it classifies the
-#' judgement against ES status (`positive`, `clear` where a site exists and
-#' found nothing, or `no site`):
+#' A field-guide review priority indicates reporting below expectation; it
+#' does not establish whether poliovirus is present. For district-years with
+#' no AFP detection, this function compares the judgement with ES status:
+#' `positive`, `clear` (a site exists with no detections), or `no site`.
 #' \itemize{
 #'   \item **confirmed blindspot** -- `Review priority`, AFP silent, ES
 #'     positive. The review priority is supported by an independent
-#'     detection; the strongest corroboration the data offer.
+#'     detection, supporting the need for review.
 #'   \item **blind, unverified** -- `Review priority`, AFP silent, no ES site.
-#'     A shortfall with no independent channel to check it; the highest-value
-#'     place to deploy ES or an active search.
+#'     A reporting shortfall without ES data to check it. Consider ES or
+#'     active case finding.
 #'   \item **priority, ES clear** -- `Review priority`, AFP silent, ES
-#'     negative. The concern stands, but the independent channel is quiet.
+#'     negative. The reporting shortfall remains, with no virus detected through ES.
 #'   \item **no indication, ES positive** -- `No SPI indication`, AFP silent,
 #'     ES positive. The guide saw no shortfall yet virus was found by the
 #'     independent channel.
 #'   \item **corroborated / uncorroborated clear** -- `No SPI indication`, AFP
-#'     silent, ES negative or absent. A silence confirmed or unconfirmed by
-#'     ES.
+#'     silent, ES negative or absent. No virus was detected; ES data are negative or unavailable.
 #' }
 #' `Monitor` judgements take the parallel `monitor, *` labels.
-#' `monitor, ES positive` is high priority, since the ES hit supplies the
-#' corroboration the judgement lacked; the other two monitor classes are
+#' `monitor, ES positive` is high priority, since ES provides additional evidence for review; the other two monitor classes are
 #' medium.
 #'
 #' A detection can inflate NPAFP through the active case finding it triggers,
 #' which lifts SPI and makes the preceding judgement look retrospectively
 #' correct. Set `detection_lag` to align the judgement in year *t* against
 #' detections in year *t + detection_lag*, so the reading is taken before the
-#' response contaminated it. `flag_preceded` records, for detected
+#' response changed reporting. `flag_preceded` records, for detected
 #' district-years, whether that aligned judgement was already `Review
 #' priority` or `Monitor`.
 #'
@@ -63,7 +55,7 @@
 #'   district-year. `es_detected` is only meaningful where this is true.
 #'   Default: `"es_covered"`.
 #' @param detection_lag Integer years to shift detections later than the
-#'   judgement they are tested against, to avoid response-amplified readings.
+#'   judgement they are tested against, to assess reporting before the detection response.
 #'   Default: 0.
 #' @param verdict_col Name of the judgement column in the field guide.
 #'   Default: `"verdict"`.
@@ -290,35 +282,35 @@ spi_triangulate <- function(
   tibble::tribble(
     ~class, ~means, ~action,
     "confirmed blindspot",
-    "Review priority where ES independently found virus AFP missed.",
+    "Review priority with virus detected through ES but not AFP.",
     "Act: the shortfall is supported; active case search and response.",
     "blind, unverified",
     "Review priority with no ES site to check it.",
-    "Highest-value deployment: add ES or active search to gain a read.",
+    "Consider adding ES or active case finding to investigate the shortfall.",
     "priority, ES clear",
     "Review priority, but the ES site found nothing.",
     "Review: the concern stands at lower urgency.",
     "no indication, ES positive",
     "No SPI indication, yet ES found virus.",
-    "Review why a district reporting as expected missed a detected circulation.",
+    "Review why ES detected virus while AFP reporting met expectation.",
     "monitor, ES positive",
     "Monitored shortfall with an independent ES detection.",
-    "Escalate toward review priority; the ES hit supplies corroboration.",
+    "Prioritise review; ES provides additional evidence.",
     "monitor, ES clear",
     "Monitored shortfall, but the covering ES site found nothing.",
-    "Monitor; another year of data resolves the judgement.",
+    "Monitor and reassess with another year of data.",
     "monitor, unverified",
     "Monitored shortfall with no ES site to check it.",
-    "Monitor; ES would resolve whether the shortfall hides virus.",
+    "Monitor; ES could provide evidence about virus circulation.",
     "corroborated clear",
-    "No SPI indication and a covering ES site both quiet.",
-    "None: silence independently confirmed.",
+    "No SPI indication and no virus detected at the ES site.",
+    "Continue routine surveillance; neither channel detected virus.",
     "uncorroborated clear",
     "No SPI indication but no ES site to confirm it.",
-    "None routine; ES would upgrade this to corroborated.",
+    "Continue routine surveillance; ES could provide a separate check.",
     "detected",
-    "Poliovirus already surfaced through AFP in the district-year.",
-    "Outside triage; see flag_preceded for whether the guide warned first."
+    "Poliovirus detected through AFP in the district-year.",
+    "See flag_preceded for the judgement before detection."
   )
 }
 
@@ -350,7 +342,7 @@ print.spi_triangulation <- function(x, ...) {
   n_confirmed <- sum(focal$triangulation == "confirmed blindspot")
   n_blind <- sum(focal$triangulation == "blind, unverified")
   cli::cli_inform(c(
-    "*" = "{n_confirmed} confirmed blindspot{?s} (ES caught what AFP missed)",
+    "*" = "{n_confirmed} confirmed blindspot{?s} (ES positive, no AFP detection)",
     "*" = "{n_blind} blind/unverified (review priority, no ES to check)"
   ))
   cli::cli_alert_info(
@@ -501,7 +493,7 @@ spi_triangulate_table <- function(
 # because this many categorical fills collide on small polygons.
 # @noRd
 TRI_CLASS_FILL <- c(
-  "confirmed blindspot" = "#B71C1C", # deep red: ES caught what AFP missed
+  "confirmed blindspot" = "#B71C1C", # deep red: ES positive, no AFP detection
   "blind, unverified" = "#AD1457", # magenta: priority, no channel to check
   "monitor, ES positive" = "#E65100", # orange-red: monitored + ES hit
   "no indication, ES positive" = "#8E24AA", # purple: no shortfall, ES hit

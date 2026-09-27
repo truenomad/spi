@@ -1,14 +1,14 @@
 cff-version: 1.2.0
 message: "If you use spi in your work, please cite it as below."
 type: software
-title: "spi: Bayesian Spatiotemporal Surveillance Quality Monitoring"
+title: "spi: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting"
 version: 0.0.0.9000
 abstract: >-
-  Estimates district-level expected case detection rates using Bayesian
-  spatiotemporal models (BYM2 via INLA) and classifies surveillance quality
-  into operational response categories. The core output is a surveillance
-  performance index (SPI) defined as the ratio of observed to model-estimated
-  expected counts, with full posterior uncertainty quantification.
+  Estimates expected case counts for each district and month using Bayesian
+  spatial and temporal models fitted with INLA. The surveillance performance
+  index (SPI) compares observed and expected counts, nationally centred by
+  default, with credible intervals for uncertainty in expected counts. Tables, maps, and district reports
+  support surveillance review.
 authors:
   - family-names: Yusuf
     given-names: "Mohamed A."

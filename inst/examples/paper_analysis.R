@@ -1,19 +1,18 @@
 ##################  spi -- reproduce the paper's analysis  ####################
 #
-# A guided tour of the whole spi API on the synthetic toy dataset shipped
-# with the package (`spi::synth_surveillance`), so anyone can execute it
-# end-to-end without WHO-restricted POLIS data. It exercises every exported
-# function:
+# Run the main spi analysis steps on the bundled synthetic data
+# (`spi::synth_surveillance`). No POLIS access is needed.
+# Functions used:
 #
 #   spi_adjacency              spatial neighbour graph
 #   spi_expected               BYM2 expected-count model (bare + adjusted specs)
 #   spi_compare_overdispersion Poisson / iid / NB likelihood comparison
-#   spi_index                  surveillance performance index (3 grains)
+#   spi_index                  surveillance performance index (3 aggregation levels)
 #   spi_concordance            SPI vs conventional NPAFP threshold (+ strata)
 #   spi_concordance_maps       three-panel choropleth
 #   spi_field_guide            STEPS review -> priority / monitor / none
 #   spi_field_guide_help       learn to read the review
-#   spi_field_guide_table      publication-ready gt / flextable
+#   spi_field_guide_table      formatted gt / flextable reports
 #   as_tibble / print / summary / plot methods
 #
 # Mirrors:
@@ -32,7 +31,7 @@
 #
 # Requires: INLA -- https://inla.r-inla-download.org/R/stable/
 # Note: this runs several INLA fits (bare, adjusted, three overdispersion
-# specs); expect a few minutes on the toy data.
+# specs); expect a few minutes on the example data.
 ###############################################################################
 
 cli::cli_h1("spi -- paper reproduction on synthetic data")
@@ -57,7 +56,7 @@ synth <- spi::synth_surveillance
 cases <- synth$cases
 population <- synth$population
 boundaries <- synth$boundaries
-truth <- synth$truth # cheat sheet, for the validation panel
+truth <- synth$truth # simulation settings, for the comparison panel
 
 cli::cli_alert_info(
   "cases: {format(nrow(cases), big.mark = ',')} district-months"
@@ -90,21 +89,13 @@ print(adj)
 # Fit the expected-count model: bare vs adjusted ------------------------------
 ## ---------------------------------------------------------------------------##
 
-# spi_expected() is the core engine, and covariates are OPTIONAL -- so there are
-# two specs. We fit BOTH so you can see the difference and choose deliberately:
+# Fit the model without covariates, then add covariates as a sensitivity check.
+# The default model includes BYM2 spatial effects, independent year effects,
+# harmonic seasonality, negative binomial overdispersion, and a person-time
+# offset. The remaining analysis uses this fit.
 #
-#   * BARE (Option A) -- intercept + BYM2 spatial + IID year + harmonic season
-#     + log person-time offset. No covariates, so the SPI reads detection
-#     performance directly. The paper's PRIMARY_SPEC and the fit every
-#     downstream step below uses.
-#   * ADJUSTED (Option B) -- the same model plus the three district-year
-#     covariates shipped in synth$covariates (fit in the next block).
-#
-# CAVEAT (the teaching point): those covariates proxy surveillance *access*,
-# which is partly downstream of detection itself. Adjusting for them can
-# attenuate the very gap the SPI is built to surface -- which is why the paper
-# keeps the BARE model primary and treats the adjusted fit as a sensitivity
-# analysis. Pick the spec deliberately; do not just "add covariates".
+# Covariates describe surveillance access. Adjusting for them can reduce the
+# apparent shortfall, so compare the adjusted results with the default model.
 
 cli::cli_h2("Option A -- bare spec (primary)")
 
@@ -135,13 +126,11 @@ cli::cli_alert_info(
 # Option B -- adjusted spec (adds district-level covariates) -------------------
 ## ---------------------------------------------------------------------------##
 
-# The toy bundle ships three district-year covariate layers (see
-# ?synth_surveillance): dtp3 (DTP3 coverage %), urban_prop (urban share), and
-# travel_time_min (minutes to the nearest facility). They are correlated with
-# the planted blindspots -- lower coverage, worse access -- so the adjusted
-# model has real signal. travel_time_min is right-skewed, so we log-transform
-# it. Covariates are standardised internally, so each effect reads as the rate
-# ratio per one standard deviation.
+# Three covariates are available: dtp3 (DTP3 coverage %), urban_prop (urban
+# share), and travel_time_min (minutes to the nearest facility). They are
+# correlated with the simulated reporting shortfalls. Log-transform travel
+# time because it is right-skewed. The model standardises covariates and
+# reports rate ratios per standard deviation.
 
 cli::cli_h2("Option B -- adjusted spec (covariates)")
 
@@ -250,9 +239,8 @@ if (interactive()) {
 #   False reassurance  -- NPAFP OK but SPI failing   <- SPI-only catches
 #   False alarm        -- NPAFP failing but SPI OK   <- NPAFP-only alerts
 #
-# Paper headline: a non-trivial share of "conventionally adequate"
-# district-years land in "False reassurance" -- SPI catches under-detection
-# that the raw threshold misses.
+# "False reassurance" identifies district-years that meet the NPAFP target
+# but have an SPI below the threshold.
 
 cli::cli_h2("SPI x NPAFP concordance (pooled)")
 
@@ -311,7 +299,7 @@ print(conc_by_prov$by_stratum, n = Inf)
 ## ---------------------------------------------------------------------------##
 
 # Do planted blindspots land in the "False reassurance" quadrant? Not a
-# paper step; a sanity check enabled by the toy's ground-truth cheat sheet.
+# paper step; a sanity check enabled by the known simulation settings.
 
 cli::cli_h2("Truth overlay")
 
@@ -362,8 +350,7 @@ if (interactive()) {
 }
 
 # Save to disk for the manuscript / desk-review folder. Keep the canvas
-# wide and short so the (landscape) maps fill it rather than floating in
-# whitespace -- match height to the boundaries' aspect ratio.
+# wide and short to limit empty space around the maps -- match height to the boundaries' aspect ratio.
 # ggplot2::ggsave(
 #   "03_output/main/figures/concordance_maps_2023.png",
 #   maps, width = 18, height = 6, dpi = 300, bg = "white"
@@ -395,7 +382,7 @@ fg <- spi::spi_field_guide(
 print(fg)
 summary(fg) # adds STEPS concern counts + the STEPS reference
 
-# Learn to read the review, narrated on this run's worked example:
+# Explain the results using worked examples from this run:
 if (interactive()) {
   spi::spi_field_guide_help("all", guide = fg)
 }

@@ -1,8 +1,8 @@
-#' Fit BYM2 Expected Rate Model
+#' Fit a BYM2 model of expected case counts
 #'
 #' @description
-#' Fits an INLA BYM2 Poisson model to estimate expected case counts per
-#' district-month. This is the core engine of the spi package.
+#' Estimates expected counts for each district-month using a negative binomial
+#' or Poisson model with BYM2 spatial effects, fitted with INLA.
 #'
 #' @param cases Tibble with columns: the district identifier (see `id_col`,
 #'   character), `month` (Date), `count` (integer). One row per district-month.
@@ -32,7 +32,7 @@
 #'   `pop` internally and aborts with a helpful hint if it isn't present.
 #'   Default: "pop_u15".
 #' @param year_effect Character. Optional between-year random effect to
-#'   absorb regime shifts in baseline detection that no within-year term
+#'   absorb changes in baseline detection that no within-year term
 #'   can capture (e.g. surveillance disruption from insecurity, transition,
 #'   or pandemic). "iid" (default) lets each year find its own level
 #'   independently; this is the paper specification, and is recommended
@@ -93,8 +93,8 @@
 #'   `inla.posterior.sample()` as `num.threads` (INLA's `"A:B"` form, e.g.
 #'   `"1:1"` or `"12:1"`). Defaults to `"1:1"` whenever `seed` is set, because
 #'   a multithreaded fit is not bit-reproducible even at a fixed seed; pass
-#'   `NULL` to inherit `INLA::inla.getOption("num.threads")` and regain
-#'   parallel speed at the cost of determinism. Ignored when `seed = NULL`
+#'   `NULL` to inherit `INLA::inla.getOption("num.threads")` and use
+#'   multiple threads, with some variation between runs. Ignored when `seed = NULL`
 #'   unless given explicitly.
 #'
 #' @return Object of class `spi_expected`. A list containing:
@@ -118,7 +118,8 @@
 #' }
 #'
 #' @details
-#' **Model specification.** The expected count model is a Poisson regression
+#' **Model specification.** The expected count model uses negative binomial
+#' (default) or Poisson regression
 #' with:
 #' - Log person-time offset
 #' - BYM2 spatial random effects (Riebler et al. 2016)
@@ -140,7 +141,7 @@
 #' - Use fewer draws for initial exploration
 #' - INLA uses sparse matrix methods for efficiency
 #'
-#' **Interpreting INLA's diagnostic chatter (`debug = TRUE`).**
+#' **INLA diagnostic messages (`debug = TRUE`).**
 #' - `vb.correction aborted` / `iterative process seems to diverge` --
 #'   INLA's variational Bayes correction is an *optional* refinement on
 #'   top of the Laplace approximation. When it fails to converge, INLA
@@ -167,9 +168,7 @@
 #' @section Choosing a seasonal specification:
 #' Surveillance counts often show within-year cycles driven by transmission
 #' biology, climate, school terms, or reporting patterns. Picking the wrong
-#' `season` term either under-fits (genuine cycles bleed into the spatial term
-#' and bias risk estimates) or over-fits (noisy month-of-year effects steal
-#' signal from the expected count).
+#' `season` term either under-fits (seasonal variation is attributed to spatial effects) or over-fits (monthly effects fit random variation).
 #'
 #' **Quick diagnostic.** Before fitting, plot the monthly average count to see
 #' whether a cycle exists and what shape it has:
@@ -219,8 +218,7 @@
 #' climate zone and surveillance system.
 #'
 #' @section Reproducibility:
-#' Three separate things have to be pinned before two runs of the same code
-#' agree, and `seed` on its own covers only one of them:
+#' Reproducible results depend on three settings:
 #'
 #' 1. **Which posterior configuration each draw comes from.**
 #'    `inla.posterior.sample()` picks this with R's own RNG, so `set.seed()`
@@ -237,23 +235,17 @@
 #' the caller's RNG state afterwards. (3) is why `num_threads` defaults to
 #' `"1:1"` alongside a seed.
 #'
-#' Leaving any one of them loose does not merely perturb the last decimal: it
-#' moves SPI values and flips field-guide verdicts, and it can do so for a
-#' district whose own numbers barely moved, because corroboration reads
-#' *neighbouring* districts' posteriors, which drift too.
+#' Changes in these settings can affect SPI values and field-guide judgements.
+#' A district's judgement can also change when results for other districts
+#' change, because extent depends on their SPI values.
 #'
-#' The defaults are therefore reproducible but serial, which costs wall clock
-#' against a multithreaded fit. For exploratory work where determinism does
-#' not matter, pass `num_threads = NULL` to inherit INLA's global thread
-#' setting, or `seed = NULL` to opt out entirely.
+#' The defaults use one thread for reproducibility. To use INLA's global thread
+#' setting, pass `num_threads = NULL`. Set `seed = NULL` to use a new seed on
+#' each call.
 #'
-#' One caveat on how far this goes: the guarantee is agreement to numerical
-#' tolerance, not bit-identity. INLA's mode-finding is not bit-stable even
-#' pinned to one thread, so two seeded fits of the same data can still differ
-#' in the sixth significant figure, measured at up to `1.6e-6` relative. That
-#' is orders of magnitude smaller than anything that could move an SPI
-#' classification, and four orders below the drift described above, which a
-#' loose seed makes large enough to change a verdict.
+#' Small numerical differences remain possible with one thread and a fixed
+#' seed. Repeated fits have differed by up to `1.6e-6` in relative terms, much
+#' less than the differences observed with an unset seed.
 #'
 #' @references
 #' Riebler A, et al. (2016). An intuitive Bayesian spatial model for disease
@@ -413,7 +405,7 @@ spi_expected <- function(
   )
   n_draws <- as.integer(n_draws)
 
-  # --- pre-flight input check ---------------------------
+  # --- input input check ---------------------------
   # One graded reconciliation of cases / population / shapefile before any
   # fitting. Aborts on error-level issues. Skipped on the recursive calls from
   # the auto path and spi_compare_overdispersion(), which check once up front.
@@ -1111,7 +1103,7 @@ spi_expected <- function(
   fmt_int <- function(v) format(v, big.mark = ",")
   fmt_pct <- function(v) sprintf("%.1f%%", 100 * v)
 
-  cli::cli_h2("Blindspot diagnostics")
+  cli::cli_h2("SPI model diagnostics")
 
   # --- observed vs predicted scale check ---
   med_obs <- stats::median(x$summary$count, na.rm = TRUE)
@@ -1224,7 +1216,7 @@ print.spi_expected <- function(x, ...) {
   id_col <- if (is.null(x$id_col)) "district_id" else x$id_col
   fmt_int <- function(v) format(v, big.mark = ",")
 
-  cli::cli_h2("Blindspot expected model")
+  cli::cli_h2("SPI expected-count model")
 
   # --- fit metadata -------------------------------------
   n_obs <- nrow(x$data)
@@ -1499,7 +1491,7 @@ summary.spi_expected <- function(object, ...) {
 print.summary.spi_expected <- function(x, ...) {
   cli::cli_h2("Covariate effects")
   if (is.null(x$effects)) {
-    cli::cli_alert_info("No covariates in this fit (bare model).")
+    cli::cli_alert_info("This model has no covariates.")
   } else {
     print(x$effects)
   }
@@ -1621,7 +1613,7 @@ spi_compare_overdispersion <- function(
     )
   }
 
-  # --- pre-flight input check ---------------------------
+  # --- input input check ---------------------------
   # Check once here, then fit each spec with check = FALSE so the graded
   # reconciliation runs a single time no matter how many specs are compared.
   if (check) {

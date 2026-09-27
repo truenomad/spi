@@ -22,7 +22,7 @@ synth <- synth_surveillance
 # 1. spatial adjacency ---------------------------------------------------------
 adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 
-# 2. BYM2 expected-count fit (bare spec; matches the paper's PRIMARY_SPEC) ------
+# 2. BYM2 expected-count fit (model without covariates; matches the paper's PRIMARY_SPEC) ------
 fit <- spi_expected(
   cases = synth$cases,
   population = synth$population,

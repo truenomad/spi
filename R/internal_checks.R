@@ -1,10 +1,10 @@
 #' Check that one or more suggested packages are installed
 #'
 #' Thin wrapper around [rlang::check_installed()] used throughout the package
-#' to fail fast (with a clear, actionable error message and an interactive
+#' to report missing packages (with an error message and an interactive
 #' install prompt) when a suggested dependency is missing. Prefer this over
 #' bare `requireNamespace()` checks so users learn about missing dependencies
-#' at the start of a function rather than several minutes into a workflow.
+#' at the start of a function rather than partway through an analysis.
 #'
 #' @param pkg Character vector of package names to check.
 #' @param reason Short string explaining *why* the package is needed (used in

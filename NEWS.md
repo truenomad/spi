@@ -20,19 +20,19 @@
   the previous year. Timeliness and stool adequacy come from the new `process`
   argument, district-year AFP counts assessed on at least `process_min_cases`
   cases against `process_target` percent.
-* The verdict is one of the field guide's three review judgements:
-  `Review priority` (interval entirely below 1, corroborated by extent or
+* The result is one of the field guide's three review judgements:
+  `Review priority` (interval entirely below 1, supported by extent or
   persistence), `Monitor` (any other SPI below the cut) and
   `No SPI indication`. Timeliness and stool adequacy are reported but never
-  move the judgement. `FLAG`, `REVIEW`, `WATCH`, `No action` and the
+  change the judgement. `FLAG`, `REVIEW`, `WATCH`, `No action` and the
   corroborator count are gone, as are `persistence`, `persistence_basis`,
   `min_corroborators`, `dedupe_temporal` and `detection_corroborates`.
 * The trend, neighbour contrast, seasonal detection and AFP / ES detections
   are still computed and reported as context outside STEPS.
-* `cri_excludes_1` means `spi_q95 < 1`, always; the strength test the
-  judgement turns on is `gate_pass`, which adds the Poisson noise tail when
+* `cri_excludes_1` means `spi_q95 < 1`, always; the strength test used for
+  the judgement is `gate_pass`, which adds the Poisson noise tail when
   `noise_alpha` is set.
-* Other arguments: `traj_alpha` (significance-gated trend), `es` / `es_col`
+* Other arguments: `traj_alpha` (trend significance level), `es` / `es_col`
   (an ES detection channel), `serotype_col` and `detection_serotypes`.
 * `spi_field_guide_help()`, `spi_field_guide_table()` and the misreadings use the
   field guide's wording, and the worked layout picks the field guide's four
@@ -43,49 +43,50 @@
 * `synth_surveillance` gains `afp_process`, drawn after every other table so
   the existing elements are unchanged. `synth_field_guide` is regenerated with
   it: for 2024, 60 review priority, 71 monitor and 105 no SPI indication.
-* The field guide infographic ships at
+* The field guide infographic is included at
   `system.file("field-guide", "npafp_spi_steps_infographic.html", package =
-  "blindspot")`.
+  "spi")`.
 
 ### Field pager
 
-* Added `spi_field_guide_pager()`, which renders one district's reading as a
-  self-contained, print-ready tear-sheet with a locator inset drawn from the
+* Added `spi_field_guide_pager()`, which renders one district's results as a
+  printable report with a locator inset drawn from the
   real geometry. `district` resolves by id or name, and `path` writes an
   auto-named `spi_<adm0>_<adm1>_<adm2>_field_pager.{html,png}`. See
   `inst/examples/pager_demo.R`.
 * It charts the focal district alone and places it in its country, so
   `adjacency` is ignored and neither `spi_adjacency()` nor spdep is called.
-* It reads the five STEPS components one per row and prescribes no follow-up.
-  The masthead states where the reading sits, and the banner names what the
-  judgement rests on. The season, trend and detections show as context.
+* It shows one row per STEPS component, with the review judgement in the
+  header and supporting findings below. Season, trend, and detections provide
+  context.
 * `indicators_df` fills a context row with the non-polio AFP rate against its
   target, plus stool adequacy, the two timeliness percentages and the EV rate.
-  Below five assessable cases a tile names its denominator and stays ungraded.
+  Percentages based on fewer than five assessable cases are shown as fractions
+  and are not assessed against a target.
 * `region`, `year_label` and `prob_under` add regional context, a label for a
   window that is not a calendar year, and the posterior `P(SPI < 1)` on the
   strength line.
 * `detection_label` defaults to NULL and the page reads "poliovirus", since the
   guide records when a detection happened but not what was found.
-* Honesty fixes: the interval claim now covers uncertainty in the expected
+* Interpretation fixes: the interval description now covers uncertainty in the expected
   count alone; a district above the cut whose interval lies wholly below one
   keeps a slate accent rather than green; detection tiles name serotypes per
   channel and count years rather than detections.
 * Layout fixes: a long unit name is sized to the row and breaks over two lines;
-  a unit sharing its parent's name keeps the parent; the page grows past one
-  sheet when the masthead fills.
+  a unit sharing its parent's name keeps the parent; the report can span multiple
+  pages when the header needs more space.
 * Smaller fixes: `note` prints in the footer alone and is opt-in; an expected
   count below ten keeps a decimal; an unsupplied channel reads as unsupplied.
 
 ### SPI, concordance and inputs
 
-* Added `spi_check_inputs()`, a graded pre-flight that reconciles case counts,
+* Added `spi_check_inputs()`, an input check for case counts,
   population denominators and the shapefile before any model runs, reporting id
   mismatches, panel gaps, bad populations, partial coverage and invalid geometry
   at once. `spi_expected()` and `spi_compare_overdispersion()` gained `check`
-  (default `TRUE`) and route through it.
-* `spi_index()` gained `year_end_month`, so a reading year can close on the month a
-  review closes. `year_end_month = 4` groups May through April, labelled by the
+  (default `TRUE`) to run this check.
+* `spi_index()` gained `year_end_month`, to support assessment years ending
+  in any month. `year_end_month = 4` groups May through April, labelled by the
   year it closes in; `n_months` marks the partial window at each end.
 * `spi_concordance()` gained `year_end_month` too. Pass the same value the SPI
   was computed with and the conventional NPAFP rate is grouped on the same
@@ -107,26 +108,24 @@
 
 * `spi_expected()` defaults changed to the paper specification:
   `overdispersion = "nb"` (was `"iid"`) and `year_effect = "iid"` (was
-  `"none"`). The previous bare spec still works, by passing both arguments
+  `"none"`). The previous model is still available by setting both arguments
   explicitly. `spi_compare_overdispersion()` is unaffected, since it already
   sets `overdispersion` per spec.
-* `spi_expected(seed = )` now reaches INLA's own RNG rather than R's alone.
+* `spi_expected(seed = )` now sets INLA's random seed as well as R's.
   Seeding with `set.seed()` left `inla.posterior.sample()` unseeded, so two runs
-  of identical seeded code disagreed by enough to move SPI and flip verdicts.
+  of identical seeded code disagreed by enough to change SPI values and review judgements.
 * `spi_expected()` gained `num_threads`, which defaults to `"1:1"` alongside a
-  seed, since a multithreaded fit drifts. Pass `NULL` to inherit INLA's global
-  setting and trade determinism for speed. `seed` is validated ahead of the INLA
+  seed, because multithreaded fits can vary between runs. Pass `NULL` to inherit INLA's global
+  setting and use multiple threads. `seed` is validated ahead of the INLA
   availability check, and the caller's RNG state is restored on exit.
-* The guarantee is agreement to numerical tolerance, not bit-identity. INLA's
-  mode-finding is not bit-stable even on one thread, so two seeded fits differ
-  in the sixth significant figure, up to 1.6e-6 relative. That is four orders
-  below the drift an unseeded fit produced, and well inside anything that could
-  move a classification.
+* Small numerical differences remain possible with one thread and a fixed
+  seed. Repeated fits differed by up to 1.6e-6 in relative terms, much less
+  than the differences observed with an unset seed.
 
 ### Data
 
 * `synth_surveillance` gained `afp_timeliness`, a district-year table of
-  assessable and within-window AFP counts. Purely additive.
+  assessable AFP counts and counts notified within the specified period.
 * `synth_field_guide` regenerated. It predated the seed fix, so it never matched
   its own build script; SPI moves by up to 0.12. Guides saved by an earlier
   version still render.
@@ -135,20 +134,19 @@
 
 * Added `bs_field_guide()`: reads every district-year through the paper's
   seven-signal interpretation protocol (S1-S7) and assigns a FLAG / WATCH /
-  No-action verdict, degrading gracefully when the optional adjacency,
-  monthly-SPI, or genomic inputs are absent.
+  No-action judgement. Components requiring absent adjacency, monthly-SPI,
+  or genomic inputs are left unassessed.
 * Added `bs_field_guide_table()` to render the field guide as a `gt` or
   `flextable` table (scan or worked-example layout, concern shading), with
   file export inferred from the extension (html / docx / pdf / rtf / png /
   pptx).
 * Added `bs_field_guide_help()`, a console interpretation aid: the seven
-  signals, the flag rule, common misreadings, and a live worked example
-  narrated from real signal values.
+  signals, the flag rule, common misreadings, and a worked example
+  based on the supplied data.
 * Added `bs_triangulate()`: crosses the field-guide verdict against
   independent virus detection (AFP and environmental surveillance) to
-  separate a trustworthy silence from a probable blind spot, with a
-  three-level triage priority and a `detection_lag` to read the verdict
-  before any response amplified it.
+  identify reporting shortfalls alongside detections, with three priority
+  levels and a `detection_lag` to assess reporting before the detection response.
 * Added `bs_triangulate_table()` and `bs_triangulate_map()` to render the
   triangulation as a `gt` / `flextable` table or a district choropleth
   (ten-class or coarse-priority fill).

@@ -1,55 +1,29 @@
 #' Render a one-page SPI pager for a single district
 #'
 #' @description
-#' Turns one district's [spi_field_guide()] reading into a self-contained,
-#' print-ready HTML "pager": a masthead with the review judgement, an
-#' SPI-over-time chart for the district (with the 90% credible-interval ribbon
-#' and any poliovirus detections marked), the five STEPS components (strength,
-#' timeliness, extent, persistence, stool adequacy), and a banner summarising
-#' what the judgement rests on. The pager reports the reading; it recommends
-#' no follow-up.
-#'
-#' It is the single-district companion to [spi_field_guide_table()]: where the
-#' table scans many districts at once, the pager is the tear-sheet you hand to
-#' a reviewer for the one district you are about to investigate.
+#' Creates a one-page district report from a [spi_field_guide()] result. It
+#' includes the review judgement, an SPI chart with a 90% credible interval
+#' and detection markers, the five STEPS components, and a summary of the
+#' findings that support the judgement.
 #'
 #' @details
-#' The whole page is rendered server-side as static HTML and an inline SVG,
-#' so the output file needs no JavaScript and no network access (the only
-#' remote reference is a Google Fonts stylesheet, which degrades to system
-#' fonts offline). Every number is read from `x`; nothing is simulated.
+#' The report is static HTML with an SVG chart. It works offline, using system
+#' fonts when Google Fonts is unavailable.
 #'
-#' The chart plots the focal district alone: its SPI line, the 90%
-#' credible-interval ribbon and any detection markers. Neighbours enter the
-#' page as the neighbour-median figure in the masthead, taken from the field
-#' guide, rather than as lines on the chart.
+#' The chart shows the district's SPI and any poliovirus detections. The
+#' header reports the neighbour median. Pass `boundaries` to add a location
+#' map with the district highlighted within its country and admin-1 divisions.
 #'
-#' Pass `boundaries` to draw the locator inset: the whole country in outline
-#' with its admin-1 divisions, and the focal district filled in the accent
-#' colour and ringed, so a reader can see where in the country it sits. There is
-#' no neighbour tier, because at badge size a district is only a few pixels
-#' across.
+#' Pass `indicators_df` to show the NPAFP rate, stool adequacy, timeliness,
+#' and EV rate. Percentages based on fewer than five assessable cases are
+#' shown as fractions and are not assessed against a target.
 #'
-#' Pass `indicators_df` to add conventional AFP and ES indicators to the context
-#' row below the chart: the non-polio AFP rate over the same years against its
-#' target, and tiles for stool adequacy, the two timeliness percentages and the
-#' EV rate (an ES measure, so it reads "no ES site" where the district has
-#' none). Its denominator is the case count, which in a district below
-#' expectation is usually a handful, so a percentage on fewer than five
-#' assessable cases prints as a fraction and is not graded against a target.
-#' These indicators are context: they never change the judgement. The STEPS
-#' timeliness and stool adequacy rows are read from the field guide itself.
+#' AFP detections appear as filled diamonds and ES detections as hollow
+#' circles. Seasonality and trend are also shown as context. These findings
+#' and the optional indicators do not change the STEPS judgement.
 #'
-#' The context row also reports poliovirus found there through either
-#' channel: the case-based (AFP) detections already carried by the field
-#' guide's `genomic` input, and any environmental-surveillance (ES) positives
-#' passed via `es`. Both are marked on the chart (AFP as a filled diamond, ES as
-#' a hollow ring). The seasonal reading and a falling or rising trend are shown
-#' beside them. All of these are context outside STEPS and never change the
-#' judgement.
-#'
-#' The accent colour tracks the judgement: rose for review priority, amber for
-#' monitor, green for no SPI indication.
+#' The report uses rose for review priority, amber for monitor, and green for
+#' no SPI indication.
 #'
 #' @param x A [spi_field_guide()] result (class `spi_field_guide`).
 #' @param district District to profile: either an id (e.g. the admin-2 GUID)
@@ -67,11 +41,9 @@
 #'   AFP detection** fell below the model expectation, i.e. `P(SPI < 1)`, as a
 #'   single number on the 0 to 1 scale. It is appended to the strength line
 #'   as a percentage, with the tails printed as "over 99%" and "under 1%" so
-#'   the line reports only the certainty the draws support. It states how
-#'   decisively the interval clears one, which the strength test otherwise
-#'   reports only as pass or fail. Read it as a system signal, not a virus
-#'   signal: it measures case-finding against expectation. Default: NULL (not
-#'   shown).
+#'   reported precision matches the posterior draws. This probability describes
+#'   reporting relative to expectation, not the presence of poliovirus.
+#'   Default: NULL (not shown).
 #' @param year_label Optional label for the reading year, shown in the masthead
 #'   in place of the bare year. Use it when the window is not a calendar year,
 #'   e.g. `"rolling year to Apr 2025"`. Default: NULL (the year).
@@ -79,9 +51,8 @@
 #'   one-row data frame. Recognised fields: `name` (or `region`/`adm1`), `rank`
 #'   (or `region_rank`), `n` (or `n_regions`) and `spi` (or `region_spi`). It
 #'   renders as a header line reading `region SUD-OUEST`, `SPI 0.70` and
-#'   `worst rank 1 of 22`, joined by middle dots. The rank orders regions that
-#'   are already short and stays out of the verdict, since a rank exists
-#'   whether or not anything is wrong. Default: NULL (no regional line).
+#'   `worst rank 1 of 22`, joined by middle dots. The rank provides context and does not change
+#'   the judgement. Default: NULL (no regional line).
 #' @param indicators_df Optional district-year panel of conventional AFP and ES
 #'   indicators, keyed by `guid` (or `id_col`) and `year`. When supplied, a
 #'   strip below the chart shows the non-polio AFP rate over the same years
@@ -104,11 +75,9 @@
 #'   with a positive count (or `TRUE`) count as detections. Default: NULL
 #'   (every row counts).
 #' @param detection_label What the detections in `x` and `es` actually are,
-#'   e.g. `"cVDPV2"` or `"WPV1"`. The field guide records only the years a
-#'   detection occurred, not its serotype, so this is your declaration of what
-#'   you filtered `genomic` / `es` down to when you built the guide. Leave it
-#'   NULL where the input mixes serotypes: the page then reads "poliovirus"
-#'   rather than naming one it was never told. Default: NULL.
+#'   e.g. `"cVDPV2"` or `"WPV1"`. Use this to name the serotype selected in `genomic` / `es`
+#'   when building the guide. Leave it NULL for mixed serotypes; the report
+#'   then uses "poliovirus". Default: NULL.
 #' @param id_col District id column, shared by `adjacency` / `boundaries` /
 #'   `es`. Default: NULL (`x$id_col`).
 #' @param year Integer focal year for the reading. Default: NULL
@@ -151,9 +120,7 @@
 #' pager <- spi_field_guide_pager(fg, district = "Tirwen")
 #' pager
 #' \dontrun{
-#' # self-contained: hand it the shapefile and it draws the locator inset, and
-#' # reads both detection channels (AFP + ES, already carried by the field
-#' # guide) into the out-of-grid detection row
+#' # Add a location map and the AFP / ES detections from the field guide.
 #' spi_field_guide_pager(
 #'   fg,
 #'   district = "Tirwen",
@@ -1510,13 +1477,13 @@ as.character.spi_pager <- function(x, ...) {
     seen <- if (zero) {
       sprintf(
         paste0("%s reported no non-polio AFP cases against the %s the model ",
-               "expects for its size, place and season."),
+               "expects for its population, location and season."),
         name, exp
       )
     } else {
       sprintf(
-        paste0("%s reports fewer non-polio AFP cases than its size, place and ",
-               "season lead the model to expect: %d against %s."),
+        paste0("%s reports fewer non-polio AFP cases than expected: ",
+               "%d against %s."),
         name, obs, exp
       )
     }
@@ -1527,16 +1494,16 @@ as.character.spi_pager <- function(x, ...) {
                   !.pager_noise_plausible(focal)) {
       ""
     } else if (zero) {
-      " A count this small could come up empty by chance alone."
+      " Zero cases could occur by chance alone when so few are expected."
     } else {
-      " A count this small could fall this short by chance alone."
+      " This shortfall could occur by chance alone when so few cases are expected."
     }
     paste0(seen, caveat)
   } else if (.pager_short_of_expectation(focal)) {
     sprintf(
       paste0("%s is at or above the cut, but its 90%% credible interval lies ",
              "wholly below one: it reports measurably fewer non-polio AFP ",
-             "cases than the model expects for its size, place and season."),
+             "cases than the model expects for its population, location and season."),
       name
     )
   } else {
@@ -1579,9 +1546,8 @@ as.character.spi_pager <- function(x, ...) {
   if (verdict == "Review priority") {
     return(paste0(
       sprintf(
-        paste0("A certain shortfall corroborated by %s: evidence of reporting ",
-               "below expectation is strong or persistent enough to warrant ",
-               "further investigation."),
+        paste0("Reporting is below expectation, with support from %s. ",
+               "The findings warrant further investigation."),
         paste(corroborators, collapse = " and ")
       ),
       process_txt
@@ -1597,8 +1563,8 @@ as.character.spi_pager <- function(x, ...) {
     }
     return(paste0(
       sprintf(
-        paste0("Reporting is below expectation, but %s, so reassessment as ",
-               "new data become available is favoured over review priority."),
+        paste0("Reporting is below expectation, but %s. The findings support ",
+               "reassessment as new data become available."),
         reason
       ),
       process_txt
@@ -1607,8 +1573,8 @@ as.character.spi_pager <- function(x, ...) {
   if (.pager_short_of_expectation(focal)) {
     return(paste0(
       "The SPI is at or above the cut, but its 90% interval lies wholly ",
-      "below one: reporting is measurably below expectation, and STEPS does ",
-      "not reach it."
+      "below one: reporting is below expectation, but STEPS is not applied ",
+      "at or above the cut."
     ))
   }
   paste0(
@@ -1799,7 +1765,7 @@ as.character.spi_pager <- function(x, ...) {
     "<div class=\"reading\"><div class=\"sectlab\" ",
     "style=\"margin-bottom:6px\"><span>Reading the SPI \u2014 the five STEPS ",
     "for ",
-    name, "</span><span>strength \u00b7 process \u00b7 corroboration</span></div>",
+    name, "</span><span>strength \u00b7 process \u00b7 supporting evidence</span></div>",
     "<div class=\"rrule\">", rule, "</div>",
     "<div>", rows, "</div></div>",
     # verdict banner
@@ -1826,7 +1792,7 @@ as.character.spi_pager <- function(x, ...) {
 }
 
 # the pager stylesheet (design tokens + layout), verbatim from the field
-# guide's tear-sheet design plus a muted "quiet" role chip. `accent` drives
+# guide's report design plus a muted "quiet" role chip. `accent` drives
 # the verdict colour (rose flag / plum review / amber watch / green no-action).
 # @noRd
 .pager_css <- function(accent) {

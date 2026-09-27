@@ -3,24 +3,24 @@
 \docType{package}
 \name{spi-package}
 \alias{spi-package}
-\title{spi: Bayesian Spatiotemporal Surveillance Quality Monitoring}
+\title{spi: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting}
 \description{
-\if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
-Estimates district-level expected case detection rates using Bayesian spatiotemporal models (BYM2 via INLA), adjusts for reporting delays, monitors temporal trends via first-order random walk smoothing, detects acute surveillance disruptions via Bayesian online changepoint detection, and classifies surveillance quality into operational response categories. The core output is a surveillance performance index (SPI) defined as the ratio of delay-adjusted observed counts to model-estimated expected counts, with full posterior uncertainty quantification. The SPI adapts the standardised morbidity ratio (SMR) framework from disease mapping to surveillance process monitoring. Designed for acute flaccid paralysis (AFP) surveillance in the polio endgame but applicable to any case-based disease surveillance system with spatially distributed reporting units and count data, including measles discard surveillance, neonatal tetanus reporting, and DHIS2 completeness monitoring.
+Estimates expected case counts for each district and month using Bayesian spatial and temporal models fitted with INLA. The surveillance performance index (SPI) compares observed and expected counts, nationally centred by default, with credible intervals for uncertainty in expected counts. Functions check inputs, compare SPI with conventional reporting targets, and produce tables, maps, and district reports for surveillance review. Designed for acute flaccid paralysis (AFP) surveillance, with support for other case-based surveillance data.
 
-spi estimates district-level expected case detection rates using
-Bayesian spatiotemporal models (BYM2 via INLA) and classifies surveillance
-quality into operational response categories.
+spi estimates district-level expected reported case counts using
+Bayesian spatiotemporal models (BYM2 via INLA) and summarises reporting
+shortfalls for surveillance review.
 }
-\section{Core framework}{
+\section{Model}{
 
 
 \strong{Expected rate model}
 \itemize{
-\item Poisson regression with BYM2 spatial random effects (INLA)
+\item Negative binomial or Poisson regression with BYM2 spatial effects (INLA)
 \item Log person-time offset
-\item Estimates background detection rate from data rather than fixed thresholds
+\item Estimates background reported NPAFP rate from data rather than fixed thresholds
 \item Posterior draws of expected counts become SPI denominator
 }
 }
@@ -30,8 +30,8 @@ quality into operational response categories.
 
 \strong{Surveillance Performance Index (SPI)}
 \itemize{
-\item Ratio of observed counts to expected counts
-\item Full posterior uncertainty quantification
+\item Ratio of observed to expected counts, nationally centred by default
+\item Credible intervals for uncertainty in expected counts
 \item Adapts standardised morbidity ratio (SMR) framework to surveillance
 monitoring
 }
@@ -39,11 +39,10 @@ monitoring
 \strong{Concordance and interpretation}
 \itemize{
 \item Cross-classify SPI against the conventional NPAFP-rate threshold into a
-four-cell table (both adequate / true shortfall / false alarm / false
-reassurance).
+four-cell table (neither flagged / SPI only / NPAFP only / both flagged).
 \item Review each district-year with an SPI below 1 through the five STEPS
 components (strength, timeliness, extent, persistence, stool adequacy)
-to a review priority / monitor / no SPI indication judgement.
+to a review priority / monitor / no SPI indication review label. These labels do not establish surveillance adequacy.
 }
 }
 
@@ -58,22 +57,6 @@ to a review priority / monitor / no SPI indication judgement.
 \item \code{\link[=spi_field_guide]{spi_field_guide()}}: Review a low SPI through the five STEPS components
 \item \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}: Render the field guide (gt / flextable)
 \item \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}: Learn to read the field guide
-}
-}
-
-\section{Design principles}{
-
-\enumerate{
-\item One function, one job
-\item No side effects
-\item Tibbles in, tibbles out
-\item Fail early, fail clearly
-\item Uncertainty is first-class output
-\item Sensible defaults, full control
-\item Disease-agnostic core
-\item Consistent namespace (bs_ prefix)
-\item Reproducibility by default
-\item Progressive disclosure
 }
 }
 
@@ -92,7 +75,7 @@ disease surveillance system:
 
 \section{Dependencies}{
 
-Core computational engine uses INLA for Bayesian inference. INLA is not on
+Model fitting uses INLA for Bayesian inference. INLA is not on
 CRAN and is distributed via
 \url{https://inla.r-inla-download.org/R/stable/}. The package installation
 automatically configures the INLA repository.
@@ -102,8 +85,8 @@ automatically configures the INLA repository.
 
 If you use spi in published work, please cite:
 
-Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal surveillance
-quality monitoring. R package version 0.1.0.
+Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal modelling of
+relative surveillance reporting. R package version 0.1.0.
 \url{https://github.com/truenomad/spi}
 
 Associated paper:
@@ -112,13 +95,13 @@ framework for AFP surveillance quality monitoring in the polio endgame.
 Lancet Global Health.
 }
 
-\section{Package philosophy}{
+\section{Interpretation}{
 
-spi replaces binary pass/fail threshold classifications with
-continuous, uncertainty-quantified surveillance quality measures that map to
-specific operational responses. The framework learns what each district
-should be
-detecting from the data rather than imposing fixed targets.
+Read the SPI alongside conventional reporting targets and other surveillance
+indicators. With the default national centring, a low SPI indicates reporting below the
+national pattern. With \code{centre = "none"}, it indicates reporting below the
+district's own modelled expectation. Neither establishes the cause of the
+shortfall or shows whether poliovirus is present.
 }
 
 \seealso{
@@ -129,14 +112,17 @@ Useful links:
   \item Report bugs at \url{https://github.com/truenomad/spi/issues}
 }
 
+
+Useful links:
+\itemize{
+  \item \url{https://github.com/truenomad/spi}
+  \item \url{https://truenomad.r-universe.dev/spi}
+  \item Report bugs at \url{https://github.com/truenomad/spi/issues}
+}
+
 }
 \author{
 \strong{Maintainer}: Mohamed Yusuf \email{moyusuf@who.int} (\href{https://orcid.org/0000-0002-9339-4613}{ORCID})
-
-Authors:
-\itemize{
-  \item Mohamed Yusuf \email{moyusuf@who.int} (\href{https://orcid.org/0000-0002-9339-4613}{ORCID})
-}
 
 }
 \keyword{internal}

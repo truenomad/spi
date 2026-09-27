@@ -44,7 +44,7 @@ test_that("a review priority district renders a well-formed pager object", {
   expect_match(html, "vbanner", fixed = TRUE)
   # review priority accent is rose, and the banner names its corroboration
   expect_match(html, "--accent:#c8102e", fixed = TRUE)
-  expect_match(html, "A certain shortfall corroborated by", fixed = TRUE)
+  expect_match(html, "Reporting is below expectation, with support from", fixed = TRUE)
 })
 
 test_that("an at-or-above district switches the accent to green", {
@@ -145,7 +145,7 @@ test_that("clearing the cut is not reported as detecting adequately", {
   expect_no_match(h, "--accent:#1f6f43", fixed = TRUE)
   expect_match(h, "--accent:#5a6883", fixed = TRUE)
   expect_match(h, "at cut \u00b7 interval below 1", fixed = TRUE)
-  expect_match(h, "STEPS does not reach it", fixed = TRUE)
+  expect_match(h, "STEPS is not applied", fixed = TRUE)
 
   hok <- spi_field_guide_pager(fg, district = "OK", verbose = FALSE)$html
   expect_match(hok, "--accent:#1f6f43", fixed = TRUE)

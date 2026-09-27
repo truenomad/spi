@@ -2,7 +2,7 @@
 % Please edit documentation in R/spi_check_inputs.R
 \name{spi_check_inputs}
 \alias{spi_check_inputs}
-\title{Pre-flight check of the model inputs}
+\title{Check model inputs}
 \usage{
 spi_check_inputs(
   cases,
@@ -41,38 +41,28 @@ Default \code{"pop_u15"} (the under-15 at-risk population used for AFP).}
 A \code{spi_input_check} object: a list with \code{issues} (a tibble of
 graded findings, one row each with \code{severity}, \code{code}, \code{message}, and the
 offending \code{ids}), \code{gaps} (a \code{district_id} x \code{month} tibble of missing
-panel cells, ready for a future fill helper), \code{n_error} / \code{n_warning} /
+district-months), \code{n_error} / \code{n_warning} /
 \code{n_note} counts, \code{ok} (\code{TRUE} when there are no error-level issues), and
 the panel dimensions. Has a \code{print} method.
 }
 \description{
-Reconciles the three tables a fit consumes -- case counts, population
-denominators, and the district shapefile -- \strong{before} a model is run, and
-returns every mismatch at once as a graded report. This is the input-side
-counterpart to \code{\link[=spi_concordance]{spi_concordance()}}, which grades the \emph{output}; the two do
-unrelated jobs at opposite ends of the pipeline, hence the distinct name.
+Checks case counts, population denominators, and district boundaries before
+fitting. Reports mismatched district IDs, missing months, invalid population
+values, and geometry problems together.
 }
 \details{
-The most common silent failure in practice is district ids that don't line
-up across the three tables: \code{\link[=spi_expected]{spi_expected()}} will otherwise run anyway and
-return numbers that look fine but are wrong for the affected districts, with
-no warning. \code{spi_check_inputs()} surfaces that, plus panel gaps, zero or
-negative populations, and invalid geometry, in a single pass.
-
-Every issue is graded so the whole picture arrives in one report rather than
-one-error-at-a-time:
+Issues have three severity levels:
 \itemize{
 \item \strong{error} -- blocks the fit (missing columns, negative counts, negative
 population, duplicate district-months, case ids absent from the shapefile).
-\item \strong{warning} -- the fit can proceed but the result is suspect (panel gaps,
-zero population, partial coverage, shapefile districts with no case rows,
-invalid geometry, covariate ids off the panel).
-\item \strong{note} -- informational (adjacency components).
+\item \strong{warning} -- needs review (panel gaps, zero population, partial coverage,
+shapefile districts with no case rows, invalid geometry, covariate ids
+absent from the case data).
+\item \strong{note} -- additional information (adjacency components).
 }
 
-\code{\link[=spi_expected]{spi_expected()}} calls this internally and aborts only on error-level issues.
-Run it yourself first to see warnings you may want to act on before
-committing to a fit.
+\code{\link[=spi_expected]{spi_expected()}} calls this check and stops on errors. Run it separately
+to review warnings before fitting.
 }
 \examples{
 \dontrun{

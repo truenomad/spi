@@ -120,5 +120,6 @@
 <line x1="255.6" y1="304.0" x2="275.4" y2="304.0" stroke="#444441" stroke-width="7.5" opacity="1.00" stroke-linecap="round"/>
 <line x1="280.6" y1="304.0" x2="294.0" y2="304.0" stroke="#333330" stroke-width="6.5" opacity="0.85" stroke-linecap="round"/>
 </g>
-<text x="200" y="365" text-anchor="middle" font-family="SF Mono,Fira Code,Consolas,monospace" font-size="38" letter-spacing="1.2"><tspan font-weight="700" fill="#2c2c2a">blind</tspan><tspan font-weight="700" fill="#cc1111">spot</tspan></text>
+<g font-family="SF Mono,Fira Code,Consolas,monospace" font-size="43.7" font-weight="700" fill="#2c2c2a" text-anchor="middle"><text x="172.4" y="365">s</text><text x="200" y="365">p</text><text x="227.6" y="365">&#x131;</text></g>
+<circle cx="227.6" cy="336.2" r="4.4" fill="#cc1111"/>
 </svg>

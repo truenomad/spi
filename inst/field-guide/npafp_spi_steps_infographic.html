@@ -20,7 +20,7 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
     </div>
     <div style="flex: 0 0 388px; background: #dceefb; border: 1px solid #b6d9f3; border-radius: 7px; padding: 10px 14px 12px;">
       <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; color: #10284f;">Goal</div>
-      <div style="margin-top: 3px; font-size: 14.5px; line-height: 1.32; color: #16406e;">Identify and prioritise areas of surveillance concern so that AFP systems are stronger and more sensitive.</div>
+      <div style="margin-top: 3px; font-size: 14.5px; line-height: 1.32; color: #16406e;">Review AFP reporting volume, timeliness, and stool quality together.</div>
     </div>
   </div>
 
@@ -101,7 +101,7 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
           <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 16px; color: #1b62b3;">Important limitations:</div>
           <ul style="margin: 6px 0 0; padding-left: 16px; font-size: 14px; line-height: 1.32; color: #16406e;">
             <li style="margin-bottom: 4px;">Uses a single, fixed target for all settings</li>
-            <li style="margin-bottom: 4px;">Does not account for population size, seasonality or historical levels</li>
+            <li style="margin-bottom: 4px;">Does not account for seasonal or historical reporting patterns</li>
             <li style="margin-bottom: 4px;">Can miss districts reporting below their own expected level, including large or high-performing districts</li>
             <li>Can appear adequate even when non-polio AFP detection is lower than expected</li>
           </ul>
@@ -116,31 +116,32 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
       </div>
       <div style="margin-top: 11px; font-size: 14.5px; line-height: 1.32; color: #16406e;">SPI compares the observed number of non-polio AFP cases with the number expected for each district, based on its own characteristics (e.g. population, season, history and neighbours).</div>
       <div style="margin-top: 12px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 9px 13px; display: flex; align-items: center; gap: 13px;">
-        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 22px; color: #10284f;">SPI =</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 22px; color: #10284f;">Ratio =</div>
         <div style="flex: 1 1 auto; background: #ffffff; border: 1px solid #cfc6ec; border-radius: 4px; padding: 4px 10px; text-align: center; font-size: 14px; color: #16406e;">
           <div style="padding-bottom: 3px;">Observed non-polio AFP cases</div>
           <div style="border-top: 1.5px solid #10284f; padding-top: 3px;">Expected non-polio AFP cases</div>
         </div>
       </div>
+      <div style="margin-top: 7px; font-size: 13.5px; line-height: 1.3; color: #16406e;">By default, SPI = district ratio ÷ national ratio. With centre = "none", SPI is the district ratio alone.</div>
       <div style="margin-top: 13px; display: flex; flex-direction: column; gap: 11px;">
         <div style="display: flex; align-items: center; gap: 12px;">
           <svg width="22" height="30" viewBox="0 0 22 30" style="flex: 0 0 auto;"><path d="M11 30L1 15h6.5V0h7v15H21z" fill="#e8492b"></path></svg>
           <div style="flex: 0 0 82px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 18px; color: #d13c1f;">SPI &lt; 1</div>
-          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Estimated below expectation (fewer cases than expected)</div>
+          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Below the nationally centred expectation (default)</div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
           <svg width="22" height="30" viewBox="0 0 22 30" style="flex: 0 0 auto;"><rect x="0" y="11" width="22" height="8" rx="4" fill="#5d7085"></rect></svg>
           <div style="flex: 0 0 82px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 18px; color: #5d7085;">SPI = 1</div>
-          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Observed equals expected</div>
+          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Reporting matches the national pattern</div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
           <svg width="22" height="30" viewBox="0 0 22 30" style="flex: 0 0 auto;"><path d="M11 0l10 15h-6.5v15h-7V15H1z" fill="#1e9e4a"></path></svg>
           <div style="flex: 0 0 82px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 18px; color: #1a8f42;">SPI &gt; 1</div>
-          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Estimated above expectation (more cases than expected)</div>
+          <div style="font-size: 14px; line-height: 1.28; color: #16406e;">Above the nationally centred expectation (default)</div>
         </div>
       </div>
-      <div style="margin-top: 13px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 10px 12px; font-size: 13.5px; line-height: 1.32; color: #16406e;">SPI complements NPAFP by adding the relative volume perspective, helping to identify districts where non-polio AFP detection is lower or higher than expected, even when the NPAFP target is met.</div>
-      <div style="margin-top: 9px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 10px 12px; font-size: 13.5px; line-height: 1.32; color: #16406e;">The size of the shortfall is read from the SPI itself: an SPI of 0.95 means observed reporting was 5% below the modelled expectation, and 0.70 means 30% below. There is no second cutoff below 1.</div>
+      <div style="margin-top: 13px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 10px 12px; font-size: 13.5px; line-height: 1.32; color: #16406e;">Use SPI alongside the NPAFP rate to identify districts reporting fewer cases than expected, including those that meet the NPAFP target.</div>
+      <div style="margin-top: 9px; background: #e6e0f7; border: 1px solid #cfc6ec; border-radius: 6px; padding: 10px 12px; font-size: 13.5px; line-height: 1.32; color: #16406e;">SPI shows the size of the shortfall after national centring: 0.95 means reporting was 5% below expectation, and 0.70 means 30% below. SPI = 1 is the reference point. Lower values may focus review; they are not validated action thresholds.</div>
     </div>
   </div>
 
@@ -193,9 +194,9 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
     <div style="flex: 0.83 1 0; min-width: 0; background: #eef7fd; border: 1px solid #c3dff5; border-radius: 9px; padding: 14px 15px 16px; display: flex; flex-direction: column;">
       <div style="display: flex; align-items: center; gap: 11px;">
         <div style="flex: 0 0 auto; width: 31px; height: 31px; border-radius: 50%; background: #14477e; color: #ffffff; font-family: Archivo, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center;">5</div>
-        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">STEPS: a structured review</div>
+        <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 18.5px; color: #1b62b3;">Review a low SPI with STEPS</div>
       </div>
-      <div style="margin-top: 11px; font-size: 14.5px; line-height: 1.32; color: #16406e;">For districts with SPI &lt; 1, use STEPS to assess the overall surveillance concern.</div>
+      <div style="margin-top: 11px; font-size: 14.5px; line-height: 1.32; color: #16406e;">For districts with SPI &lt; 1, use STEPS to review the shortfall and other surveillance findings.</div>
       <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 7px;">
         <div style="background: #ddeffc; border-radius: 5px; padding: 7px 12px; display: flex; align-items: center; gap: 13px;">
           <div style="flex: 0 0 18px; font-family: Archivo, sans-serif; font-weight: 700; font-size: 21px; color: #10284f;">S</div>
@@ -235,7 +236,7 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
         <div style="display: flex; align-items: stretch; background: #dceefb;">
           <div style="flex: 0 0 96px; padding: 7px 9px; font-size: 12.5px; font-weight: 700; color: #14477e; border-right: 1px solid #ffffff;">Component</div>
           <div style="flex: 1 1 0; padding: 7px 9px; font-size: 12.5px; font-weight: 700; color: #14477e; border-right: 1px solid #ffffff;">What it asks</div>
-          <div style="flex: 0 0 100px; padding: 7px 9px; font-size: 12px; font-weight: 700; color: #14477e; text-align: center; line-height: 1.18;">Corroborates<br>the SPI signal?</div>
+          <div style="flex: 0 0 100px; padding: 7px 9px; font-size: 12px; font-weight: 700; color: #14477e; text-align: center; line-height: 1.18;">Supports<br>the low SPI?</div>
         </div>
         <div style="display: flex; align-items: stretch;">
           <div style="flex: 0 0 96px; background: #ffffff; padding: 9px; font-size: 13px; font-weight: 700; color: #14477e; border-right: 1px solid #dceefb; border-bottom: 1px solid #dceefb;">Strength (S)</div>
@@ -278,17 +279,17 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
         <div style="flex: 1 1 0; background: #ddeffc; border-radius: 6px; overflow: hidden;">
           <div style="background: #c9e4f8; padding: 6px 10px; text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">Key points</div>
           <ul style="margin: 0; padding: 9px 10px 11px 25px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
-            <li style="margin-bottom: 6px;">Extent is the strongest corroborator of the SPI signal.</li>
-            <li style="margin-bottom: 6px;">Persistence also supports the signal, but is common.</li>
-            <li style="margin-bottom: 6px;">Timeliness and stool adequacy are important surveillance dimensions, but are not validated corroborators of the SPI signal.</li>
-            <li>Other individual concerns (besides extent) do not, on their own, raise the level of concern.</li>
+            <li style="margin-bottom: 6px;">Extent provides supporting context for a low SPI.</li>
+            <li style="margin-bottom: 6px;">Persistence adds support, but is common.</li>
+            <li style="margin-bottom: 6px;">Timeliness and stool adequacy describe other aspects of surveillance. They do not change the generated review label.</li>
+            <li>No single component establishes surveillance failure.</li>
           </ul>
         </div>
         <div style="flex: 1 1 0; background: #ecf0fb; border-radius: 6px; overflow: hidden; width: 101px; height: 448px">
           <div style="background: #dbe2f7; padding: 6px 10px; text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">What a single concern means</div>
           <ul style="margin: 0; padding: 9px 10px 11px 25px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
-            <li style="margin-bottom: 6px;">Extent alone raises the level of concern.</li>
-            <li style="margin-bottom: 6px;">Other single concerns do not; they add weight only in combination.</li>
+            <li style="margin-bottom: 6px;">Extent adds context from other districts in the area.</li>
+            <li style="margin-bottom: 6px;">Consider persistence, timeliness, and stool adequacy together.</li>
             <li>There is no requirement for agreement across all STEPS components.</li>
           </ul>
         </div>
@@ -296,9 +297,9 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
           <div style="background: #fae0c4; padding: 6px 10px; text-align: center; font-family: Archivo, sans-serif; font-weight: 700; font-size: 14.5px; color: #14477e;">How to prioritise</div>
           <ul style="margin: 0; padding: 9px 10px 11px 25px; font-size: 13.5px; line-height: 1.3; color: #16406e;">
             <li style="margin-bottom: 5px;">Consider SPI &lt; 1 for review.</li>
-            <li style="margin-bottom: 5px;">Priority rises with the size of the shortfall, read from the continuous SPI, and when the shortfall is geographically corroborated, persistent, and accompanied by weaknesses in other surveillance processes (e.g. timeliness or stool adequacy).</li>
-            <li style="margin-bottom: 5px;">There is no second SPI cutoff below 1.</li>
-            <li>Ranks where to look first; it is not a forecast.</li>
+            <li style="margin-bottom: 5px;">Larger shortfalls, similar findings in other districts, and shortfalls in the previous year support review. Also examine timeliness and stool adequacy.</li>
+            <li style="margin-bottom: 5px;">Use a lower SPI cutoff (0.80, 0.60, or 0.40) to focus review on larger shortfalls; record the choice.</li>
+            <li>Helps decide where to review first. It does not forecast virus circulation.</li>
           </ul>
         </div>
       </div>
@@ -321,7 +322,7 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
           <svg width="46" height="46" viewBox="0 0 46 46" style="flex: 0 0 46px;"><circle cx="23" cy="23" r="23" fill="#14477e"></circle><rect x="14" y="11.5" width="18" height="23" rx="2.5" fill="none" stroke="#ffffff" stroke-width="2.6"></rect><path d="M18.5 18h11M18.5 23h11M18.5 28h7" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"></path></svg>
           <div style="flex: 1 1 auto; min-width: 0;">
             <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #1b62b3;">2. Assess</div>
-            <div style="font-size: 13px; line-height: 1.28; color: #16406e;">Use STEPS to understand the pattern of surveillance concern.</div>
+            <div style="font-size: 13px; line-height: 1.28; color: #16406e;">Use STEPS to assess the shortfall and related findings.</div>
           </div>
         </div>
         <div style="display: flex; justify-content: center;">
@@ -331,7 +332,7 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
           <svg width="46" height="46" viewBox="0 0 46 46" style="flex: 0 0 46px;"><circle cx="23" cy="23" r="23" fill="#14477e"></circle><path d="M23 13.5l2.4 1 2.3-1.2 1.6 2 2.6.2.2 2.6 2 1.6-1.2 2.3 1 2.4-2 1.6-.4 2.6-2.6.2-1.6 2-2.3-1.2-2.4 1-1.6-2-2.6-.4-.2-2.6-2-1.6 1.2-2.3-1-2.4 2-1.6.4-2.6 2.6-.2z" fill="#ffffff"></path><circle cx="23" cy="23" r="5" fill="#14477e"></circle></svg>
           <div style="flex: 1 1 auto; min-width: 0;">
             <div style="font-family: Archivo, sans-serif; font-weight: 700; font-size: 15px; color: #1b62b3;">3. Respond</div>
-            <div style="font-size: 13px; line-height: 1.28; color: #16406e;">Prioritise and tailor actions based on the overall picture (e.g. supportive supervision, specimen transport, investigation quality, community engagement).</div>
+            <div style="font-size: 13px; line-height: 1.28; color: #16406e;">Choose actions based on the findings (e.g. supportive supervision, specimen transport, investigation quality, community engagement).</div>
           </div>
         </div>
       </div>
@@ -349,19 +350,19 @@ body { margin: 0; background: #ffffff; font-family: "Source Sans 3", system-ui, 
         </div>
         <div style="display: flex; gap: 12px; align-items: flex-start;">
           <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">STEPS brings together five dimensions of surveillance concern.</div>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">STEPS reviews five aspects of surveillance.</div>
         </div>
         <div style="display: flex; gap: 12px; align-items: flex-start;">
           <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Extent is the strongest corroborator of the SPI signal. Persistence adds support.</div>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Extent provides supporting context for a low SPI. Persistence adds support.</div>
         </div>
         <div style="display: flex; gap: 12px; align-items: flex-start;">
           <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Timeliness and stool adequacy are important surveillance dimensions, but are not validated corroborators of the SPI signal.</div>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Timeliness and stool adequacy describe other aspects of surveillance. They do not change the generated review label.</div>
         </div>
         <div style="display: flex; gap: 12px; align-items: flex-start;">
           <svg width="26" height="26" viewBox="0 0 26 26" style="flex: 0 0 26px; margin-top: 1px;"><circle cx="13" cy="13" r="13" fill="#14477e"></circle><path d="M7 13.5l4 4L19 9" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Priority depends on the pattern of concerns, not the 2×2 cell alone. STEPS is a review framework, not a score.</div>
+          <div style="font-size: 13.5px; line-height: 1.3; color: #16406e;">Use the full set of findings to prioritise review. STEPS does not produce a combined score.</div>
         </div>
       </div>
     </div>

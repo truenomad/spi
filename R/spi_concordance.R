@@ -11,30 +11,20 @@
 #' Cross-classify SPI against the conventional NPAFP-rate threshold
 #'
 #' @description
-#' Compares the model-based Surveillance Performance Index against the
-#' WHO conventional NPAFP-rate threshold on the same district-year units
-#' and summarises the four-cell concordance table. The SPI is a ratio of
-#' observed to context-conditional expected detections, so its neutral cut
-#' is 1: below 1 means fewer AFP cases were detected than the model expects
-#' given the district's size, rurality and neighbour profile. The four
-#' cells are named for what each side of the comparison flags, not for
-#' which side is presumed right:
+#' Compares the SPI and conventional NPAFP rate for each district-year.
+#' The default SPI threshold is 1. The four categories show which measure
+#' falls below its threshold:
 #' \itemize{
 #'   \item **Neither flagged** -- NPAFP >= target AND SPI >= threshold.
-#'     Conventional monitoring and the model both read the district as
-#'     adequate.
-#'   \item **Both flagged** -- NPAFP < target AND SPI < threshold. Both
-#'     indicators agree the district is under-detecting.
-#'   \item **SPI only** -- NPAFP >= target BUT SPI < threshold. The
-#'     conventional rate reads adequate; the model reads under-detection
-#'     once size, rurality and neighbours are accounted for.
-#'   \item **NPAFP only** -- NPAFP < target BUT SPI >= threshold. The
-#'     conventional rate is below target; the model reads the district as
-#'     within its context-conditional expectation.
+#'   \item **Both flagged** -- NPAFP < target AND SPI < threshold.
+#'   \item **SPI only** -- NPAFP >= target BUT SPI < threshold.
+#'   \item **NPAFP only** -- NPAFP < target BUT SPI >= threshold.
 #' }
+#' These categories describe agreement between the measures; they do not
+#' establish whether surveillance is adequate.
 #'
 #' Concordance is quantified as raw percent agreement and Cohen's kappa,
-#' plus a McNemar chi-square testing marginal-shift.
+#' plus a McNemar chi-square test of whether one measure flags more often.
 #'
 #' @param spi Object of class `spi_index` at `district_year` level.
 #' @param cases Optional tibble with the district id column and `count`
@@ -570,12 +560,10 @@ plot.spi_concordance <- function(x, ...) {
 #' as a single figure but each panel is a full `ggplot` you can extract
 #' or restyle.
 #'
-#' The maps hold a fixed geographic aspect ratio, so render at a shape
-#' that matches the boundaries or the panels float in whitespace. For a
-#' landscape territory the three side-by-side panels want a wide, short
-#' canvas -- roughly `width:height` of 3:1 (e.g. `ggsave(width = 15,
-#' height = 5)`); a portrait territory wants a taller one. Saving too
-#' tall leaves large empty bands above and below the maps.
+#' The maps keep their geographic aspect ratio. Choose image dimensions that
+#' match the boundaries to limit empty space. For a wide region, try a 3:1
+#' width-to-height ratio, such as `ggsave(width = 15, height = 5)`. A region
+#' that is taller than it is wide needs a taller image.
 #'
 #' @param concordance A `spi_concordance` object. `$district_year`
 #'   must contain `year`, `npafp_rate`, `spi_median`, and `concordance`.
