@@ -141,6 +141,19 @@
   its own build script; SPI moves by up to 0.12. Guides saved by an earlier
   version still render.
 
+### Documentation
+
+* The pkgdown site at https://truenomad.github.io/spi/ now has four articles:
+  Getting started with SPI, Interpreting SPI alongside AFP indicators,
+  Reviewing districts with STEPS, and Model options and sensitivity. The
+  README keeps the overview, a short quick start and one example of each
+  output, and links to the articles.
+* The reference index groups functions by task, and the site publishes
+  `llms.txt` with a Markdown copy of every page for use by agents.
+* The three articles that fit INLA models are knitted locally from
+  `vignettes/*.Rmd.orig` with `vignettes/precompile.R`, because CI does not
+  install INLA.
+
 # blindspot 0.1.0
 
 * Added `bs_field_guide()`: reads every district-year through the paper's
