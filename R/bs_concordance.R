@@ -1,24 +1,36 @@
+# the four concordance cells, in display order. Every table, plot and metric
+# reads the labels from here.
+# @noRd
+.concordance_cells <- c(
+  neither = "Neither flagged",
+  spi_only = "SPI only",
+  npafp_only = "NPAFP only",
+  both = "Both flagged"
+)
+
 #' Cross-classify SPI against the conventional NPAFP-rate threshold
 #'
 #' @description
 #' Compares the model-based Surveillance Performance Index against the
 #' WHO conventional NPAFP-rate threshold on the same district-year units
-#' and summarises the four-cell concordance table. The four cells match
-#' the paper's terminology:
+#' and summarises the four-cell concordance table. The SPI is a ratio of
+#' observed to context-conditional expected detections, so its neutral cut
+#' is 1: below 1 means fewer AFP cases were detected than the model expects
+#' given the district's size, rurality and neighbour profile. The four
+#' cells are named for what each side of the comparison flags, not for
+#' which side is presumed right:
 #' \itemize{
-#'   \item **Both adequate** -- NPAFP >= target AND SPI >= threshold. The
-#'     surveillance system is doing what conventional monitoring expects
-#'     and what the model expects.
-#'   \item **True shortfall** -- NPAFP < target AND SPI < threshold. Both
-#'     indicators agree the district is under-detecting; act on it.
-#'   \item **False reassurance** -- NPAFP >= target BUT SPI < threshold.
-#'     The conventional rate says OK, the model says failing. These are
-#'     silent-failure districts the raw threshold misses. In the paper
-#'     this is the headline refinement: SPI catches under-detection that
-#'     NPAFP alone does not.
-#'   \item **False alarm** -- NPAFP < target BUT SPI >= threshold. The
-#'     conventional rate flags the district but the model, accounting
-#'     for its size / rurality / neighbour profile, does not.
+#'   \item **Neither flagged** -- NPAFP >= target AND SPI >= threshold.
+#'     Conventional monitoring and the model both read the district as
+#'     adequate.
+#'   \item **Both flagged** -- NPAFP < target AND SPI < threshold. Both
+#'     indicators agree the district is under-detecting.
+#'   \item **SPI only** -- NPAFP >= target BUT SPI < threshold. The
+#'     conventional rate reads adequate; the model reads under-detection
+#'     once size, rurality and neighbours are accounted for.
+#'   \item **NPAFP only** -- NPAFP < target BUT SPI >= threshold. The
+#'     conventional rate is below target; the model reads the district as
+#'     within its context-conditional expectation.
 #' }
 #'
 #' Concordance is quantified as raw percent agreement and Cohen's kappa,
@@ -34,8 +46,13 @@
 #'   closes, matching the `year_end_month` the SPI was computed with. The
 #'   conventional rate is grouped on the same rolling year, so the two sides of
 #'   the comparison cover the same months. Default: 12 (calendar years).
-#' @param spi_threshold Numeric. SPI median below this = "fail". Paper
-#'   uses 0.80. Default: 0.80.
+#' @param spi_threshold Numeric. SPI median below this = flagged. The SPI's
+#'   neutral cut is 1 (observed at expected). Default: 1.
+#' @param spi_rule Character. `"median"` flags on `spi_median` alone.
+#'   `"interval"` additionally requires the 90% upper bound (`spi_q95`) to
+#'   sit below 1, so only districts whose whole plausible range reads as
+#'   under-detecting are flagged. This is the paper's sensitivity analysis
+#'   on the primary median-based rule. Default: `"median"`.
 #' @param npafp_target Numeric. NPAFP rate below this per `npafp_multiplier`
 #'   person-years = "fail". WHO's target for polio surveillance is
 #'   traditionally 2 per 100,000 under-15; the paper uses 3 per 100,000.
@@ -60,15 +77,19 @@
 #' \describe{
 #'   \item{district_year}{Tibble with per-district-year classification:
 #'     `{id_col}`, `year`, `count_annual`, `pop_u15`, `npafp_rate`,
-#'     `npafp_adequate` (logical), `spi_median`, `spi_q05`, `spi_q95`,
-#'     `spi_pass` (logical), `concordance` (factor: Both adequate /
-#'     True shortfall / False reassurance / False alarm).}
+#'     `npafp_adequate` (logical), `observed` (posterior observed count, from
+#'     `spi$summary`, when present), `expected_total` (context-conditional
+#'     expected count, when present), `spi_median`, `spi_q05`, `spi_q95`,
+#'     `spi_flagged` (logical), `spi_pass` (logical, `!spi_flagged`),
+#'     `concordance` (factor: Neither flagged / SPI only / NPAFP only /
+#'     Both flagged).}
 #'   \item{crosstab}{2x2 table of counts and row/column percentages.}
 #'   \item{metrics}{Pooled scalar metrics: `n`, `pct_agreement`,
 #'     `cohens_kappa`, `mcnemar_p`, plus per-cell counts.}
 #'   \item{by_stratum}{Tibble of per-stratum metrics when `strata` is
 #'     non-NULL; else NULL.}
-#'   \item{thresholds}{Named list echoing the SPI + NPAFP cuts used.}
+#'   \item{thresholds}{Named list echoing the SPI cut, the `spi_rule`, and
+#'     the NPAFP cuts used.}
 #'   \item{id_col}{The id column name.}
 #'   \item{call}{Matched call.}
 #' }
@@ -84,7 +105,7 @@
 #' conc <- bs_concordance(
 #'   spi             = spi_dy,
 #'   population      = synth_surveillance$population,
-#'   spi_threshold   = 0.80,
+#'   spi_threshold   = 1,
 #'   npafp_target    = 3,
 #'   strata          = c("year", "adm1_name"),
 #'   boundaries      = synth_surveillance$boundaries
@@ -99,7 +120,8 @@ bs_concordance <- function(
   cases = NULL,
   population,
   year_end_month = 12L,
-  spi_threshold = 0.80,
+  spi_threshold = 1,
+  spi_rule = c("median", "interval"),
   npafp_target = 3,
   npafp_multiplier = 100000L,
   strata = NULL,
@@ -110,6 +132,7 @@ bs_concordance <- function(
 ) {
   .check_pkg(c("dplyr", "tibble", "cli"),
              reason = "to run the SPI x NPAFP concordance analysis")
+  spi_rule <- match.arg(spi_rule)
 
   stopifnot(inherits(spi, "blindspot_spi"))
 
@@ -191,18 +214,15 @@ bs_concordance <- function(
     dplyr::mutate(
       npafp_rate = .data$count_annual / .data$pop_u15 * npafp_multiplier,
       npafp_adequate = .data$npafp_rate >= npafp_target,
-      spi_pass = .data$spi_median >= spi_threshold,
-      concordance = dplyr::case_when(
-        .data$npafp_adequate & .data$spi_pass ~ "Both adequate",
-        !.data$npafp_adequate & !.data$spi_pass ~ "True shortfall",
-        .data$npafp_adequate & !.data$spi_pass ~ "False reassurance",
-        !.data$npafp_adequate & .data$spi_pass ~ "False alarm"
-      ),
-      concordance = factor(
-        .data$concordance,
-        levels = c("Both adequate", "True shortfall",
-                   "False reassurance", "False alarm")
-      )
+      spi_flagged = .data$spi_median < spi_threshold &
+        (spi_rule == "median" | .data$spi_q95 < 1),
+      spi_pass = !.data$spi_flagged,
+      concordance = factor(dplyr::case_when(
+        npafp_adequate & !spi_flagged ~ .concordance_cells[["neither"]],
+        npafp_adequate & spi_flagged ~ .concordance_cells[["spi_only"]],
+        !npafp_adequate & !spi_flagged ~ .concordance_cells[["npafp_only"]],
+        !npafp_adequate & spi_flagged ~ .concordance_cells[["both"]]
+      ), levels = unname(.concordance_cells))
     )
 
   # optional join with boundaries so `strata` can reference adm1/adm0 labels
@@ -258,8 +278,8 @@ bs_concordance <- function(
       crosstab = crosstab,
       metrics = metrics,
       by_stratum = by_stratum,
-      thresholds = list(spi = spi_threshold, npafp = npafp_target,
-                           multiplier = npafp_multiplier),
+      thresholds = list(spi = spi_threshold, rule = spi_rule,
+                        npafp = npafp_target, multiplier = npafp_multiplier),
       id_col = id_col,
       call = match.call()
     ),
@@ -295,9 +315,10 @@ bs_concordance <- function(
 # pooled metrics; also used inside group_modify for stratified splits
 .concordance_metrics <- function(dy) {
   n <- nrow(dy)
-  cells <- c("Both adequate", "True shortfall",
-             "False reassurance", "False alarm")
-  counts <- vapply(cells, function(c) sum(dy$concordance == c), integer(1))
+  counts <- vapply(
+    .concordance_cells,
+    function(cell) sum(dy$concordance == cell), integer(1)
+  )
 
   # kappa on 0/1 verdict vectors
   who <- as.integer(dy$npafp_adequate)
@@ -315,10 +336,10 @@ bs_concordance <- function(
     pct_agreement = agreement,
     cohens_kappa = kappa,
     mcnemar_p = mcn,
-    n_both_adequate = counts[["Both adequate"]],
-    n_true_shortfall = counts[["True shortfall"]],
-    n_false_reassurance = counts[["False reassurance"]],
-    n_false_alarm = counts[["False alarm"]]
+    n_neither_flagged = counts[["neither"]],
+    n_spi_only = counts[["spi_only"]],
+    n_npafp_only = counts[["npafp_only"]],
+    n_both_flagged = counts[["both"]]
   )
 }
 
@@ -339,8 +360,8 @@ bs_concordance <- function(
 
 .mcnemar_p <- function(dy) {
   # off-diagonals of the concordance table
-  b <- sum(dy$concordance == "False reassurance")  # NPAFP-yes, SPI-no
-  c <- sum(dy$concordance == "False alarm")        # NPAFP-no,  SPI-yes
+  b <- sum(dy$concordance == .concordance_cells[["spi_only"]])
+  c <- sum(dy$concordance == .concordance_cells[["npafp_only"]])
   if (b + c < 1L) return(NA_real_)
   # exact binomial test on off-diagonals (McNemar exact)
   stats::binom.test(b, b + c, p = 0.5)$p.value
@@ -354,7 +375,7 @@ bs_concordance <- function(
 print.blindspot_concordance <- function(x, ...) {
   cli::cli_h1("SPI x NPAFP concordance")
   cli::cli_inform(c(
-    "SPI cut: {.val {x$thresholds$spi}} \\
+    "SPI cut: {.val {x$thresholds$spi}} ({x$thresholds$rule} rule) \\
      | NPAFP target: {.val {x$thresholds$npafp}} per \\
      {format(x$thresholds$multiplier, big.mark = ',')} person-years"
   ))
@@ -366,15 +387,12 @@ print.blindspot_concordance <- function(x, ...) {
                         sprintf('%.4f', x$metrics$mcnemar_p))}"
   ))
   cli::cli_h2("Four-cell counts")
+  counts <- c(x$metrics$n_neither_flagged, x$metrics$n_spi_only,
+              x$metrics$n_npafp_only, x$metrics$n_both_flagged)
   cell_tbl <- tibble::tibble(
-    cell = c("Both adequate", "True shortfall",
-             "False reassurance", "False alarm"),
-    n = c(x$metrics$n_both_adequate, x$metrics$n_true_shortfall,
-             x$metrics$n_false_reassurance, x$metrics$n_false_alarm),
-    pct = round(100 * c(x$metrics$n_both_adequate,
-                         x$metrics$n_true_shortfall,
-                         x$metrics$n_false_reassurance,
-                         x$metrics$n_false_alarm) / x$metrics$n, 1)
+    cell = unname(.concordance_cells),
+    n = counts,
+    pct = round(100 * counts / x$metrics$n, 1)
   )
   print(cell_tbl)
   if (!is.null(x$by_stratum)) {
@@ -407,19 +425,19 @@ plot.blindspot_concordance <- function(x, ...) {
   spi_cut  <- x$thresholds$spi
   npafp_target <- x$thresholds$npafp
   pal <- c(
-    "Both adequate" = "#2E7D32",
-    "True shortfall" = "#C62828",
-    "False reassurance" = "#F9A825",
-    "False alarm" = "#1565C0"
+    "Neither flagged" = "#2E7D32",
+    "Both flagged" = "#C62828",
+    "SPI only" = "#F9A825",
+    "NPAFP only" = "#1565C0"
   )
   # Legend labels carry each cell's share of all district-years (from
   # x$metrics).
   m <- x$metrics
   pct <- c(
-    "Both adequate" = m$n_both_adequate,
-    "True shortfall" = m$n_true_shortfall,
-    "False reassurance" = m$n_false_reassurance,
-    "False alarm" = m$n_false_alarm
+    "Neither flagged" = m$n_neither_flagged,
+    "Both flagged" = m$n_both_flagged,
+    "SPI only" = m$n_spi_only,
+    "NPAFP only" = m$n_npafp_only
   ) / m$n * 100
   cell_labels <- stats::setNames(
     sprintf("%s (%.1f%%)", names(pct), pct), names(pct)
@@ -427,10 +445,10 @@ plot.blindspot_concordance <- function(x, ...) {
   # Darker shades for the in-plot corner labels so each quadrant name reads
   # clearly (a deep tone of its cell colour) over the faint quadrant tint.
   label_pal <- c(
-    "Both adequate" = "#1B5E20",
-    "True shortfall" = "#8E1B1B",
-    "False reassurance" = "#B8860B",
-    "False alarm" = "#0D47A1"
+    "Neither flagged" = "#1B5E20",
+    "Both flagged" = "#8E1B1B",
+    "SPI only" = "#B8860B",
+    "NPAFP only" = "#0D47A1"
   )
   # Quadrant backdrop: a faint tint and a corner label per cell of the 2x2, so
   # the scatter reads as the crosstab the reader has already seen without them
@@ -443,7 +461,7 @@ plot.blindspot_concordance <- function(x, ...) {
     ymin = c(-Inf, -Inf, spi_cut, spi_cut),
     ymax = c(spi_cut, spi_cut, Inf, Inf),
     cell = factor(
-      c("True shortfall", "False reassurance", "False alarm", "Both adequate"),
+      c("Both flagged", "SPI only", "NPAFP only", "Neither flagged"),
       levels = names(pal)
     )
   )
@@ -462,19 +480,20 @@ plot.blindspot_concordance <- function(x, ...) {
                         linetype = 2, colour = "grey40") +
     ggplot2::geom_point(ggplot2::aes(colour = .data$concordance),
                         alpha = 0.7) +
-    # corner labels in a deep tone of each quadrant's colour
-    ggplot2::annotate("text", x = 0, y = -Inf, label = "True shortfall",
+    # corner labels in a deep tone of each quadrant's colour. NPAFP inadequate
+    # sits left (low rate), SPI flagged sits low (below the cut).
+    ggplot2::annotate("text", x = 0, y = -Inf, label = "Both flagged",
                       hjust = -0.08, vjust = -1, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["True shortfall"]]) +
-    ggplot2::annotate("text", x = Inf, y = -Inf, label = "False reassurance",
+                      alpha = 0.85, colour = label_pal[["Both flagged"]]) +
+    ggplot2::annotate("text", x = Inf, y = -Inf, label = "SPI only",
                       hjust = 1.08, vjust = -1, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["False reassurance"]]) +
-    ggplot2::annotate("text", x = 0, y = Inf, label = "False alarm",
+                      alpha = 0.85, colour = label_pal[["SPI only"]]) +
+    ggplot2::annotate("text", x = 0, y = Inf, label = "NPAFP only",
                       hjust = -0.08, vjust = 1.9, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["False alarm"]]) +
-    ggplot2::annotate("text", x = Inf, y = Inf, label = "Both adequate",
+                      alpha = 0.85, colour = label_pal[["NPAFP only"]]) +
+    ggplot2::annotate("text", x = Inf, y = Inf, label = "Neither flagged",
                       hjust = 1.08, vjust = 1.9, size = 3.2, fontface = "bold",
-                      alpha = 0.85, colour = label_pal[["Both adequate"]]) +
+                      alpha = 0.85, colour = label_pal[["Neither flagged"]]) +
     ggplot2::scale_colour_manual(
       values = pal, drop = TRUE, labels = cell_labels,
       name = "Concordance (% of total)"
@@ -537,14 +556,14 @@ plot.blindspot_concordance <- function(x, ...) {
 #'     person-years, categorised on the canonical POLIS breaks
 #'     (`<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24`). Values below the WHO
 #'     conventional target are drawn on the red end of the palette.
-#'   \item **Panel B** -- posterior median SPI, categorised on the
-#'     paper's operational breaks (`<0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0,
-#'     1.0-1.5, 1.5-2.0, >=2.0`). Values below the SPI adequacy cut are
-#'     red.
+#'   \item **Panel B** -- posterior median SPI, categorised on breaks
+#'     symmetric on the log scale around the paper's cut of 1 (default
+#'     `-Inf, 0.5, 0.75, 1, 1.33, 2, Inf`). Bins at or below the SPI
+#'     threshold are warm; the rest are cool.
 #'   \item **Panel C** -- where the two indicators disagree. LGAs are
-#'     coloured by the four concordance cells (`Both adequate`,
-#'     `True shortfall`, `False reassurance`, `False alarm`). This is
-#'     where the SPI-vs-conventional refinement lives visually.
+#'     coloured by the four concordance cells (`Neither flagged`,
+#'     `Both flagged`, `SPI only`, `NPAFP only`). This is where the
+#'     SPI-vs-conventional refinement lives visually.
 #' }
 #'
 #' The panels are composed via `patchwork` so the returned object plots
@@ -606,7 +625,7 @@ bs_concordance_maps <- function(
   spi_threshold = NULL,
   npafp_target = NULL,
   npafp_breaks = c(-Inf, 1, 2, 3, 6, 12, 24, Inf),
-  spi_breaks = c(-Inf, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, Inf),
+  spi_breaks = c(-Inf, 0.5, 0.75, 1, 1.33, 2, Inf),
   id_col = NULL,
   titles = NULL,
   year_label = NULL,
@@ -644,30 +663,38 @@ bs_concordance_maps <- function(
     "12-24" = "#1E88E5",
     ">=24" = "#0D47A1"
   )
-  spi_labels <- c("<0.4", "0.4-0.6", "0.6-0.8", "0.8-1.0",
-                  "1.0-1.5", "1.5-2.0", ">=2.0")
-  pal_b <- c(
-    "<0.4" = "#B71C1C",
-    "0.4-0.6" = "#E53935",
-    "0.6-0.8" = "#F57C00",
-    "0.8-1.0" = "#E3F2FD",
-    "1.0-1.5" = "#90CAF9",
-    "1.5-2.0" = "#1E88E5",
-    ">=2.0" = "#0D47A1"
-  )
-  # Panel C: paper's canonical concordance labels with the parenthetical
-  # (conventional X, SPI Y) annotations spelled out on the legend chips.
+  # spi_labels are built from spi_breaks rather than hard-coded, so a custom
+  # spi_breaks stays consistent with its own fill legend. Bins whose upper
+  # edge sits at or below spi_threshold are warm (flagged side); the rest are
+  # cool. Both ramps are interpolated from the same endpoint colours as the
+  # original fixed palette, so a custom spi_breaks still reads on the same
+  # warm/cool scale.
+  spi_labels <- .interval_labels(spi_breaks)
+  is_warm <- spi_breaks[-1] <= spi_threshold
+  pal_b <- stats::setNames(character(length(spi_labels)), spi_labels)
+  if (any(is_warm)) {
+    pal_b[is_warm] <- grDevices::colorRampPalette(
+      c("#B71C1C", "#E53935", "#F57C00")
+    )(sum(is_warm))
+  }
+  if (any(!is_warm)) {
+    pal_b[!is_warm] <- grDevices::colorRampPalette(
+      c("#90CAF9", "#1E88E5", "#0D47A1")
+    )(sum(!is_warm))
+  }
+  # Panel C: neutral concordance labels with the (NPAFP, SPI) reading spelled
+  # out on the legend chips.
   c_labels <- c(
-    "Both adequate (both pass)" = "Both adequate",
-    "True shortfall (both flag)" = "True shortfall",
-    "False reassurance (conventional pass, SPI flag)" = "False reassurance",
-    "False alarm (conventional flag, SPI pass)" = "False alarm"
+    "Neither flagged (both pass)" = "Neither flagged",
+    "Both flagged (both flag)" = "Both flagged",
+    "SPI only (NPAFP adequate, SPI flagged)" = "SPI only",
+    "NPAFP only (NPAFP flagged, SPI adequate)" = "NPAFP only"
   )
   pal_c <- c(
-    "Both adequate (both pass)" = "#EEEEEE",
-    "True shortfall (both flag)" = "#9E9E9E",
-    "False reassurance (conventional pass, SPI flag)" = "#F9A825",
-    "False alarm (conventional flag, SPI pass)" = "#2E7D32"
+    "Neither flagged (both pass)" = "#EEEEEE",
+    "Both flagged (both flag)" = "#9E9E9E",
+    "SPI only (NPAFP adequate, SPI flagged)" = "#F9A825",
+    "NPAFP only (NPAFP flagged, SPI adequate)" = "#2E7D32"
   )
 
   bnd_slice <- boundaries |>
@@ -703,19 +730,25 @@ bs_concordance_maps <- function(
   ttl_c <- (titles %||% NULL)[3] %||%
     sprintf("C. Where the two indicators disagree (%s)", yr_lbl)
 
+  rule <- concordance$thresholds$rule %||% "median"
+
   # Wrap subtitles/legend titles to a fixed width: ggplot draws these
   # left-aligned and never wraps them, so a long single line spills out of a
   # narrow panel into its neighbour (the composed three-panel figure).
   sub_a <- .wrap_lines(sprintf(
     "Threshold = %g per 100 000 children under 15.", npafp_target
   ))
-  sub_b <- .wrap_lines(sprintf(
-    "Threshold %g (20%% shortfall vs context-conditional expectation).",
-    spi_threshold
+  sub_b <- .wrap_lines(paste0(
+    sprintf("SPI below %g is flagged.", spi_threshold),
+    if (identical(rule, "interval")) {
+      " Flagged also needs the 90% upper bound below 1."
+    } else {
+      ""
+    }
   ))
   sub_c <- .wrap_lines(paste0(
-    "Amber: conventional pass, SPI flag (False reassurance). ",
-    "Green: conventional flag, SPI pass (False alarm). ",
+    "Amber: NPAFP adequate, SPI flagged (SPI only). ",
+    "Green: NPAFP flagged, SPI adequate (NPAFP only). ",
     "Concordant cells in grey."
   ))
 

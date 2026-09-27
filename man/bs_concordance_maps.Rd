@@ -11,7 +11,7 @@ bs_concordance_maps(
   spi_threshold = NULL,
   npafp_target = NULL,
   npafp_breaks = c(-Inf, 1, 2, 3, 6, 12, 24, Inf),
-  spi_breaks = c(-Inf, 0.4, 0.6, 0.8, 1, 1.5, 2, Inf),
+  spi_breaks = c(-Inf, 0.5, 0.75, 1, 1.33, 2, Inf),
   id_col = NULL,
   titles = NULL,
   year_label = NULL,
@@ -62,13 +62,14 @@ Reproduces the paper's three-panel choropleth for a single year:
 person-years, categorised on the canonical POLIS breaks
 (\verb{<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24}). Values below the WHO
 conventional target are drawn on the red end of the palette.
-\item \strong{Panel B} -- posterior median SPI, categorised on the
-paper's operational breaks (\verb{<0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0, 1.0-1.5, 1.5-2.0, >=2.0}). Values below the SPI adequacy cut are
-red.
+\item \strong{Panel B} -- posterior median SPI, categorised on breaks
+symmetric on the log scale around the paper's cut of 1 (default
+\verb{-Inf, 0.5, 0.75, 1, 1.33, 2, Inf}). Bins at or below the SPI
+threshold are warm; the rest are cool.
 \item \strong{Panel C} -- where the two indicators disagree. LGAs are
-coloured by the four concordance cells (\verb{Both adequate},
-\verb{True shortfall}, \verb{False reassurance}, \verb{False alarm}). This is
-where the SPI-vs-conventional refinement lives visually.
+coloured by the four concordance cells (\verb{Neither flagged},
+\verb{Both flagged}, \verb{SPI only}, \verb{NPAFP only}). This is where the
+SPI-vs-conventional refinement lives visually.
 }
 
 The panels are composed via \code{patchwork} so the returned object plots

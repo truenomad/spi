@@ -183,7 +183,7 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   expect_s3_class(conc, "blindspot_concordance")
 
   dy <- conc$district_year
-  spi_flagged_cells <- c("True shortfall", "False reassurance")
+  spi_flagged_cells <- c("Both flagged", "SPI only")
 
   # Planted blindspots (non-resilient) should surface in an SPI-flagged cell in
   # some year at above-chance rates.
@@ -203,7 +203,7 @@ test_that("full chain runs and recovers planted blindspots above chance", {
   expect_gt(covid, mean(flagged[c("2018", "2019")]))   # crash vs pre-COVID best
   expect_gt(covid, flagged[["2024"]])                  # crash vs recovered tail
 
-  # Persistent laggards never fully recover: True shortfall / False reassurance
+  # Persistent laggards never fully recover: Both flagged / SPI only
   # cells remain populated in the final year.
   expect_gt(flagged[["2024"]], 0)
 })

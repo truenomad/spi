@@ -9,7 +9,7 @@ test_that("bs_concordance classifies all four cells and computes metrics", {
   expect_s3_class(conc, "blindspot_concordance")
   expect_setequal(
     levels(conc$district_year$concordance),
-    c("Both adequate", "True shortfall", "False reassurance", "False alarm")
+    c("Neither flagged", "SPI only", "NPAFP only", "Both flagged")
   )
   # every cell realised (two district-years each)
   expect_true(all(table(conc$district_year$concordance) == 2L))
@@ -20,9 +20,31 @@ test_that("bs_concordance classifies all four cells and computes metrics", {
   expect_true(is.finite(m$cohens_kappa))
   # McNemar is defined here (both off-diagonals non-empty)
   expect_true(is.finite(m$mcnemar_p))
-  expect_equal(conc$thresholds$spi, 0.80)
+  expect_equal(conc$thresholds$spi, 1)
   # crosstab is a 2x2
   expect_equal(dim(conc$crosstab$counts), c(2L, 2L))
+})
+
+test_that("cells use the paper's cut and neutral labels", {
+  conc <- bs_concordance(make_spi_dy(), population = make_population(),
+    verbose = FALSE)
+  expect_identical(levels(conc$district_year$concordance),
+    c("Neither flagged", "SPI only", "NPAFP only", "Both flagged"))
+  expect_identical(conc$thresholds$spi, 1)
+  expect_identical(conc$thresholds$rule, "median")
+  expect_true(all(c("n_neither_flagged", "n_spi_only", "n_npafp_only",
+    "n_both_flagged") %in% names(conc$metrics)))
+})
+
+test_that("the interval rule also needs the 90% upper bound below 1", {
+  spi <- make_spi_dy()
+  spi$summary$spi_q95[spi$summary$spi_median < 1][1] <- 1.05
+  med <- bs_concordance(spi, population = make_population(), verbose = FALSE)
+  int <- bs_concordance(spi, population = make_population(),
+    spi_rule = "interval", verbose = FALSE)
+  expect_lt(sum(int$district_year$spi_flagged),
+    sum(med$district_year$spi_flagged))
+  expect_true(all(int$district_year$spi_q95[int$district_year$spi_flagged] < 1))
 })
 
 test_that("bs_concordance honours thresholds, strata, and case override", {
@@ -217,13 +239,11 @@ test_that("concordance statistical helpers cover their edge cases", {
                                                   c(0L, 1L, 1L, 0L))))
 
   # McNemar: no off-diagonal discordance -> NA; otherwise a p-value
-  lv <- c("Both adequate", "True shortfall", "False reassurance",
-          "False alarm")
-  concordant <- tibble::tibble(concordance = factor("Both adequate", lv))
+  lv <- c("Neither flagged", "SPI only", "NPAFP only", "Both flagged")
+  concordant <- tibble::tibble(concordance = factor("Neither flagged", lv))
   expect_true(is.na(blindspot:::.mcnemar_p(concordant)))
   mixed <- tibble::tibble(
-    concordance = factor(c("False reassurance", "False alarm", "False alarm"),
-                         lv)
+    concordance = factor(c("SPI only", "NPAFP only", "NPAFP only"), lv)
   )
   expect_true(is.finite(blindspot:::.mcnemar_p(mixed)))
 })

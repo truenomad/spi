@@ -155,12 +155,12 @@ make_expected <- function(id_col = "district_id",
 
 # --- a district-year blindspot_spi placed into all four concordance cells --
 make_spi_dy <- function(id_col = "district_id", years = 2015:2016) {
-  # A: Both adequate | B: True shortfall | C: False reassurance | D: False alarm
+  # A: Neither flagged | B: Both flagged | C: SPI only | D: NPAFP only
   # pop = 1e5 so npafp_rate == annual count; target 3 => count >= 3 adequate
   spec <- tibble::tibble(
     id = c("A", "B", "C", "D"),
     count = c(10L, 1L, 10L, 1L),
-    spi = c(0.90, 0.50, 0.50, 0.90)
+    spi = c(1.1, 0.5, 0.5, 1.1)
   )
   grid <- expand_spec(spec, years)
 

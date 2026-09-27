@@ -9,7 +9,8 @@ bs_concordance(
   cases = NULL,
   population,
   year_end_month = 12L,
-  spi_threshold = 0.8,
+  spi_threshold = 1,
+  spi_rule = c("median", "interval"),
   npafp_target = 3,
   npafp_multiplier = 100000L,
   strata = NULL,
@@ -34,8 +35,14 @@ closes, matching the \code{year_end_month} the SPI was computed with. The
 conventional rate is grouped on the same rolling year, so the two sides of
 the comparison cover the same months. Default: 12 (calendar years).}
 
-\item{spi_threshold}{Numeric. SPI median below this = "fail". Paper
-uses 0.80. Default: 0.80.}
+\item{spi_threshold}{Numeric. SPI median below this = flagged. The SPI's
+neutral cut is 1 (observed at expected). Default: 1.}
+
+\item{spi_rule}{Character. \code{"median"} flags on \code{spi_median} alone.
+\code{"interval"} additionally requires the 90\% upper bound (\code{spi_q95}) to
+sit below 1, so only districts whose whole plausible range reads as
+under-detecting are flagged. This is the paper's sensitivity analysis
+on the primary median-based rule. Default: \code{"median"}.}
 
 \item{npafp_target}{Numeric. NPAFP rate below this per \code{npafp_multiplier}
 person-years = "fail". WHO's target for polio surveillance is
@@ -68,15 +75,19 @@ An object of class \code{blindspot_concordance}. A list with:
 \describe{
 \item{district_year}{Tibble with per-district-year classification:
 \code{{id_col}}, \code{year}, \code{count_annual}, \code{pop_u15}, \code{npafp_rate},
-\code{npafp_adequate} (logical), \code{spi_median}, \code{spi_q05}, \code{spi_q95},
-\code{spi_pass} (logical), \code{concordance} (factor: Both adequate /
-True shortfall / False reassurance / False alarm).}
+\code{npafp_adequate} (logical), \code{observed} (posterior observed count, from
+\code{spi$summary}, when present), \code{expected_total} (context-conditional
+expected count, when present), \code{spi_median}, \code{spi_q05}, \code{spi_q95},
+\code{spi_flagged} (logical), \code{spi_pass} (logical, \code{!spi_flagged}),
+\code{concordance} (factor: Neither flagged / SPI only / NPAFP only /
+Both flagged).}
 \item{crosstab}{2x2 table of counts and row/column percentages.}
 \item{metrics}{Pooled scalar metrics: \code{n}, \code{pct_agreement},
 \code{cohens_kappa}, \code{mcnemar_p}, plus per-cell counts.}
 \item{by_stratum}{Tibble of per-stratum metrics when \code{strata} is
 non-NULL; else NULL.}
-\item{thresholds}{Named list echoing the SPI + NPAFP cuts used.}
+\item{thresholds}{Named list echoing the SPI cut, the \code{spi_rule}, and
+the NPAFP cuts used.}
 \item{id_col}{The id column name.}
 \item{call}{Matched call.}
 }
@@ -84,22 +95,24 @@ non-NULL; else NULL.}
 \description{
 Compares the model-based Surveillance Performance Index against the
 WHO conventional NPAFP-rate threshold on the same district-year units
-and summarises the four-cell concordance table. The four cells match
-the paper's terminology:
+and summarises the four-cell concordance table. The SPI is a ratio of
+observed to context-conditional expected detections, so its neutral cut
+is 1: below 1 means fewer AFP cases were detected than the model expects
+given the district's size, rurality and neighbour profile. The four
+cells are named for what each side of the comparison flags, not for
+which side is presumed right:
 \itemize{
-\item \strong{Both adequate} -- NPAFP >= target AND SPI >= threshold. The
-surveillance system is doing what conventional monitoring expects
-and what the model expects.
-\item \strong{True shortfall} -- NPAFP < target AND SPI < threshold. Both
-indicators agree the district is under-detecting; act on it.
-\item \strong{False reassurance} -- NPAFP >= target BUT SPI < threshold.
-The conventional rate says OK, the model says failing. These are
-silent-failure districts the raw threshold misses. In the paper
-this is the headline refinement: SPI catches under-detection that
-NPAFP alone does not.
-\item \strong{False alarm} -- NPAFP < target BUT SPI >= threshold. The
-conventional rate flags the district but the model, accounting
-for its size / rurality / neighbour profile, does not.
+\item \strong{Neither flagged} -- NPAFP >= target AND SPI >= threshold.
+Conventional monitoring and the model both read the district as
+adequate.
+\item \strong{Both flagged} -- NPAFP < target AND SPI < threshold. Both
+indicators agree the district is under-detecting.
+\item \strong{SPI only} -- NPAFP >= target BUT SPI < threshold. The
+conventional rate reads adequate; the model reads under-detection
+once size, rurality and neighbours are accounted for.
+\item \strong{NPAFP only} -- NPAFP < target BUT SPI >= threshold. The
+conventional rate is below target; the model reads the district as
+within its context-conditional expectation.
 }
 
 Concordance is quantified as raw percent agreement and Cohen's kappa,
@@ -112,7 +125,7 @@ spi_dy <- bs_spi(fit_bare, level = "district_year")
 conc <- bs_concordance(
   spi             = spi_dy,
   population      = synth_surveillance$population,
-  spi_threshold   = 0.80,
+  spi_threshold   = 1,
   npafp_target    = 3,
   strata          = c("year", "adm1_name"),
   boundaries      = synth_surveillance$boundaries
