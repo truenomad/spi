@@ -10,14 +10,31 @@ vignette: >
 <!-- Edit spi-model-options.Rmd.orig, not the .Rmd. Knit with
      Rscript --no-init-file vignettes/precompile.R spi-model-options -->
 
-
+```{r setup, include = FALSE, cache = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figures/model-options-",
+  fig.width = 8,
+  fig.height = 5,
+  dpi = 150,
+  out.width = "100%",
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE,
+  autodep = TRUE,
+  cache.path = "cache/model-options/"
+)
+options(cli.unicode = FALSE, width = 80)
+INLA::inla.setOption(num.threads = "1:1")
+set.seed(1)
+```
 
 The default SPI model uses no covariates and negative binomial overdispersion. This guide shows optional covariate adjustment, comparisons with alternative observation models, the spatial structure, prospective and retrospective fits, and sensitivity checks. These options can support sensitivity analyses or other applications; they are not additional components of the default SPI used in the accompanying study.
 
 The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes. The outputs shown here were computed with INLA when the article was built.
 
-
-``` r
+```{r data, cache = FALSE}
 library(spi)
 synth <- synth_surveillance
 ```
@@ -26,23 +43,14 @@ synth <- synth_surveillance
 
 Covariates are optional and are not part of the default SPI used in the accompanying study. Pass district-year covariates to `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
 
-
-``` r
+```{r covariates}
 synth$covariates |>
   dplyr::slice_head(n = 6)
-#>                                adm2_guid year dtp3 urban_prop travel_time_min
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2015 84.8      0.566            15.9
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2016 89.9      0.566            16.5
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2017 89.9      0.566            17.1
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2018 87.3      0.566            23.2
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2019 89.9      0.566            19.3
-#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382F3} 2020 87.6      0.566            22.1
 ```
 
 Pass them in, log-transforming the skewed travel-time column:
 
-
-``` r
+```{r fit-adjusted}
 fit_adj <- spi_expected(
   cases = synth$cases,
   population = synth$population,
@@ -58,17 +66,10 @@ fit_adj <- spi_expected(
 
 Effects are reported as rate ratios per standard deviation of the covariate. The model standardises covariates internally. Here are the three covariate effects, excluding the seasonal terms:
 
-
-``` r
+```{r fit-adjusted-show}
 summary(fit_adj)$effects |>
   dplyr::filter(covariate %in% c("dtp3", "urban_prop", "travel_time_min")) |>
   dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
-#> # A tibble: 3 x 5
-#>   covariate       rr_median rr_q025 rr_q975 signif
-#>   <chr>               <dbl>   <dbl>   <dbl> <lgl> 
-#> 1 dtp3                1.00    0.953    1.05 FALSE 
-#> 2 urban_prop          1.03    0.938    1.13 FALSE 
-#> 3 travel_time_min     0.991   0.968    1.01 FALSE
 ```
 
 Optional covariates can be used for sensitivity analyses or alternative applications; the default SPI does not require them.
@@ -77,8 +78,7 @@ Optional covariates can be used for sensitivity analyses or alternative applicat
 
 Compare Poisson, Poisson with an observation-level random effect, and negative binomial models:
 
-
-``` r
+```{r overdispersion}
 od <- spi_compare_overdispersion(
   cases = synth$cases,
   population = synth$population,
@@ -90,28 +90,17 @@ od <- spi_compare_overdispersion(
 )
 ```
 
-
-``` r
+```{r overdispersion-show}
 od$summary
-#> # A tibble: 3 x 11
-#>   spec  n_obs    dic   waic p_eff sd_spatial phi_spatial phi_pegged sd_extra
-#>   <chr> <int>  <dbl>  <dbl> <dbl>      <dbl>       <dbl> <lgl>         <dbl>
-#> 1 none  28320 81917. 81996.  241.      0.865       0.928 FALSE        NA    
-#> 2 iid   28320 79563. 79528. 5667.      0.864       0.926 FALSE         0.423
-#> 3 nb    28320 80299. 80296.  240.      0.867       0.934 FALSE        NA    
-#> # i 2 more variables: cpo_valid <dbl>, pit_ks <dbl>
 ```
 
 `od$summary` has one row per observation model. DIC and WAIC measure fit, penalised for model complexity; lower values are better. The CPO column is the share of observations with a valid leave-one-out predictive value. The PIT statistic is the distance of the probability integral transform values from a uniform distribution, and smaller values mean better calibration.
 
 WAIC can favour a model with one random effect per observation even when that model overfits. `spi_compare_overdispersion()` therefore first excludes any model with valid CPO values for fewer than half of the observations, an effective number of parameters above 20% of the observations, or a BYM2 `phi` at the boundary of its range. Among the remaining models, it recommends the one with the smallest PIT distance. `od$recommendation` gives the choice and the reasoning:
 
-
-``` r
+```{r overdispersion-choice}
 od$recommendation$choice
-#> [1] "none"
 od$recommendation$reasoning
-#> [1] "Excluded: overfit p_eff > 20% of n (iid). Best PIT calibration among survivors (none, nb): none."
 ```
 
 To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same comparison internally and refits with the recommended model.
@@ -120,15 +109,9 @@ To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same 
 
 `spi_expected()` builds the neighbour graph itself when `adjacency` is an `sf` object. To inspect or reuse the graph, build it with `spi_adjacency()`:
 
-
-``` r
+```{r adjacency}
 adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
-#> Neighbour list object:
-#> Number of regions: 236 
-#> Number of nonzero links: 1,320 
-#> Percentage nonzero weights: 2.3700 
-#> Average number of links: 5.5932
 ```
 
 Districts are neighbours when their boundaries touch at any point (`contiguity = "queen"`); `contiguity = "rook"` requires a shared edge. With `handle_islands = TRUE`, the default, a district or group of districts with no neighbours is linked to its nearest neighbour, so every district belongs to one connected graph.
@@ -139,8 +122,7 @@ The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits distri
 
 The default fit below uses all supplied years together. `spi_prospective()` refits the model for each assessment year using only the preceding years. The two are compared for the same district-years:
 
-
-``` r
+```{r retrospective}
 first_assessment <- 2019
 
 fit <- spi_expected(
@@ -159,8 +141,7 @@ retro <- spi_index(fit, level = "district_year", verbose = FALSE) |>
   dplyr::select(adm2_guid, year, spi_retro = spi_median)
 ```
 
-
-``` r
+```{r prospective}
 prosp <- spi_prospective(
   cases = synth$cases,
   population = synth$population,
@@ -175,8 +156,7 @@ prosp <- spi_prospective(
   dplyr::select(adm2_guid, year, spi_prosp = spi_median)
 ```
 
-
-``` r
+```{r compare}
 compare <- dplyr::inner_join(retro, prosp, by = c("adm2_guid", "year"))
 
 compare |>
@@ -187,14 +167,9 @@ compare |>
     below_1_prosp = sum(spi_prosp < 1),
     change_side = sum((spi_retro < 1) != (spi_prosp < 1))
   )
-#> # A tibble: 1 x 5
-#>   district_years correlation below_1_retro below_1_prosp change_side
-#>            <int>       <dbl>         <int>         <int>       <int>
-#> 1           1416       0.957           816           818          98
 ```
 
-
-``` r
+```{r compare-plot, fig.width = 6.5, fig.height = 6.5, out.width = "80%", fig.alt = "Scatter of prospective against retrospective SPI for the same district-years, both on log scales, with dotted lines at 1 and a dashed line of equal values."}
 compare_plot <- compare |>
   dplyr::filter(spi_retro > 0, spi_prosp > 0)
 
@@ -232,12 +207,7 @@ ggplot2::ggplot(compare_plot, ggplot2::aes(spi_retro, spi_prosp)) +
   ggplot2::theme_minimal()
 ```
 
-<div class="figure">
-<img src="figures/model-options-compare-plot-1.png" alt="Scatter of prospective against retrospective SPI for the same district-years, both on log scales, with dotted lines at 1 and a dashed line of equal values." width="80%" />
-<p class="caption">plot of chunk compare-plot</p>
-</div>
-
-The correlation between the two is 0.96, but 98 of 1416 district-years fall on different sides of 1 depending on the fit.
+The correlation between the two is `r round(stats::cor(compare$spi_retro, compare$spi_prosp), 2)`, but `r sum((compare$spi_retro < 1) != (compare$spi_prosp < 1))` of `r nrow(compare)` district-years fall on different sides of 1 depending on the fit.
 
 In the retrospective fit, each assessed year contributes to its own expectation, so part of a decline in that year is absorbed into the expected count. In the prospective fit, the expectation for each year comes only from earlier years. The accompanying study uses prospective assessment for this reason. Do not mix the two in one series.
 
@@ -245,8 +215,7 @@ In the retrospective fit, each assessed year contributes to its own expectation,
 
 Results can depend on the training period, observation model, covariates, centring, and reporting year. Several checks reuse fits already made in this article. Each counts the complete district-years with an SPI below 1:
 
-
-``` r
+```{r sensitivity}
 count_below_1 <- function(index) {
   index |>
     tibble::as_tibble() |>
@@ -269,20 +238,11 @@ dplyr::bind_rows(
   poisson_iid = count_below_1(spi_index(od$fits$iid, verbose = FALSE)),
   .id = "setting"
 )
-#> # A tibble: 5 x 3
-#>   setting      district_years below_1
-#>   <chr>                 <int>   <int>
-#> 1 default                2360    1316
-#> 2 centre_none            2360    1304
-#> 3 may_to_april           2124    1159
-#> 4 covariates             2360    1310
-#> 5 poisson_iid            2360    1301
 ```
 
 The `poisson_iid` row reuses the comparison fit from `spi_compare_overdispersion()`, which kept 100 posterior draws. A different training period needs new prospective fits. Starting the assessment later gives every assessed year a longer history:
 
-
-``` r
+```{r sensitivity-training, eval = FALSE}
 prosp_later <- spi_prospective(
   cases = synth$cases,
   population = synth$population,
