@@ -71,9 +71,32 @@ jobs:
             any::exactextractr
           needs: website
 
+      # The INLA articles are knitted locally by vignettes/precompile.R and
+      # committed as plain .Rmd. CI has no INLA, so fail if one still has an
+      # R chunk to run.
+      - name: Check articles are precomputed
+        run: |
+          if grep -l '^```{r' vignettes/*.Rmd; then
+            echo "Knit the files above with vignettes/precompile.R and commit them."
+            exit 1
+          fi
+        shell: bash
+
       - name: Build site
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
+
+      # pkgdown >= 2.2.0 writes llms.txt and a .md copy of every page so agents
+      # can read the site. Fail the build if they are missing.
+      - name: Check LLM docs
+        run: |
+          test -f docs/llms.txt
+          test -f docs/index.md
+          for a in spi-getting-started spi-interpretation spi-field-guide spi-model-options; do
+            test -f "docs/articles/$a.md"
+            grep -q "$a" docs/llms.txt
+          done
+        shell: bash
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'

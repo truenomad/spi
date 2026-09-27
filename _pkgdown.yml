@@ -91,7 +91,7 @@ navbar:
 reference:
 - title: Fit the model
   desc: >
-    Check the inputs, build the neighbour graph and fit expected monthly
+    Check the inputs, build the neighbour graph, and fit expected monthly
     counts with INLA. `spi_compare_overdispersion()` compares the three
     observation models.
   contents:
@@ -126,3 +126,12 @@ reference:
   contents:
   - synth_surveillance
   - synth_field_guide
+
+articles:
+- title: Articles
+  navbar: ~
+  contents:
+  - spi-getting-started
+  - spi-interpretation
+  - spi-field-guide
+  - spi-model-options
