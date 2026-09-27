@@ -5,7 +5,7 @@
 \alias{synth_surveillance}
 \title{Synthetic AFP surveillance data}
 \format{
-A named list with thirteen elements:
+A named list with twelve elements:
 \describe{
 \item{cases}{Tibble, 28,320 x 3. Columns: \code{adm2_guid} (character district
 id, a POLIS-style GUID such as
@@ -57,15 +57,6 @@ same true-vs-observed gap signal as \code{virus_outcome}, so the two ES
 proxies are internally consistent.}
 \item{es_district_year}{Tibble, 1,600 x 4. Annual ES totals by district.
 Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
-\item{detections}{Tibble, 2,360 x 5. District-year detection channels for
-\code{\link[=spi_triangulate]{spi_triangulate()}}. Columns: \code{adm2_guid}, \code{year}, \code{afp_detected}
-(logical, poliovirus found through AFP surveillance), \code{es_detected}
-(logical, found through environmental surveillance), \code{es_covered}
-(logical, an ES site drains the district). Derived from \code{virus_outcome},
-\code{es_district_year}, and \code{es_sites}. Here, \code{afp_detected} reuses \code{virus_outcome}, which the field guide
-also uses for AFP detection context. The ES columns (\code{es_detected} /
-\code{es_covered}) provide a separate comparison. For an analysis of real
-data, supply detections separately for each channel.}
 \item{afp_timeliness}{Tibble, 2,360 x 5. District-year AFP timeliness
 counts. Columns: \code{adm2_guid}, \code{year}, \code{afp_cases}, \code{n_assessable} (cases
 with a usable onset date), \code{n_within_7d} (of those, notified inside the

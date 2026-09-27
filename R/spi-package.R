@@ -13,7 +13,7 @@ utils::globalVariables(c(
   "count", "district_id", "log_offset", "month", "month_num", "pop", "year"
 ))
 
-#' spi: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting
+#' spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting
 #'
 #' @description
 #' spi estimates district-level expected reported case counts using
@@ -73,7 +73,7 @@ utils::globalVariables(c(
 #' If you use spi in published work, please cite:
 #'
 #' Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal modelling of
-#' relative surveillance reporting. R package version 0.1.0.
+#' relative AFP reporting. R package version 0.1.0.
 #' \url{https://github.com/truenomad/spi}
 #'
 #' Associated paper:

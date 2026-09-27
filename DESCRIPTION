@@ -1,5 +1,5 @@
 Package: spi
-Title: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting
+Title: Bayesian Spatiotemporal Modelling of Relative AFP Reporting
 Version: 0.1.0.9000
 Authors@R:
     c(person(

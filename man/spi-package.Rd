@@ -3,7 +3,7 @@
 \docType{package}
 \name{spi-package}
 \alias{spi-package}
-\title{spi: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting}
+\title{spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting}
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
@@ -86,7 +86,7 @@ automatically configures the INLA repository.
 If you use spi in published work, please cite:
 
 Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal modelling of
-relative surveillance reporting. R package version 0.1.0.
+relative AFP reporting. R package version 0.1.0.
 \url{https://github.com/truenomad/spi}
 
 Associated paper:

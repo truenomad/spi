@@ -57,7 +57,7 @@ adequacy to be assessed. Default: 5.}
 context. Default: NULL.}
 
 \item{spi_month}{Optional \code{\link[=spi_index]{spi_index()}} result at \code{district_month} level.
-Enables seasonal detection, reported as context. Default: NULL.}
+Enables assessment of seasonal reporting patterns, reported as context. Default: NULL.}
 
 \item{genomic}{Optional tibble of case-based (AFP) poliovirus detections
 with the district id column and \code{year}. Reported as context. Rows are
@@ -188,10 +188,10 @@ dimensions of surveillance and do not change the generated label. These
 labels are not validated judgements of surveillance adequacy or automatic
 recommendations for field action.
 
-The trend, the neighbour contrast, seasonal detection and any poliovirus
-found through AFP or environmental surveillance are still computed when
-their inputs are supplied. They are reported as context outside STEPS and
-never change the judgement.
+Trend, neighbouring-district context, seasonal patterns, and poliovirus
+detections through AFP or environmental surveillance are reported separately
+as supporting context when inputs are supplied. They do not change the
+generated review label.
 }
 \details{
 Each district-year receives one of three review labels, using the field

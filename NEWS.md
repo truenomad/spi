@@ -37,9 +37,10 @@
 * `spi_field_guide_help()`, `spi_field_guide_table()` and the misreadings use the
   field guide's wording, and the worked layout picks the field guide's four
   teaching cases.
-* `spi_triangulate()` crosses the three judgements with ES status: ten classes,
-  with `priority, ES clear`, `monitor, *` and `no indication, ES positive`
-  replacing the flag, review and watch classes.
+* Removed `spi_triangulate()`, `spi_triangulate_table()`, and
+  `spi_triangulate_map()`. AFP and ES detections remain supporting context
+  in the field guide. `synth_surveillance` no longer has the `detections`
+  element, which only these functions used.
 * `synth_surveillance` gains `afp_process`, drawn after every other table so
   the existing elements are unchanged. `synth_field_guide` is regenerated with
   it: for 2024, 60 review priority, 71 monitor and 105 no SPI indication.

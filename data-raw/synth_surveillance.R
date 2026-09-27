@@ -428,32 +428,6 @@ covariates <- population |>
   select(adm2_guid, year, dtp3, urban_prop, travel_time_min)
 
 # ---------------------------------------------------------------------------
-# 9c. Detection channels for spi_triangulate() -- afp vs es, district-year
-# ---------------------------------------------------------------------------
-# Independent read on whether virus was *found* (not whether it could be seen).
-# afp_detected reuses virus_outcome (the AFP/genomic isolation channel that the
-# field guide also consumes as its S7 orphan signal, so it is not independent of
-# the guide here); es_detected / es_covered come from the ES rollup and sites,
-# a separate source of evidence. Pure joins on already-drawn columns -- no
-# RNG -- so the rest of the bundle is byte-stable.
-detections <- population |>
-  distinct(adm2_guid, year) |>
-  left_join(
-    virus_outcome |> transmute(adm2_guid, year, afp_detected = any_virus == 1L),
-    by = c("adm2_guid", "year")
-  ) |>
-  mutate(es_covered = adm2_guid %in% es_sites$adm2_guid) |>
-  left_join(
-    es_district_year |> transmute(adm2_guid, year, es_detected = n_positive > 0L),
-    by = c("adm2_guid", "year")
-  ) |>
-  mutate(
-    afp_detected = tidyr::replace_na(afp_detected, FALSE),
-    es_detected = es_covered & tidyr::replace_na(es_detected, FALSE)
-  ) |>
-  select(adm2_guid, year, afp_detected, es_detected, es_covered)
-
-# ---------------------------------------------------------------------------
 # 10. Assemble + save
 # ---------------------------------------------------------------------------
 
@@ -512,7 +486,6 @@ synth_surveillance <- list(
   es_sites = es_sites,
   es_data = es_data,
   es_district_year = es_district_year,
-  detections = detections,
   afp_timeliness = afp_timeliness,
   afp_process = afp_process,
   truth = truth
@@ -533,10 +506,6 @@ cat("es_sites:         ", nrow(es_sites), "sites\n")
 cat("es_data:          ", nrow(es_data), "samples,",
     sum(es_data$positive_cvdpv2), "cVDPV2-positive\n")
 cat("es_district_year: ", nrow(es_district_year), "district-years\n")
-cat("detections:       ", nrow(detections), "district-years,",
-    sum(detections$afp_detected), "afp-positive,",
-    sum(detections$es_detected), "es-positive,",
-    sum(detections$es_covered), "es-covered\n")
 cat("afp_timeliness:   ", nrow(afp_timeliness), "district-years,",
     sum(afp_timeliness$n_assessable), "assessable,",
     sum(afp_timeliness$n_within_7d), "within 7d\n")

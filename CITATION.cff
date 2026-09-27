@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use spi in your work, please cite it as below."
 type: software
-title: "spi: Bayesian Spatiotemporal Modelling of Relative Surveillance Reporting"
+title: "spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting"
 version: 0.0.0.9000
 abstract: >-
   Estimates expected case counts for each district and month using Bayesian

@@ -4,7 +4,7 @@
 #' `spi_concordance()`. Surveillance counts are simulated. Population counts
 #' and the original boundary geometry come from the sources listed below.
 #'
-#' @format A named list with thirteen elements:
+#' @format A named list with twelve elements:
 #' \describe{
 #'   \item{cases}{Tibble, 28,320 x 3. Columns: `adm2_guid` (character district
 #'     id, a POLIS-style GUID such as
@@ -56,15 +56,6 @@
 #'     proxies are internally consistent.}
 #'   \item{es_district_year}{Tibble, 1,600 x 4. Annual ES totals by district.
 #'     Columns: `adm2_guid`, `year`, `n_samples`, `n_positive`.}
-#'   \item{detections}{Tibble, 2,360 x 5. District-year detection channels for
-#'     [spi_triangulate()]. Columns: `adm2_guid`, `year`, `afp_detected`
-#'     (logical, poliovirus found through AFP surveillance), `es_detected`
-#'     (logical, found through environmental surveillance), `es_covered`
-#'     (logical, an ES site drains the district). Derived from `virus_outcome`,
-#'     `es_district_year`, and `es_sites`. Here, `afp_detected` reuses `virus_outcome`, which the field guide
-#'     also uses for AFP detection context. The ES columns (`es_detected` /
-#'     `es_covered`) provide a separate comparison. For an analysis of real
-#'     data, supply detections separately for each channel.}
 #'   \item{afp_timeliness}{Tibble, 2,360 x 5. District-year AFP timeliness
 #'     counts. Columns: `adm2_guid`, `year`, `afp_cases`, `n_assessable` (cases
 #'     with a usable onset date), `n_within_7d` (of those, notified inside the

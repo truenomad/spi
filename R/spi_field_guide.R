@@ -46,10 +46,10 @@
 #' labels are not validated judgements of surveillance adequacy or automatic
 #' recommendations for field action.
 #'
-#' The trend, the neighbour contrast, seasonal detection and any poliovirus
-#' found through AFP or environmental surveillance are still computed when
-#' their inputs are supplied. They are reported as context outside STEPS and
-#' never change the judgement.
+#' Trend, neighbouring-district context, seasonal patterns, and poliovirus
+#' detections through AFP or environmental surveillance are reported separately
+#' as supporting context when inputs are supplied. They do not change the
+#' generated review label.
 #'
 #' @details
 #' Each district-year receives one of three review labels, using the field
@@ -102,7 +102,7 @@
 #'   (class `spi_nb`). Enables the neighbour contrast, reported as
 #'   context. Default: NULL.
 #' @param spi_month Optional [spi_index()] result at `district_month` level.
-#'   Enables seasonal detection, reported as context. Default: NULL.
+#'   Enables assessment of seasonal reporting patterns, reported as context. Default: NULL.
 #' @param genomic Optional tibble of case-based (AFP) poliovirus detections
 #'   with the district id column and `year`. Reported as context. Rows are
 #'   detections; pass `genomic_col` to filter on a 0/1 flag column. Default:
@@ -1154,7 +1154,7 @@ spi_field_guide_help <- function(
     cli::cli_end()
     cli::cli_text(
       "Timeliness and stool adequacy are reported beside the judgement but \\
-       never change it. The trend, neighbour contrast, seasonal detection and \\
+       never change it. Trend, neighbouring-district context, seasonal patterns and \\
        any AFP or ES detection are context outside STEPS."
     )
   }
