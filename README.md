@@ -237,7 +237,7 @@ bottom-right: the NPAFP target is met, but SPI is below 1.
 plot(conc)
 ```
 
-<img src="man/figures/README-concordance-scatter-1.png" width="100%" />
+<img src="man/figures/README-concordance-scatter-1.png" alt="Scatter of the NPAFP rate against SPI for each district-year, divided into the four concordance categories by dashed lines at the NPAFP target and at an SPI of 1." width="100%" />
 
 ## The STEPS field guide
 

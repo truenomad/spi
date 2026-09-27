@@ -201,7 +201,7 @@ conc <- spi_concordance(
 
 `plot()` shows the four cells as a scatter of NPAFP rate against SPI, split by the two thresholds (dashed). The `"SPI only"` points sit bottom-right: the NPAFP target is met, but SPI is below 1.
 
-```{r concordance-scatter, fig.width = 8, fig.height = 5}
+```{r concordance-scatter, fig.width = 8, fig.height = 5, fig.alt = "Scatter of the NPAFP rate against SPI for each district-year, divided into the four concordance categories by dashed lines at the NPAFP target and at an SPI of 1."}
 plot(conc)
 ```
 
