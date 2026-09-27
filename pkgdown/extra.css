@@ -7,7 +7,7 @@
 /* Collapsible <details> blocks styled like a note callout. */
 details {
   border: 1px solid #ddd5c6;
-  border-left: 4px solid #b91c1c;
+  border-left: 4px solid #398a9d;
   border-radius: 6px;
   padding: 0.6em 1em;
   margin: 1em 0;
@@ -26,7 +26,7 @@ details > summary::-webkit-details-marker {
 
 details > summary::before {
   content: "\25B6";
-  color: #b91c1c;
+  color: #398a9d;
   display: inline-block;
   margin-right: 0.5em;
   font-size: 0.8em;
@@ -70,12 +70,12 @@ table th {
 /* Dark mode: pkgdown's light-switch sets [data-bs-theme="dark"] on <html>. */
 [data-bs-theme="dark"] details {
   border-color: #3d3d3a;
-  border-left-color: #f28b82;
+  border-left-color: #7fc3d3;
   background: #242422;
 }
 
 [data-bs-theme="dark"] details > summary::before {
-  color: #f28b82;
+  color: #7fc3d3;
 }
 
 [data-bs-theme="dark"] details[open] > summary {

@@ -36,19 +36,20 @@ template:
         })();
       </script>
   bslib:
-    # palette drawn from the spi logo: charcoal strokes, cream ground and the
-    # red accent on the i
+    # palette drawn from the spi logo: charcoal strokes, cream ground, teal
+    # accents in the wave and the red dot on the i. Links use a darker teal
+    # so they reach 4.5:1 contrast on the cream ground.
     primary: "#2C2C2A"
     secondary: "#444441"
     success: "#5BA86F"
-    info: "#628DA5"
+    info: "#398A9D"
     warning: "#F2A900"
     danger: "#CC1111"
     body-bg: "#F5F0E8"
-    link-color: "#B91C1C"
-    link-hover-color: "#901212"
-    link-color-dark: "#F28B82"
-    link-hover-color-dark: "#F5B3AD"
+    link-color: "#2B6F80"
+    link-hover-color: "#1F5461"
+    link-color-dark: "#7FC3D3"
+    link-hover-color-dark: "#A8D8E3"
     navbar-bg: "#2C2C2A"
     navbar-fg: "#F5F0E8"
     headings-color: "#2C2C2A"
