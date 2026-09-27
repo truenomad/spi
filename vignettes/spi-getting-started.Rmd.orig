@@ -122,7 +122,7 @@ fit |>
 
 ## Calculate SPI
 
-`spi_index()` sums observed and expected counts to the chosen level and calculates SPI for each posterior draw. Use annual SPI for review, because monthly AFP counts are often sparse. Monthly SPI is more useful for descriptive trends.
+`spi_index()` sums observed and expected counts to the chosen level and calculates SPI for each posterior draw. Annual SPI is generally more stable for review, because monthly AFP counts are often sparse. Monthly SPI is better suited to descriptive trends.
 
 ```{r spi}
 spi_year <- spi_index(fit, level = "district_year", centre = "national")
@@ -130,7 +130,7 @@ spi_raw <- spi_index(fit, level = "district_year", centre = "none")
 spi_month <- spi_index(fit, level = "district_month")
 ```
 
-With `centre = "national"`, the default, each district's observed-to-expected ratio is divided by the national ratio for the same period. With `centre = "none"`, SPI is the district's own observed-to-expected ratio. [Interpreting SPI](spi-interpretation.html#national-centring) explains the difference with a worked example.
+With `centre = "national"`, the default, each district's observed-to-expected ratio is divided by the national ratio for the same period. With `centre = "none"`, SPI is the uncentred district observed-to-expected ratio. [Interpreting SPI](spi-interpretation.html#national-centring) explains the difference with a worked example.
 
 ## Understand the output
 
@@ -142,6 +142,11 @@ spi_year |>
   dplyr::select(adm2_guid, year, observed, spi_median, spi_q05, spi_q95) |>
   dplyr::slice_head(n = 6)
 ```
+
+
+::: {.alert .alert-info}
+A zero SPI does not imply zero uncertainty about surveillance. When no cases are observed, the ratio is zero for every posterior draw of the expected count, so the reported SPI interval is also zero.
+:::
 
 `spi_year$national` reports the national observed-to-expected ratio for each year (`national_oe`). Centred SPI divides each district's ratio by this value, so review it separately: district SPI can stay unchanged when district and national ratios change together.
 

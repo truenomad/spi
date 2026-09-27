@@ -37,7 +37,7 @@ set.seed(1)
 
 The default SPI model uses no covariates and negative binomial overdispersion. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period.
 
-The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes. The outputs shown here were computed with INLA when the article was built.
+The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes.
 
 ```{r data, cache = FALSE}
 library(spi)
@@ -46,7 +46,7 @@ synth <- synth_surveillance
 
 ## Adjusting for covariates
 
-Covariates are optional and are not part of the default SPI used in the accompanying study. Pass district-year covariates to `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
+Covariates are optional and are not part of the default SPI used in the accompanying study. Covariate adjustment changes the estimand: a covariate-adjusted SPI no longer answers the same question as the default SPI. Pass district-year covariates to `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
 
 ```{r covariates}
 synth$covariates |>
@@ -77,6 +77,8 @@ summary(fit_adj)$effects |>
   dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
 ```
 
+These coefficients describe conditional associations within the expected-count model and should not be interpreted causally.
+
 ## Compare overdispersion options
 
 Compare Poisson, Poisson with an observation-level random effect, and negative binomial models:
@@ -99,14 +101,21 @@ od$summary
 
 `od$summary` has one row per observation model. DIC and WAIC compare model fit while allowing for complexity; lower values are preferred. The CPO column is the share of observations with a valid leave-one-out predictive value. The PIT statistic is the distance of the probability integral transform values from a uniform distribution, and smaller values indicate closer agreement with that reference distribution.
 
-WAIC can favour a model with one random effect per observation even when that model overfits. `spi_compare_overdispersion()` therefore first excludes any model with valid CPO values for fewer than half of the observations, an effective number of parameters above 20% of the observations, or a BYM2 `phi` below 0.02 or above 0.98. Among the remaining models, it recommends the one with the smallest PIT distance. `od$recommendation` gives the choice and the reasoning:
+`od$recommendation` gives the model selected by the package's diagnostic rule, with its reasoning:
 
 ```{r overdispersion-choice}
 od$recommendation$choice
 od$recommendation$reasoning
 ```
 
-To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same comparison internally and refits with the recommended model.
+<details>
+<summary>How the diagnostic rule selects a model</summary>
+
+WAIC can favour a model with one random effect per observation even when that model overfits. `spi_compare_overdispersion()` therefore first excludes any model with valid CPO values for fewer than half of the observations, an effective number of parameters above 20% of the observations, or a BYM2 `phi` below 0.02 or above 0.98. Among the remaining models, it selects the one with the smallest PIT distance.
+
+</details>
+
+To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same comparison internally and refits with the selected model. Here the diagnostic rule selects `r sprintf('\x60overdispersion = "%s"\x60', od$recommendation$choice)`. Negative binomial remains the package default because it is the pre-specified model used in the accompanying study; `overdispersion = "auto"` is an optional diagnostic workflow for other applications.
 
 ## Spatial structure
 
@@ -165,7 +174,8 @@ compare <- dplyr::inner_join(retro, prosp, by = c("adm2_guid", "year"))
 compare |>
   dplyr::summarise(
     district_years = dplyr::n(),
-    correlation = stats::cor(spi_retro, spi_prosp),
+    pearson = stats::cor(spi_retro, spi_prosp),
+    spearman = stats::cor(spi_retro, spi_prosp, method = "spearman"),
     below_1_retro = sum(spi_retro < 1),
     below_1_prosp = sum(spi_prosp < 1),
     change_side = sum((spi_retro < 1) != (spi_prosp < 1))
@@ -210,13 +220,13 @@ ggplot2::ggplot(compare_plot, ggplot2::aes(spi_retro, spi_prosp)) +
   ggplot2::theme_minimal()
 ```
 
-The correlation between the two is `r round(stats::cor(compare$spi_retro, compare$spi_prosp), 2)`, but `r sum((compare$spi_retro < 1) != (compare$spi_prosp < 1))` of `r nrow(compare)` district-years fall on different sides of 1 depending on the fit.
+The Pearson correlation between the two is `r round(stats::cor(compare$spi_retro, compare$spi_prosp), 2)` and the Spearman rank correlation is `r round(stats::cor(compare$spi_retro, compare$spi_prosp, method = "spearman"), 2)`, but `r sum((compare$spi_retro < 1) != (compare$spi_prosp < 1))` of `r nrow(compare)` district-years fall on different sides of 1 depending on the fit.
 
-In the retrospective fit, each assessed year contributes to its own expectation, so part of a decline in that year is absorbed into the expected count. In the prospective fit, the expectation for each year comes only from earlier years. The accompanying study uses prospective assessment for this reason. Do not mix the two in one series.
+In the retrospective fit, each assessed year contributes to its own expectation, so part of a decline in that year is absorbed into the expected count. In the prospective fit, the expectation for each year comes only from earlier years. Retrospective SPI describes the full fitted period; prospective SPI is designed for assessing each year against the information available before it. The accompanying study uses prospective assessment for this reason. Do not mix the two in one series.
 
 ## Sensitivity checks
 
-Results can depend on the training period, observation model, covariates, centring, and reporting year. Several checks reuse fits already made in this article. Each counts the complete district-years with an SPI below 1:
+Results can depend on the training period, observation model, covariates, centring, and reporting year. Several checks reuse fits already made in this article. Each counts the complete district-years with an SPI below 1. The count is a simple illustration of how classification changes between settings, not a measure of model performance:
 
 ```{r sensitivity}
 count_below_1 <- function(index) {

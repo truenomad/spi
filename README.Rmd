@@ -42,7 +42,7 @@ set.seed(1)
 
 <!-- badges: end -->
 
-spi is an R package for identifying relative shortfalls in acute flaccid paralysis (AFP) reporting. It compares reported non-polio AFP (NPAFP) counts with modelled expectations based on reporting history and population, and centres the ratio on the national pattern by default. Use SPI alongside the conventional NPAFP rate, timeliness, and specimen quality.
+spi is an R package for identifying relative shortfalls in acute flaccid paralysis (AFP) reporting. It compares reported non-polio AFP (NPAFP) counts with modelled expectations based on reporting history and population, with district observed-to-expected ratios centred on the national ratio by default. Use SPI alongside the conventional NPAFP rate, timeliness, and specimen quality.
 
 ## Installation
 
@@ -54,7 +54,7 @@ if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak")
 pak::pak("truenomad/spi")
 ```
 
-Model fitting requires INLA. If it is not installed, run:
+INLA is not on CRAN and must be installed separately:
 
 ```r
 install.packages(
@@ -65,13 +65,13 @@ install.packages(
 
 ## Overview
 
-Start with monthly case counts, annual under-15 population estimates, and district boundaries. spi fits expected counts, calculates annual or monthly SPI with credible intervals, and produces plots and maps. It also compares SPI with the conventional NPAFP target and brings reporting volume, timeliness, and specimen quality together in a STEPS field guide.
+Start with monthly NPAFP counts, annual under-15 population estimates, and district boundaries. spi estimates expected counts, calculates annual or monthly SPI with credible intervals, and produces plots and maps. It can also compare SPI with the conventional NPAFP target and organise district review through the STEPS field guide.
 
 A historically high-reporting district can decline substantially and still meet the conventional NPAFP target. SPI can identify that relative shortfall, especially when expectations are estimated from preceding years. Conversely, years of low reporting can become the model's expected baseline, leaving SPI near 1 despite low absolute reporting. The conventional target remains necessary to identify that persistent shortfall.
 
 ## Quick start
 
-The bundled `synth_surveillance` data cover 236 districts in the fictional country Harad, from 2015 to 2024. This example fits the supplied years together, with no covariates. For annually updated estimates based on preceding years only, use `spi_prospective()`.
+The bundled `synth_surveillance` data cover 236 districts in the fictional country Harad, from 2015 to 2024. All examples use synthetic data and require no access to GPEI POLIS. This example fits all supplied years together without covariates. For annually updated estimates based only on preceding years, use `spi_prospective()`.
 
 ```{r library, cache = FALSE}
 library(spi)
@@ -108,25 +108,25 @@ spi_dy |>
   dplyr::slice_head(n = 6)
 ```
 
-`spi_dy$national` reports the national observed-to-expected ratio separately. Use `centre = "none"` in the same call for the district-only observed-to-expected ratio.
+`spi_dy$national` contains the national observed-to-expected ratio. Set `centre = "none"` for the uncentred district ratio. A district-year with no reported cases has an SPI of 0 and a 0 to 0 interval, because the interval reflects uncertainty in the expected count only; this is not certainty about surveillance performance.
 
 ## Learn more
 
-The articles on the [package website](https://truenomad.github.io/spi/) cover each step in more detail:
+The [package website](https://truenomad.github.io/spi/) includes five articles:
 
-- [Getting started with SPI](https://truenomad.github.io/spi/articles/spi-getting-started.html) fits the model, calculates SPI, and shows how to inspect and plot the results.
-- [How does SPI work?](https://truenomad.github.io/spi/articles/spi-methods.html) sets out the model specification, the DAG, national centring, and the limitations that follow.
-- [Interpreting SPI alongside AFP indicators](https://truenomad.github.io/spi/articles/spi-interpretation.html) explains what SPI means and does not mean, and how to use it with the NPAFP rate, timeliness, and stool adequacy.
-- [Reviewing districts with STEPS](https://truenomad.github.io/spi/articles/spi-field-guide.html) compares SPI with the conventional NPAFP target, shows how to organise a district review once SPI identifies a shortfall, and produces the one-page district report.
-- [Model options and sensitivity](https://truenomad.github.io/spi/articles/spi-model-options.html) covers covariates, overdispersion, spatial structure, prospective fits, and sensitivity checks.
+- [Getting started with SPI](https://truenomad.github.io/spi/articles/spi-getting-started.html): fit the model, calculate SPI, inspect outputs, and produce prospective estimates.
+- [How SPI works](https://truenomad.github.io/spi/articles/spi-methods.html): the model specification, DAG, national centring, and limitations.
+- [Interpreting SPI](https://truenomad.github.io/spi/articles/spi-interpretation.html): understand SPI alongside the NPAFP rate, timeliness, and stool adequacy.
+- [STEPS and district review](https://truenomad.github.io/spi/articles/spi-field-guide.html): compare SPI with the NPAFP target and organise district review.
+- [Model options and sensitivity](https://truenomad.github.io/spi/articles/spi-model-options.html): explore covariates, overdispersion, spatial structure, and sensitivity analyses.
 
-The [function reference](https://truenomad.github.io/spi/reference/) documents every exported function. A longer example is in `inst/examples/paper_analysis.R`; open it with `file.edit(system.file("examples/paper_analysis.R", package = "spi"))`.
+The [function reference](https://truenomad.github.io/spi/reference/) documents all exported functions.
 
 ## Citation
 
 ```r
 Yusuf MA (2026). spi: Bayesian spatiotemporal
-  modelling of relative AFP reporting. R package version 0.1.0.9000.
+  modelling of relative AFP reporting. R package version 0.2.0.
   https://github.com/truenomad/spi
 ```
 

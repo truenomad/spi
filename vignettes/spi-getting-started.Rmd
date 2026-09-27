@@ -53,7 +53,7 @@ spi_check_inputs(
   shapefile = synth$boundaries,
   id_col = "adm2_guid"
 )
-#>
+#> 
 #> -- spi input check -------------------------------------------------------------
 #> v All input checks passed -- 236 districts x 120 months (2015-01 to 2024-12).
 ```
@@ -76,7 +76,7 @@ spi_check_inputs(
   shapefile = synth$boundaries,
   id_col = "adm2_guid"
 )
-#>
+#> 
 #> -- spi input check -------------------------------------------------------------
 #> i 236 districts x 120 months (2015-01 to 2024-12)
 #> x 1 case row has negative counts
@@ -127,7 +127,7 @@ fit |>
 
 ## Calculate SPI
 
-`spi_index()` sums observed and expected counts to the chosen level and calculates SPI for each posterior draw. Use annual SPI for review, because monthly AFP counts are often sparse. Monthly SPI is more useful for descriptive trends.
+`spi_index()` sums observed and expected counts to the chosen level and calculates SPI for each posterior draw. Annual SPI is generally more stable for review, because monthly AFP counts are often sparse. Monthly SPI is better suited to descriptive trends.
 
 
 ``` r
@@ -136,7 +136,7 @@ spi_raw <- spi_index(fit, level = "district_year", centre = "none")
 spi_month <- spi_index(fit, level = "district_month")
 ```
 
-With `centre = "national"`, the default, each district's observed-to-expected ratio is divided by the national ratio for the same period. With `centre = "none"`, SPI is the district's own observed-to-expected ratio. [Interpreting SPI](spi-interpretation.html#national-centring) explains the difference with a worked example.
+With `centre = "national"`, the default, each district's observed-to-expected ratio is divided by the national ratio for the same period. With `centre = "none"`, SPI is the uncentred district observed-to-expected ratio. [Interpreting SPI](spi-interpretation.html#national-centring) explains the difference with a worked example.
 
 ## Understand the output
 
@@ -152,12 +152,17 @@ spi_year |>
 #>   adm2_guid                             year observed spi_median spi_q05 spi_q95
 #>   <chr>                                <dbl>    <int>      <dbl>   <dbl>   <dbl>
 #> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2015        1      0.679   0.481   0.943
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.11    0.786   1.55
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.990   0.702   1.38
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      2.14    1.50    2.96
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2016        2      1.11    0.786   1.55 
+#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2017        0      0       0       0    
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2018        2      0.990   0.702   1.38 
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2019        5      2.14    1.50    2.96 
 #> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382~  2020        2      1.50    1.07    2.10
 ```
+
+
+::: {.alert .alert-info}
+A zero SPI does not imply zero uncertainty about surveillance. When no cases are observed, the ratio is zero for every posterior draw of the expected count, so the reported SPI interval is also zero.
+:::
 
 `spi_year$national` reports the national observed-to-expected ratio for each year (`national_oe`). Centred SPI divides each district's ratio by this value, so review it separately: district SPI can stay unchanged when district and national ratios change together.
 
@@ -185,19 +190,19 @@ spi_year$national
 ``` r
 summary(spi_year)
 #> # A tibble: 12 x 3
-#>    metric                      value  flag
+#>    metric                      value  flag 
 #>    <chr>                       <chr>  <chr>
-#>  1 median SPI                  0.935  pass
-#>  2 calibration ratio (obs/exp) 1.001  pass
-#>  3 log-SPI skewness            -0.825 flag
-#>  4 % with CrI excluding 1      74.7   flag
-#>  5 % SPI < 0.5 (severe)        16.9   <NA>
-#>  6 % SPI > 1.5 (elevated)      14.9   <NA>
-#>  7 SPI q05                     0.095  <NA>
-#>  8 SPI q25                     0.626  <NA>
-#>  9 SPI q75                     1.286  <NA>
-#> 10 SPI q95                     1.894  <NA>
-#> 11 n groups                    2,360  <NA>
+#>  1 median SPI                  0.935  pass 
+#>  2 calibration ratio (obs/exp) 1.001  pass 
+#>  3 log-SPI skewness            -0.825 flag 
+#>  4 % with CrI excluding 1      74.7   flag 
+#>  5 % SPI < 0.5 (severe)        16.9   <NA> 
+#>  6 % SPI > 1.5 (elevated)      14.9   <NA> 
+#>  7 SPI q05                     0.095  <NA> 
+#>  8 SPI q25                     0.626  <NA> 
+#>  9 SPI q75                     1.286  <NA> 
+#> 10 SPI q95                     1.894  <NA> 
+#> 11 n groups                    2,360  <NA> 
 #> 12 n low_information           69     <NA>
 ```
 
