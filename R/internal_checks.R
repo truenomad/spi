@@ -86,6 +86,10 @@
   if (any(cases$count < 0, na.rm = TRUE)) {
     cli::cli_abort("cases$count has negative values")
   }
+  known <- cases$count[!is.na(cases$count)]
+  if (any(!is.finite(known) | known != floor(known))) {
+    cli::cli_abort("cases$count must contain finite, integer-valued counts or NA")
+  }
 
   # check for duplicates
   dupes <- cases |>

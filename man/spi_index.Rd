@@ -5,23 +5,79 @@
 \title{Compute the Surveillance Performance Index (SPI)}
 \usage{
 spi_index(
-  expected,
-  cases = NULL,
-  boundaries = NULL,
+  cases,
+  population,
+  adjacency,
+  first_assessment,
+  last_assessment = NULL,
+  min_history = 3L,
   level = c("district_year", "district_month", "district_quarter", "district_total"),
   centre = c("national", "none"),
-  min_expected = 1,
   year_end_month = 12L,
-  verbose = TRUE
+  covariates = NULL,
+  id_col = "district_id",
+  pop_col = "pop_u15",
+  boundaries = NULL,
+  min_expected = 1,
+  predictive = FALSE,
+  verbose = TRUE,
+  ...
 )
 }
 \arguments{
-\item{expected}{Object of class \code{spi_expected} returned by
-\code{\link[=spi_expected]{spi_expected()}}.}
+\item{cases}{Tibble with the district identifier (see \code{id_col}), \code{month}
+(Date) and \code{count}. One row per district-month, covering the history and
+every assessment year.}
 
-\item{cases}{Optional tibble with the district identifier column (matching
-\code{expected$id_col}), \code{month} (Date), and \code{count}. If NULL (default), uses
-the observed counts already in the expected model fit.}
+\item{population}{Tibble with the district identifier and the denominator
+column named by \code{pop_col}, keyed by \code{year} (integer) or by \code{month}
+(Date), as in \code{\link[=spi_expected]{spi_expected()}}.}
+
+\item{adjacency}{nb object or sf object, as in \code{\link[=spi_expected]{spi_expected()}}.}
+
+\item{first_assessment}{Integer. The first year to assess, labelled by the
+calendar year in which its window closes (see \code{year_end_month}). Its
+window must open at least \code{min_history} years after the first month in
+\code{cases}.}
+
+\item{last_assessment}{Integer or \code{NULL}. The last year to assess. \code{NULL}
+(default) uses the year of the last month in \code{cases}.}
+
+\item{min_history}{Integer. The number of years of history a fit needs
+before the window it assesses. Default: 3.}
+
+\item{level}{Character. Aggregation level: "district_month" (raw, highest
+temporal resolution), "district_quarter" (calendar-quarter SPI per
+district), "district_year" (annual SPI per district, default),
+"district_total" (single SPI per district over all assessment years).}
+
+\item{centre}{Character. "national" (default) divides each period's SPI
+draws and summaries by that period's national observed-to-expected
+ratio, so a country-wide reporting change does not move every district
+the same way. "none" leaves the raw ratio untouched.}
+
+\item{year_end_month}{Integer 1 to 12. Month in which the assessment year
+closes, for \code{level = "district_year"}. The default, 12, gives calendar
+years. Any other value gives a non-calendar reporting year:
+\code{year_end_month = 4} assesses May through April, so a review can close on
+the month the decision was actually taken rather than on 31 December.
+Each window is labelled by the calendar year in which it closes, so May
+2024 to April 2025 reads as 2025, and is predicted from the months before
+it opens, here up to April 2024. The monthly offset still uses the
+calendar-year denominator. Ignored at every other level, which assess
+calendar years. For a rolling 12-month SPI updated every month, rerun
+with \code{year_end_month} set to the month that has just closed. Default: 12
+(calendar years).}
+
+\item{covariates}{Optional tibble of covariates keyed by \code{year} or
+\code{month}, as in \code{\link[=spi_expected]{spi_expected()}}. Each fit receives only the rows up to the
+end of its assessment year. Default: \code{NULL}.}
+
+\item{id_col}{Character. Name of the district identifier column. Default:
+"district_id".}
+
+\item{pop_col}{Character. Name of the denominator column in \code{population}.
+Default: "pop_u15".}
 
 \item{boundaries}{Optional \code{sf} object or data frame carrying the id column
 plus admin name columns (\code{adm1_name}, \code{adm2_name}, ...). When supplied,
@@ -29,33 +85,21 @@ those names are joined onto the \code{summary} output immediately before the
 id column, so saved SPI tables carry human-readable labels next to the
 district id. Default \code{NULL}.}
 
-\item{level}{Character. Aggregation level: "district_month" (raw, highest
-temporal resolution), "district_quarter" (calendar-quarter SPI per
-district), "district_year" (annual SPI per district, default),
-"district_total" (single SPI per district over the full study period).}
-
-\item{centre}{Character. "national" (default) divides each period's SPI
-draws and summaries by that period's national observed-to-expected
-ratio, so a country-wide reporting change does not move every district
-the same way. "none" leaves the raw ratio untouched.}
-
 \item{min_expected}{Numeric. Districts or district-periods with total
 expected count below this threshold are marked as low-information. SPI
-is still computed; inspect the counts and uncertainty before interpreting it. Default: 1.}
+is still computed; inspect the counts and uncertainty before interpreting
+it. Default: 1.}
 
-\item{year_end_month}{Integer 1 to 12. Month in which the reading year
-closes, for \code{level = "district_year"}. The default, 12, gives calendar
-years. Any other value gives a non-calendar reporting year: \code{year_end_month = 4} groups
-May through April, so a review can close on the month the decision was
-actually taken rather than on 31 December. Each window is labelled by the
-calendar year in which it closes, so May 2024 to April 2025 reads as 2025.
-Only the aggregation changes; the fitted model is untouched, and the
-monthly offset still uses the calendar-year denominator it was fitted on.
-The first and last windows of a series are usually partial, so the
-summary carries \code{n_months} and those rows should normally be dropped.
-Ignored at every other level. Default: 12 (calendar years).}
+\item{predictive}{Logical. Reserved for a held-out predictive check. Only
+\code{FALSE} is supported at present. Default: \code{FALSE}.}
 
-\item{verbose}{Logical. Progress messages via cli. Default: TRUE.}
+\item{verbose}{Logical. Progress messages via cli, with one step per
+assessment year. Default: TRUE.}
+
+\item{...}{Further arguments passed to \code{\link[=spi_expected]{spi_expected()}}, such as \code{season},
+\code{year_effect}, \code{overdispersion}, \code{n_draws} or \code{seed}. The arguments this
+function sets itself (\code{cases}, \code{population}, \code{adjacency}, \code{covariates},
+\code{id_col}, \code{pop_col}, \code{keep_draws} and \code{verbose}) cannot be passed here.}
 }
 \value{
 Object of class \code{spi_index}. A list containing:
@@ -72,16 +116,28 @@ as low-information.}
 \item{national}{Tibble of the national observed-to-expected ratio per
 period (\code{national_observed}, \code{national_expected}, \code{national_oe},
 \code{districts}), or \code{NULL} when \code{centre = "none"}.}
+\item{windows}{Tibble with one row per assessment year: \code{year},
+\code{window_start}, \code{window_end}, \code{training_start}, \code{training_end} (first
+days of months), \code{months} and \code{districts}.}
 \item{call}{Matched call.}
 }
 }
 \description{
 Computes posterior draws of the Surveillance Performance Index, the
 ratio of observed to expected counts, centred by default on the national
-ratio for each period. Its credible interval reflects uncertainty in expected
-counts. With national centring, SPI ~= 1 means reporting matches the national
-pattern. With \code{centre = "none"}, the reference is the district's own expected
-count. Values below 1 mean reporting is below the chosen reference.
+ratio for each period. Each assessment year's expected counts are estimated
+from preceding years only. For every assessment year, \code{\link[=spi_expected]{spi_expected()}} is
+refitted on the months before it. The assessment year's counts are masked
+(set to \code{NA}), so the model predicts them from the earlier months, and later
+months are dropped. The year's observed counts are then compared with that
+prediction. At least \code{min_history} years of history are required before the
+first assessment year.
+
+The credible interval reflects uncertainty in expected counts. With national
+centring, SPI ~= 1 means reporting matches the national pattern. With
+\code{centre = "none"}, the reference is the district's own expected count.
+Values below 1 mean reporting is below the chosen reference. The model
+defaults are those of \code{\link[=spi_expected]{spi_expected()}}, which are the paper specification.
 }
 \details{
 For aggregated levels, observed counts are summed within each grouping,
@@ -89,37 +145,50 @@ expected counts are summed within each grouping per posterior draw, and
 the ratio is computed per draw. This preserves the joint uncertainty in
 the expected denominator.
 
+The draws of different assessment years come from separate fits. At
+\code{level = "district_total"} and in the \code{totals} row, expected counts are
+summed across years draw by draw, which gives a usable median but is not a
+joint posterior.
+
 With \code{centre = "national"}, every district's SPI draws for a period are
 further divided by that period's national observed-to-expected ratio
 (summed observed over summed median-expected, across districts). This
 compares the district ratio with the national ratio. District SPI can
 stay unchanged when district and national ratios change together, so
-review the national ratio separately. Because a draw-level quantile scales with a positive
-constant, dividing \code{spi_median}, \code{spi_q05} and \code{spi_q95} by the same ratio
-gives the same result as dividing the draws first and re-summarising. A
-period with no reported cases nationally has no ratio to divide by; its rows
-become \code{NA} and a warning names the affected periods.
+review the national ratio separately. Because a draw-level quantile scales
+with a positive constant, dividing \code{spi_median}, \code{spi_q05} and \code{spi_q95} by
+the same ratio gives the same result as dividing the draws first and
+re-summarising. A period with no reported cases nationally has no ratio to
+divide by; its rows become \code{NA} and a warning names the affected periods.
+
+An assessment year with fewer than 12 months of data is kept, and a warning
+names it. At \code{level = "district_year"}, the \code{n_months} column shows how many
+months each row covers.
 }
+\section{Runtime}{
+
+Each assessment year needs its own INLA fit, so the run time grows with
+the number of assessment years. Every fit uses the same \code{...} arguments,
+including \code{n_draws}. Each call refits the model, so a second level or
+centring setting repeats the fits.
+}
+
 \examples{
 \dontrun{
-fit <- spi_expected(
-  cases = cases,
-  population = pop_u15,
-  adjacency = adj,
+s <- synth_surveillance
+spi_dy <- spi_index(
+  cases = s$cases,
+  population = s$population,
+  adjacency = s$boundaries,
+  first_assessment = 2018,
   id_col = "adm2_guid",
-  season = "harmonic",
-  overdispersion = "nb"
+  boundaries = s$boundaries
 )
-
-# pass boundaries to carry adm1/adm2 names next to the district id
-spi_dy <- spi_index(fit, level = "district_year", boundaries = boundaries)
 print(spi_dy)
+spi_dy$windows
 }
 }
 \seealso{
 \code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}
-
-Other spi core functions: 
-\code{\link{spi_prospective}()}
 }
 \concept{spi core functions}

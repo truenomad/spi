@@ -5,7 +5,7 @@
 # Writes data/synth_field_guide.rda (lazy-loaded via
 # `data("synth_field_guide", package = "spi")`).
 #
-# Requires INLA locally (for the one-off spi_expected() fit). The shipped object
+# Requires INLA locally (for the spi_index() fits). The shipped object
 # is a `spi_field_guide` with all five STEPS components and every
 # context signal active. Pinned seed keeps it byte-stable across runs.
 
@@ -22,25 +22,28 @@ synth <- synth_surveillance
 # 1. spatial adjacency ---------------------------------------------------------
 adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 
-# 2. BYM2 expected-count fit (model without covariates; matches the paper's PRIMARY_SPEC) ------
-fit <- spi_expected(
-  cases = synth$cases,
-  population = synth$population,
-  adjacency = adj,
-  id_col = "adm2_guid",
-  season = "harmonic",
-  year_effect = "iid",
-  overdispersion = "iid",
-  n_draws = 1000L,
-  seed = 42L,
-  verbose = TRUE
-)
+# 2. SPI at district-year and district-month levels, each assessment year fitted
+# on the years before it (model without covariates) ---------------------------
+spi_at <- function(level) {
+  spi_index(
+    cases = synth$cases,
+    population = synth$population,
+    adjacency = adj,
+    first_assessment = 2018,
+    level = level,
+    id_col = "adm2_guid",
+    season = "harmonic",
+    year_effect = "iid",
+    overdispersion = "iid",
+    n_draws = 1000L,
+    seed = 42L,
+    verbose = TRUE
+  )
+}
+spi_dy <- spi_at("district_year")
+spi_dm <- spi_at("district_month")
 
-# 3. SPI at district-year and district-month levels ----------------------------
-spi_dy <- spi_index(fit, level = "district_year")
-spi_dm <- spi_index(fit, level = "district_month")
-
-# 4. concordance ---------------------------------------------------------------
+# 3. concordance ---------------------------------------------------------------
 conc <- spi_compare_npafp(
   spi = spi_dy,
   cases = synth$cases,
@@ -50,7 +53,7 @@ conc <- spi_compare_npafp(
   boundaries = synth$boundaries
 )
 
-# 5. field guide (all STEPS components and context, both detection channels) --
+# 4. field guide (all STEPS components and context, both detection channels) --
 # The bundle records both serotypes, so AFP detection records are stacked long with a
 # serotype column rather than filtered to one: a district can then report what
 # was actually found instead of the reading assuming a single serotype.

@@ -14,6 +14,7 @@
 ^codecov\.yml$
 ^_pkgdown\.yml$
 ^\.claude$
+^\.superpowers$
 \.gitkeep$
 \.DS_Store$
 ^inst/examples/pager/.*\.png$

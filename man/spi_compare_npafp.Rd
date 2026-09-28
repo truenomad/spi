@@ -24,11 +24,13 @@ spi_compare_npafp(
 \item{spi}{Object of class \code{spi_index} at \code{district_year} level.}
 
 \item{cases}{Optional tibble with the district id column and \code{count}
-(integer). Pass to override the counts stored in \code{spi$data}. Default:
-NULL (use \code{spi$data}).}
+(integer), and either \code{month} or \code{year}. Pass to override the observed
+counts in \code{spi$summary}. Default: NULL (use the index's observed counts).}
 
 \item{population}{Tibble with the district id column, \code{year} (integer),
-and the population denominator column (see \code{pop_col}). Required.}
+and the population denominator column (see \code{pop_col}). Required, with one
+positive denominator per district and reporting year. For non-calendar
+years, supply the mean population over that reporting year.}
 
 \item{year_end_month}{Integer 1 to 12. Month in which the reading year
 closes, matching the \code{year_end_month} the SPI was computed with. The
@@ -113,7 +115,13 @@ threshold than the other.
 }
 \examples{
 \dontrun{
-spi_dy <- spi_index(fit_bare, level = "district_year")
+spi_dy <- spi_index(
+  cases = synth_surveillance$cases,
+  population = synth_surveillance$population,
+  adjacency = synth_surveillance$boundaries,
+  first_assessment = 2018,
+  id_col = "adm2_guid"
+)
 
 comparison <- spi_compare_npafp(
   spi = spi_dy,

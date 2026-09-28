@@ -1,12 +1,12 @@
 # Fixture constructors that build the spi S3 objects directly, so the
-# downstream functions (spi_index, spi_compare_npafp, spi_field_guide) can be
-# tested without a live INLA fit. Every constructor mirrors the exact object
+# downstream functions (.spi_aggregate, spi_compare_npafp, spi_field_guide)
+# can be tested without a live INLA fit. Every constructor mirrors the exact object
 # contract the real functions produce (see spi_expected.R / spi_index.R for the
 # shapes).
 
 # --- a spi_expected fixture -----------------------------------------
 # A 24-district x 24-month panel with a posterior-draw matrix, rich enough to
-# drive spi_index() at every level and the print / summary / diagnostics
+# drive .spi_aggregate() at every level and the print / summary / diagnostics
 # methods.
 make_expected <- function(id_col = "district_id",
                           overdispersion = "iid",
@@ -464,7 +464,7 @@ make_indicators <- function(fg = synth_field_guide, seed = 20260725) {
   )
 }
 
-# --- a small monthly panel for spi_prospective() -----------------------
+# --- a small monthly panel for spi_index() -----------------------------
 # Six districts in a chain, monthly Poisson counts and annual pop_u15.
 toy_panel <- function(years = 2015:2020, id_col = "adm2_guid") {
   ids <- paste0("D", 1:6)

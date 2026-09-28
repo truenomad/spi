@@ -34,7 +34,7 @@ INLA::inla.setOption(num.threads = "1:1")
 set.seed(1)
 ```
 
-Use the bundled synthetic data to check inputs, fit expected counts, calculate and plot SPI, and produce annually updated estimates. [Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains what the results mean.
+Use the bundled synthetic data to check inputs, calculate and plot SPI, and use a non-calendar reporting year. [Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains what the results mean.
 
 The outputs shown here were computed with INLA when the article was built.
 
@@ -45,6 +45,8 @@ spi needs three inputs, all using the same district ID column:
 - monthly NPAFP case counts, one row per district and month;
 - annual under-15 population, one row per district and year;
 - district boundaries as an `sf` object.
+
+If you have POLIS access under a GPEI data-sharing agreement, [polished](https://truenomad.github.io/polished/) can retrieve and clean these inputs from POLIS.
 
 The bundled `synth_surveillance` data cover 236 districts in the fictional country Harad, from 2015 to 2024. The district ID column is `adm2_guid`:
 
@@ -61,7 +63,7 @@ names(synth$boundaries)
 
 ### Check the inputs first
 
-Use `spi_check_inputs()` to check case counts, population denominators, and district boundaries before fitting the model. It reports mismatched district IDs, missing months, and other issues as errors, warnings, or notes. `spi_expected()` also runs this check and stops on errors.
+Use `spi_check_inputs()` to check case counts, population denominators, and district boundaries before fitting the model. It reports mismatched district IDs, missing months, and other issues as errors, warnings, or notes. `spi_index()` also runs this check before each fit and stops on errors.
 
 ```{r check-inputs, message = TRUE}
 spi_check_inputs(
@@ -91,15 +93,18 @@ spi_check_inputs(
 )
 ```
 
-## Fit expected counts
+## Calculate SPI
 
-`spi_expected()` fits the default model to all supplied years. Passing the district boundaries as `adjacency` builds the neighbour graph internally. `n_draws` sets the number of posterior draws kept for the SPI intervals, and `seed` makes the draws reproducible. Fitting requires INLA and can take several minutes.
+`spi_index()` estimates each assessment year's expected counts from the preceding years only. For every assessment year it refits the default model on the months before that year, with the year's own counts hidden, and compares the reported counts with that prediction. This is how SPI would be updated each year in routine use, and it is the approach used in the accompanying study.
 
-```{r fit}
-fit <- spi_expected(
+`first_assessment` sets the first year to assess. The default `min_history = 3` requires three years of data before it, so with data from 2015 the first assessment year is 2018. Passing the district boundaries as `adjacency` builds the neighbour graph internally. `n_draws` sets the number of posterior draws kept for the SPI intervals, and `seed` makes the draws reproducible. Each fit requires INLA and can take several minutes.
+
+```{r spi}
+spi_year <- spi_index(
   cases = synth$cases,
   population = synth$population,
   adjacency = synth$boundaries,
+  first_assessment = 2018,
   id_col = "adm2_guid",
   n_draws = 500,
   seed = 42,
@@ -107,27 +112,31 @@ fit <- spi_expected(
 )
 ```
 
-The fitted object contains posterior draws and summaries for each district-month. View observed counts, expected medians, and 90% credible intervals:
+`spi_year$windows` lists the months each assessment year covers and the training months used to predict it:
 
-```{r fit-show}
-fit |>
-  tibble::as_tibble() |>
-  dplyr::filter(count > 0) |>
-  dplyr::select(
-    adm2_guid, month, count,
-    expected_median, expected_q05, expected_q95
-  ) |>
-  dplyr::slice_head(n = 6)
+```{r windows}
+spi_year$windows
 ```
 
-## Calculate SPI
+`spi_index()` sums observed and expected counts to the chosen level and calculates SPI for each posterior draw. Annual SPI is generally more stable for review, because monthly AFP counts are often sparse. Monthly SPI is better suited to descriptive trends. Each call refits the model for every assessment year, so these take as long as the first:
 
-`spi_index()` sums observed and expected counts to the chosen level and calculates SPI for each posterior draw. Annual SPI is generally more stable for review, because monthly AFP counts are often sparse. Monthly SPI is better suited to descriptive trends.
-
-```{r spi}
-spi_year <- spi_index(fit, level = "district_year", centre = "national")
-spi_raw <- spi_index(fit, level = "district_year", centre = "none")
-spi_month <- spi_index(fit, level = "district_month")
+```{r spi-options, eval = FALSE}
+spi_raw <- spi_index(
+  cases = synth$cases,
+  population = synth$population,
+  adjacency = synth$boundaries,
+  first_assessment = 2018,
+  centre = "none",
+  id_col = "adm2_guid"
+)
+spi_month <- spi_index(
+  cases = synth$cases,
+  population = synth$population,
+  adjacency = synth$boundaries,
+  first_assessment = 2018,
+  level = "district_month",
+  id_col = "adm2_guid"
+)
 ```
 
 With `centre = "national"`, the default, each district's observed-to-expected ratio is divided by the national ratio for the same period. With `centre = "none"`, SPI is the uncentred district observed-to-expected ratio. [Interpreting SPI](spi-interpretation.html#national-centring) explains the difference with a worked example.
@@ -154,7 +163,7 @@ A zero SPI does not imply zero uncertainty about surveillance. When no cases are
 spi_year$national
 ```
 
-`summary()` gives diagnostics across all district-years, including the median SPI, the overall observed-to-expected ratio, and the share of credible intervals that exclude 1. A `flag` marks a diagnostic outside the range set by the package, as a prompt to look more closely:
+`summary()` gives diagnostics across all district-years, including the median SPI, the overall observed-to-expected ratio, and the share of credible intervals that exclude 1. A `flag` marks a descriptive range set by the package; it is not a validated test of surveillance quality or model fit:
 
 ```{r summary}
 summary(spi_year)
@@ -186,48 +195,33 @@ The `calibration` view compares observed with expected counts. Points on the dia
 plot(spi_year, type = "calibration")
 ```
 
-## Non-calendar years
+## Non-calendar and rolling years
 
-Set `year_end_month` to use a reporting year other than January to December. With `year_end_month = 4`, each year runs from May to April and is labelled by the calendar year in which it closes, so May 2023 to April 2024 is 2024. The fitted model is unchanged; only the aggregation differs.
+Set `year_end_month` to use a reporting year other than January to December. With `year_end_month = 4`, each year runs from May to April and is labelled by the calendar year in which it closes, so May 2023 to April 2024 is 2024. Each year is predicted from the months before it opens, so 2024 is fitted on data up to April 2023. The first May to April year with three years of data before it is 2019:
 
 ```{r year-end}
-spi_may_apr <- spi_index(fit, level = "district_year", year_end_month = 4)
-
-spi_may_apr |>
-  tibble::as_tibble() |>
-  dplyr::count(n_months, name = "district_years")
-```
-
-The first and last reporting periods may be incomplete. `n_months` shows how many months each period covers; periods with fewer than 12 months should normally be excluded.
-
-## Prospective use
-
-`spi_expected()` followed by `spi_index()` is a retrospective fit. The model uses the full period supplied, including the years being assessed, so a decline in an assessed year partly lowers that year's own expectation.
-
-`spi_prospective()` refits the model for each assessment year using only the preceding years. This is how SPI would be updated each year in routine use, and it is the approach used in the accompanying study.
-
-```{r prospective}
-prospective <- spi_prospective(
+spi_may_apr <- spi_index(
   cases = synth$cases,
   population = synth$population,
   adjacency = synth$boundaries,
   first_assessment = 2019,
   last_assessment = 2024,
+  year_end_month = 4,
   id_col = "adm2_guid",
   n_draws = 500,
   seed = 42,
   verbose = FALSE
 )
+
+spi_may_apr$windows
 ```
 
-`prospective$prospective` lists the training years used for each assessment year:
+When the data end before the last year closes, that year covers fewer than 12 months. `spi_index()` keeps it with a warning, and `n_months` shows how many months each district-year covers.
 
-```{r prospective-show}
-prospective$prospective
-```
+For a rolling 12-month SPI that is updated every month, rerun `spi_index()` each month with `year_end_month` set to the month that has just closed. Each run covers the 12 months ending in that month and is predicted from the months before that window opens.
 
-The result is a `spi_index` object at the district-year level, so `as_tibble()`, `summary()`, and `plot()` work as above. Use a consistent model specification, centring setting, and training approach when comparing years; do not mix retrospective and prospective estimates in one series.
+Use a consistent model specification, centring setting, and reporting year when comparing years.
 
 ## Next steps
 
-[Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains how to interpret these results with the conventional NPAFP rate, timeliness, and stool adequacy. [Reviewing districts with STEPS](spi-field-guide.html) shows how to organise a district review once SPI identifies a shortfall.
+[Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains how to interpret these results with the conventional NPAFP rate, timeliness, and stool adequacy. [How do I use SPI to review districts?](spi-field-guide.html) shows how to organise a district review once SPI identifies a shortfall.

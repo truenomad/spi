@@ -222,8 +222,8 @@ the default \code{overdispersion = "nb"} or \code{overdispersion = "none"}.
 
 The call the paper uses is \code{season = "harmonic"}, \code{year_effect = "iid"},
 \code{overdispersion = "nb"}, with no covariates -- the defaults below. The
-published index, \code{spi_prospective()}, is built on a fit with
-these defaults.
+published index, \code{spi_index()}, is built on fits with these
+defaults.
 }
 
 \section{Choosing a seasonal specification}{

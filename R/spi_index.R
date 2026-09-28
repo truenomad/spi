@@ -3,44 +3,79 @@
 #' @description
 #' Computes posterior draws of the Surveillance Performance Index, the
 #' ratio of observed to expected counts, centred by default on the national
-#' ratio for each period. Its credible interval reflects uncertainty in expected
-#' counts. With national centring, SPI ~= 1 means reporting matches the national
-#' pattern. With `centre = "none"`, the reference is the district's own expected
-#' count. Values below 1 mean reporting is below the chosen reference.
+#' ratio for each period. Each assessment year's expected counts are estimated
+#' from preceding years only. For every assessment year, [spi_expected()] is
+#' refitted on the months before it. The assessment year's counts are masked
+#' (set to `NA`), so the model predicts them from the earlier months, and later
+#' months are dropped. The year's observed counts are then compared with that
+#' prediction. At least `min_history` years of history are required before the
+#' first assessment year.
 #'
-#' @param expected Object of class `spi_expected` returned by
-#'   [spi_expected()].
-#' @param cases Optional tibble with the district identifier column (matching
-#'   `expected$id_col`), `month` (Date), and `count`. If NULL (default), uses
-#'   the observed counts already in the expected model fit.
+#' The credible interval reflects uncertainty in expected counts. With national
+#' centring, SPI ~= 1 means reporting matches the national pattern. With
+#' `centre = "none"`, the reference is the district's own expected count.
+#' Values below 1 mean reporting is below the chosen reference. The model
+#' defaults are those of [spi_expected()], which are the paper specification.
+#'
+#' @param cases Tibble with the district identifier (see `id_col`), `month`
+#'   (Date) and `count`. One row per district-month, covering the history and
+#'   every assessment year.
+#' @param population Tibble with the district identifier and the denominator
+#'   column named by `pop_col`, keyed by `year` (integer) or by `month`
+#'   (Date), as in [spi_expected()].
+#' @param adjacency nb object or sf object, as in [spi_expected()].
+#' @param first_assessment Integer. The first year to assess, labelled by the
+#'   calendar year in which its window closes (see `year_end_month`). Its
+#'   window must open at least `min_history` years after the first month in
+#'   `cases`.
+#' @param last_assessment Integer or `NULL`. The last year to assess. `NULL`
+#'   (default) uses the year of the last month in `cases`.
+#' @param min_history Integer. The number of years of history a fit needs
+#'   before the window it assesses. Default: 3.
+#' @param level Character. Aggregation level: "district_month" (raw, highest
+#'   temporal resolution), "district_quarter" (calendar-quarter SPI per
+#'   district), "district_year" (annual SPI per district, default),
+#'   "district_total" (single SPI per district over all assessment years).
+#' @param centre Character. "national" (default) divides each period's SPI
+#'   draws and summaries by that period's national observed-to-expected
+#'   ratio, so a country-wide reporting change does not move every district
+#'   the same way. "none" leaves the raw ratio untouched.
+#' @param year_end_month Integer 1 to 12. Month in which the assessment year
+#'   closes, for `level = "district_year"`. The default, 12, gives calendar
+#'   years. Any other value gives a non-calendar reporting year:
+#'   `year_end_month = 4` assesses May through April, so a review can close on
+#'   the month the decision was actually taken rather than on 31 December.
+#'   Each window is labelled by the calendar year in which it closes, so May
+#'   2024 to April 2025 reads as 2025, and is predicted from the months before
+#'   it opens, here up to April 2024. The monthly offset still uses the
+#'   calendar-year denominator. Ignored at every other level, which assess
+#'   calendar years. For a rolling 12-month SPI updated every month, rerun
+#'   with `year_end_month` set to the month that has just closed. Default: 12
+#'   (calendar years).
+#' @param covariates Optional tibble of covariates keyed by `year` or
+#'   `month`, as in [spi_expected()]. Each fit receives only the rows up to the
+#'   end of its assessment year. Default: `NULL`.
+#' @param id_col Character. Name of the district identifier column. Default:
+#'   "district_id".
+#' @param pop_col Character. Name of the denominator column in `population`.
+#'   Default: "pop_u15".
 #' @param boundaries Optional `sf` object or data frame carrying the id column
 #'   plus admin name columns (`adm1_name`, `adm2_name`, ...). When supplied,
 #'   those names are joined onto the `summary` output immediately before the
 #'   id column, so saved SPI tables carry human-readable labels next to the
 #'   district id. Default `NULL`.
-#' @param level Character. Aggregation level: "district_month" (raw, highest
-#'   temporal resolution), "district_quarter" (calendar-quarter SPI per
-#'   district), "district_year" (annual SPI per district, default),
-#'   "district_total" (single SPI per district over the full study period).
-#' @param centre Character. "national" (default) divides each period's SPI
-#'   draws and summaries by that period's national observed-to-expected
-#'   ratio, so a country-wide reporting change does not move every district
-#'   the same way. "none" leaves the raw ratio untouched.
-#' @param year_end_month Integer 1 to 12. Month in which the reading year
-#'   closes, for `level = "district_year"`. The default, 12, gives calendar
-#'   years. Any other value gives a non-calendar reporting year: `year_end_month = 4` groups
-#'   May through April, so a review can close on the month the decision was
-#'   actually taken rather than on 31 December. Each window is labelled by the
-#'   calendar year in which it closes, so May 2024 to April 2025 reads as 2025.
-#'   Only the aggregation changes; the fitted model is untouched, and the
-#'   monthly offset still uses the calendar-year denominator it was fitted on.
-#'   The first and last windows of a series are usually partial, so the
-#'   summary carries `n_months` and those rows should normally be dropped.
-#'   Ignored at every other level. Default: 12 (calendar years).
 #' @param min_expected Numeric. Districts or district-periods with total
 #'   expected count below this threshold are marked as low-information. SPI
-#'   is still computed; inspect the counts and uncertainty before interpreting it. Default: 1.
-#' @param verbose Logical. Progress messages via cli. Default: TRUE.
+#'   is still computed; inspect the counts and uncertainty before interpreting
+#'   it. Default: 1.
+#' @param predictive Logical. Reserved for a held-out predictive check. Only
+#'   `FALSE` is supported at present. Default: `FALSE`.
+#' @param verbose Logical. Progress messages via cli, with one step per
+#'   assessment year. Default: TRUE.
+#' @param ... Further arguments passed to [spi_expected()], such as `season`,
+#'   `year_effect`, `overdispersion`, `n_draws` or `seed`. The arguments this
+#'   function sets itself (`cases`, `population`, `adjacency`, `covariates`,
+#'   `id_col`, `pop_col`, `keep_draws` and `verbose`) cannot be passed here.
 #'
 #' @return Object of class `spi_index`. A list containing:
 #' \describe{
@@ -56,6 +91,9 @@
 #'   \item{national}{Tibble of the national observed-to-expected ratio per
 #'     period (`national_observed`, `national_expected`, `national_oe`,
 #'     `districts`), or `NULL` when `centre = "none"`.}
+#'   \item{windows}{Tibble with one row per assessment year: `year`,
+#'     `window_start`, `window_end`, `training_start`, `training_end` (first
+#'     days of months), `months` and `districts`.}
 #'   \item{call}{Matched call.}
 #' }
 #'
@@ -65,16 +103,31 @@
 #' the ratio is computed per draw. This preserves the joint uncertainty in
 #' the expected denominator.
 #'
+#' The draws of different assessment years come from separate fits. At
+#' `level = "district_total"` and in the `totals` row, expected counts are
+#' summed across years draw by draw, which gives a usable median but is not a
+#' joint posterior.
+#'
 #' With `centre = "national"`, every district's SPI draws for a period are
 #' further divided by that period's national observed-to-expected ratio
 #' (summed observed over summed median-expected, across districts). This
 #' compares the district ratio with the national ratio. District SPI can
 #' stay unchanged when district and national ratios change together, so
-#' review the national ratio separately. Because a draw-level quantile scales with a positive
-#' constant, dividing `spi_median`, `spi_q05` and `spi_q95` by the same ratio
-#' gives the same result as dividing the draws first and re-summarising. A
-#' period with no reported cases nationally has no ratio to divide by; its rows
-#' become `NA` and a warning names the affected periods.
+#' review the national ratio separately. Because a draw-level quantile scales
+#' with a positive constant, dividing `spi_median`, `spi_q05` and `spi_q95` by
+#' the same ratio gives the same result as dividing the draws first and
+#' re-summarising. A period with no reported cases nationally has no ratio to
+#' divide by; its rows become `NA` and a warning names the affected periods.
+#'
+#' An assessment year with fewer than 12 months of data is kept, and a warning
+#' names it. At `level = "district_year"`, the `n_months` column shows how many
+#' months each row covers.
+#'
+#' @section Runtime:
+#' Each assessment year needs its own INLA fit, so the run time grows with
+#' the number of assessment years. Every fit uses the same `...` arguments,
+#' including `n_draws`. Each call refits the model, so a second level or
+#' centring setting repeats the fits.
 #'
 #' @seealso [spi_expected()], [spi_compare_npafp()]
 #' @family spi core functions
@@ -82,23 +135,25 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' fit <- spi_expected(
-#'   cases = cases,
-#'   population = pop_u15,
-#'   adjacency = adj,
+#' s <- synth_surveillance
+#' spi_dy <- spi_index(
+#'   cases = s$cases,
+#'   population = s$population,
+#'   adjacency = s$boundaries,
+#'   first_assessment = 2018,
 #'   id_col = "adm2_guid",
-#'   season = "harmonic",
-#'   overdispersion = "nb"
+#'   boundaries = s$boundaries
 #' )
-#'
-#' # pass boundaries to carry adm1/adm2 names next to the district id
-#' spi_dy <- spi_index(fit, level = "district_year", boundaries = boundaries)
 #' print(spi_dy)
+#' spi_dy$windows
 #' }
 spi_index <- function(
-  expected,
-  cases = NULL,
-  boundaries = NULL,
+  cases,
+  population,
+  adjacency,
+  first_assessment,
+  last_assessment = NULL,
+  min_history = 3L,
   level = c(
     "district_year",
     "district_month",
@@ -106,9 +161,15 @@ spi_index <- function(
     "district_total"
   ),
   centre = c("national", "none"),
-  min_expected = 1,
   year_end_month = 12L,
-  verbose = TRUE
+  covariates = NULL,
+  id_col = "district_id",
+  pop_col = "pop_u15",
+  boundaries = NULL,
+  min_expected = 1,
+  predictive = FALSE,
+  verbose = TRUE,
+  ...
 ) {
   # --- check required packages --------------------------
   .check_pkg(
@@ -117,14 +178,27 @@ spi_index <- function(
   )
 
   # --- validate inputs ----------------------------------
-  stopifnot(
-    inherits(expected, "spi_expected"),
-    is.numeric(min_expected),
-    min_expected >= 0
+  reserved <- intersect(
+    names(list(...)),
+    c(
+      "keep_draws", "cases", "population", "adjacency", "covariates",
+      "id_col", "pop_col", "verbose"
+    )
   )
+  if (length(reserved) > 0) {
+    cli::cli_abort(
+      "{.arg {reserved}} {?is/are} set by {.fn spi_index} and \\
+       cannot be passed through {.arg ...}."
+    )
+  }
+  if (isTRUE(predictive)) {
+    cli::cli_abort(
+      "{.code predictive = TRUE} is not yet supported by {.fn spi_index}."
+    )
+  }
   level <- match.arg(level)
   centre <- match.arg(centre)
-  year_end_month <- as.integer(year_end_month)
+  year_end_month <- suppressWarnings(as.integer(year_end_month))
   if (length(year_end_month) != 1L || is.na(year_end_month) ||
         year_end_month < 1L || year_end_month > 12L) {
     cli::cli_abort("{.arg year_end_month} must be a single month, 1 to 12.")
@@ -133,15 +207,166 @@ spi_index <- function(
     cli::cli_alert_warning(
       "{.arg year_end_month} only applies to {.val district_year}; ignored."
     )
+    year_end_month <- 12L
   }
-
-  if (is.null(expected$draws)) {
+  .check_whole_year(first_assessment, "first_assessment")
+  if (!is.null(last_assessment)) {
+    .check_whole_year(last_assessment, "last_assessment")
+  }
+  .check_whole_year(min_history, "min_history")
+  stopifnot(
+    is.numeric(min_expected), min_expected >= 0,
+    is.logical(predictive), is.logical(verbose)
+  )
+  missing_cols <- setdiff(c(id_col, "month", "count"), names(cases))
+  if (length(missing_cols) > 0) {
+    cli::cli_abort("{.arg cases} is missing {.val {missing_cols}}.")
+  }
+  if (!inherits(cases$month, "Date")) {
+    cli::cli_abort("{.code cases$month} must be a Date.")
+  }
+  if (anyDuplicated(cases[c(id_col, "month")])) {
+    cli::cli_abort("{.arg cases} has duplicate district-month rows.")
+  }
+  if (!is.numeric(cases$count) || any(
+    !is.na(cases$count) & (!is.finite(cases$count) |
+      cases$count < 0 | cases$count != floor(cases$count))
+  )) {
     cli::cli_abort(
-      "{.code expected$draws} is NULL. Refit with \\
-       {.code keep_draws = TRUE} to compute SPI."
+      "{.arg cases$count} must contain non-negative whole counts or NA."
     )
   }
 
+  # --- assessment windows -------------------------------
+  first_assessment <- as.integer(first_assessment)
+  min_history <- as.integer(min_history)
+  data_start <- lubridate::floor_date(min(cases$month), "month")
+  data_end <- lubridate::floor_date(max(cases$month), "month")
+  history_end <- lubridate::add_with_rollback(
+    data_start, months(12L * min_history)
+  )
+  earliest <- as.integer(.window_year(history_end, year_end_month))
+  if (.window_start(earliest, year_end_month) < history_end) {
+    earliest <- earliest + 1L
+  }
+  if (first_assessment < earliest) {
+    cli::cli_abort(
+      "The first assessment year needs at least {min_history} years of \\
+       history; the data start in {format(data_start, '%B %Y')}, so the \\
+       earliest is {earliest}."
+    )
+  }
+  latest <- as.integer(.window_year(data_end, year_end_month))
+  last_assessment <- as.integer(last_assessment %||% latest)
+  if (last_assessment > latest || first_assessment > last_assessment) {
+    cli::cli_abort(
+      "Assessment years must fall within the data, which end in \\
+       {format(data_end, '%B %Y')}."
+    )
+  }
+  targets <- seq.int(first_assessment, last_assessment)
+
+  # --- one fit per assessment year ----------------------
+  per_year <- vector("list", length(targets))
+  for (i in seq_along(targets)) {
+    target <- targets[[i]]
+    opens <- .window_start(target, year_end_month)
+    closes <- as.Date(sprintf("%d-%02d-01", target, year_end_month))
+    training_end <- lubridate::add_with_rollback(opens, months(-1L))
+    # a literal message, because cli re-reads glue fields when the step ends,
+    # by which time `target` has moved on
+    if (verbose) {
+      cli::cli_progress_step(paste0(
+        "Fitting ", target, ": training ", format(data_start, "%Y-%m"),
+        " to ", format(training_end, "%Y-%m")
+      ))
+    }
+    # later months are dropped and the window's counts masked, so the model
+    # predicts the window it assesses
+    window <- cases[cases$month <= closes, , drop = FALSE]
+    window$count[window$month >= opens] <- NA
+    fit <- spi_expected(
+      cases = window,
+      population = .up_to(population, closes),
+      adjacency = adjacency,
+      covariates = .up_to(covariates, closes),
+      id_col = id_col,
+      pop_col = pop_col,
+      keep_draws = TRUE,
+      verbose = FALSE,
+      ...
+    )
+    in_window <- fit$data$month >= opens
+    per_year[[i]] <- list(
+      draws = fit$draws[, in_window, drop = FALSE],
+      data = fit$data[in_window, , drop = FALSE],
+      window = tibble::tibble(
+        year = target,
+        window_start = opens,
+        window_end = closes,
+        training_start = data_start,
+        training_end = training_end,
+        months = dplyr::n_distinct(fit$data$month[in_window]),
+        districts = dplyr::n_distinct(fit$data[[id_col]][in_window])
+      )
+    )
+  }
+  if (verbose) {
+    cli::cli_progress_done()
+  }
+
+  # --- SPI from the assessment windows ------------------
+  # every district-month sits in exactly one window, so the windows bind into
+  # one set of draws that is summed to `level` as a single fit would be; the
+  # full cases table supplies the masked counts
+  windows <- dplyr::bind_rows(lapply(per_year, `[[`, "window"))
+  expected <- list(
+    draws = do.call(cbind, lapply(per_year, `[[`, "draws")),
+    data = dplyr::bind_rows(lapply(per_year, `[[`, "data")),
+    id_col = id_col
+  )
+  short <- windows$months < 12L
+  if (any(short)) {
+    short_years <- windows$year[short]
+    cli::cli_warn(
+      "Assessment year{?s} {.val {short_years}} cover{?s/} fewer than 12 \\
+       months."
+    )
+  }
+
+  result <- .spi_aggregate(
+    expected,
+    cases = cases,
+    boundaries = boundaries,
+    level = level,
+    centre = centre,
+    min_expected = min_expected,
+    year_end_month = year_end_month,
+    verbose = verbose
+  )
+  result$windows <- windows
+  result$call <- match.call()
+  result
+}
+
+# --- internal helpers -------------------------------------
+
+# SPI from a list carrying `draws`, `data` and `id_col`, as spi_index() binds
+# from its assessment windows: observed counts are taken from `cases` when
+# given, since the fit's own counts are masked in each window, then summed to
+# `level`, divided by the expected draws and centred. The arguments are
+# validated by spi_index().
+# @noRd
+.spi_aggregate <- function(
+  expected,
+  cases = NULL,
+  boundaries = NULL,
+  level = "district_year",
+  centre = "national",
+  min_expected = 1,
+  year_end_month = 12L,
+  verbose = TRUE
+) {
   id_col <- if (is.null(expected$id_col)) "district_id" else expected$id_col
 
   # --- align observed counts to draws column ordering ---
@@ -155,11 +380,6 @@ spi_index <- function(
   if (is.null(cases)) {
     observed <- fit_data$count
   } else {
-    if (!id_col %in% names(cases)) {
-      cli::cli_abort(
-        "{.arg cases} must contain the id column {.val {id_col}}."
-      )
-    }
     observed <- fit_data |>
       dplyr::select(dplyr::all_of(c(id_col, "month"))) |>
       dplyr::left_join(
@@ -234,8 +454,7 @@ spi_index <- function(
       totals = totals,
       id_col = id_col,
       centre = centre,
-      national = national,
-      call = match.call()
+      national = national
     ),
     class = "spi_index"
   )
@@ -262,7 +481,7 @@ spi_index <- function(
   result
 }
 
-# --- internal helpers -------------------------------------
+
 
 # the low-information rows and the totals row of a spi_index. Every
 # district-month falls in exactly one summary row, so the summed `observed`
@@ -357,17 +576,9 @@ spi_index <- function(
 # @noRd
 .spi_district_year <- function(draws, observed, fit_data, id_col,
                                year_end_month = 12L) {
-  # A rolling year is the calendar year of the month shifted forward so the
-  # window closes on `year_end_month`: with 4, April 2025 moves to December
-  # 2025 and May 2024 to January 2025, so the two fall in one group labelled
-  # 2025. Only the grouping moves; the draws and the fit are untouched.
-  shift <- 12L - as.integer(year_end_month)
-  ref_month <- if (shift == 0L) {
-    fit_data$month
-  } else {
-    lubridate::add_with_rollback(fit_data$month, months(shift))
-  }
-  fit_data$year <- lubridate::year(ref_month)
+  # each month is grouped under the assessment year it falls in, the same
+  # label spi_index() gives the window it fitted
+  fit_data$year <- .window_year(fit_data$month, year_end_month)
 
   groups <- fit_data |>
     dplyr::group_by(dplyr::across(dplyr::all_of(c(id_col, "year")))) |>
@@ -385,8 +596,8 @@ spi_index <- function(
   base <- groups[, c(id_col, "year")]
   base$observed <- groups$obs_sum
   base$pop_u15 <- groups$pop_u15
-  # incomplete windows are kept but marked, since the first and last rolling
-  # year of a series are usually partial
+  # incomplete windows are kept but marked, since the last assessment year
+  # can end before its closing month
   base$n_months <- groups$n_months
 
   summary_tbl <- dplyr::bind_cols(
@@ -438,6 +649,63 @@ spi_index <- function(
   out
 }
 
+# the assessment year a month falls in: its calendar year once shifted
+# forward so the year closes on `year_end_month`. With 4, April 2025 moves to
+# December 2025 and May 2024 to January 2025, so both read as 2025.
+# @noRd
+.window_year <- function(month, year_end_month = 12L) {
+  shift <- 12L - as.integer(year_end_month)
+  if (shift == 0L) {
+    return(lubridate::year(month))
+  }
+  lubridate::year(lubridate::add_with_rollback(month, months(shift)))
+}
+
+# first month of the assessment window that closes in `year` on
+# `year_end_month`
+# @noRd
+.window_start <- function(year, year_end_month = 12L) {
+  as.Date(sprintf(
+    "%d-%02d-01",
+    as.integer(year) - (year_end_month < 12L), year_end_month %% 12L + 1L
+  ))
+}
+
+# calendar year of a Date vector, as integer
+# @noRd
+.year_of <- function(month) {
+  as.integer(format(month, "%Y"))
+}
+
+# rows of a table keyed by `month` (Date) up to and including the month
+# `closes`, or keyed by `year` up to and including its year; NULL passes
+# through
+# @noRd
+.up_to <- function(tbl, closes) {
+  if (is.null(tbl)) {
+    return(NULL)
+  }
+  if ("month" %in% names(tbl) && inherits(tbl$month, "Date")) {
+    keep <- tbl$month <= closes
+  } else if ("year" %in% names(tbl)) {
+    keep <- tbl$year <= .year_of(closes)
+  } else {
+    cli::cli_abort(
+      "Each table needs a {.field month} (Date) or {.field year} column."
+    )
+  }
+  tbl[keep, , drop = FALSE]
+}
+
+# a single whole number, for a year or a count of years
+# @noRd
+.check_whole_year <- function(x, arg) {
+  if (!is.numeric(x) || length(x) != 1L || is.na(x) || x != round(x)) {
+    cli::cli_abort("{.arg {arg}} must be a single whole number.")
+  }
+  invisible(x)
+}
+
 # --- print method -----------------------------------------
 
 #' @export
@@ -480,19 +748,19 @@ print.spi_index <- function(x, ...) {
     "*" = "q95: {round(q[[5]], 2)}"
   ))
 
-  # preliminary classification preview
+  # descriptive SPI ranges
   spi_med <- x$summary$spi_median
   n_low <- sum(spi_med < 0.5, na.rm = TRUE)
   n_mid <- sum(spi_med >= 0.5 & spi_med < 0.8, na.rm = TRUE)
   n_ok <- sum(spi_med >= 0.8 & spi_med <= 1.2, na.rm = TRUE)
   n_high <- sum(spi_med > 1.2, na.rm = TRUE)
 
-  cli::cli_h3("Preliminary classification")
+  cli::cli_h3("SPI ranges")
   cli::cli_bullets(c(
-    "*" = "SPI < 0.5 (severe): {fmt_int(n_low)}",
-    "*" = "SPI 0.5-0.8 (moderate): {fmt_int(n_mid)}",
-    "*" = "SPI 0.8-1.2 (acceptable): {fmt_int(n_ok)}",
-    "*" = "SPI > 1.2 (elevated): {fmt_int(n_high)}"
+    "*" = "SPI < 0.5: {fmt_int(n_low)}",
+    "*" = "SPI 0.5-0.8: {fmt_int(n_mid)}",
+    "*" = "SPI 0.8-1.2: {fmt_int(n_ok)}",
+    "*" = "SPI > 1.2: {fmt_int(n_high)}"
   ))
 
   n_low_info <- x$totals$n_low_information
@@ -553,8 +821,8 @@ summary.spi_index <- function(object, ...) {
       "calibration ratio (obs/exp)",
       "log-SPI skewness",
       "% with CrI excluding 1",
-      "% SPI < 0.5 (severe)",
-      "% SPI > 1.5 (elevated)",
+      "% SPI < 0.5",
+      "% SPI > 1.5",
       "SPI q05", "SPI q25", "SPI q75", "SPI q95",
       "n groups",
       "n low_information"
@@ -581,6 +849,9 @@ summary.spi_index <- function(object, ...) {
 
   cli::cli_h2("SPI diagnostics")
   cli::cli_alert_info("Level: {.val {object$level}}.")
+  cli::cli_alert_info(
+    "Flags mark descriptive ranges; they are not validated quality or model-fit tests."
+  )
   print(diagnostics)
 
   # --- footnotes: per-metric interpretation -------------
@@ -599,87 +870,46 @@ summary.spi_index <- function(object, ...) {
 
 # @noRd
 .note_median <- function(val, flag) {
-  diff_pct <- round(abs(val - 1) * 100, 1)
-  direction <- if (val < 1) "underdetection" else "overdetection"
-  if (flag == "pass") {
-    fmt <- paste0(
-      "Median SPI %.3f -> pass. Small systematic %s (~%g%%), ",
-      "well within range."
-    )
-  } else {
-    fmt <- paste0(
-      "Median SPI %.3f -> flag. Systematic %s of ~%g%% exceeds ",
-      "the 10%% tolerance; check the offset and population units."
-    )
-  }
-  sprintf(fmt, val, direction, diff_pct)
+  if (!is.finite(val)) return("Median SPI is not available.")
+  direction <- if (val < 1) "below" else "above"
+  sprintf(
+    paste0("Median SPI %.3f is %g%% %s 1. National centring does not ",
+           "require the district median to equal 1."),
+    val, round(abs(val - 1) * 100, 1), direction
+  )
 }
 
 # @noRd
 .note_ratio <- function(val, flag) {
-  diff_pct <- round(abs(val - 1) * 100, 1)
+  if (!is.finite(val)) return("Aggregate observed-to-expected ratio is not available.")
   direction <- if (val < 1) "below" else "above"
-  if (flag == "pass") {
-    fmt <- paste0(
-      "Aggregate ratio %.3f -> pass. Total observed matches ",
-      "total expected within ~%g%%."
-    )
-    sprintf(fmt, val, diff_pct)
-  } else {
-    fmt <- paste0(
-      "Aggregate ratio %.3f -> flag. Total %s expected by ~%g%%; ",
-      "aggregate calibration is off."
-    )
-    sprintf(fmt, val, direction, diff_pct)
-  }
+  sprintf(
+    "Aggregate ratio %.3f -> %s. Total reported counts are %g%% %s modelled expectations.",
+    val, flag, round(abs(val - 1) * 100, 1), direction
+  )
 }
 
 # @noRd
 .note_skew <- function(val, flag) {
-  if (flag == "pass") {
-    fmt <- paste0(
-      "Log-SPI skewness %.2f -> pass. Distribution is roughly ",
-      "symmetric on the log scale."
-    )
+  if (!is.finite(val)) return("Log-SPI skewness is not available.")
+  shape <- if (flag == "pass") {
+    "Distribution is roughly symmetric on the log scale."
   } else if (val < 0) {
-    fmt <- paste0(
-      "Log-SPI skewness %.2f -> flag. Left tail heavier than ",
-      "right; a handful of districts have very low SPI relative ",
-      "to others, consistent with surveillance blind spots."
-    )
+    "Left tail is heavier: some districts have much lower relative reporting."
   } else {
-    fmt <- paste0(
-      "Log-SPI skewness %.2f -> flag. Right tail heavier than ",
-      "left; a handful of districts have very high SPI, ",
-      "consistent with outbreak signals or over-reporting."
-    )
+    "Right tail is heavier: some districts have much higher relative reporting."
   }
-  sprintf(fmt, val)
+  sprintf("Log-SPI skewness %.2f -> %s. %s", val, flag, shape)
 }
 
 # @noRd
 .note_cri <- function(val, flag) {
-  pct <- round(val * 100, 1)
-  if (flag == "pass") {
-    fmt <- paste0(
-      "%g%% of CrIs exclude 1 -> pass. Reasonable share of ",
-      "districts show significant deviation from expectation."
-    )
-  } else if (val < 0.05) {
-    fmt <- paste0(
-      "%g%% of CrIs exclude 1 -> flag. Very few districts ",
-      "deviate significantly; the model may be over-smoothed ",
-      "(consider looser priors)."
-    )
-  } else {
-    fmt <- paste0(
-      "%g%% of CrIs exclude 1 -> flag. High share of significant ",
-      "deviations; the model is highly informative but could also ",
-      "be under-smoothed. Worth flagging as a sensitivity in the ",
-      "methods section."
-    )
-  }
-  sprintf(fmt, pct)
+  if (!is.finite(val)) return("The share of intervals excluding 1 is not available.")
+  sprintf(
+    paste0("%g%% of credible intervals exclude 1 -> %s. This describes ",
+           "departures from the reference, not surveillance adequacy or model fit."),
+    round(val * 100, 1), flag
+  )
 }
 
 # pass / flag helper: returns "pass" if x is in [lo, hi], else "flag"

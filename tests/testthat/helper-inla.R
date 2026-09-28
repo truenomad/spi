@@ -1,14 +1,16 @@
-# INLA is a flaky, non-CRAN Suggests: its compiled binary intermittently
-# crashes at fit time ("the inla program failed and the maximum number of
-# tries has been reached"), independent of the model specification. Integration
-# tests that need a real fit call this wrapper so a runtime INLA crash skips the
-# test rather than failing the suite. A genuine model error still surfaces --
-# the message is attached to the skip for inspection.
-fit_or_skip <- function(...) {
+# Skip only the known INLA binary failure. Package errors must fail the test.
+inla_or_skip <- function(expr) {
   tryCatch(
-    spi_expected(...),
+    expr,
     error = function(e) {
-      testthat::skip(paste0("INLA fit unavailable: ", conditionMessage(e)))
+      message <- conditionMessage(e)
+      if (grepl("the inla program failed and the maximum number of tries has been reached",
+                message, fixed = TRUE)) {
+        testthat::skip(paste0("INLA binary unavailable: ", message))
+      }
+      stop(e)
     }
   )
 }
+
+fit_or_skip <- function(...) inla_or_skip(spi_expected(...))

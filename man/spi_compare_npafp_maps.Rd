@@ -82,7 +82,13 @@ that is taller than it is wide needs a taller image.
 }
 \examples{
 \dontrun{
-spi_dy <- spi_index(fit_bare, level = "district_year")
+spi_dy <- spi_index(
+  cases = synth_surveillance$cases,
+  population = synth_surveillance$population,
+  adjacency = synth_surveillance$boundaries,
+  first_assessment = 2018,
+  id_col = "adm2_guid"
+)
 comparison <- spi_compare_npafp(
   spi = spi_dy,
   cases = synth_surveillance$cases,

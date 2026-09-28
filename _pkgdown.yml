@@ -71,6 +71,8 @@ home:
 
           [Report a bug](https://github.com/truenomad/spi/issues)
 
+          [polished: prepare POLIS data](https://truenomad.github.io/polished/)
+
 navbar:
   bg: primary
   structure:
@@ -86,7 +88,7 @@ navbar:
         href: articles/spi-methods.html
       - text: Interpreting SPI
         href: articles/spi-interpretation.html
-      - text: STEPS and district review
+      - text: Using SPI for district review
         href: articles/spi-field-guide.html
       - text: Model options and sensitivity
         href: articles/spi-model-options.html
@@ -104,12 +106,11 @@ reference:
   - spi_compare_overdispersion
 - title: Calculate and compare SPI
   desc: >
-    Calculate annual or monthly SPI from a fitted model, or annually updated
-    SPI from preceding years only. Compare SPI with the conventional NPAFP
-    target and map the result.
+    Calculate annual or monthly SPI, with each year's expected counts
+    estimated from preceding years only. Compare SPI with the conventional
+    NPAFP target and map the result.
   contents:
   - spi_index
-  - spi_prospective
   - spi_compare_npafp
   - spi_compare_npafp_maps
 - title: Review districts

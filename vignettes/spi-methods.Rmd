@@ -13,7 +13,7 @@ SPI compares reported counts with modelled expectations and, by default, divides
 
 | Building block | What it contributes |
 | --- | --- |
-| Reporting history | Provides a reference for each district's reporting. `spi_prospective()` uses preceding years only; a retrospective `spi_expected()` fit uses the full period supplied, including the years being assessed. |
+| Reporting history | Provides a reference for each district's reporting. `spi_index()` uses preceding years only, so the year being assessed does not contribute to its own expectation. |
 | Population adjustment | Uses the under-15 population as an offset when estimating expected counts. |
 | Partial pooling | Pulls estimates with little supporting data towards patterns in the wider dataset, reducing variation due to sparse counts. |
 | Neighbour borrowing | Lets neighbouring districts inform the spatial estimate, with more influence where a district's own data provide little information. |
@@ -50,7 +50,7 @@ Optional covariates add $x_{it}^{\top}\beta$ to the linear predictor. They are n
 
 <img src="figures/spi-dag.svg" width="100%" alt="Diagram of the SPI model and observed-to-expected comparison" />
 
-Reported counts reflect both underlying NPAFP incidence and surveillance reporting. For annually updated SPI, `spi_prospective()` uses preceding years only; retrospective fits use all supplied years.
+Reported counts reflect both underlying NPAFP incidence and surveillance reporting. `spi_index()` estimates each year's expected counts from preceding years only.
 
 **National centring.** For district $i$ and year $y$, let $O_{iy}$ be the annual observed count and $E_{iy}$ the expected count summed across months. The default index is:
 

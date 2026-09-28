@@ -243,12 +243,14 @@ head(as_tibble(fg))
 \dontrun{
 # build one from scratch (needs INLA for the upstream fit)
 adj  <- spi_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
-fit  <- spi_expected(
+cy   <- spi_index(
   synth_surveillance$cases, synth_surveillance$population, adj,
-  id_col = "adm2_guid"
+  first_assessment = 2018, id_col = "adm2_guid"
 )
-cy   <- spi_index(fit, level = "district_year")
-cm   <- spi_index(fit, level = "district_month")
+cm   <- spi_index(
+  synth_surveillance$cases, synth_surveillance$population, adj,
+  first_assessment = 2018, level = "district_month", id_col = "adm2_guid"
+)
 comparison <- spi_compare_npafp(
   cy, synth_surveillance$cases, synth_surveillance$population,
   boundaries = synth_surveillance$boundaries

@@ -1,13 +1,15 @@
-# spi_index() and its methods run entirely off a constructed spi_expected
-# fixture (make_expected(), see helper-fixtures.R) -- no INLA fit required.
+# .spi_aggregate(), the step spi_index() runs on its assessment windows, and
+# the spi_index methods run entirely off a constructed spi_expected fixture
+# (make_expected(), see helper-fixtures.R) -- no INLA fit required. The
+# argument checks live in spi_index() and are tested in test-spi-index.R.
 
-test_that("spi_index computes every aggregation level", {
+test_that("SPI aggregation computes every level", {
   fit <- make_expected()
 
-  dm <- spi_index(fit, level = "district_month", verbose = FALSE)
-  dq <- spi_index(fit, level = "district_quarter", verbose = FALSE)
-  dy <- spi_index(fit, level = "district_year", verbose = FALSE)
-  dt <- spi_index(fit, level = "district_total", verbose = FALSE)
+  dm <- .spi_aggregate(fit, level = "district_month", verbose = FALSE)
+  dq <- .spi_aggregate(fit, level = "district_quarter", verbose = FALSE)
+  dy <- .spi_aggregate(fit, level = "district_year", verbose = FALSE)
+  dt <- .spi_aggregate(fit, level = "district_total", verbose = FALSE)
 
   expect_s3_class(dy, "spi_index")
   # one row per district at the total level; per district-month at the finest
@@ -31,9 +33,10 @@ test_that("year_end_month rolls the reading year and marks partial windows", {
   # the fixture runs Jan 2015 to Dec 2016: two whole calendar years
   fit <- make_expected()
 
-  cal <- spi_index(fit, level = "district_year", verbose = FALSE)
-  rol <- spi_index(fit, level = "district_year", year_end_month = 4,
-                verbose = FALSE)
+  cal <- .spi_aggregate(fit, level = "district_year", verbose = FALSE)
+  rol <- .spi_aggregate(
+    fit, level = "district_year", year_end_month = 4, verbose = FALSE
+  )
 
   # closing in April cuts three windows out of the same 24 months -- Jan-Apr
   # 2015, May 2015-Apr 2016, May-Dec 2016 -- each labelled by the year it
@@ -52,33 +55,14 @@ test_that("year_end_month rolls the reading year and marks partial windows", {
 
   # 12 is the default and means calendar years
   expect_equal(
-    spi_index(fit, level = "district_year", year_end_month = 12,
-           verbose = FALSE)$summary$observed,
+    .spi_aggregate(
+      fit, level = "district_year", year_end_month = 12, verbose = FALSE
+    )$summary$observed,
     cal$summary$observed
-  )
-
-  # ignored with a note at every other level, and rejected if not a month
-  expect_message(
-    spi_index(
-      fit, level = "district_total", year_end_month = 4, verbose = FALSE
-    ),
-    "district_year"
-  )
-  expect_error(
-    spi_index(
-      fit, level = "district_year", year_end_month = 13, verbose = FALSE
-    ),
-    "year_end_month"
-  )
-  expect_error(
-    spi_index(
-      fit, level = "district_year", year_end_month = NA, verbose = FALSE
-    ),
-    "year_end_month"
   )
 })
 
-test_that("spi_index attaches admin names just before the id column", {
+test_that("SPI aggregation attaches admin names just before the id column", {
   fit <- make_expected()
   id <- fit$id_col
   ids <- sort(unique(fit$data[[id]]))
@@ -90,8 +74,9 @@ test_that("spi_index attaches admin names just before the id column", {
   )
   names(labels)[1] <- id
 
-  s <- spi_index(fit, level = "district_year", boundaries = labels,
-              verbose = FALSE)
+  s <- .spi_aggregate(
+    fit, level = "district_year", boundaries = labels, verbose = FALSE
+  )
   nm <- names(s$summary)
   gi <- match(id, nm)
   # the two names sit immediately before the id column, in adm1 -> adm2 order
@@ -103,18 +88,18 @@ test_that("spi_index attaches admin names just before the id column", {
   expect_true(all(c("adm1_name", "adm2_name") %in% names(s$low_information)))
 
   # default (no boundaries) is unchanged
-  s0 <- spi_index(fit, level = "district_year", verbose = FALSE)
+  s0 <- .spi_aggregate(fit, level = "district_year", verbose = FALSE)
   expect_false("adm2_name" %in% names(s0$summary))
 })
 
-test_that("spi_index honours an override cases table and imputes gaps to 0", {
+test_that("SPI aggregation honours override cases and imputes gaps to 0", {
   fit <- make_expected()
   id <- fit$id_col
   # supply counts for only part of the panel; the rest join to NA -> 0
   partial <- fit$data[1:200, c(id, "month", "count")]
   partial$count <- partial$count + 1L
 
-  s <- spi_index(
+  s <- .spi_aggregate(
     fit, cases = partial, level = "district_month", verbose = FALSE
   )
   expect_s3_class(s, "spi_index")
@@ -123,52 +108,37 @@ test_that("spi_index honours an override cases table and imputes gaps to 0", {
   expect_true(s$totals$total_observed < sum(fit$data$count + 1L))
 })
 
-test_that("spi_index flags low-information groups", {
+test_that("SPI aggregation flags low-information groups", {
   fit <- make_expected()
   # a high threshold pushes many district-months under the expected floor
-  s <- spi_index(fit, level = "district_month", min_expected = 5,
-              verbose = FALSE)
+  s <- .spi_aggregate(
+    fit, level = "district_month", min_expected = 5, verbose = FALSE
+  )
   expect_gt(nrow(s$low_information), 0L)
   expect_equal(s$totals$n_low_information, nrow(s$low_information))
   expect_true(all(s$low_information$expected_total < 5))
 
   # none flagged when the floor is 0
-  s0 <- spi_index(
+  s0 <- .spi_aggregate(
     fit, level = "district_year", min_expected = 0, verbose = FALSE
   )
   expect_equal(nrow(s0$low_information), 0L)
 })
 
-test_that("spi_index verbose path runs (progress + low-info warning)", {
+test_that("SPI aggregation verbose path runs (progress + low-info warning)", {
   fit <- make_expected()
   expect_no_error(
     suppressMessages(
-      spi_index(fit, level = "district_month", min_expected = 5, verbose = TRUE)
+      .spi_aggregate(
+        fit, level = "district_month", min_expected = 5, verbose = TRUE
+      )
     )
   )
 })
 
-test_that("spi_index validates its inputs", {
-  fit <- make_expected()
-
-  expect_error(spi_index(list()), "spi_expected|inherits")
-  expect_error(spi_index(fit, min_expected = -1), "min_expected")
-  expect_error(spi_index(fit, min_expected = "x"))
-  expect_error(spi_index(fit, level = "nonsense"))
-
-  # draws stripped out -> cannot compute SPI
-  no_draws <- fit
-  no_draws$draws <- NULL
-  expect_error(spi_index(no_draws, verbose = FALSE), "draws")
-
-  # cases without the id column
-  bad_cases <- tibble::tibble(month = fit$data$month, count = fit$data$count)
-  expect_error(spi_index(fit, cases = bad_cases, verbose = FALSE), "id column")
-})
-
 test_that("spi_index print / summary / coercion methods work", {
   fit <- make_expected()
-  s <- spi_index(fit, level = "district_year", verbose = FALSE)
+  s <- .spi_aggregate(fit, level = "district_year", verbose = FALSE)
 
   expect_no_error(print(s))
   expect_identical(print(s), s)   # invisible return
@@ -182,7 +152,7 @@ test_that("spi_index print / summary / coercion methods work", {
 
 test_that("spi_index print warns on low-information groups", {
   fit <- make_expected()
-  s <- spi_index(
+  s <- .spi_aggregate(
     fit, level = "district_month", min_expected = 5, verbose = FALSE
   )
   expect_gt(s$totals$n_low_information, 0L)
@@ -192,7 +162,7 @@ test_that("spi_index print warns on low-information groups", {
 test_that("spi_index plots render for every type", {
   skip_if_not_installed("ggplot2")
   fit <- make_expected()
-  dy <- spi_index(fit, level = "district_year", verbose = FALSE)
+  dy <- .spi_aggregate(fit, level = "district_year", verbose = FALSE)
 
   expect_s3_class(plot(dy, type = "distribution"), "ggplot")
   expect_s3_class(plot(dy, type = "funnel"), "ggplot")
@@ -208,7 +178,7 @@ test_that("spi_index plots render for every type", {
   expect_s3_class(plot(dy, type = "distribution", year = 2015), "ggplot")
 
   # district-month has SPI = 0 groups -> the "dropped" note branch fires
-  dm <- spi_index(fit, level = "district_month", verbose = FALSE)
+  dm <- .spi_aggregate(fit, level = "district_month", verbose = FALSE)
   expect_s3_class(plot(dm, type = "distribution"), "ggplot")
 })
 
@@ -219,8 +189,8 @@ test_that("SPI footnote + flag helpers cover every branch", {
   expect_true(is.na(spi:::.flag_within(NA_real_, 0.9, 1.1)))
 
   # .note_median: pass (under) and flag (over)
-  expect_match(spi:::.note_median(0.95, "pass"), "underdetection")
-  expect_match(spi:::.note_median(1.4, "flag"), "overdetection")
+  expect_match(spi:::.note_median(0.95, "pass"), "below")
+  expect_match(spi:::.note_median(1.4, "flag"), "above")
 
   # .note_ratio: pass and flag (below / above)
   expect_match(spi:::.note_ratio(0.97, "pass"), "pass")
@@ -232,18 +202,18 @@ test_that("SPI footnote + flag helpers cover every branch", {
   expect_match(spi:::.note_skew(-1.0, "flag"), "Left tail")
   expect_match(spi:::.note_skew(1.0, "flag"), "Right tail")
 
-  # .note_cri: pass, over-smoothed (<5%), under-smoothed (>50%)
+  # .note_cri: descriptive flags do not assess model fit
   expect_match(spi:::.note_cri(0.2, "pass"), "pass")
-  expect_match(spi:::.note_cri(0.02, "flag"), "over-smoothed")
-  expect_match(spi:::.note_cri(0.8, "flag"), "under-smoothed")
+  expect_match(spi:::.note_cri(0.02, "flag"), "not surveillance adequacy")
+  expect_match(spi:::.note_cri(0.8, "flag"), "not surveillance adequacy")
 })
 
 test_that("national centring divides by the period's summed O/E", {
   fit <- make_expected(id_col = "adm2_guid")
-  raw <- spi_index(
+  raw <- .spi_aggregate(
     fit, level = "district_year", centre = "none", verbose = FALSE
   )
-  cen <- spi_index(fit, level = "district_year", verbose = FALSE)
+  cen <- .spi_aggregate(fit, level = "district_year", verbose = FALSE)
   expect_identical(cen$centre, "national")
   nat <- raw$summary |>
     dplyr::summarise(oe = sum(observed) / sum(expected_total), .by = "year")
@@ -263,14 +233,14 @@ test_that("national centring divides by the period's summed O/E", {
 
 test_that("centre = 'none' leaves the index untouched", {
   fit <- make_expected()
-  raw <- spi_index(fit, centre = "none", verbose = FALSE)
+  raw <- .spi_aggregate(fit, centre = "none", verbose = FALSE)
   expect_null(raw$national)
   expect_false("national_oe" %in% names(raw$summary))
 })
 
 test_that("district_total centres on one national ratio", {
   fit <- make_expected()
-  cen <- spi_index(fit, level = "district_total", verbose = FALSE)
+  cen <- .spi_aggregate(fit, level = "district_total", verbose = FALSE)
   expect_equal(nrow(cen$national), 1L)
 })
 
@@ -279,9 +249,34 @@ test_that("a year with no detections gives NA, not Inf", {
   yr1 <- format(fit$data$month, "%Y") == "2015"
   fit$data$count[yr1] <- 0
   expect_warning(
-    cen <- spi_index(fit, verbose = FALSE),
+    cen <- .spi_aggregate(fit, verbose = FALSE),
     "no detections"
   )
   expect_true(all(is.na(cen$summary$spi_median[cen$summary$year == 2015])))
   expect_false(any(is.infinite(cen$summary$spi_median)))
+})
+
+test_that("case overrides preserve alignment", {
+  fit <- make_expected()
+  baseline <- .spi_aggregate(fit, verbose = FALSE)
+  shuffled <- fit$data[nrow(fit$data):1, ]
+  expect_equal(
+    .spi_aggregate(fit, cases = shuffled, verbose = FALSE)$summary,
+    baseline$summary
+  )
+})
+
+test_that("INLA integration helpers do not hide package errors", {
+  expect_error(inla_or_skip(stop("unexpected package regression")),
+               "unexpected package regression")
+})
+
+test_that("SPI summaries handle constant and unavailable distributions", {
+  index <- .spi_aggregate(make_expected(), verbose = FALSE)
+  index$summary$spi_median <- 1
+  expect_no_error(summary(index))
+  index$summary$spi_median <- NA_real_
+  index$summary$spi_q05 <- NA_real_
+  index$summary$spi_q95 <- NA_real_
+  expect_no_error(summary(index))
 })

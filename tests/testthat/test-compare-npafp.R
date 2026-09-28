@@ -108,7 +108,9 @@ test_that("spi_compare_npafp groups cases on the SPI's reading year", {
     rep(4L, 4L)
   )
 
-  rol <- spi_compare_npafp(spi, cases = cases_m, population = pop,
+  rolling <- spi
+  rolling$summary <- dplyr::filter(rolling$summary, year == 2016L)
+  rol <- spi_compare_npafp(rolling, cases = cases_m, population = pop,
                         year_end_month = 4, verbose = FALSE)
   expect_equal(unique(rol$district_year$year), 2016L)
   expect_equal(rol$district_year$count_annual, rep(7L, 4L))
@@ -177,6 +179,7 @@ test_that("spi_compare_npafp validates its inputs", {
   # no cases anywhere
   no_data <- spi
   no_data$data <- NULL
+  no_data$summary$observed <- NULL
   expect_error(spi_compare_npafp(no_data, population = pop, verbose = FALSE),
                "no .*cases")
 
@@ -269,4 +272,36 @@ test_that("interval-label and palette helpers cover their branches", {
   # length mismatch -> interpolated ramp
   ramp <- spi:::.align_palette(pal, c("x", "y", "z"))
   expect_equal(length(ramp), 3L)
+})
+
+test_that("comparison uses observed counts from an actual index", {
+  fit <- make_expected()
+  index <- .spi_aggregate(fit, verbose = FALSE)
+  pop <- fit$data |>
+    dplyr::mutate(year = as.integer(format(month, "%Y")), pop_u15 = pop) |>
+    dplyr::distinct(district_id, year, pop_u15)
+  comparison <- spi_compare_npafp(index, population = pop, verbose = FALSE)
+  expect_equal(comparison$district_year$count_annual, index$summary$observed)
+  expect_equal(comparison$district_year$npafp_rate, index$summary$observed)
+  explicit <- spi_compare_npafp(index, cases = fit$data, population = pop,
+                                verbose = FALSE)
+  expect_equal(comparison$district_year, explicit$district_year)
+})
+
+test_that("comparison rejects ambiguous or incomplete denominators and counts", {
+  index <- make_spi_dy()
+  pop <- make_population()
+  expect_error(spi_compare_npafp(index, population = pop[-1, ], verbose = FALSE),
+               "population.*missing district-years")
+  expect_error(spi_compare_npafp(index,
+    population = dplyr::bind_rows(pop, pop[1, ]), verbose = FALSE),
+    "duplicate district-year")
+  for (value in c(0, -1, NA_real_, Inf)) {
+    invalid <- pop
+    invalid$pop_u15[1] <- value
+    expect_error(spi_compare_npafp(index, population = invalid, verbose = FALSE),
+                 "positive denominators")
+  }
+  expect_error(spi_compare_npafp(index, cases = index$data[-1, ],
+    population = pop, verbose = FALSE), "cases.*missing district-years")
 })

@@ -1098,3 +1098,19 @@ test_that("an at-or-above pager says SPI indicates no shortfall", {
   expect_match(h, "at or above the 1.00 reference", fixed = TRUE)
   expect_no_match(h, "Reporting below expectation", fixed = TRUE)
 })
+
+test_that("district reports use IDs when names are absent", {
+  fg <- synth_field_guide
+  fg$district_year <- dplyr::select(fg$district_year,
+                                    -dplyr::matches("^adm[012]_name$"))
+  fg$focal <- dplyr::select(fg$focal, -dplyr::matches("^adm[012]_name$"))
+  id <- fg$focal[[fg$id_col]][1]
+  pager <- spi_field_guide_pager(fg, district = id, verbose = FALSE)
+  expect_s3_class(pager, "spi_pager")
+  expect_match(pager$html, id, fixed = TRUE)
+  skip_if_not_installed("gt")
+  for (layout in c("scan", "worked")) {
+    tbl <- spi_field_guide_table(fg, layout = layout, districts = id)
+    expect_match(gt::as_raw_html(tbl), id, fixed = TRUE)
+  }
+})

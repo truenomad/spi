@@ -1,5 +1,19 @@
 # spi 0.2.0
 
+### Bug fixes
+
+* NPAFP comparisons now use the index's observed counts when `cases` is omitted,
+  and reject missing or duplicate population records.
+
+* SPI case overrides reject duplicate rows and invalid counts. Input checks now
+  catch fractional and infinite counts before fitting.
+
+* District reports and tables use IDs when names are absent. Missing SPI values
+  no longer receive a `No SPI indication` review label.
+
+* SPI summaries handle constant or missing values and describe reporting patterns
+  without implying surveillance adequacy, missed cases, or outbreaks.
+
 ### Breaking changes
 
 * `spi_concordance()` and `spi_concordance_maps()` are now `spi_compare_npafp()` and
@@ -17,7 +31,9 @@
 
 * Renamed `blindspot` to `spi`; functions now use the `spi_` prefix instead of `bs_`.
 
-* `bs_spi()` is now `spi_index()`; `bs_spi_prospective()` is now `spi_prospective()`.
+* `bs_spi_prospective()` is now `spi_index()`, which fits each assessment year on the years
+  before it and keeps every level and `year_end_month`. `bs_spi()`, which took a single fit
+  of all years, is removed.
 
 * Object classes now use `spi_` names. Recreate results saved with the old package.
 

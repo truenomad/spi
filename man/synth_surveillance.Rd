@@ -165,14 +165,14 @@ head(synth_surveillance$boundaries)
 
 \dontrun{
 # end-to-end demo (needs INLA)
-fit <- spi_expected(
-  cases      = synth_surveillance$cases,
+spi <- spi_index(
+  cases = synth_surveillance$cases,
   population = synth_surveillance$population,
-  adjacency  = synth_surveillance$boundaries,
-  id_col     = "adm2_guid",
-  n_draws    = 200
+  adjacency = synth_surveillance$boundaries,
+  first_assessment = 2018,
+  id_col = "adm2_guid",
+  n_draws = 200
 )
-spi <- spi_index(fit, level = "district_year")
 comparison <- spi_compare_npafp(
   spi = spi,
   cases = synth_surveillance$cases,

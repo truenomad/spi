@@ -158,7 +158,7 @@ spi_field_guide_pager <- function(
   id_col <- id_col %||% x$id_col %||% "district_id"
   dy <- x$district_year
   name_col <- name_col %||%
-    intersect(c("adm2_name", "adm1_name"), names(dy))[1] %||% id_col
+    intersect(c("adm2_name", "adm1_name", id_col), names(dy))[1]
 
   year <- as.integer(year %||% x$read_year)
   if (!year %in% dy$year) {

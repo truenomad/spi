@@ -213,12 +213,14 @@
 #' \dontrun{
 #' # build one from scratch (needs INLA for the upstream fit)
 #' adj  <- spi_adjacency(synth_surveillance$boundaries, id_col = "adm2_guid")
-#' fit  <- spi_expected(
+#' cy   <- spi_index(
 #'   synth_surveillance$cases, synth_surveillance$population, adj,
-#'   id_col = "adm2_guid"
+#'   first_assessment = 2018, id_col = "adm2_guid"
 #' )
-#' cy   <- spi_index(fit, level = "district_year")
-#' cm   <- spi_index(fit, level = "district_month")
+#' cm   <- spi_index(
+#'   synth_surveillance$cases, synth_surveillance$population, adj,
+#'   first_assessment = 2018, level = "district_month", id_col = "adm2_guid"
+#' )
 #' comparison <- spi_compare_npafp(
 #'   cy, synth_surveillance$cases, synth_surveillance$population,
 #'   boundaries = synth_surveillance$boundaries
@@ -280,6 +282,12 @@ spi_field_guide <- function(
       "{.arg comparison$district_year} is missing column{?s} \\
        {.val {missing_cols}}."
     )
+  }
+  if (any(!is.finite(dy$spi_median))) {
+    cli::cli_abort(c(
+      "SPI medians must be finite to assign review labels.",
+      "i" = "Check or remove district-years with missing SPI before review."
+    ))
   }
 
   if (is.null(read_year)) read_year <- max(dy$year, na.rm = TRUE)
@@ -1434,7 +1442,7 @@ spi_field_guide_table <- function(
 
   id_col <- x$id_col
   name_col <- name_col %||%
-    intersect(c("adm2_name", "adm1_name"), names(foc))[1] %||% id_col
+    intersect(c("adm2_name", "adm1_name", id_col), names(foc))[1]
   spi_cut <- x$thresholds$spi
 
   built <- if (layout == "scan") {

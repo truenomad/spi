@@ -315,3 +315,14 @@ test_that("a bad shapefile class is a hard argument error", {
     "sf"
   )
 })
+
+test_that("fractional and infinite case counts fail preflight and fit validation", {
+  for (value in c(0.5, Inf)) {
+    cases <- ic_cases()
+    cases$count[1] <- value
+    report <- spi_check_inputs(cases, ic_pop(), make_nb(ic_ids), verbose = FALSE)
+    expect_false(report$ok)
+    expect_equal(ic_issue(report, "cases_invalid_count")$severity, "error")
+    expect_error(.validate_cases(cases), "finite, integer-valued")
+  }
+})

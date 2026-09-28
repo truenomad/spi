@@ -165,8 +165,8 @@
 #' @section Paper specification:
 #' The call the paper uses is `season = "harmonic"`, `year_effect = "iid"`,
 #' `overdispersion = "nb"`, with no covariates -- the defaults below. The
-#' published index, \code{spi_prospective()}, is built on a fit with
-#' these defaults.
+#' published index, \code{spi_index()}, is built on fits with these
+#' defaults.
 #'
 #' @section Choosing a seasonal specification:
 #' Surveillance counts often show within-year cycles driven by transmission

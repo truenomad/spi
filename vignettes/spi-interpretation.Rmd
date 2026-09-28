@@ -53,7 +53,7 @@ Taken together, the NPAFP target and SPI give four combinations. `spi_compare_np
 
 ## National centring
 
-SPI = 1 is the natural reference point. Its meaning depends on the `centre` setting in `spi_index()` or `spi_prospective()`:
+SPI = 1 is the natural reference point. Its meaning depends on the `centre` setting in `spi_index()`:
 
 | Setting | Comparison | What SPI below 1 means |
 | --- | --- | --- |
@@ -115,7 +115,7 @@ The expected count is a statistical reference, not a reporting target or an esti
 
 Review population estimates, district boundaries, reporting delays, data completeness, and the observed and expected counts. Small expected counts make ratios unstable. A rising SPI can result from more reports, a lower expectation, or both; it does not by itself show improvement. Differences in underlying NPAFP occurrence can also contribute to a shortfall.
 
-Use a consistent model specification, centring setting, and training approach when comparing years; do not mix retrospective and prospective estimates in one series.
+Use a consistent model specification, centring setting, and reporting year when comparing years.
 
 ## What SPI is not
 
@@ -131,7 +131,7 @@ Avoid these uses:
 - comparing SPI values directly between countries fitted separately;
 - reading an SPI below 1 as proof of surveillance failure;
 - using SPI in place of the NPAFP target;
-- mixing retrospective and prospective SPI in one trend;
+- mixing SPI calculated with different model settings in one trend;
 - reading a zero SPI interval as complete certainty.
 
-Use it with the conventional NPAFP rate, timeliness, and stool adequacy. [Reviewing districts with STEPS](spi-field-guide.html) shows how to bring them together in a district review.
+Use it with the conventional NPAFP rate, timeliness, and stool adequacy. [How do I use SPI to review districts?](spi-field-guide.html) shows how to bring them together in a district review.

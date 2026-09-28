@@ -8,6 +8,10 @@ Authors@R:
         role = c("aut", "cre"),
         email = "moyusuf@who.int",
         comment = c(ORCID = "0000-0002-9339-4613")
+    ),
+    person("Chibuzor Christopher", "Nnanatu",
+        role = "aut",
+        comment = c(ORCID = "0000-0002-5841-3700")
     ))
 Description: Estimates expected case counts for each district and month
     using Bayesian spatial and temporal models fitted with INLA. The

@@ -46,14 +46,14 @@ synth <- synth_surveillance
 
 ## Adjusting for covariates
 
-Covariates are optional and are not part of the default SPI used in the accompanying study. Covariate adjustment changes the estimand: a covariate-adjusted SPI no longer answers the same question as the default SPI. Pass district-year covariates to `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
+Covariates are optional and are not part of the default SPI used in the accompanying study. Covariate adjustment changes the estimand: a covariate-adjusted SPI no longer answers the same question as the default SPI. Pass district-year covariates to `spi_index()` or `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
 
 ```{r covariates}
 synth$covariates |>
   dplyr::slice_head(n = 6)
 ```
 
-Pass them in, log-transforming the skewed travel-time column:
+To inspect the covariate effects, fit the model once with `spi_expected()`, log-transforming the skewed travel-time column:
 
 ```{r fit-adjusted}
 fit_adj <- spi_expected(
@@ -130,105 +130,26 @@ Districts are neighbours when their boundaries touch at any point (`contiguity =
 
 The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits district-level variation into a spatially structured part, shared with neighbours, and an unstructured part specific to each district; `phi` is the share of that variation that is spatially structured. Where district information is sparse, partial pooling and spatial borrowing help estimate the expected count. This makes the estimate more stable, but it can pull an unusual district towards its neighbours.
 
-## Prospective and retrospective fits
-
-The default fit below uses all supplied years together. `spi_prospective()` refits the model for each assessment year using only the preceding years. The two are compared for the same district-years:
-
-```{r retrospective}
-first_assessment <- 2019
-
-fit <- spi_expected(
-  cases = synth$cases,
-  population = synth$population,
-  adjacency = synth$boundaries,
-  id_col = "adm2_guid",
-  n_draws = 500,
-  seed = 42,
-  verbose = FALSE
-)
-
-retro <- spi_index(fit, level = "district_year", verbose = FALSE) |>
-  tibble::as_tibble() |>
-  dplyr::filter(year >= first_assessment) |>
-  dplyr::select(adm2_guid, year, spi_retro = spi_median)
-```
-
-```{r prospective}
-prosp <- spi_prospective(
-  cases = synth$cases,
-  population = synth$population,
-  adjacency = synth$boundaries,
-  first_assessment = first_assessment,
-  id_col = "adm2_guid",
-  n_draws = 500,
-  seed = 42,
-  verbose = FALSE
-) |>
-  tibble::as_tibble() |>
-  dplyr::select(adm2_guid, year, spi_prosp = spi_median)
-```
-
-```{r compare}
-compare <- dplyr::inner_join(retro, prosp, by = c("adm2_guid", "year"))
-
-compare |>
-  dplyr::summarise(
-    district_years = dplyr::n(),
-    pearson = stats::cor(spi_retro, spi_prosp),
-    spearman = stats::cor(spi_retro, spi_prosp, method = "spearman"),
-    below_1_retro = sum(spi_retro < 1),
-    below_1_prosp = sum(spi_prosp < 1),
-    change_side = sum((spi_retro < 1) != (spi_prosp < 1))
-  )
-```
-
-```{r compare-plot, fig.width = 6.5, fig.height = 6.5, out.width = "80%", fig.alt = "Scatter of prospective against retrospective SPI for the same district-years, both on log scales, with dotted lines at 1 and a dashed line of equal values."}
-compare_plot <- compare |>
-  dplyr::filter(spi_retro > 0, spi_prosp > 0)
-
-n_shown <- format(nrow(compare_plot), big.mark = ",")
-n_zero <- nrow(compare) - nrow(compare_plot)
-spi_breaks <- c(0.1, 0.25, 0.5, 1, 2, 5)
-
-ggplot2::ggplot(compare_plot, ggplot2::aes(spi_retro, spi_prosp)) +
-  ggplot2::geom_hline(yintercept = 1, linetype = "dotted", colour = "#7B1D3D") +
-  ggplot2::geom_vline(xintercept = 1, linetype = "dotted", colour = "#7B1D3D") +
-  ggplot2::geom_abline(
-    slope = 1, intercept = 0, linetype = "dashed", colour = "grey40"
-  ) +
-  ggplot2::geom_point(colour = "#4682B4", alpha = 0.4, size = 1.2) +
-  ggplot2::scale_x_log10(
-    breaks = spi_breaks, expand = ggplot2::expansion(mult = 0.04)
-  ) +
-  ggplot2::scale_y_log10(
-    breaks = spi_breaks, expand = ggplot2::expansion(mult = 0.04)
-  ) +
-  ggplot2::coord_equal() +
-  ggplot2::labs(
-    title = "How do prospective and retrospective SPI compare?",
-    subtitle = glue::glue(
-      "Each point is one district-year from {first_assessment}; ",
-      "the dashed line marks equal values"
-    ),
-    caption = glue::glue(
-      "{n_shown} district-years shown. {n_zero} with no reported ",
-      "cases (SPI of 0) are left out of the log scale."
-    ),
-    x = "Retrospective SPI (log scale)",
-    y = "Prospective SPI (log scale)"
-  ) +
-  ggplot2::theme_minimal()
-```
-
-The Pearson correlation between the two is `r round(stats::cor(compare$spi_retro, compare$spi_prosp), 2)` and the Spearman rank correlation is `r round(stats::cor(compare$spi_retro, compare$spi_prosp, method = "spearman"), 2)`, but `r sum((compare$spi_retro < 1) != (compare$spi_prosp < 1))` of `r nrow(compare)` district-years fall on different sides of 1 depending on the fit.
-
-In the retrospective fit, each assessed year contributes to its own expectation, so part of a decline in that year is absorbed into the expected count. In the prospective fit, the expectation for each year comes only from earlier years. Retrospective SPI describes the full fitted period; prospective SPI is designed for assessing each year against the information available before it. The accompanying study uses prospective assessment for this reason. Do not mix the two in one series.
-
 ## Sensitivity checks
 
-Results can depend on the training period, observation model, covariates, centring, and reporting year. Several checks reuse fits already made in this article. Each counts the complete district-years with an SPI below 1. The count is a simple illustration of how classification changes between settings, not a measure of model performance:
+Results can depend on the training period, observation model, covariates, centring, and reporting year. Each check below calculates SPI for 2022 to 2024 with one setting changed, using 100 posterior draws to keep the run time down. Each counts the complete district-years with an SPI below 1. The count is a simple illustration of how classification changes between settings, not a measure of model performance:
 
 ```{r sensitivity}
+sensitivity_index <- function(...) {
+  spi_index(
+    cases = synth$cases,
+    population = synth$population,
+    adjacency = synth$boundaries,
+    first_assessment = 2022,
+    last_assessment = 2024,
+    id_col = "adm2_guid",
+    n_draws = 100,
+    seed = 42,
+    verbose = FALSE,
+    ...
+  )
+}
+
 count_below_1 <- function(index) {
   index |>
     tibble::as_tibble() |>
@@ -240,23 +161,22 @@ count_below_1 <- function(index) {
 }
 
 dplyr::bind_rows(
-  default = count_below_1(spi_index(fit, verbose = FALSE)),
-  centre_none = count_below_1(
-    spi_index(fit, centre = "none", verbose = FALSE)
-  ),
-  may_to_april = count_below_1(
-    spi_index(fit, year_end_month = 4, verbose = FALSE)
-  ),
-  covariates = count_below_1(spi_index(fit_adj, verbose = FALSE)),
-  poisson_iid = count_below_1(spi_index(od$fits$iid, verbose = FALSE)),
+  default = count_below_1(sensitivity_index()),
+  centre_none = count_below_1(sensitivity_index(centre = "none")),
+  may_to_april = count_below_1(sensitivity_index(year_end_month = 4)),
+  covariates = count_below_1(sensitivity_index(
+    covariates = synth$covariates,
+    log_transform = "travel_time_min"
+  )),
+  poisson_iid = count_below_1(sensitivity_index(overdispersion = "iid")),
   .id = "setting"
 )
 ```
 
-The `poisson_iid` row reuses the comparison fit from `spi_compare_overdispersion()`, which kept 100 posterior draws. A different training period needs new prospective fits. Starting assessment in 2021 skips the earliest assessment years. It does not change the training history for years already included, because each fit still uses all preceding years:
+Starting assessment in 2021 skips the earliest assessment years. It does not change the training history for years already included, because each fit still uses all preceding years:
 
 ```{r sensitivity-training, eval = FALSE}
-prosp_later <- spi_prospective(
+spi_later <- spi_index(
   cases = synth$cases,
   population = synth$population,
   adjacency = synth$boundaries,

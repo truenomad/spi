@@ -1,8 +1,8 @@
 ---
-title: "Reviewing districts with STEPS"
+title: "How do I use SPI to review districts?"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Reviewing districts with STEPS}
+  %\VignetteIndexEntry{How do I use SPI to review districts?}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -35,28 +35,45 @@ INLA::inla.setOption(num.threads = "1:1")
 set.seed(1)
 ```
 
-The STEPS field guide combines SPI with timeliness, stool adequacy, and findings from nearby districts and earlier years. This article uses synthetic data to build the guide, change review settings, and create district reports.
+The STEPS field guide combines SPI with timeliness, stool adequacy, and findings from nearby districts and earlier years. This article uses synthetic data to take SPI through to a district review:
+
+1. [Calculate SPI and compare it with the NPAFP target](#from-spi-to-review). SPI uses only case counts and population.
+2. [Prepare the AFP process counts](#prepare-process-data) that supply timeliness and stool adequacy.
+3. [Run the STEPS field guide](#run-the-field-guide), which combines SPI with those counts through [the five STEPS components](#the-five-steps-components).
+4. [Read the review labels](#review-labels).
+5. If needed, change [the SPI cutoff](#changing-spi_cut) or [the classification rule](#changing-the-classification-rule).
+6. Produce [a field guide table](#field-guide-table) or [a one-page district report](#district-report).
 
 ## From SPI to review
 
-The field guide starts from a `spi_compare_npafp()` result, which classifies each district-year by its SPI and the conventional NPAFP target. This code fits the model, calculates annual and monthly SPI, and builds that comparison. [Getting started with SPI](spi-getting-started.html) explains the first two steps.
+The field guide starts from a `spi_compare_npafp()` result, which classifies each district-year by its SPI and the conventional NPAFP target. This code calculates annual and monthly SPI and builds that comparison. [Getting started with SPI](spi-getting-started.html) explains the first two steps.
 
-```{r fit}
+```{r spi}
 library(spi)
 synth <- synth_surveillance
+adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 
-fit <- spi_expected(
+spi_year <- spi_index(
   cases = synth$cases,
   population = synth$population,
-  adjacency = synth$boundaries,
+  adjacency = adj,
+  first_assessment = 2018,
   id_col = "adm2_guid",
   n_draws = 500,
   seed = 42,
   verbose = FALSE
 )
-
-spi_year <- spi_index(fit, level = "district_year")
-spi_month <- spi_index(fit, level = "district_month")
+spi_month <- spi_index(
+  cases = synth$cases,
+  population = synth$population,
+  adjacency = adj,
+  first_assessment = 2018,
+  level = "district_month",
+  id_col = "adm2_guid",
+  n_draws = 500,
+  seed = 42,
+  verbose = FALSE
+)
 ```
 
 Compare each district-year's SPI with the NPAFP target used here: 3 non-polio AFP cases per 100,000 under-15 person-years, matching the study definition. Programmes should use the target that applies in their setting. The four categories show where the two measures agree or differ. The `"SPI below threshold only"` category identifies districts that meet the NPAFP target but have an SPI below 1.
@@ -103,7 +120,7 @@ STEPS is not a combined score. Extent and persistence provide contextual evidenc
 
 ## Prepare process data
 
-Timeliness and stool adequacy come from district-year AFP process counts, passed through `process`. `synth$afp_process` contains the required columns:
+SPI uses only the case counts and population. Timeliness and stool adequacy enter at the field guide, from district-year AFP process counts passed through `process`, and they never change SPI. `synth$afp_process` contains the required columns:
 
 ```{r process}
 head(synth$afp_process)
@@ -123,8 +140,10 @@ detections <- synth$virus_outcome |>
 
 fg <- spi_field_guide(
   comparison = comparison,
+  # AFP process counts: the timeliness (T) and stool adequacy (S) components
   process = synth$afp_process,
-  adjacency = fit$adjacency,
+  # context only; these do not change the review label
+  adjacency = adj,
   spi_month = spi_month,
   detections = detections,
   es = synth$es_district_year,
@@ -134,6 +153,18 @@ fg <- spi_field_guide(
 )
 
 fg
+```
+
+The process counts appear in the result as percentages and concern columns for each district-year. For the first districts in the latest year:
+
+```{r field-guide-process}
+fg$focal |>
+  dplyr::select(
+    adm2_name, verdict, n_cases,
+    pct_transport_timely, timeliness_concern,
+    pct_adequate, adequacy_concern
+  ) |>
+  dplyr::slice_head(n = 6)
 ```
 
 ## Review labels

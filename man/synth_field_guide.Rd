@@ -17,9 +17,9 @@ A \code{\link[=spi_field_guide]{spi_field_guide()}} result computed on \link{syn
 five STEPS components and the neighbour, seasonal and detection context
 supplied. This lets \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}, the
 \code{\link[=spi_field_guide_table]{spi_field_guide_table()}} examples, and tests run without refitting the model.
-It was produced by \code{spi_adjacency()} -> \code{spi_expected()} (no covariates) ->
-\code{spi_index()} at district-year and district-month levels ->
-\code{spi_compare_npafp()} -> \code{spi_field_guide()}.
+It was produced by \code{spi_adjacency()} -> \code{spi_index()} (no covariates) at
+district-year and district-month levels -> \code{spi_compare_npafp()} ->
+\code{spi_field_guide()}.
 }
 \section{Reproducibility}{
 

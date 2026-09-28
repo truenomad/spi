@@ -152,10 +152,11 @@ test_that("full chain runs and recovers planted blindspots above chance", {
 
   data("synth_surveillance", package = "spi")
 
-  fit <- fit_or_skip(
+  spi <- inla_or_skip(spi_index(
     cases = synth_surveillance$cases,
     population = synth_surveillance$population,
     adjacency = synth_surveillance$boundaries,
+    first_assessment = 2018,
     id_col = "adm2_guid",
     season = "harmonic",
     year_effect = "iid",
@@ -163,10 +164,7 @@ test_that("full chain runs and recovers planted blindspots above chance", {
     n_draws = 200L,
     seed = 1L,
     verbose = FALSE
-  )
-  expect_s3_class(fit, "spi_expected")
-
-  spi <- spi_index(fit, level = "district_year", verbose = FALSE)
+  ))
   expect_s3_class(spi, "spi_index")
 
   conc <- spi_compare_npafp(

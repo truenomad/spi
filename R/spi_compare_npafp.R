@@ -30,10 +30,12 @@
 #'
 #' @param spi Object of class `spi_index` at `district_year` level.
 #' @param cases Optional tibble with the district id column and `count`
-#'   (integer). Pass to override the counts stored in `spi$data`. Default:
-#'   NULL (use `spi$data`).
+#'   (integer), and either `month` or `year`. Pass to override the observed
+#'   counts in `spi$summary`. Default: NULL (use the index's observed counts).
 #' @param population Tibble with the district id column, `year` (integer),
-#'   and the population denominator column (see `pop_col`). Required.
+#'   and the population denominator column (see `pop_col`). Required, with one
+#'   positive denominator per district and reporting year. For non-calendar
+#'   years, supply the mean population over that reporting year.
 #' @param year_end_month Integer 1 to 12. Month in which the reading year
 #'   closes, matching the `year_end_month` the SPI was computed with. The
 #'   conventional rate is grouped on the same rolling year, so the two sides of
@@ -93,7 +95,13 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' spi_dy <- spi_index(fit_bare, level = "district_year")
+#' spi_dy <- spi_index(
+#'   cases = synth_surveillance$cases,
+#'   population = synth_surveillance$population,
+#'   adjacency = synth_surveillance$boundaries,
+#'   first_assessment = 2018,
+#'   id_col = "adm2_guid"
+#' )
 #'
 #' comparison <- spi_compare_npafp(
 #'   spi = spi_dy,
@@ -160,47 +168,67 @@ spi_compare_npafp <- function(
       dplyr::all_of(c(id_col, "year")),
       pop_u15 = dplyr::all_of(pop_col)
     )
+  if (anyDuplicated(pop[c(id_col, "year")])) {
+    cli::cli_abort("{.arg population} has duplicate district-year rows.")
+  }
+  if (!is.numeric(pop$pop_u15) ||
+      any(!is.finite(pop$pop_u15) | pop$pop_u15 <= 0)) {
+    cli::cli_abort("{.arg population} must have finite, positive denominators.")
+  }
+  if (nrow(dplyr::anti_join(spi_sum, pop, by = c(id_col, "year"))) > 0L) {
+    cli::cli_abort("{.arg population} is missing district-years present in the SPI.")
+  }
 
-  # ---- 2. Annual NPAFP count from cases (spi$data if not supplied) ----
-  cases_src <- cases %||% spi$data
-  if (is.null(cases_src)) {
-    cli::cli_abort(
-      "no {.arg cases} supplied and {.code spi$data} is empty; \\
-       pass an annual-summable case table."
-    )
-  }
-  if (!"count" %in% names(cases_src) || !id_col %in% names(cases_src)) {
-    cli::cli_abort(
-      "{.arg cases} must have columns {.val {id_col}} and {.val count}."
-    )
-  }
-  # The conventional rate must be grouped on the SAME years as the index. When
-  # the SPI is read on a rolling year, grouping cases on calendar years counts
-  # only part of the window against a whole-year denominator, which drives the
-  # conventional rate down and turns the comparison into nonsense. Derive the
-  # year from the month whenever a rolling window is in force.
+  # ---- 2. Annual NPAFP count, using the index's counts by default ----
   year_end_month <- as.integer(year_end_month)
   if (length(year_end_month) != 1L || is.na(year_end_month) ||
         year_end_month < 1L || year_end_month > 12L) {
     cli::cli_abort("{.arg year_end_month} must be a single month, 1 to 12.")
   }
-  cases_annual <- cases_src |>
-    dplyr::mutate(
-      year = if ("year" %in% names(cases_src) && year_end_month == 12L) {
-        as.integer(cases_src$year)
-      } else if (year_end_month == 12L) {
-        as.integer(format(cases_src$month, "%Y"))
-      } else {
-        as.integer(lubridate::year(lubridate::add_with_rollback(
-          cases_src$month, months(12L - year_end_month)
-        )))
-      }
-    ) |>
-    dplyr::group_by(dplyr::across(dplyr::all_of(c(id_col, "year")))) |>
-    dplyr::summarise(count_annual = sum(.data$count, na.rm = TRUE),
-                     .groups = "drop")
+  cases_src <- cases %||% spi$data
+  if (is.null(cases) && "observed" %in% names(spi_sum)) {
+    cases_annual <- spi_sum |>
+      dplyr::select(dplyr::all_of(c(id_col, "year")),
+                    count_annual = "observed")
+  } else {
+    if (is.null(cases_src)) {
+      cli::cli_abort(
+        "no {.arg cases} supplied and the index has no observed counts; \\
+         pass a case table with counts and dates."
+      )
+    }
+    if (!"count" %in% names(cases_src) || !id_col %in% names(cases_src)) {
+      cli::cli_abort(
+        "{.arg cases} must have columns {.val {id_col}} and {.val count}."
+      )
+    }
+    # The conventional rate must be grouped on the SAME years as the index. When
+    # the SPI is read on a rolling year, grouping cases on calendar years counts
+    # only part of the window against a whole-year denominator, which drives the
+    # conventional rate down and turns the comparison into nonsense. Derive the
+    # year from the month whenever a rolling window is in force.
+    cases_annual <- cases_src |>
+      dplyr::mutate(
+        year = if ("year" %in% names(cases_src) && year_end_month == 12L) {
+          as.integer(cases_src$year)
+        } else if (year_end_month == 12L) {
+          as.integer(format(cases_src$month, "%Y"))
+        } else {
+          as.integer(lubridate::year(lubridate::add_with_rollback(
+            cases_src$month, months(12L - year_end_month)
+          )))
+        }
+      ) |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(c(id_col, "year")))) |>
+      dplyr::summarise(count_annual = sum(.data$count, na.rm = TRUE),
+                       .groups = "drop")
+  }
 
   # ---- 3. Assemble and classify ----
+  if (nrow(dplyr::anti_join(spi_sum, cases_annual,
+                            by = c(id_col, "year"))) > 0L) {
+    cli::cli_abort("{.arg cases} is missing district-years present in the SPI.")
+  }
   dy <- spi_sum |>
     dplyr::inner_join(cases_annual, by = c(id_col, "year")) |>
     dplyr::inner_join(pop, by = c(id_col, "year")) |>
@@ -597,7 +625,13 @@ plot.spi_compare_npafp <- function(x, ...) {
 #' @export
 #' @examples
 #' \dontrun{
-#' spi_dy <- spi_index(fit_bare, level = "district_year")
+#' spi_dy <- spi_index(
+#'   cases = synth_surveillance$cases,
+#'   population = synth_surveillance$population,
+#'   adjacency = synth_surveillance$boundaries,
+#'   first_assessment = 2018,
+#'   id_col = "adm2_guid"
+#' )
 #' comparison <- spi_compare_npafp(
 #'   spi = spi_dy,
 #'   cases = synth_surveillance$cases,

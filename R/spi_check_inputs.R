@@ -141,6 +141,11 @@ spi_check_inputs <- function(cases,
   }
 
   if ("count" %in% names(cases) && is.numeric(cases$count)) {
+    known <- cases$count[!is.na(cases$count)]
+    if (any(!is.finite(known) | known != floor(known))) {
+      add("error", "cases_invalid_count",
+        "cases$count must contain finite, integer-valued counts or NA")
+    }
     n_neg <- sum(cases$count < 0, na.rm = TRUE)
     if (n_neg > 0) {
       add("error", "cases_negative", .ic_msg(

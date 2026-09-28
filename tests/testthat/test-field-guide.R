@@ -231,13 +231,16 @@ test_that("spi_field_guide can be recomputed end to end", {
   s <- synth_surveillance
 
   adj <- spi_adjacency(s$boundaries, id_col = "adm2_guid")
-  fit <- fit_or_skip(
-    s$cases, s$population, adj,
-    id_col = "adm2_guid", season = "harmonic", year_effect = "iid",
-    overdispersion = "iid", n_draws = 200L, seed = 42L, verbose = FALSE
-  )
-  cy <- spi_index(fit, level = "district_year", verbose = FALSE)
-  cm <- spi_index(fit, level = "district_month", verbose = FALSE)
+  index <- function(level) {
+    inla_or_skip(spi_index(
+      s$cases, s$population, adj,
+      first_assessment = 2018, level = level, id_col = "adm2_guid",
+      season = "harmonic", year_effect = "iid", overdispersion = "iid",
+      n_draws = 200L, seed = 42L, verbose = FALSE
+    ))
+  }
+  cy <- index("district_year")
+  cm <- index("district_month")
   conc <- spi_compare_npafp(
     cy, s$cases, s$population, boundaries = s$boundaries, verbose = FALSE
   )
@@ -250,4 +253,13 @@ test_that("spi_field_guide can be recomputed end to end", {
   expect_s3_class(fg, "spi_field_guide")
   # every input supplied -> every component and context signal computable
   expect_true(all(fg$signals_active))
+})
+
+test_that("missing SPI cannot receive a no-indication review label", {
+  comparison <- make_comparison()
+  for (value in c(NA_real_, NaN, Inf)) {
+    comparison$district_year$spi_median[1] <- value
+    expect_error(spi_field_guide(comparison, verbose = FALSE),
+                 "SPI medians must be finite")
+  }
 })

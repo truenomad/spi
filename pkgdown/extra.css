@@ -67,6 +67,19 @@ table th {
   padding: 6px 10px;
 }
 
+/* pkgdown makes tables full-width blocks; size each one to its content, so a
+   few short numbers are not spread across the page. Wide tables still scroll. */
+main table.table {
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* pandoc gives wide pipe tables equal column widths; let each column take the
+   width its content needs instead */
+main table.table col {
+  width: auto !important;
+}
+
 /* Dark mode: pkgdown's light-switch sets [data-bs-theme="dark"] on <html>. */
 [data-bs-theme="dark"] details {
   border-color: #3d3d3a;

@@ -148,14 +148,14 @@
 #'
 #' \dontrun{
 #' # end-to-end demo (needs INLA)
-#' fit <- spi_expected(
-#'   cases      = synth_surveillance$cases,
+#' spi <- spi_index(
+#'   cases = synth_surveillance$cases,
 #'   population = synth_surveillance$population,
-#'   adjacency  = synth_surveillance$boundaries,
-#'   id_col     = "adm2_guid",
-#'   n_draws    = 200
+#'   adjacency = synth_surveillance$boundaries,
+#'   first_assessment = 2018,
+#'   id_col = "adm2_guid",
+#'   n_draws = 200
 #' )
-#' spi <- spi_index(fit, level = "district_year")
 #' comparison <- spi_compare_npafp(
 #'   spi = spi,
 #'   cases = synth_surveillance$cases,
@@ -174,9 +174,9 @@
 #' five STEPS components and the neighbour, seasonal and detection context
 #' supplied. This lets [spi_field_guide_help()], the
 #' [spi_field_guide_table()] examples, and tests run without refitting the model.
-#' It was produced by `spi_adjacency()` -> `spi_expected()` (no covariates) ->
-#' `spi_index()` at district-year and district-month levels ->
-#' `spi_compare_npafp()` -> `spi_field_guide()`.
+#' It was produced by `spi_adjacency()` -> `spi_index()` (no covariates) at
+#' district-year and district-month levels -> `spi_compare_npafp()` ->
+#' `spi_field_guide()`.
 #'
 #' @format An object of class `spi_field_guide`; see the Value section
 #'   of [spi_field_guide()] for the element structure. Read year 2024; SPI cut
