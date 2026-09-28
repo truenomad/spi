@@ -12,7 +12,7 @@ abstract: >-
   observed and expected counts through the Surveillance Performance Index (SPI).
   By default, district observed-to-expected ratios are centred on the national
   observed-to-expected ratio for the same period. The package provides posterior
-  uncertainty, diagnostic plots, concordance with the conventional NPAFP rate,
+  uncertainty, diagnostic plots, comparison with the conventional NPAFP target,
   and tools for district-level surveillance review.
 
 authors:
@@ -20,6 +20,9 @@ authors:
     given-names: "Mohamed A."
     email: mohamedayusuf87@gmail.com
     orcid: "https://orcid.org/0000-0002-9339-4613"
+  - family-names: Nnanatu
+    given-names: "Chibuzor Christopher"
+    orcid: "https://orcid.org/0000-0002-5841-3700"
 
 license: MIT
 repository-code: "https://github.com/truenomad/spi"

@@ -154,7 +154,7 @@ documents all exported functions.
 ## Citation
 
 ``` r
-Yusuf MA (2026). spi: Bayesian spatiotemporal
+Yusuf MA, Nnanatu CC (2026). spi: Bayesian spatiotemporal
   modelling of relative AFP reporting. R package version 0.2.0.
   https://github.com/truenomad/spi
 ```
