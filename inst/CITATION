@@ -1,0 +1,22 @@
+citHeader("To cite spi in publications use:")
+
+bibentry(
+  bibtype = "Manual",
+  title   = "spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting",
+  author  = c(
+    person(
+      given   = "Mohamed A.",
+      family  = "Yusuf",
+      comment = c(ORCID = "0000-0002-9339-4613")
+    ),
+    person(
+      given   = "Chibuzor Christopher",
+      family  = "Nnanatu",
+      comment = c(ORCID = "0000-0002-5841-3700")
+    )
+  ),
+  year    = "2026",
+  note    = paste("R package version", meta$Version),
+  url     = "https://github.com/truenomad/spi",
+  doi     = "10.5281/zenodo.23008378"
+)

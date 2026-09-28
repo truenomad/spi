@@ -4,6 +4,7 @@ type: software
 
 title: "spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting"
 version: 0.2.0
+doi: "10.5281/zenodo.23008378"
 
 abstract: >-
   An R package for estimating district-level relative acute flaccid paralysis

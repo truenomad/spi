@@ -1,4 +1,3 @@
-
 <!-- README.md is generated from README.Rmd. Please edit that file, then run
      `devtools::build_readme()` (or knit) to regenerate README.md. -->
 
@@ -9,8 +8,9 @@
 [![R-CMD-check](https://github.com/truenomad/spi/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/truenomad/spi/actions/workflows/R-CMD-check.yaml)
 [![codecov](https://codecov.io/gh/truenomad/spi/graph/badge.svg?token=vBneu9acox)](https://codecov.io/gh/truenomad/spi)
 [![pkgdown](https://github.com/truenomad/spi/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/spi/actions/workflows/pkgdown.yaml)
-[![R \>=
+[![R >=
 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23008378.svg)](https://doi.org/10.5281/zenodo.23008378)
 
 <!-- badges: end -->
 
@@ -25,7 +25,7 @@ rate, timeliness, and specimen quality.
 
 Install from GitHub:
 
-``` r
+```r
 # Install pak if needed
 if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak")
 pak::pak("truenomad/spi")
@@ -33,7 +33,7 @@ pak::pak("truenomad/spi")
 
 INLA is not on CRAN and must be installed separately:
 
-``` r
+```r
 install.packages(
   "INLA",
   repos = c("https://cloud.r-project.org", "https://inla.r-inla-download.org/R/stable/")
@@ -65,17 +65,17 @@ assessment year's expected counts from the preceding years only, so it
 refits the model once per year. This example assesses 2018 to 2024
 without covariates.
 
-``` r
+```r
 library(spi)
 ```
 
-``` r
+```r
 synth <- synth_surveillance
 ```
 
 Calculate annual SPI, passing the district boundaries directly:
 
-``` r
+```r
 spi_dy <- spi_index(
   cases = synth$cases,
   population = synth$population,
@@ -90,7 +90,7 @@ spi_dy <- spi_index(
 
 View the results:
 
-``` r
+```r
 spi_dy |>
   tibble::as_tibble() |>
   dplyr::select(adm2_guid, year, spi_median, spi_q05, spi_q95) |>
@@ -98,11 +98,11 @@ spi_dy |>
 #> # A tibble: 6 x 5
 #>   adm2_guid                               year spi_median spi_q05 spi_q95
 #>   <chr>                                  <dbl>      <dbl>   <dbl>   <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018      0.874   0.504   1.65 
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2019      1.98    1.13    3.71 
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2020      1.17    0.703   2.00 
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2021      1.08    0.621   1.91 
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2022      0.811   0.443   1.45 
+#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018      0.874   0.504   1.65
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2019      1.98    1.13    3.71
+#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2020      1.17    0.703   2.00
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2021      1.08    0.621   1.91
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2022      0.811   0.443   1.45
 #> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2023      0.361   0.205   0.593
 ```
 
@@ -153,10 +153,21 @@ documents all exported functions.
 
 ## Citation
 
-``` r
-Yusuf MA, Nnanatu CC (2026). spi: Bayesian spatiotemporal
-  modelling of relative AFP reporting. R package version 0.2.0.
-  https://github.com/truenomad/spi
+To cite `spi` in publications, run `citation("spi")` in R, or use:
+
+> Yusuf, Mohamed A. and Nnanatu, Chibuzor Christopher (2026). _spi: Bayesian
+> Spatiotemporal Modelling of Relative AFP Reporting_. R package version 0.2.0.
+> <https://doi.org/10.5281/zenodo.23008378>
+
+```
+@Manual{spi,
+  title  = {spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting},
+  author = {Mohamed A. Yusuf and Chibuzor Christopher Nnanatu},
+  year   = {2026},
+  note   = {R package version 0.2.0},
+  url    = {https://github.com/truenomad/spi},
+  doi    = {10.5281/zenodo.23008378},
+}
 ```
 
 ## Related package

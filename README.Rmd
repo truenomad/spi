@@ -38,6 +38,7 @@ set.seed(1)
 [![codecov](https://codecov.io/gh/truenomad/spi/graph/badge.svg?token=vBneu9acox)](https://codecov.io/gh/truenomad/spi)
 [![pkgdown](https://github.com/truenomad/spi/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/truenomad/spi/actions/workflows/pkgdown.yaml)
 [![R >= 4.1.0](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue.svg)](https://cran.r-project.org/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23008378.svg)](https://doi.org/10.5281/zenodo.23008378)
 
 <!-- badges: end -->
 
@@ -128,10 +129,21 @@ The [function reference](https://truenomad.github.io/spi/reference/) documents a
 
 ## Citation
 
-```r
-Yusuf MA, Nnanatu CC (2026). spi: Bayesian spatiotemporal
-  modelling of relative AFP reporting. R package version 0.2.0.
-  https://github.com/truenomad/spi
+To cite `spi` in publications, run `citation("spi")` in R, or use:
+
+> Yusuf, Mohamed A. and Nnanatu, Chibuzor Christopher (2026). _spi: Bayesian
+> Spatiotemporal Modelling of Relative AFP Reporting_. R package version 0.2.0.
+> <https://doi.org/10.5281/zenodo.23008378>
+
+```
+@Manual{spi,
+  title  = {spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting},
+  author = {Mohamed A. Yusuf and Chibuzor Christopher Nnanatu},
+  year   = {2026},
+  note   = {R package version 0.2.0},
+  url    = {https://github.com/truenomad/spi},
+  doi    = {10.5281/zenodo.23008378},
+}
 ```
 
 ## Related package
