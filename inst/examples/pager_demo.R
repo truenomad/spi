@@ -39,11 +39,11 @@ indicators <- example_indicators(fg)
 es_hit <- if ("es_detected" %in% names(foc)) foc$es_detected %in% TRUE else FALSE
 gen_hit <- foc$genomic_orphan %in% TRUE
 
-# one district per judgement, chosen by rule so the gallery survives a
+# one district per review label, chosen by rule so the gallery survives a
 # regeneration of the synthetic bundle:
-#  - Priority for review -- the deepest priority with a virus detection (rose)
+#  - Priority for review -- the lowest SPI among priority districts with a virus detection (rose)
 #  - Monitor, uncertain -- below the cut with an interval reaching 1 (amber)
-#  - Monitor, uncorroborated -- certain, but neither extent nor persistence
+#  - Monitor, no supporting findings -- interval below 1, but neither extent nor persistence
 #    supports it, with at least one case so the tiles have figures (amber)
 #  - No SPI indication -- a large district clearly above the cut (green)
 deepest <- function(keep) {

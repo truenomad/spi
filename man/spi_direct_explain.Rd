@@ -4,7 +4,7 @@
 \alias{spi_direct_explain}
 \title{Show how one district's direct SPI was calculated}
 \usage{
-spi_direct_explain(x, district, year = NULL, print = TRUE)
+spi_direct_explain(x, district, year = NULL, language = "en", print = TRUE)
 }
 \arguments{
 \item{x}{An \code{spi_direct} object from \code{\link[=spi_direct]{spi_direct()}}.}
@@ -13,10 +13,18 @@ spi_direct_explain(x, district, year = NULL, print = TRUE)
 
 \item{year}{Assessment year. Default: the last assessment year.}
 
+\item{language}{Character. Language of the labels, as a two-letter code
+such as \code{"fr"}. Default \code{"en"}. Other languages are translated with
+\code{sntutils::translate_text_vec()}, which calls Google Translate through
+the gtranslate package. Both packages and an internet connection are
+needed; labels that cannot be translated stay in English. Numbers and \code{check_} flags are not
+translated.}
+
 \item{print}{Logical. Print the breakdown. Default \code{TRUE}.}
 }
 \value{
-Invisibly, a tibble with \code{section}, \code{component} and \code{value}.
+Invisibly, a tibble with \code{section}, \code{component} and \code{value}, in
+the language requested.
 }
 \description{
 Lists every component of one district's direct SPI for one year, in the

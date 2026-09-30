@@ -28,7 +28,7 @@ rows).}
 \item{year}{Focal year. Default: NULL (\code{x$read_year}).}
 
 \item{districts}{Character vector of district ids for the \code{"worked"}
-layout. Default: NULL (rule-select four districts).}
+layout. Default: NULL (select four districts with different findings).}
 
 \item{name_col}{Column to label districts by. Default: NULL (first of
 \code{adm2_name}, \code{adm1_name}, else the id column).}
@@ -62,8 +62,8 @@ components, the conventional NPAFP rate and the label as rows, a
 few districts as columns, every cell shaded as adding to concern
 (rose), intermediate (amber) or reassuring (green). When \code{districts} is
 NULL, four districts (SPI at or above 1, an uncertain shortfall,
-a large corroborated shortfall, a shortfall without spatial
-corroboration) are chosen by rule.
+a large shortfall with supporting evidence, and a shortfall without
+wider area concern) are selected.
 }
 }
 \examples{

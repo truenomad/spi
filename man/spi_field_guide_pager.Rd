@@ -32,16 +32,15 @@ spi_field_guide_pager(
 \arguments{
 \item{x}{A \code{\link[=spi_field_guide]{spi_field_guide()}} result (class \code{spi_field_guide}).}
 
-\item{district}{District to profile: either an id (e.g. the admin-2 GUID)
+\item{district}{District to report on: either an id (e.g. the admin-2 GUID)
 in the id column, or a district name matched (case-insensitively) against
 \code{name_col}. Ids are tried first, so an id is unambiguous.}
 
-\item{adjacency}{Deprecated and ignored. The locator inset places the focal
-district in its country rather than among its neighbours, so the pager no
-longer reads a neighbour graph. Default: NULL.}
+\item{adjacency}{Deprecated and ignored. The location map shows the district
+within its country and does not use a neighbour graph. Default: NULL.}
 
 \item{boundaries}{Optional sf polygon layer keyed by \code{id_col}, covering the
-whole country. Draws the locator inset from its real geometry. An
+whole country. Uses these boundaries to draw the location map. An
 \code{adm1_name} column, if present, supplies the regional outlines; an
 \code{adm0_name} column restricts a multi-country layer to the focal district's
 own country. Default: NULL (no inset).}
@@ -50,11 +49,11 @@ own country. Default: NULL (no inset).}
 one-row data frame. Recognised fields: \code{name} (or \code{region}/\code{adm1}), \code{rank}
 (or \code{region_rank}), \code{n} (or \code{n_regions}) and \code{spi} (or \code{region_spi}). It
 renders as a header line reading \verb{region SUD-OUEST}, \verb{SPI 0.70} and
-\verb{worst rank 1 of 22}, joined by middle dots. The rank provides context and does not change
+\verb{rank 1 of 22 (lowest SPI first)}, joined by middle dots. The rank provides context and does not change
 the label. Default: NULL (no regional line).}
 
-\item{year_label}{Optional label for the reading year, shown in the masthead
-in place of the bare year. Use it when the window is not a calendar year,
+\item{year_label}{Optional label for the reporting period, shown in the header
+instead of the year alone. Use it when the window is not a calendar year,
 e.g. \code{"rolling year to Apr 2025"}. Default: NULL (the year).}
 
 \item{prob_under}{Optional posterior probability of a relative reporting
@@ -79,7 +78,7 @@ Default NULL (no strip).}
 panel, per 100,000 under 15. Default: NULL (\code{x$thresholds$npafp}).}
 
 \item{es}{Optional ad-hoc environmental-surveillance detections keyed by
-\code{id_col} and \code{year}, overriding the field guide's own ES channel. Normally
+\code{id_col} and \code{year}, overriding the field guide's own ES data. Normally
 ES is supplied once to \code{\link[=spi_field_guide]{spi_field_guide()}} (via its \code{es} argument) and read
 from there, so this is only needed for a field guide built without ES.
 Each row (or each \code{es_col}-positive row) is an ES positive. Default: NULL
@@ -94,7 +93,7 @@ e.g. \code{"cVDPV2"} or \code{"WPV1"}. Use this to name the serotype selected in
 when building the guide. Leave it NULL for mixed serotypes; the report
 then uses "poliovirus". Default: NULL.}
 
-\item{year}{Integer focal year for the reading. Default: NULL
+\item{year}{Integer year for the report. Default: NULL
 (\code{x$read_year}).}
 
 \item{path}{Optional output directory. When set, the pager is written into
@@ -124,16 +123,16 @@ extent reading ("other \code{unit_noun}s in ..."). Set it to match
 \code{admin_label}, e.g. \code{"province"} for admin-1 inputs. Default:
 \code{"district"}.}
 
-\item{note}{Optional provenance tag printed in the footer, e.g.
+\item{note}{Optional note about the data or report, printed in the footer, e.g.
 \code{"illustrative"} for a worked example. Default: NULL (untagged).}
 
-\item{verbose}{Logical. Emit a cli summary on build. Default: TRUE.}
+\item{verbose}{Logical. Print a summary when the report is created. Default: TRUE.}
 }
 \value{
 An object of class \code{spi_pager}: a list with the rendered
 \code{html} string, the resolved \code{district}, \code{year}, \code{verdict} (the review
 label), and \code{paths} (the files written, empty when neither \code{path} nor
-\code{file} is set). Printing it reports the label and any written files. Recover the markup with
+\code{file} is set). Printing it reports the label and any written files. Get the HTML with
 \code{as.character()}.
 }
 \description{
@@ -151,7 +150,7 @@ header reports the neighbour median. Pass \code{boundaries} to add a location
 map with the district highlighted within its country and admin-1 divisions.
 
 Pass \code{indicators_df} to show the NPAFP rate, stool adequacy, timeliness,
-and EV rate. Percentages based on fewer than five assessable cases are
+and the enterovirus (EV) isolation rate in environmental samples. Percentages based on fewer than five assessable cases are
 shown as fractions and are not assessed against a target.
 
 AFP detections appear as filled diamonds and ES detections as hollow
@@ -177,6 +176,6 @@ spi_field_guide_pager(
 }
 }
 \seealso{
-\code{\link[=spi_field_guide]{spi_field_guide()}} for the reading and \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}
+\code{\link[=spi_field_guide]{spi_field_guide()}} for the review findings and \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}
 for the multi-district table.
 }

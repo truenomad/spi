@@ -2,113 +2,81 @@
 % Please edit documentation in R/spi-package.R
 \docType{package}
 \name{spi-package}
+\alias{spi}
 \alias{spi-package}
 \title{spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting}
 \description{
-\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
-
-Estimates expected case counts for each district and month using Bayesian spatial and temporal models fitted with INLA. The surveillance performance index (SPI) compares observed and expected counts, nationally centred by default, with credible intervals for uncertainty in expected counts. Functions check inputs, compare SPI with conventional reporting targets, and produce tables, maps, and district reports for surveillance review. Designed for acute flaccid paralysis (AFP) surveillance, with support for other case-based surveillance data.
-
-spi estimates district-level expected reported case counts using
-Bayesian spatiotemporal models (BYM2 via INLA) and summarises reporting
-shortfalls for surveillance review.
+Compares reported non-polio acute flaccid paralysis (NPAFP) cases with
+expected counts based on earlier reporting and population size. Use
+\code{\link[=spi_index]{spi_index()}} for a spatial and temporal model fitted with INLA, or
+\code{\link[=spi_direct]{spi_direct()}} for an annual calculation that does not require INLA.
 }
-\section{Model}{
+\section{Interpreting SPI}{
 
+The surveillance performance index (SPI) divides reported cases by
+expected cases. By default, it then divides the district ratio by the
+national ratio for the same period. SPI below 1 means the district's
+ratio is below the national ratio. With \code{centre = "none"} in
+\code{\link[=spi_index]{spi_index()}}, SPI below 1 means the district reported fewer cases than
+its own expected count.
 
-\strong{Expected rate model}
-\itemize{
-\item Negative binomial or Poisson regression with BYM2 spatial effects (INLA)
-\item Log person-time offset
-\item Estimates background reported NPAFP rate from data rather than fixed thresholds
-\item Posterior draws of expected counts become SPI denominator
-}
-}
-
-\section{Key concepts}{
-
-
-\strong{Surveillance Performance Index (SPI)}
-\itemize{
-\item Ratio of observed to expected counts, nationally centred by default
-\item Credible intervals for uncertainty in expected counts
-\item Adapts standardised morbidity ratio (SMR) framework to surveillance
-monitoring
+The model-based SPI includes credible intervals for uncertainty in
+expected counts. Reported counts are held fixed in these intervals.
+Neither version of SPI estimates missed cases or establishes whether
+poliovirus is present. Read SPI alongside the NPAFP rate, timeliness,
+and stool adequacy.
 }
 
-\strong{Comparison with the NPAFP target and interpretation}
-\itemize{
-\item Classify each district-year by SPI and the NPAFP target into four
-categories (neither below / SPI below threshold only / NPAFP below
-target only / both below).
-\item Review each district-year with an SPI below 1 through the five STEPS
-components (strength, timeliness, extent, persistence, stool adequacy)
-to a priority for review / monitor / no SPI indication review label. These labels do not establish surveillance adequacy.
-}
+\section{District review}{
+
+\code{\link[=spi_compare_npafp]{spi_compare_npafp()}} groups district-years by whether SPI is below the
+chosen threshold and whether the NPAFP rate meets the programme target.
+\code{\link[=spi_field_guide]{spi_field_guide()}} then uses the five STEPS components: strength,
+timeliness, extent, persistence, and stool adequacy.
+
+The review labels are \verb{Priority for review}, \code{Monitor}, and
+\verb{No SPI indication}. They help organise review; they do not establish
+surveillance quality. Timeliness and stool adequacy are reported
+separately and do not change the label.
 }
 
 \section{Main functions}{
 
 \itemize{
-\item \code{\link[=spi_adjacency]{spi_adjacency()}}: Build a neighbour graph
-\item \code{\link[=spi_expected]{spi_expected()}}: Fit the expected-count model
-\item \code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}}: Compare Poisson vs negative-binomial fits
-\item \code{\link[=spi_index]{spi_index()}}: Compute surveillance performance index
-\item \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}: Compare SPI with the NPAFP target
-\item \code{\link[=spi_field_guide]{spi_field_guide()}}: Review a low SPI through the five STEPS components
-\item \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}: Render the field guide (gt / flextable)
-\item \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}: Learn to read the field guide
+\item \code{\link[=spi_check_inputs]{spi_check_inputs()}}: Check case counts, population, and boundaries.
+\item \code{\link[=spi_adjacency]{spi_adjacency()}}: Identify neighbouring districts.
+\item \code{\link[=spi_expected]{spi_expected()}}: Estimate expected counts with INLA.
+\item \code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}}: Compare models for count variation.
+\item \code{\link[=spi_index]{spi_index()}}: Calculate model-based SPI and credible intervals.
+\item \code{\link[=spi_direct]{spi_direct()}}: Calculate annual SPI from earlier reporting.
+\item \code{\link[=spi_direct_explain]{spi_direct_explain()}}: Show one district's calculation.
+\item \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}: Compare SPI with the NPAFP target.
+\item \code{\link[=spi_field_guide]{spi_field_guide()}}: Review districts using STEPS.
+\item \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}: Create a table of review findings.
+\item \code{\link[=spi_field_guide_pager]{spi_field_guide_pager()}}: Create a one-page district report.
+\item \code{\link[=spi_field_guide_help]{spi_field_guide_help()}}: Read explanations and worked examples.
 }
 }
 
-\section{Applications}{
+\section{Other surveillance data}{
 
-Designed for acute flaccid paralysis surveillance. Other case-based
-surveillance applications need suitable counts, population denominators,
-and model settings.
+The package is designed for AFP surveillance. Other applications need
+suitable case counts, population estimates, and model settings.
 }
 
 \section{Dependencies}{
 
-Model fitting uses INLA for Bayesian inference. INLA is not on
-CRAN and is distributed via
-\url{https://inla.r-inla-download.org/R/stable/}. The package installation
-automatically configures the INLA repository.
+Model fitting requires INLA, available from
+\url{https://inla.r-inla-download.org/R/stable/}.
+\code{\link[=spi_direct]{spi_direct()}} requires neither INLA nor district boundaries.
 }
 
 \section{Citation}{
 
-If you use spi in published work, please cite:
-
-Yusuf MA, Ahmed J (2026). spi: Bayesian spatiotemporal modelling of
-relative AFP reporting. R package version 0.1.0.
-\url{https://github.com/truenomad/spi}
-
-Associated paper:
-Yusuf MA, et al. (2026). From threshold to model: a Bayesian spatiotemporal
-framework for AFP surveillance quality monitoring in the polio endgame.
-Lancet Global Health.
-}
-
-\section{Interpretation}{
-
-Read the SPI alongside conventional reporting targets and other surveillance
-indicators. With the default national centring, a low SPI indicates reporting below the
-national pattern. With \code{centre = "none"}, it indicates reporting below the
-district's own modelled expectation. Neither establishes the cause of the
-shortfall or shows whether poliovirus is present.
+Run \code{citation("spi")} for the package citation.
 }
 
 \seealso{
-Useful links:
-\itemize{
-  \item \url{https://github.com/truenomad/spi}
-  \item \url{https://truenomad.github.io/spi/}
-  \item \url{https://truenomad.r-universe.dev/spi}
-  \item Report bugs at \url{https://github.com/truenomad/spi/issues}
-}
-
-
 Useful links:
 \itemize{
   \item \url{https://github.com/truenomad/spi}

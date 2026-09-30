@@ -14,26 +14,26 @@ spi_field_guide_help(
 \item{topic}{One or more of \code{"all"}, \code{"signals"}, \code{"verdict"},
 \code{"misreadings"}, \code{"example"}. Default: \code{"all"}.}
 
-\item{guide}{A \code{\link[=spi_field_guide]{spi_field_guide()}} result to narrate for the worked example.
+\item{guide}{A \code{\link[=spi_field_guide]{spi_field_guide()}} result to use for the worked example.
 Default: NULL (use \code{synth_field_guide}).}
 
 \item{year}{Focal year for the worked example. Default: NULL
 (\code{guide$read_year}).}
 }
 \value{
-The narrated worked-example tibble, invisibly.
+The tibble of districts used in the worked example, returned invisibly.
 }
 \description{
-An interpretation aid for the console. Explains the five STEPS components
+Prints explanations in the R console. Describes the five STEPS components
 and the review labels behind \code{\link[=spi_field_guide]{spi_field_guide()}}, lists common errors in
 interpreting SPI, and explains four districts selected from a field guide:
 SPI at or above 1, an uncertain shortfall, a large shortfall supported by
 extent and persistence, and a shortfall without nearby supporting evidence.
 }
 \details{
-By default the worked example is narrated from \code{synth_field_guide}, the
-precomputed field guide on the synthetic data, so it runs with
-no model fit. Pass \code{guide} to narrate your own \code{\link[=spi_field_guide]{spi_field_guide()}} result.
+By default, the worked example uses \code{synth_field_guide}, the precomputed
+result for the synthetic data, so no model fit is needed. Pass \code{guide}
+to explain the results from your own \code{\link[=spi_field_guide]{spi_field_guide()}} call.
 }
 \examples{
 spi_field_guide_help("signals")

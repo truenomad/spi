@@ -1,3 +1,5 @@
+testthat::skip_if_not_installed("spdep")
+
 # spi_adjacency() island handling, contiguity rule, validation, and the
 # spi_nb print method.
 

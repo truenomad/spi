@@ -1,19 +1,39 @@
 # spi (development version)
 
+### Documentation
+
+* Simplified language throughout the articles, function help, console output,
+  and district reports. Clarified national centring, uncertainty, and review
+  labels. Calculations and function arguments are unchanged.
+
 ### New features
 
 * `spi_direct()` calculates SPI directly from preceding reporting, without
-  fitting a model. It needs only NPAFP cases and the population under 15 by
+  fitting the INLA spatial and temporal model. It needs only NPAFP cases and the population under 15 by
   district and year; a region column and district boundaries are optional.
-  Limited histories are stabilised automatically, a district with no previous
-  case is not given an expected rate of zero, and each district's population
+  Rates based on little history are adjusted using other districts. A
+  district with no previous case is not given an expected rate of zero, and each district's population
   series is checked for unusual changes before calculation.
+
+* `spi_direct()` needs no other argument when the table has the columns
+  `district`, `year`, `npafp_cases` and `population_u15`. A `province` column
+  is used when present.
 
 * `spi_direct_explain()` shows how one district's direct SPI was calculated,
   from current and previous reporting to the expected count and the national
   comparison.
 
+* `spi_direct_explain()` can show its labels in another language, for example
+  `language = "fr"` for French. English is the default. Translation uses the
+  sntutils and gtranslate packages and needs an internet connection.
+
 * New article, "The direct SPI", explains the calculation step by step.
+
+* New article, "Preparing data for SPI", shows what data each calculation
+  needs and how to prepare them.
+
+* New article, "Using SPI with POLIS data", shows the workflow from the POLIS
+  AFP line list to the direct and model-based SPI.
 
 # spi 0.2.0
 
@@ -113,7 +133,7 @@
   pattern and trend. At or above the cutoff, the report says SPI indicates no relative reporting
   shortfall and points to the other surveillance indicators.
 
-### SPI, concordance and inputs
+### SPI, comparison with the NPAFP target, and inputs
 
 * Added `spi_check_inputs()` and `check` to find problems with counts, population, IDs, missing
   records, and boundaries before fitting.
@@ -122,9 +142,9 @@
   incomplete periods.
 
 * Fixed the NPAFP population calculation for custom reporting years. Use the same `year_end_month`
-  in SPI and concordance.
+  in SPI and the NPAFP comparison.
 
-* Added `boundaries` to include district and area names in SPI results. Concordance uses the same
+* Added `boundaries` to include district and area names in SPI results. The NPAFP comparison uses the same
   column order.
 
 * Added national centring as the default and `$national` ratios. Use `centre = "none"` for uncentred

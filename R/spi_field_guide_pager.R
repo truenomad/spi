@@ -15,7 +15,7 @@
 #' map with the district highlighted within its country and admin-1 divisions.
 #'
 #' Pass `indicators_df` to show the NPAFP rate, stool adequacy, timeliness,
-#' and EV rate. Percentages based on fewer than five assessable cases are
+#' and the enterovirus (EV) isolation rate in environmental samples. Percentages based on fewer than five assessable cases are
 #' shown as fractions and are not assessed against a target.
 #'
 #' AFP detections appear as filled diamonds and ES detections as hollow
@@ -26,14 +26,13 @@
 #' no SPI indication.
 #'
 #' @param x A [spi_field_guide()] result (class `spi_field_guide`).
-#' @param district District to profile: either an id (e.g. the admin-2 GUID)
+#' @param district District to report on: either an id (e.g. the admin-2 GUID)
 #'   in the id column, or a district name matched (case-insensitively) against
 #'   `name_col`. Ids are tried first, so an id is unambiguous.
-#' @param adjacency Deprecated and ignored. The locator inset places the focal
-#'   district in its country rather than among its neighbours, so the pager no
-#'   longer reads a neighbour graph. Default: NULL.
+#' @param adjacency Deprecated and ignored. The location map shows the district
+#'   within its country and does not use a neighbour graph. Default: NULL.
 #' @param boundaries Optional sf polygon layer keyed by `id_col`, covering the
-#'   whole country. Draws the locator inset from its real geometry. An
+#'   whole country. Uses these boundaries to draw the location map. An
 #'   `adm1_name` column, if present, supplies the regional outlines; an
 #'   `adm0_name` column restricts a multi-country layer to the focal district's
 #'   own country. Default: NULL (no inset).
@@ -44,14 +43,14 @@
 #'   reported precision matches the posterior draws. This probability describes
 #'   relative reporting, not the presence of poliovirus.
 #'   Default: NULL (not shown).
-#' @param year_label Optional label for the reading year, shown in the masthead
-#'   in place of the bare year. Use it when the window is not a calendar year,
+#' @param year_label Optional label for the reporting period, shown in the header
+#'   instead of the year alone. Use it when the window is not a calendar year,
 #'   e.g. `"rolling year to Apr 2025"`. Default: NULL (the year).
 #' @param region Optional regional context for the header, as a named list or
 #'   one-row data frame. Recognised fields: `name` (or `region`/`adm1`), `rank`
 #'   (or `region_rank`), `n` (or `n_regions`) and `spi` (or `region_spi`). It
 #'   renders as a header line reading `region SUD-OUEST`, `SPI 0.70` and
-#'   `worst rank 1 of 22`, joined by middle dots. The rank provides context and does not change
+#'   `rank 1 of 22 (lowest SPI first)`, joined by middle dots. The rank provides context and does not change
 #'   the label. Default: NULL (no regional line).
 #' @param indicators_df Optional district-year panel of conventional AFP and ES
 #'   indicators, keyed by `guid` (or `id_col`) and `year`. When supplied, a
@@ -65,7 +64,7 @@
 #' @param npafp_target Numeric non-polio AFP rate target for the strip's rate
 #'   panel, per 100,000 under 15. Default: NULL (`x$thresholds$npafp`).
 #' @param es Optional ad-hoc environmental-surveillance detections keyed by
-#'   `id_col` and `year`, overriding the field guide's own ES channel. Normally
+#'   `id_col` and `year`, overriding the field guide's own ES data. Normally
 #'   ES is supplied once to [spi_field_guide()] (via its `es` argument) and read
 #'   from there, so this is only needed for a field guide built without ES.
 #'   Each row (or each `es_col`-positive row) is an ES positive. Default: NULL
@@ -79,7 +78,7 @@
 #'   then uses "poliovirus". Default: NULL.
 #' @param id_col District id column, shared by `adjacency` / `boundaries` /
 #'   `es`. Default: NULL (`x$id_col`).
-#' @param year Integer focal year for the reading. Default: NULL
+#' @param year Integer year for the report. Default: NULL
 #'   (`x$read_year`).
 #' @param path Optional output directory. When set, the pager is written into
 #'   it under an auto-generated name,
@@ -99,17 +98,17 @@
 #'   extent reading ("other `unit_noun`s in ..."). Set it to match
 #'   `admin_label`, e.g. `"province"` for admin-1 inputs. Default:
 #'   `"district"`.
-#' @param note Optional provenance tag printed in the footer, e.g.
+#' @param note Optional note about the data or report, printed in the footer, e.g.
 #'   `"illustrative"` for a worked example. Default: NULL (untagged).
-#' @param verbose Logical. Emit a cli summary on build. Default: TRUE.
+#' @param verbose Logical. Print a summary when the report is created. Default: TRUE.
 #'
 #' @return An object of class `spi_pager`: a list with the rendered
 #'   `html` string, the resolved `district`, `year`, `verdict` (the review
 #'   label), and `paths` (the files written, empty when neither `path` nor
-#'   `file` is set). Printing it reports the label and any written files. Recover the markup with
+#'   `file` is set). Printing it reports the label and any written files. Get the HTML with
 #'   `as.character()`.
 #'
-#' @seealso [spi_field_guide()] for the reading and [spi_field_guide_table()]
+#' @seealso [spi_field_guide()] for the review findings and [spi_field_guide_table()]
 #'   for the multi-district table.
 #'
 #' @importFrom rlang %||%
@@ -557,7 +556,7 @@ as.character.spi_pager <- function(x, ...) {
       verdict = verdict,
       accent = "#c8102e",
       tag = "Priority for review",
-      state = "below cut \u00b7 interval below 1 \u00b7 corroborated"
+      state = "low SPI \u00b7 interval below 1 \u00b7 supported"
     ),
     "Monitor" = list(
       verdict = verdict,
@@ -566,11 +565,11 @@ as.character.spi_pager <- function(x, ...) {
       # a district is held at monitor for one of three reasons, and the page
       # prints the interval bounds a few lines down, so name the right one
       state = if (!isTRUE(focal$cri_excludes_1)) {
-        "below cut \u00b7 interval includes 1"
+        "below cutoff \u00b7 interval includes 1"
       } else if (!.fg_gate_pass(focal)) {
-        "below cut \u00b7 noise not ruled out"
+        "below cutoff \u00b7 noise not ruled out"
       } else {
-        "below cut \u00b7 not corroborated"
+        "low SPI \u00b7 no area or past-year concern"
       }
     ),
     # at or above the cut, or below it with an interval that includes 1 under
@@ -581,21 +580,21 @@ as.character.spi_pager <- function(x, ...) {
         verdict = verdict,
         accent = "#5a6883",
         tag = "No SPI indication",
-        state = "below cut \u00b7 interval includes 1"
+        state = "below cutoff \u00b7 interval includes 1"
       )
     } else if (.pager_short_of_expectation(focal)) {
       list(
         verdict = verdict,
         accent = "#5a6883",
         tag = "No SPI indication",
-        state = "at cut \u00b7 interval below 1"
+        state = "at or above cutoff \u00b7 interval below 1"
       )
     } else {
       list(
         verdict = verdict,
         accent = "#1f6f43",
         tag = "No SPI indication",
-        state = "at or above cut"
+        state = "at or above cutoff"
       )
     }
   )
@@ -1012,7 +1011,7 @@ as.character.spi_pager <- function(x, ...) {
       if (isTRUE(es_seen)) {
         miss <- "rate not reported"
       } else {
-        miss <- "No ES site"
+        miss <- "ES data unavailable"
         gap <- TRUE
       }
     }
@@ -1120,18 +1119,18 @@ as.character.spi_pager <- function(x, ...) {
       if (isTRUE(focal$persistence_concern)) "persistence"
     )
     return(paste0(
-      "Reporting below expectation \u00b7 support from ",
+      "Low SPI \u00b7 support from ",
       paste(corroborators, collapse = " and ")
     ))
   }
   if (!isTRUE(focal$spi_below)) return("")
   if (!isTRUE(focal$cri_excludes_1)) {
-    return("Recent reporting below expectation \u00b7 limited precision")
+    return("Low SPI \u00b7 interval includes 1")
   }
   if (!.fg_gate_pass(focal)) {
-    return("Reporting below expectation \u00b7 chance not ruled out")
+    return("Low SPI \u00b7 chance not ruled out")
   }
-  "Reporting below expectation \u00b7 no support from extent or persistence"
+  "Low SPI \u00b7 no support from extent or persistence"
 }
 
 # the serotype to name in the detection wording. The guide carries detection
@@ -1152,7 +1151,7 @@ as.character.spi_pager <- function(x, ...) {
   box <- function(title, years, supplied, found) {
     if (!supplied) {
       v <- "--"
-      m <- "channel not supplied"
+      m <- "data not supplied"
       cls <- "miss"
     } else if (length(years) == 0L) {
       v <- "none"
@@ -1280,7 +1279,7 @@ as.character.spi_pager <- function(x, ...) {
     )
   } else if (!isTRUE(r$spi_below)) {
     sprintf(
-      "SPI is %s, at or above the %s %s; no SPI shortfall is indicated.",
+      "SPI is %s, at or above the %s %s; no additional review under this rule.",
       spi, cut, cut_word
     )
   } else if (!isTRUE(r$cri_excludes_1)) {
@@ -1297,8 +1296,8 @@ as.character.spi_pager <- function(x, ...) {
     )
   } else if (zero_count) {
     sprintf(
-      paste0("No cases were reported against %s expected. SPI is 0 by ",
-             "construction, so its interval is also 0; this does not imply ",
+      paste0("No cases were reported against %s expected. Dividing zero by ",
+             "expected counts gives SPI and interval limits of 0; this does not imply ",
              "complete certainty.%s"),
       exp, .pager_noise_note(r, params)
     )
@@ -1320,7 +1319,7 @@ as.character.spi_pager <- function(x, ...) {
     } else {
       sprintf("%.0f%%", 100 * pu_s)
     }
-    strength <- paste0(strength, sprintf(" Chance AFP below expected %s.",
+    strength <- paste0(strength, sprintf(" Probability SPI is below 1: %s.",
                                          pu_lab))
   }
 
@@ -1397,10 +1396,10 @@ as.character.spi_pager <- function(x, ...) {
          role = timeliness$role, label = timeliness$label),
     list(code = "E", name = "Extent", reading = extent,
          role = if (isTRUE(r$extent_concern)) "corr" else "quiet",
-         label = if (isTRUE(r$extent_concern)) "corroborates" else "quiet"),
+         label = if (isTRUE(r$extent_concern)) "area concern" else "no concern"),
     list(code = "P", name = "Persistence", reading = persistence,
          role = if (isTRUE(r$persistence_concern)) "corr" else "quiet",
-         label = if (isTRUE(r$persistence_concern)) "supports" else "quiet"),
+         label = if (isTRUE(r$persistence_concern)) "also low" else "no concern"),
     list(code = "S", name = "Stool adequacy", reading = adequacy$reading,
          role = adequacy$role, label = adequacy$label)
   )
@@ -1454,7 +1453,7 @@ as.character.spi_pager <- function(x, ...) {
     # gate being switched on is not the same as it having cleared
     if (!isTRUE(tail <= alpha)) return("")
     return(sprintf(
-      " Sampling noise ruled out at %s%% too.",
+      " The Poisson sampling check also meets the %s%% threshold.",
       formatC(alpha * 100, format = "g")
     ))
   }
@@ -1495,7 +1494,7 @@ as.character.spi_pager <- function(x, ...) {
     # variability in the count, so name the latter when chance alone could
     # produce the shortfall, unless a noise gate already ruled it out
     detail <- if (zero) {
-      " With no observed cases, SPI is 0 by construction."
+      " SPI is 0 because no cases were reported."
     } else if (!isTRUE(focal$cri_excludes_1)) {
       sprintf(" SPI is %s, but the shortfall is uncertain%s.", below,
               if (obs < few_cases) " with so few cases" else "")
@@ -1510,17 +1509,16 @@ as.character.spi_pager <- function(x, ...) {
   } else if (.pager_short_of_expectation(focal)) {
     sprintf(
       paste0("%s\u2019s SPI is at or above the cut, but its 90%% interval ",
-             "lies wholly below 1: it reported fewer NPAFP cases in %d than ",
-             "expected."),
+             "lies wholly below 1. Review its %d results alongside the reported ",
+             "and expected counts."),
       name, yr
     )
   } else {
     spi <- focal$spi_median
     sprintf(
-      paste0("%s\u2019s %d reporting is %s the national relative-reporting ",
-             "pattern. SPI is %s."),
+      paste0("%s\u2019s SPI for %d is %s. Read it alongside the NPAFP rate, ",
+             "timeliness, and stool adequacy."),
       name, yr,
-      if (isTRUE(spi >= 1.5)) "above" else "broadly in line with",
       .pager_num(spi, 2)
     )
   }
@@ -1556,7 +1554,7 @@ as.character.spi_pager <- function(x, ...) {
   if (verdict == "Priority for review") {
     return(paste0(
       sprintf(
-        paste0("Relative reporting is below the national pattern, with ",
+        paste0("SPI is below the chosen cutoff, with ",
                "supporting evidence from %s. Further review is warranted."),
         paste(corroborators, collapse = " and ")
       ),
@@ -1573,7 +1571,7 @@ as.character.spi_pager <- function(x, ...) {
     }
     return(paste0(
       sprintf(
-        paste0("Relative reporting is below the national pattern, but %s. ",
+        paste0("SPI is below the chosen cutoff, but %s. ",
                "Reassess as additional data become available."),
         reason
       ),
@@ -1582,16 +1580,15 @@ as.character.spi_pager <- function(x, ...) {
   }
   if (isTRUE(focal$spi_below)) {
     return(paste0(
-      "Relative reporting is below the national pattern, but the 90% ",
+      "SPI is below the chosen cutoff, but the 90% ",
       "interval includes 1. Under the interval rule, a shortfall receives a ",
       "review label only when its interval lies wholly below 1."
     ))
   }
   if (.pager_short_of_expectation(focal)) {
     return(paste0(
-      "SPI is at or above the cut, but its 90% interval lies wholly below 1. ",
-      "Relative reporting is below the national pattern, but STEPS is not ",
-      "applied at or above the cut."
+      "SPI is at or above the cutoff, but its 90% interval lies wholly below 1. ",
+      "STEPS is not applied at or above the chosen cutoff."
     ))
   }
   sprintf(
@@ -1641,7 +1638,7 @@ as.character.spi_pager <- function(x, ...) {
   pop <- suppressWarnings(as.numeric(focal$pop_u15 %||% NA))
   pop_txt <- if (isTRUE(is.finite(pop))) {
     sprintf(
-      "<br>pop u15 %s", formatC(round(pop), format = "d", big.mark = ",")
+      "<br>population under 15: %s", formatC(round(pop), format = "d", big.mark = ",")
     )
   } else {
     ""
@@ -1670,7 +1667,7 @@ as.character.spi_pager <- function(x, ...) {
       bits <- c(bits, sprintf("SPI %s", .pager_num(r_spi, 2)))
     }
     if (isTRUE(is.finite(r_rank)) && isTRUE(is.finite(r_n))) {
-      bits <- c(bits, sprintf("worst rank %d of %d", r_rank, r_n))
+      bits <- c(bits, sprintf("rank %d of %d (lowest SPI first)", r_rank, r_n))
     }
     if (length(bits) > 0L) {
       region_txt <- paste0("<br>", paste(bits, collapse = " \u00b7 "))
@@ -1697,7 +1694,7 @@ as.character.spi_pager <- function(x, ...) {
 
   rule <- if (identical(as.character(focal$verdict), "No SPI indication")) {
     sprintf(
-      paste0("SPI does not indicate a relative reporting shortfall in %d. ",
+      paste0("The chosen rule gives no SPI indication for additional review in %d. ",
              "Timeliness, stool adequacy and other surveillance indicators ",
              "should still be reviewed separately."),
       as.integer(focal$year)
@@ -1744,7 +1741,7 @@ as.character.spi_pager <- function(x, ...) {
     as.character(year_label)
   }
   eyebrow <- paste(
-    c("spi", "SPI reading", adm0[nzchar(adm0)], yr_lbl),
+    c("spi", "SPI district report", adm0[nzchar(adm0)], yr_lbl),
     collapse = " \u00b7 "
   )
 
@@ -1764,7 +1761,7 @@ as.character.spi_pager <- function(x, ...) {
     # body
     "<div class=\"body\"><div class=\"cgroup\">",
     "<div class=\"sectlab\"><span>SPI over time \u2014 ", name, "</span>",
-    "<span>observed \u00f7 model-expected NPAFP</span></div>",
+    "<span>SPI: reporting compared with expectations</span></div>",
     "<div class=\"caption\">", caption, "</div>",
     "<div class=\"chartbox\"><div class=\"ts\">", chart, "</div>",
     if (nzchar(locator)) {
@@ -1777,7 +1774,7 @@ as.character.spi_pager <- function(x, ...) {
     "<div class=\"legend\">",
     "<span><span class=\"lk\"></span> ", name, "</span>",
     "<span><span class=\"lband\"></span> 90% credible interval</span>",
-    "<span><span class=\"lk exp\"></span> 1.0, expected detection</span>",
+    "<span><span class=\"lk exp\"></span> 1.0, SPI reference</span>",
     legend_detect,
     "</div>",
     .pager_strip_html(
@@ -1810,7 +1807,7 @@ as.character.spi_pager <- function(x, ...) {
   paste0(
     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">",
     "<meta name=\"viewport\" content=\"width=device-width, ",
-    "initial-scale=1.0\"><title>", name, " \u2014 SPI reading ", year,
+    "initial-scale=1.0\"><title>", name, " \u2014 SPI district report ", year,
     "</title><style>", .pager_css(accent), "</style></head>"
   )
 }

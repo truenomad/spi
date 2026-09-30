@@ -1,10 +1,13 @@
 # five districts in a strip and two provinces, one row per district-year
 direct_toy <- function() {
-  cells <- sf::st_make_grid(
-    sf::st_as_sfc(sf::st_bbox(c(xmin = 0, ymin = 0, xmax = 5, ymax = 1))),
-    n = c(5, 1)
-  )
-  boundaries <- sf::st_sf(district = LETTERS[1:5], geometry = cells)
+  boundaries <- NULL
+  if (requireNamespace("sf", quietly = TRUE)) {
+    cells <- sf::st_make_grid(
+      sf::st_as_sfc(sf::st_bbox(c(xmin = 0, ymin = 0, xmax = 5, ymax = 1))),
+      n = c(5, 1)
+    )
+    boundaries <- sf::st_sf(district = LETTERS[1:5], geometry = cells)
+  }
   counts <- tibble::tribble(
     ~district, ~year, ~npafp_cases, ~population_u15,
     "A", 2022, 8, 100000, "A", 2023, 10, 105000, "A", 2024, 9, 110000,
@@ -76,6 +79,8 @@ test_that("the reference is the country, the region or the neighbours", {
   expect_equal(a$reference_rate,
                sum(b_hist$npafp_cases) / sum(b_hist$population_u15) * 1e5)
 
+  testthat::skip_if_not_installed("sf")
+  testthat::skip_if_not_installed("spdep")
   nbr <- run_toy(toy$cases, toy$population, boundaries = toy$boundaries,
                  first_assessment = 2026)
   a <- nbr$summary[nbr$summary$district == "A", ]
@@ -95,6 +100,38 @@ test_that("one table with the standard names needs no other argument", {
     spi_direct(toy$cases, verbose = FALSE),
     "population_u15"
   )
+})
+
+test_that("the exact vignette call uses provincial reference rates", {
+  path <- test_path("..", "..", "vignettes", "spi-direct.Rmd")
+  skip_if_not(file.exists(path), "Vignette source is not installed")
+  lines <- readLines(path, warn = FALSE)
+  chunk <- function(label) {
+    start <- grep(paste0("^```\\{r ", label, "[,}]"), lines)
+    stopifnot(length(start) == 1L)
+    end <- which(seq_along(lines) > start & lines == "```")[1]
+    parse(text = lines[seq.int(start + 1L, end - 1L)])
+  }
+
+  withr::local_seed(1)
+  example <- new.env(parent = environment())
+  eval(chunk("example-country"), envir = example)
+  eval(chunk("run"), envir = example)
+  result <- example$spi_results
+
+  expect_equal(result$metadata$region_col, "province")
+  expect_equal(sort(unique(result$summary$year)), c(2025L, 2026L))
+  expect_true(all(result$summary$reference_source == "region"))
+
+  # Check against the other North districts, using only earlier years.
+  afp <- example$afp
+  history <- afp[afp$province == "North" & afp$district != "A" &
+                   afp$year < 2026, ]
+  a <- result$summary[result$summary$district == "A" &
+                        result$summary$year == 2026, ]
+  expect_equal(nrow(a), 1L)
+  expect_equal(a$reference_rate,
+               sum(history$npafp_cases) / sum(history$population_u15) * 1e5)
 })
 
 test_that("the region is optional", {
@@ -126,6 +163,39 @@ test_that("a missing case row counts as zero cases", {
   cc <- res$summary[res$summary$district == "C", ]
   expect_equal(cc$history_cases, 2)
   expect_equal(cc$history_years, 4L)
+})
+
+test_that("missing combined-table rows are omitted rather than filled with zeros", {
+  toy <- direct_toy()
+  afp <- toy$counts
+  afp <- afp[!(afp$district == "C" & afp$year %in% c(2024, 2026)), ]
+
+  combined <- run_toy(afp)
+  c_ <- combined$summary[combined$summary$district == "C", ]
+  expect_equal(c_$year, 2025L)
+  expect_equal(c_$history_years, 2L)
+  expect_equal(c_$history_pop, 500000)
+  expect_equal(c_$history_cases, 1)
+  expect_equal(c_$population_qc, "check_history")
+
+  # A separate population table restores both missing district-years.
+  separate <- run_toy(afp, population = toy$population)
+  c_ <- separate$summary[separate$summary$district == "C" &
+                          separate$summary$year == 2026, ]
+  expect_equal(nrow(c_), 1L)
+  expect_equal(c_$observed, 0)
+  expect_equal(c_$history_years, 4L)
+  expect_equal(c_$history_pop, 1000000)
+
+  # An explicit zero in a combined table also retains the assessment row.
+  complete <- toy$counts
+  complete$npafp_cases[complete$district == "C" & complete$year == 2026] <- 0
+  retained <- run_toy(complete)
+  c_ <- retained$summary[retained$summary$district == "C" &
+                          retained$summary$year == 2026, ]
+  expect_equal(nrow(c_), 1L)
+  expect_equal(c_$observed, 0)
+  expect_gt(c_$expected, 0)
 })
 
 test_that("a well-observed history stays close to its own rate", {
@@ -173,7 +243,7 @@ test_that("the population check flags a spike and a new district", {
   res <- run_toy(toy$cases, pop, first_assessment = 2026)
   qc <- res$population_qc
   expect_equal(qc$population_qc[qc$district == "D"], "check_spike")
-  expect_equal(qc$population_qc[qc$district == "B"], "check_boundary")
+  expect_equal(qc$population_qc[qc$district == "B"], "check_history")
   expect_equal(qc$population_qc[qc$district == "A"], "ok")
 })
 
@@ -242,4 +312,31 @@ test_that("verbose output reports each step", {
     ),
     "Reading district-year counts"
   )
+})
+
+test_that("the explanation can be translated", {
+  skip_if_not_installed("sntutils")
+  skip_if_not_installed("gtranslate")
+  local_mocked_bindings(
+    translate_text_vec = function(text, target_language, ...) {
+      paste0(target_language, ":", text)
+    },
+    .package = "sntutils"
+  )
+  toy <- direct_toy()
+  res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
+  en <- spi_direct_explain(res, "B", print = FALSE)
+  fr <- spi_direct_explain(res, "B", language = "fr", print = FALSE)
+  expect_equal(fr$section, paste0("fr:", en$section))
+  expect_equal(fr$component, paste0("fr:", en$component))
+  numbers <- grepl("^[0-9 .]+$", en$value)
+  expect_equal(fr$value[numbers], en$value[numbers])
+  expect_equal(
+    fr$value[en$component == "Population check"], "check_history"
+  )
+  expect_equal(
+    fr$value[en$component == "Reference source"],
+    paste0("fr:", en$value[en$component == "Reference source"])
+  )
+  expect_error(spi_direct_explain(res, "B", language = 1), "language")
 })

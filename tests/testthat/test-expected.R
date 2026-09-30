@@ -303,7 +303,7 @@ test_that("overdispersion comparison helpers cover recommend branches", {
   all_pass <- dplyr::bind_rows(ok("none", 0.10), ok("iid", 0.05))
   rec1 <- spi:::.recommend_overdispersion(all_pass)
   expect_equal(rec1$choice, "iid")
-  expect_match(rec1$reasoning, "All specs passed")
+  expect_match(rec1$reasoning, "All models passed")
 
   # each disqualifier fires; a survivor remains
   excl <- dplyr::bind_rows(

@@ -19,9 +19,10 @@
 #'   covariate columns. If NULL, the model uses population, spatial, seasonal,
 #'   and year terms according to the selected settings. Covariates are
 #'   standardised internally (mean = 0, sd = 1). Covariate adjustment
-#'   changes the estimand: a covariate-adjusted SPI no longer answers the same
-#'   question as the default SPI, and the coefficients are conditional
-#'   associations within the expected-count model, not causal effects.
+#'   changes the expected counts and therefore the comparison made by SPI.
+#'   For example, including travel time makes the expected count depend partly
+#'   on access to care. Coefficients describe associations after accounting
+#'   for the other model terms; they do not establish cause and effect.
 #'   Default: NULL.
 #' @param id_col Character. Name of the district identifier column in `cases`,
 #'   `population`, and `covariates`. Must match the `id_col` used when building
@@ -32,21 +33,21 @@
 #'   For AFP surveillance the at-risk population is under-15, so the default
 #'   is `"pop_u15"`. Pass `"pop"` if your tibble carries total population,
 #'   `"pop_u16"` for under-16, or any other column name to switch
-#'   denominators without pre-renaming. The function renames this column to
-#'   `pop` internally and aborts with a helpful hint if it isn't present.
+#'   population columns without renaming them first. The function uses `pop`
+#'   internally and reports an error if the requested column is missing.
 #'   Default: "pop_u15".
-#' @param year_effect Character. Optional between-year random effect to
+#' @param year_effect Character. Optional year effect to
 #'   account for differences in reported counts between years (e.g. changes
 #'   during insecurity, programme transitions, or a pandemic). "iid" (default) estimates each year's effect
-#'   independently; this is the paper specification, and is recommended
-#'   when the between-year pattern is non-monotonic, such as a U shape.
+#'   independently; this is the setting used in the accompanying study. It allows reporting
+#'   to rise and fall between years without assuming a smooth trend.
 #'   "none" omits the year effect; "rw1" smooths effects across adjacent
 #'   years.
 #' @param season Character. Seasonal specification: "harmonic" (1st + 2nd order
 #'   sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),
 #'   "monthly" (12 monthly fixed effects, January omitted), "none" (no seasonal
 #'   component). Default: "harmonic".
-#' @param overdispersion Character. Overdispersion mechanism: "nb" (negative
+#' @param overdispersion Character. How to allow for count variation beyond a Poisson distribution: "nb" (negative
 #'   binomial likelihood, default, the paper specification), "iid"
 #'   (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month),
 #'   "none" (plain Poisson, not recommended for sparse data), or "auto" (fit
@@ -54,7 +55,7 @@
 #'   [spi_compare_overdispersion()], then refit it at the requested
 #'   `n_draws`). Default: "nb".
 #' @param prior_phi Named list with elements `U` and `alpha` giving the BYM2
-#'   mixing parameter PC prior `P(phi < U) = alpha`. Default:
+#'   mixing parameter penalised-complexity (PC) prior `P(phi < U) = alpha`. Default:
 #'   `list(U = 0.5, alpha = 0.5)` (50% prior probability that phi is below 0.5).
 #' @param prior_precision_year Named list with elements `U` and `alpha`
 #'   giving the PC prior for the year random effect precision. Default
@@ -64,8 +65,8 @@
 #' @param prior_precision Named list with elements `U` and `alpha` giving the
 #'   marginal SD PC prior `P(1/sqrt(tau) > U) = alpha`. Default:
 #'   `list(U = 1, alpha = 0.01)` (1% chance SD exceeds 1 on log scale).
-#' @param n_draws Integer. Posterior draws from joint latent field, used for
-#'   credible intervals for SPI. Use 1000 for analysis, 100 for
+#' @param n_draws Integer. Samples from the fitted model, used to calculate credible intervals
+#'   for SPI. Each draw samples the model terms together. Use 1000 for analysis, 100 for
 #'   quick checks. Default: 1000L.
 #' @param log_transform Character vector. Covariate column names to
 #'   `log(1 + x)` transform. Typical: `c("facility_index", "conflict_events")`.
@@ -74,21 +75,22 @@
 #'   `n_draws x n_district_months` draws matrix is returned in
 #'   `result$draws`. Set FALSE for large jobs to keep only the summary
 #'   quantiles and save memory.
-#' @param verbose Logical. Progress messages via cli. FALSE for batch jobs.
+#' @param verbose Logical. Print progress messages. Set FALSE to suppress them.
 #'   Default: TRUE.
 #' @param check Logical. Run [spi_check_inputs()] on `cases`, `population`, and
 #'   `adjacency` before fitting and abort on error-level issues. Default TRUE.
-#'   Set FALSE only to skip a redundant re-check (the auto path and
-#'   [spi_compare_overdispersion()] set it internally so the check runs once).
+#'   Set FALSE only if the inputs have already been checked. Automatic model
+#'   selection and [spi_compare_overdispersion()] use this to avoid repeating
+#'   the same check for each fit.
 #' @param debug Logical. If TRUE, runs INLA in verbose mode (prints its raw
 #'   stdout/stderr, including VB-correction notes), prints model
 #'   diagnostics (CPO failure rate, hyperparameter posterior summary,
 #'   sanity check that median expected count is comparable to median
 #'   observed count), and skips muting INLA's compiled-binary messages.
-#'   Use when results look off or when investigating convergence. Default:
+#'   Use to investigate unexpected results or convergence problems. Default:
 #'   FALSE.
 #' @param seed Integer. Random seed forwarded to `inla.posterior.sample()`,
-#'   which pins the posterior draws. Must be a single non-negative whole
+#'   which controls the posterior sampling. Must be a single non-negative whole
 #'   number; `NULL` draws a fresh seed each call. Seeding alone is *not*
 #'   sufficient for run-to-run reproducibility -- see the Reproducibility
 #'   section. Default: 42L.
@@ -112,7 +114,7 @@
 #'   \item{model}{Fitted INLA object.}
 #'   \item{adjacency}{spdep nb object.}
 #'   \item{hyperparameters}{Tibble with posterior summaries of tau, phi, sigma.}
-#'   \item{priors}{List of prior specs used.}
+#'   \item{priors}{List of prior settings used.}
 #'   \item{cov_params}{Named list of `(mean, sd)` used to standardise each
 #'     covariate, used by `predict()`.}
 #'   \item{data}{Input data tibble (for downstream functions).}
@@ -129,7 +131,7 @@
 #' - Seasonal and year effects, controlled by `season` and `year_effect`
 #' - Optional covariates
 #'
-#' **Input validation.** Executed before INLA runs:
+#' **Input checks.** Before fitting, the function checks:
 #' 1. Required columns present and correct types
 #' 2. No negative counts or NAs
 #' 3. All district ids in cases appear in adjacency
@@ -163,15 +165,15 @@
 #' the default `overdispersion = "nb"` or `overdispersion = "none"`.
 #'
 #' @section Paper specification:
-#' The call the paper uses is `season = "harmonic"`, `year_effect = "iid"`,
+#' The accompanying study uses `season = "harmonic"`, `year_effect = "iid"`,
 #' `overdispersion = "nb"`, with no covariates -- the defaults below. The
 #' published index, \code{spi_index()}, is built on fits with these
 #' defaults.
 #'
 #' @section Choosing a seasonal specification:
 #' Surveillance counts often show within-year cycles driven by transmission
-#' biology, climate, school terms, or reporting patterns. Picking the wrong
-#' `season` term either under-fits (seasonal variation is attributed to spatial effects) or over-fits (monthly effects fit random variation).
+#' biology, climate, school terms, or reporting patterns. A seasonal term that is too restrictive can leave seasonal variation
+#' unexplained; one that is too flexible can fit random variation.
 #'
 #' **Quick diagnostic.** Before fitting, plot the monthly average count to see
 #' whether a cycle exists and what shape it has:
@@ -196,8 +198,9 @@
 #'     sinusoid. Use when seasonality is real but asymmetric or multi-modal
 #'     (e.g. cholera in some settings).
 #'   \item *"monthly"* -- 11 free monthly fixed effects (January as reference).
-#'     Most flexible, no smoothing. Use only with plentiful data (~3+ years
-#'     across most districts); otherwise monthly effects absorb noise.
+#'     Estimates each month separately, without smoothing. It needs enough
+#'     data (about three or more years across most districts) to distinguish
+#'     monthly patterns from random variation.
 #' }
 #'
 #' **Compare plausible choices.** Examine the fitted seasonal pattern,
@@ -237,8 +240,8 @@
 #' the caller's RNG state afterwards. (3) is why `num_threads` defaults to
 #' `"1:1"` alongside a seed.
 #'
-#' Changes in these settings can affect SPI values and field-guide judgements.
-#' A district's judgement can also change when results for other districts
+#' Changes in these settings can affect SPI values and field-guide labels.
+#' A district's label can also change when results for other districts
 #' change, because extent depends on their SPI values.
 #'
 #' The defaults use one thread for reproducibility. To use INLA's global thread
@@ -318,11 +321,9 @@ spi_expected <- function(
   }
 
   # --- check required packages --------------------------
+  .check_inla()
   .check_pkg(
-    c(
-      "INLA", "spdep", "dplyr", "tibble", "lubridate",
-      "matrixStats", "cli"
-    ),
+    c("spdep", "dplyr", "tibble", "lubridate", "matrixStats", "cli"),
     reason = "to fit the BYM2 expected rate model"
   )
 
@@ -1112,7 +1113,7 @@ spi_expected <- function(
   med_exp <- stats::median(x$summary$expected_median, na.rm = TRUE)
   ratio <- if (med_obs == 0) NA_real_ else med_exp / med_obs
 
-  cli::cli_h3("Scale sanity check (observed vs expected)")
+  cli::cli_h3("Compare observed and expected count scales")
   cli::cli_alert_info("Median observed count: {round(med_obs, 2)}.")
   cli::cli_alert_info("Median expected count: {round(med_exp, 2)}.")
   if (!is.na(ratio) && (ratio > 10 || ratio < 0.1)) {
@@ -1550,18 +1551,19 @@ as.data.frame.spi_expected <- function(x, ...) {
 #'   \item{fits}{Named list of `spi_expected` objects, keyed by spec.}
 #'   \item{summary}{Tibble of key diagnostics, one row per specification.}
 #'   \item{recommendation}{List with `choice` (the specification selected by
-#'     the package's diagnostic rule, a diagnostic recommendation),
+#'     the package's diagnostic rule),
 #'     `reasoning` (string explaining the choice), `excluded` (specs failing
 #'     a diagnostic rule), and `survivors` (specs that passed all rules).}
 #' }
 #'
 #' @details
-#' For each spec the function refits [spi_expected()] and extracts: DIC, WAIC,
+#' For each specification the function refits [spi_expected()] and extracts: DIC, WAIC,
 #' effective parameter count, spatial SD (`1/sqrt(tau_spatial)`), BYM2 phi
 #' posterior median (with a "pegged" flag for boundary values), an
 #' overdispersion SD (`1/sqrt(tau_obs)` for "iid", `1/sqrt(nb_size)` for "nb",
 #' NA for "none"), the share of observations with valid CPO, and a
-#' KS-distance-to-uniform PIT calibration statistic.
+#' Kolmogorov-Smirnov (KS) distance of the probability integral transform
+#' (PIT) values from a uniform distribution.
 #'
 #' **Selection rule.** A model is excluded if fewer than half its CPO values
 #' are valid, its effective parameter count exceeds 20% of observations, or
@@ -1598,6 +1600,7 @@ spi_compare_overdispersion <- function(
   check = TRUE
 ) {
   # --- check required packages --------------------------
+  .check_inla()
   .check_pkg(
     c("purrr", "tibble", "dplyr", "cli"),
     reason = "to compare BYM2 fits across overdispersion specs"
@@ -1792,30 +1795,30 @@ spi_compare_overdispersion <- function(
   reasons <- character(0)
   if (length(bad_cpo) > 0) {
     reasons <- c(reasons, sprintf(
-      "broken CPO (%s)", paste(bad_cpo, collapse = ", ")
+      "valid CPO for fewer than half of observations (%s)", paste(bad_cpo, collapse = ", ")
     ))
   }
   if (length(overfit) > 0) {
     reasons <- c(reasons, sprintf(
-      "overfit p_eff > 20%% of n (%s)",
+      "effective parameter count exceeds 20%% of observations (%s)",
       paste(overfit, collapse = ", ")
     ))
   }
   if (length(pegged) > 0) {
     reasons <- c(reasons, sprintf(
-      "phi pegged at boundary (%s)",
+      "spatial mixing parameter near 0 or 1 (%s)",
       paste(pegged, collapse = ", ")
     ))
   }
 
   reasoning <- if (length(excluded) == 0) {
     sprintf(
-      "All specs passed diagnostics; %s has the best PIT calibration.",
+      "All models passed the checks; %s has the smallest PIT distance.",
       recommended
     )
   } else {
     sprintf(
-      "Excluded: %s. Best PIT calibration among survivors (%s): %s.",
+      "Excluded: %s. Smallest PIT distance among remaining models (%s): %s.",
       paste(reasons, collapse = "; "),
       paste(survivors$spec, collapse = ", "),
       recommended
@@ -1862,7 +1865,7 @@ spi_compare_overdispersion <- function(
     others <- setdiff(recommendation$survivors, recommendation$choice)
     if (length(others) > 0) {
       cli::cli_alert_info(
-        "Other survivors: {.val {others}}."
+        "Other models that passed: {.val {others}}."
       )
     }
   }

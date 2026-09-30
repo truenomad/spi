@@ -43,7 +43,7 @@ findings by severity, one row each with \code{severity}, \code{code}, \code{mess
 affected \code{ids}), \code{gaps} (a \code{district_id} x \code{month} tibble of missing
 district-months), \code{n_error} / \code{n_warning} /
 \code{n_note} counts, \code{ok} (\code{TRUE} when there are no error-level issues), and
-the panel dimensions. Has a \code{print} method.
+the numbers of districts and months. Has a \code{print} method.
 }
 \description{
 Checks case counts, population denominators, and district boundaries before
@@ -55,10 +55,10 @@ Issues have three severity levels:
 \itemize{
 \item \strong{error} -- blocks the fit (missing columns, negative counts, negative
 population, duplicate district-months, case ids absent from the shapefile).
-\item \strong{warning} -- needs review (panel gaps, zero population, partial coverage,
+\item \strong{warning} -- needs review (missing district-months, zero population, incomplete coverage,
 shapefile districts with no case rows, invalid geometry, covariate ids
 absent from the case data).
-\item \strong{note} -- additional information (adjacency components).
+\item \strong{note} -- additional information (separate groups in the neighbour graph).
 }
 
 \code{\link[=spi_expected]{spi_expected()}} calls this check and stops on errors. Run it separately
@@ -77,5 +77,6 @@ rpt$gaps
 }
 }
 \seealso{
-\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_adjacency]{spi_adjacency()}}
+\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_adjacency]{spi_adjacency()}}, and
+\code{vignette("spi-data-preparation")} for how to prepare the inputs.
 }

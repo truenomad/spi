@@ -5,7 +5,7 @@
 # Functions used:
 #
 #   spi_adjacency              spatial neighbour graph
-#   spi_expected               BYM2 expected-count model (bare + adjusted specs)
+#   spi_expected               BYM2 expected-count model (with and without covariates)
 #   spi_compare_overdispersion Poisson / iid / NB likelihood comparison
 #   spi_index                  surveillance performance index (3 aggregation levels)
 #   spi_compare_npafp          SPI vs the NPAFP target (+ strata)
@@ -19,10 +19,10 @@
 #   blindspot-paper_v2/02_scripts/main/2e_calculate_spi.R
 #   blindspot-paper_v2/02_scripts/main/2f_all_cvdpv2_retrospective.R
 #
-# Primary "bare" spec:
+# Primary model, without covariates:
 #   log(mu_it) = alpha + b_i (BYM2) + u_t (IID year) + s(month) + log(pop / 1e5)
 # Adjusted spec adds district-level covariates (a sensitivity analysis).
-# A priori cuts:  SPI >= 0.80  vs  WHO NPAFP target of 3 per 100,000
+# Example cutoffs: SPI >= 0.80 and NPAFP rate >= 3 per 100,000
 # person-years.
 #
 # Locate this file after installation:
@@ -40,7 +40,7 @@ cli::cli_h1("spi -- paper reproduction on synthetic data")
 # Setup and parameters ---------------------------------------------------------
 ## ---------------------------------------------------------------------------##
 
-spi_cut <- 0.80 # paper's a priori SPI adequacy cut
+spi_cut <- 0.80 # SPI cutoff for this example
 npafp_target <- 3 # per 100,000 under-15 person-years
 focal_year <- 2023 # year displayed on the three-panel map
 seed <- 42L
@@ -69,7 +69,7 @@ cli::cli_alert_info(
    (EPSG:{sf::st_crs(boundaries)$epsg})"
 )
 cli::cli_alert_info(
-  "truth: {sum(truth$is_blindspot)} planted blindspots"
+  "truth: {sum(truth$is_blindspot)} simulated reporting shortfalls"
 )
 
 ## ---------------------------------------------------------------------------##
@@ -97,7 +97,7 @@ print(adj)
 # Covariates describe surveillance access. Adjusting for them can reduce the
 # apparent shortfall, so compare the adjusted results with the default model.
 
-cli::cli_h2("Option A -- bare spec (primary)")
+cli::cli_h2("Option A -- model without covariates")
 
 fit_bare <- spi::spi_expected(
   cases = cases,
@@ -171,7 +171,7 @@ print(tibble::tibble(
 cli::cli_alert_info("Downstream steps use the bare (primary) fit.")
 
 ## ---------------------------------------------------------------------------##
-# Overdispersion sanity check (paper: spi_compare_overdispersion in 2e) --------
+# Compare models for count variation (paper: spi_compare_overdispersion in 2e) --------
 ## ---------------------------------------------------------------------------##
 
 cli::cli_h2("Compare overdispersion specs")
@@ -295,11 +295,11 @@ cli::cli_h3("By province")
 print(conc_by_prov$by_stratum, n = Inf)
 
 ## ---------------------------------------------------------------------------##
-# Truth overlay -- validation-style sanity check (toy only) --------------------
+# Compare results with the simulation settings --------------------
 ## ---------------------------------------------------------------------------##
 
-# Do planted blindspots land in the "False reassurance" quadrant? Not a
-# paper step; a sanity check enabled by the known simulation settings.
+# Check which categories contain the simulated reporting shortfalls.
+# This comparison uses the known simulation settings.
 
 cli::cli_h2("Truth overlay")
 
@@ -310,7 +310,7 @@ overlay <- table(
   planted = ifelse(conc$district_year$adm2_guid %in% planted, "planted", "other")
 )
 
-cli::cli_h3("Concordance cell x planted-blindspot flag")
+cli::cli_h3("SPI and NPAFP category by simulated reporting shortfall")
 print(overlay)
 
 n_planted <- function(cell) {
@@ -321,12 +321,12 @@ n_planted <- function(cell) {
 }
 
 cli::cli_alert_info(
-  "SPI-only catches (False reassurance) among planted: \\
-   {n_planted('False reassurance')}"
+  "SPI below threshold only among simulated shortfalls: \\
+   {n_planted('SPI below threshold only')}"
 )
 cli::cli_alert_info(
-  "Both-metric catches (True shortfall) among planted: \\
-   {n_planted('True shortfall')}"
+  "Both below among simulated shortfalls: \\
+   {n_planted('Both below')}"
 )
 
 ## ---------------------------------------------------------------------------##
@@ -357,7 +357,7 @@ if (interactive()) {
 # )
 
 ## ---------------------------------------------------------------------------##
-# SPI field guide -- STEPS review + judgement (paper: 2t) ---------------------
+# SPI field guide -- STEPS review and labels (paper: 2t) ---------------------
 ## ---------------------------------------------------------------------------##
 
 # Reviews every district-year with an SPI below 1 through the five STEPS
@@ -391,7 +391,7 @@ if (interactive()) {
 
 # Field guide teaching table (Table 2 style): the five STEPS components for
 # four rule-selected districts, cells shaded by concern. "scan" lists every
-# district by judgement; "worked" walks the four teaching cases.
+# district by review label; "worked" walks the four teaching cases.
 scan <- spi::spi_field_guide_table(fg, engine = "gt", layout = "scan")
 worked <- spi::spi_field_guide_table(fg, engine = "gt", layout = "worked")
 if (interactive()) {

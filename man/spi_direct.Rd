@@ -91,15 +91,15 @@ the country scaling of the reference rate (\code{country_factor}).
 }
 \description{
 Calculates the surveillance performance index (SPI) for each district and
-assessment year with the arithmetic of the NPAFP rate, without fitting a
-model. A district's expected count is its NPAFP rate over all preceding
-years multiplied by its current population. Where the preceding history
-holds little information, the rate is stabilised automatically towards
-the rate of the neighbouring districts. The district observed-to-expected
+assessment year from earlier NPAFP counts and population estimates,
+without fitting the INLA spatial and temporal model. A district's expected count is its NPAFP rate over all preceding
+years multiplied by its current population. When a district has little reporting history, the calculation also uses
+reporting from other districts in its region or the rest of the country.
+Supplying boundaries allows neighbouring districts to be used first. The district observed-to-expected
 ratio is then divided by the national observed-to-expected ratio for the
 same year.
 
-Every value can be traced back to its inputs with \code{\link[=spi_direct_explain]{spi_direct_explain()}}.
+Inspect the inputs and calculation for one district with \code{\link[=spi_direct_explain]{spi_direct_explain()}}.
 }
 \details{
 \strong{Steps for each assessment year.} Only years before the assessment year
@@ -107,8 +107,8 @@ enter the expectation.
 \enumerate{
 \item Add up each district's preceding NPAFP cases and preceding population
 (child-years), and divide to get its historical rate.
-\item Stabilise the historical rate where the history holds little
-information (see below).
+\item Stabilise the historical rate when the district has little
+reporting history (see below).
 \item Expected cases = current population x stabilised rate.
 \item Divide observed by expected cases.
 \item Divide that ratio by the national ratio (all observed over all
@@ -126,13 +126,13 @@ as Poisson around that number times a relative rate, with log relative
 rates normally distributed across the country. The centre and spread of
 that distribution are estimated by maximum likelihood from all districts'
 histories for each assessment year, and the stabilised rate is the
-district's posterior mean relative rate times its reference rate. Nothing
-is chosen by the user.
+district's posterior mean relative rate times its reference rate. The function estimates these parameters
+automatically.
 
-A district with a long, well-populated history keeps a stabilised rate
+A district whose history covers many child-years keeps a stabilised rate
 close to its own rate, including when its record is persistently low. A
 district with a short history, or a new district, moves further towards
-its neighbours. A district with preceding child-years but no preceding
+its reference rate. A district with preceding child-years but no preceding
 case is not given an expected rate of zero. \code{history_info} describes how
 much information the history holds: substantial, moderate, limited or
 none, from \code{information_score}, the share of information from the
@@ -149,13 +149,14 @@ of all such differences and is at least 10\%, the smallest difference
 flagged, so that small differences between smooth population projections
 are not flagged. \code{population_qc} is \code{"check_spike"} when an unusual change
 is reversed by an unusual change in the other direction within two years,
-\code{"check_change"} for any other unusual change, \code{"check_boundary"} when the
+\code{"check_change"} for any other unusual change, \code{"check_history"} when the
 district is missing from some years (for example a new or split district),
 and \code{"ok"} otherwise. Flags identify unusual patterns for review; they do
 not imply that the population is incorrect, and supplied populations are
 never altered.
 }
 \examples{
+\dontshow{if (requireNamespace("sf", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # annual NPAFP counts with each district's province
 provinces <- sf::st_drop_geometry(synth_surveillance$boundaries)
 annual <- synth_surveillance$cases |>
@@ -174,6 +175,7 @@ res <- spi_direct(
   verbose = FALSE
 )
 res
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=spi_direct_explain]{spi_direct_explain()}}, \code{vignette("spi-direct")}, and

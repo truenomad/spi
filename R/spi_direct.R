@@ -2,15 +2,15 @@
 #'
 #' @description
 #' Calculates the surveillance performance index (SPI) for each district and
-#' assessment year with the arithmetic of the NPAFP rate, without fitting a
-#' model. A district's expected count is its NPAFP rate over all preceding
-#' years multiplied by its current population. Where the preceding history
-#' holds little information, the rate is stabilised automatically towards
-#' the rate of the neighbouring districts. The district observed-to-expected
+#' assessment year from earlier NPAFP counts and population estimates,
+#' without fitting the INLA spatial and temporal model. A district's expected count is its NPAFP rate over all preceding
+#' years multiplied by its current population. When a district has little reporting history, the calculation also uses
+#' reporting from other districts in its region or the rest of the country.
+#' Supplying boundaries allows neighbouring districts to be used first. The district observed-to-expected
 #' ratio is then divided by the national observed-to-expected ratio for the
 #' same year.
 #'
-#' Every value can be traced back to its inputs with [spi_direct_explain()].
+#' Inspect the inputs and calculation for one district with [spi_direct_explain()].
 #'
 #' @details
 #' **Steps for each assessment year.** Only years before the assessment year
@@ -18,8 +18,8 @@
 #'
 #' 1. Add up each district's preceding NPAFP cases and preceding population
 #'    (child-years), and divide to get its historical rate.
-#' 2. Stabilise the historical rate where the history holds little
-#'    information (see below).
+#' 2. Stabilise the historical rate when the district has little
+#'    reporting history (see below).
 #' 3. Expected cases = current population x stabilised rate.
 #' 4. Divide observed by expected cases.
 #' 5. Divide that ratio by the national ratio (all observed over all
@@ -36,13 +36,13 @@
 #' rates normally distributed across the country. The centre and spread of
 #' that distribution are estimated by maximum likelihood from all districts'
 #' histories for each assessment year, and the stabilised rate is the
-#' district's posterior mean relative rate times its reference rate. Nothing
-#' is chosen by the user.
+#' district's posterior mean relative rate times its reference rate. The function estimates these parameters
+#' automatically.
 #'
-#' A district with a long, well-populated history keeps a stabilised rate
+#' A district whose history covers many child-years keeps a stabilised rate
 #' close to its own rate, including when its record is persistently low. A
 #' district with a short history, or a new district, moves further towards
-#' its neighbours. A district with preceding child-years but no preceding
+#' its reference rate. A district with preceding child-years but no preceding
 #' case is not given an expected rate of zero. `history_info` describes how
 #' much information the history holds: substantial, moderate, limited or
 #' none, from `information_score`, the share of information from the
@@ -59,7 +59,7 @@
 #' flagged, so that small differences between smooth population projections
 #' are not flagged. `population_qc` is `"check_spike"` when an unusual change
 #' is reversed by an unusual change in the other direction within two years,
-#' `"check_change"` for any other unusual change, `"check_boundary"` when the
+#' `"check_change"` for any other unusual change, `"check_history"` when the
 #' district is missing from some years (for example a new or split district),
 #' and `"ok"` otherwise. Flags identify unusual patterns for review; they do
 #' not imply that the population is incorrect, and supplied populations are
@@ -122,7 +122,7 @@
 #' @seealso [spi_direct_explain()], `vignette("spi-direct")`, and
 #'   [spi_index()] for the model-based SPI.
 #'
-#' @examples
+#' @examplesIf requireNamespace("sf", quietly = TRUE)
 #' # annual NPAFP counts with each district's province
 #' provinces <- sf::st_drop_geometry(synth_surveillance$boundaries)
 #' annual <- synth_surveillance$cases |>
@@ -755,7 +755,7 @@ spi_direct <- function(
     yr <- yr[keep]
     pop <- pop[keep]
     span <- all_years[all_years <= upto]
-    boundary <- length(yr) < length(span)
+    incomplete <- length(yr) < length(span)
     lc <- if (length(pop) > 1L) diff(log(pop)) else numeric(0)
     lc[diff(yr) != 1L] <- NA_real_
     med <- year_median$med[match(yr[-1], year_median$year)]
@@ -773,8 +773,8 @@ spi_direct <- function(
       "check_spike"
     } else if (any(unusual)) {
       "check_change"
-    } else if (boundary) {
-      "check_boundary"
+    } else if (incomplete) {
+      "check_history"
     } else {
       "ok"
     }
@@ -827,8 +827,8 @@ spi_direct <- function(
   )
   if (p$stabilise) {
     cli::cli_text(
-      "stabilised_rate = history_rate, moved towards the reference rate \\
-       where the history holds little information"
+      "stabilised_rate = rate estimated from district history and reference rate \\
+       using more information from other districts when history is limited"
     )
   } else {
     cli::cli_text("stabilised_rate = history_rate (no stabilisation)")
@@ -921,9 +921,9 @@ print.spi_direct <- function(x, ...) {
             sum(sm$history_info[sm$year == latest] %in%
                   c("limited", "none")))
   )
-  cli::cli_text(cli::style_bold(
+  cli::cli_h2(
     if (p$stabilise) "Direct SPI" else "Direct SPI (no stabilisation)"
-  ))
+  )
   cli::cli_verbatim(lines)
   cli::cli_text(cli::col_grey(
     "Use summary() for the full report, as_tibble() for the table and \\
@@ -953,9 +953,16 @@ as_tibble.spi_direct <- function(x, ...) {
 #' @param x An `spi_direct` object from [spi_direct()].
 #' @param district The district identifier.
 #' @param year Assessment year. Default: the last assessment year.
+#' @param language Character. Language of the labels, as a two-letter code
+#'   such as `"fr"`. Default `"en"`. Other languages are translated with
+#'   `sntutils::translate_text_vec()`, which calls Google Translate through
+#'   the gtranslate package. Both packages and an internet connection are
+#'   needed; labels that cannot be translated stay in English. Numbers and `check_` flags are not
+#'   translated.
 #' @param print Logical. Print the breakdown. Default `TRUE`.
 #'
-#' @return Invisibly, a tibble with `section`, `component` and `value`.
+#' @return Invisibly, a tibble with `section`, `component` and `value`, in
+#'   the language requested.
 #' @seealso [spi_direct()]
 #' @examples
 #' annual <- synth_surveillance$cases |>
@@ -971,9 +978,13 @@ as_tibble.spi_direct <- function(x, ...) {
 #' )
 #' spi_direct_explain(res, res$summary$adm2_guid[1])
 #' @export
-spi_direct_explain <- function(x, district, year = NULL, print = TRUE) {
+spi_direct_explain <- function(x, district, year = NULL, language = "en",
+                               print = TRUE) {
   if (!inherits(x, "spi_direct")) {
     cli::cli_abort("{.arg x} must be an {.cls spi_direct} object.")
+  }
+  if (!rlang::is_string(language)) {
+    cli::cli_abort("{.arg language} must be a single string such as \"fr\".")
   }
   id_col <- x$metadata$id_col
   if (is.null(year)) year <- x$metadata$last_assessment
@@ -1014,20 +1025,51 @@ spi_direct_explain <- function(x, district, year = NULL, print = TRUE) {
     )
   )
 
+  # labels and worded values are translated; numbers and flags are not
+  worded <- !grepl("^check_|^[0-9 .]+$|^NA$", out$value)
+  out$section <- .direct_translate(out$section, language)
+  out$component <- .direct_translate(out$component, language)
+  out$value[worded] <- .direct_translate(out$value[worded], language)
+  district_label <- .direct_translate("District", language)
+
   if (print) {
     width <- max(nchar(out$component)) + 2L
     val_width <- max(nchar(out$value))
-    lines <- character(0)
+    cli::cli_h1("{district_label} {district}, {year}")
     for (s in unique(out$section)) {
       rows <- out[out$section == s, ]
-      lines <- c(
-        lines, cli::style_bold(toupper(s)),
+      cli::cli_h2("{s}")
+      cli::cli_verbatim(
         paste0(formatC(rows$component, width = -width),
                formatC(rows$value, width = val_width))
       )
     }
-    cli::cli_text(cli::style_bold("District {district}, {year}"))
-    cli::cli_verbatim(lines)
   }
   invisible(out)
+}
+
+# English labels translated with sntutils; returned unchanged for "en"
+#' @noRd
+.direct_translate <- function(text, language) {
+  if (identical(tolower(language), "en") || length(text) == 0L) {
+    return(text)
+  }
+  .check_pkg(
+    c("sntutils", "gtranslate"), reason = "to translate the explanation"
+  )
+  unique_text <- unique(text)
+  # gtranslate's request prints an encoding note for every label
+  translated <- withCallingHandlers(
+    sntutils::translate_text_vec(
+      unique_text,
+      target_language = tolower(language),
+      source_language = "en"
+    ),
+    message = function(m) {
+      if (grepl("No encoding supplied", conditionMessage(m), fixed = TRUE)) {
+        invokeRestart("muffleMessage")
+      }
+    }
+  )
+  translated[match(text, unique_text)]
 }

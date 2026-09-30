@@ -1,3 +1,7 @@
+# the fixtures are sf layers and nb graphs
+testthat::skip_if_not_installed("sf")
+testthat::skip_if_not_installed("spdep")
+
 # spi_check_inputs() -- graded pre-flight reconciliation of the three input
 # tables. Pure data checking, so every test runs without INLA. Most tests
 # start from a clean fixture and mutate one thing, asserting that issue's code

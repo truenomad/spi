@@ -16,8 +16,10 @@ Authors@R:
 Description: Estimates expected case counts for each district and month
     using Bayesian spatial and temporal models fitted with INLA. The
     surveillance performance index (SPI) compares observed and expected
-    counts, nationally centred by default, with credible intervals for
-    uncertainty in expected counts.
+    counts and, by default, divides each district ratio by the national
+    ratio for the same period. Credible intervals describe uncertainty in
+    expected counts. An annual SPI can also be calculated from earlier
+    reporting without INLA or district boundaries.
     Functions check inputs, compare SPI with conventional reporting targets,
     and produce tables, maps, and district reports for surveillance review.
     Designed for acute flaccid paralysis (AFP) surveillance, with support
@@ -29,8 +31,6 @@ BugReports: https://github.com/truenomad/spi/issues
 Depends:
     R (>= 4.1.0)
 Imports:
-    sf (>= 1.0),
-    spdep (>= 1.2),
     dplyr (>= 1.1.0),
     purrr (>= 1.0.0),
     tibble (>= 3.2.0),
@@ -43,6 +43,8 @@ Imports:
     utils
 Suggests:
     INLA (>= 24.01.01),
+    sf (>= 1.0),
+    spdep (>= 1.2),
     ggplot2 (>= 3.4.0),
     patchwork (>= 1.1.0),
     gt (>= 0.10.0),
@@ -56,7 +58,11 @@ Suggests:
     rmarkdown,
     exactextractr,
     terra,
-    scales
+    scales,
+    sntutils,
+    gtranslate
+Remotes:
+    ahadi-analytics/sntutils
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable/
 VignetteBuilder: knitr

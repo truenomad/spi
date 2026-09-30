@@ -90,3 +90,17 @@ test_that(".validate_population warns on partial (<100%) coverage", {
 test_that(".check_pkg passes for an installed package", {
   expect_true(spi:::.check_pkg("stats"))
 })
+
+test_that("a missing INLA gives the install command and points to spi_direct()", {
+  testthat::local_mocked_bindings(.has_pkg = function(pkg) FALSE)
+  err <- expect_error(.check_inla(), class = "rlang_error")
+  msg <- conditionMessage(err)
+  expect_match(msg, "not on CRAN", fixed = TRUE)
+  expect_match(msg, "inla.r-inla-download.org", fixed = TRUE)
+  expect_match(msg, "spi_direct", fixed = TRUE)
+})
+
+test_that("an installed INLA passes the check", {
+  testthat::local_mocked_bindings(.has_pkg = function(pkg) TRUE)
+  expect_invisible(.check_inla())
+})

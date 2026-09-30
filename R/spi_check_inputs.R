@@ -8,10 +8,10 @@
 #'
 #' * **error** -- blocks the fit (missing columns, negative counts, negative
 #'   population, duplicate district-months, case ids absent from the shapefile).
-#' * **warning** -- needs review (panel gaps, zero population, partial coverage,
+#' * **warning** -- needs review (missing district-months, zero population, incomplete coverage,
 #'   shapefile districts with no case rows, invalid geometry, covariate ids
 #'   absent from the case data).
-#' * **note** -- additional information (adjacency components).
+#' * **note** -- additional information (separate groups in the neighbour graph).
 #'
 #' [spi_expected()] calls this check and stops on errors. Run it separately
 #' to review warnings before fitting.
@@ -37,9 +37,10 @@
 #'   affected `ids`), `gaps` (a `district_id` x `month` tibble of missing
 #'   district-months), `n_error` / `n_warning` /
 #'   `n_note` counts, `ok` (`TRUE` when there are no error-level issues), and
-#'   the panel dimensions. Has a `print` method.
+#'   the numbers of districts and months. Has a `print` method.
 #'
-#' @seealso [spi_expected()], [spi_adjacency()]
+#' @seealso [spi_expected()], [spi_adjacency()], and
+#'   `vignette("spi-data-preparation")` for how to prepare the inputs.
 #'
 #' @examples
 #' \dontrun{
@@ -99,6 +100,7 @@ spi_check_inputs <- function(cases,
     } else {
       shp_ids <- as.character(shapefile[[id_col]])
     }
+    .check_pkg("sf", reason = "to check the boundary geometry")
     valid <- sf::st_is_valid(shapefile)
     n_invalid <- sum(!valid | is.na(valid))
     if (n_invalid > 0) {
@@ -211,7 +213,7 @@ spi_check_inputs <- function(cases,
     )
     if (nrow(gaps) > 0) {
       add("warning", "panel_gaps", .ic_msg(
-        "{nrow(gaps)} district-month{?s} missing from the panel (gaps)"
+        "{nrow(gaps)} district-month{?s} missing from the case table"
       ))
     }
   }

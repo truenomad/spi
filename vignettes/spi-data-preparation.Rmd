@@ -1,0 +1,188 @@
+---
+title: "Preparing data for SPI"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Preparing data for SPI}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(cli.width = 80, width = 80)
+library(spi)
+```
+
+This article explains what data SPI needs and how to prepare them for the direct SPI (`spi_direct()`) or the model-based SPI (`spi_index()`).
+
+## 1. What you need
+
+The direct SPI uses annual NPAFP counts and annual population under 15. The model-based SPI uses monthly NPAFP counts, annual population under 15 and district boundaries.
+
+The input requirements are:
+
+| | Direct SPI, `spi_direct()` | Model-based SPI, `spi_index()` |
+|---|---|---|
+| NPAFP cases | One row per district and year | One row per district and month, including a zero count for months with no cases |
+| Population under 15 | One row per district and year | One row per district and year |
+| Region (for example province) | Optional | Not used |
+| District boundaries | Not needed | Required, as an `sf` polygon layer with matching district identifiers |
+| INLA | Not needed | Required |
+
+## 2. Four things to get right
+
+### Use the same district identifier in every table
+
+Use a stable code, such as the POLIS district GUID (`adm2_guid`), rather than the district name. Spelling differences and name changes can prevent records from matching when tables are joined by name.
+
+<details>
+<summary>Check that the identifiers match</summary>
+
+```{r ids}
+ids_cases <- unique(synth_surveillance$cases$adm2_guid)
+ids_pop <- unique(synth_surveillance$population$adm2_guid)
+
+# districts in the case data with no population
+setdiff(ids_cases, ids_pop)
+```
+
+The result is empty here, so every district identifier in the case data also appears in the population table.
+
+</details>
+
+### Keep districts and years with zero cases
+
+**A missing row and zero cases are not necessarily the same thing.** If a district was under surveillance but reported no NPAFP cases in a year, retain that district-year with a zero count.
+
+Supply a separate population table covering every district-year to be analysed. `spi_direct()` treats a district-year with a population record but no case row as zero reported cases. If you use one combined table, include a row with the population and a zero case count for each such district-year.
+
+### Check the population
+
+Population is used to calculate expected cases, so an abrupt change can affect the SPI. `spi_direct()` checks each district's population history. The following code lists districts flagged for review:
+
+```{r population-qc, eval = FALSE}
+spi_results$population_qc |>
+  dplyr::filter(population_qc != "ok")
+```
+
+A flag is a reason to check the population estimate, not to replace it automatically. A large change may reflect migration, displacement, a revised estimate or a district boundary change.
+
+### Review changes in district geography
+
+A new district may have no earlier records of its own. For a split or merged district, earlier records may cover a different area. Stable identifiers help with name changes, but they do not resolve changes in geography. Where possible, use a table linking old and new districts (a crosswalk) or prepare all years using the same district boundaries.
+
+## 3. Data for the direct SPI
+
+For the direct SPI, one table with one row per district and year is enough:
+
+| district | province | year | npafp_cases | population_u15 |
+|---|---|---|---|---|
+| A | North | 2022 | 8 | 100 000 |
+| A | North | 2023 | 10 | 105 000 |
+
+```{r standard, eval = FALSE}
+spi_results <- spi_direct(afp_data)
+```
+
+The `province` column is optional. Without it, reporting from the rest of the country provides the reference for districts with limited history.
+
+If the population is in a separate table, pass it as `population`:
+
+```{r separate-pop, eval = FALSE}
+spi_results <- spi_direct(
+  afp_counts,
+  population = population
+)
+```
+
+If your columns have different names, specify them in the function call:
+
+```{r mapping, eval = FALSE}
+spi_results <- spi_direct(
+  afp_data,
+  id_col = "adm2_guid",
+  year_col = "yr",
+  count_col = "npafp",
+  population_col = "u15_pop",
+  region_col = "province_name"
+)
+```
+
+<details>
+<summary>Starting from monthly counts</summary>
+
+Sum the monthly counts for each district and year before running `spi_direct()`. This example uses the package's synthetic data and joins province names stored in the district boundary data.
+
+```{r monthly}
+provinces_harad <- sf::st_drop_geometry(synth_surveillance$boundaries) |>
+  dplyr::distinct(adm2_guid, adm1_name)
+
+afp_harad <- synth_surveillance$cases |>
+  dplyr::mutate(year = lubridate::year(month)) |>
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year)) |>
+  dplyr::left_join(provinces_harad, by = "adm2_guid")
+
+res_harad <- spi_direct(
+  afp_harad,
+  population = synth_surveillance$population,
+  id_col = "adm2_guid",
+  count_col = "count",
+  population_col = "pop_u15",
+  region_col = "adm1_name",
+  verbose = FALSE
+)
+
+res_harad
+```
+
+</details>
+
+[The direct SPI](spi-direct.html) shows how the calculation works and how to inspect the result for one district.
+
+## 4. Data for the model-based SPI
+
+The model-based SPI needs monthly NPAFP counts, annual population under 15 and district boundaries. Use the same district identifier in all three inputs.
+
+| district_id | month | count |
+|---|---|---|
+| A | 2022-01-01 | 1 |
+| A | 2022-02-01 | 0 |
+
+Include one row for every district-month, with a zero count for months with no cases. Start with all districts in the boundary file so that districts with no case records are included. Create a row for each district and month, then join the case counts:
+
+```{r grid, eval = FALSE}
+# every district in the boundary file
+districts <- tibble::tibble(
+  district_id = unique(boundaries$district_id)
+)
+
+# every month in the period to analyse
+months <- tibble::tibble(
+  month = seq(as.Date("2022-01-01"), as.Date("2026-12-01"), by = "month")
+)
+
+# one row for every district and month
+district_months <- dplyr::cross_join(districts, months)
+
+# add the counts; a district-month with no count becomes zero
+cases <- district_months |>
+  dplyr::left_join(monthly_counts, by = c("district_id", "month")) |>
+  dplyr::mutate(count = dplyr::coalesce(count, 0L))
+```
+
+Use `spi_check_inputs()` to check the case table, population table and district boundaries together. This check does not require INLA:
+
+```{r check}
+spi_check_inputs(
+  cases = synth_surveillance$cases,
+  population = synth_surveillance$population,
+  shapefile = synth_surveillance$boundaries,
+  id_col = "adm2_guid"
+)
+```
+
+[Getting started with SPI](spi-getting-started.html) shows how to fit the model and calculate the SPI from these inputs.
+
+## Using POLIS data?
+
+[Using SPI with POLIS data](spi-polis.html) gives a complete workflow from the AFP line list and population data to both the direct and model-based SPI.

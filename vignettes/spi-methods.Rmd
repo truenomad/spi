@@ -7,21 +7,21 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-SPI compares reported counts with modelled expectations and, by default, divides that ratio by the national ratio. This article describes the model and its limits. [Getting started with SPI](spi-getting-started.html) shows how to produce the estimates.
+SPI divides reported cases by expected cases and, by default, divides the result by the national ratio for the same period. This article describes the model behind the model-based SPI, the calculation behind the direct SPI, and their limits. [Getting started with SPI](spi-getting-started.html) shows how to produce the model-based estimates, and [The direct SPI](spi-direct.html) works through the direct calculation by hand.
 
 ## Building blocks
 
 | Building block | What it contributes |
 | --- | --- |
 | Reporting history | Provides a reference for each district's reporting. `spi_index()` uses preceding years only, so the year being assessed does not contribute to its own expectation. |
-| Population adjustment | Uses the under-15 population as an offset when estimating expected counts. |
-| Partial pooling | Pulls estimates with little supporting data towards patterns in the wider dataset, reducing variation due to sparse counts. |
-| Neighbour borrowing | Lets neighbouring districts inform the spatial estimate, with more influence where a district's own data provide little information. |
+| Population adjustment | Scales expected counts to the under-15 population. The model includes log population as an offset, a term whose coefficient is fixed at 1. |
+| Partial pooling | Uses information across districts to make estimates less variable when a district has little data. |
+| Information from neighbours | Lets neighbouring districts inform the spatial estimate, with more influence where a district's own data provide little information. |
 | Seasonality and year effects | Accounts for recurring within-year patterns and differences between years. |
-| National centring (default) | Divides the district's observed-to-expected ratio by the national ratio for the same period. Annual SPI therefore describes reporting relative to that year's national pattern. |
+| National centring (default) | Divides the district's observed-to-expected ratio by the national ratio for the same period. Annual SPI therefore compares each district with the country in the same year. |
 | Uncertainty | Provides posterior medians and credible intervals for the ratio, reflecting uncertainty in expected counts. |
 
-In the accompanying study, preceding district reporting provided most of the longitudinal reference; partial pooling and spatial borrowing mattered more where district information was sparse.
+In the accompanying study, each district's earlier reporting provided most of the basis for its expected counts. Information from other districts contributed more when the district's own history provided little information.
 
 ## Model specification
 
@@ -61,6 +61,36 @@ $$
 
 Here $\widetilde{E}_{iy}$ is the posterior median expected count. The national ratio $r_y$ is held fixed when scaling posterior draws. `centre = "none"` returns the uncentred observed-to-expected ratio.
 
+## The direct SPI
+
+`spi_direct()` calculates the SPI without fitting the model above. For district $i$ and assessment year $t$, NPAFP cases and annual under-15 populations are added across all earlier years $s < t$ in the data:
+
+$$
+Y_i = \sum_{s<t} Y_{is}, \qquad P_i = \sum_{s<t} P_{is}, \qquad r_i = Y_i / P_i
+$$
+
+**Reference rate.** $r_i^{\text{ref}}$ is the pooled preceding rate of the other districts in the district's region (`region_col`), or of the rest of the country when no region is given or the region has no preceding case. When `boundaries` are supplied, the districts that share a boundary come first.
+
+**Information.** $I_i = P_i \, r_i^{\text{ref}}$, the number of cases expected at the reference rate over the district's earlier child-years (the sum of its annual under-15 populations). It grows with both the number of years and the size of the population.
+
+**Stabilisation.** Preceding counts are modelled as
+
+$$
+Y_i \sim \text{Poisson}(\theta_i I_i), \qquad \log \theta_i \sim \text{Normal}(\mu, \sigma^2)
+$$
+
+across the districts of one country. $\mu$ and $\sigma$ are estimated by maximum likelihood for each assessment year, integrating over $\theta_i$ on a fixed grid. The stabilised rate is $\tilde r_i = \hat\theta_i \, r_i^{\text{ref}}$, where $\hat\theta_i = \text{E}(\theta_i \mid Y_i)$ is the posterior mean relative rate. A history covering many child-years keeps $\tilde r_i$ close to $r_i$, including when $r_i$ is persistently low; a short history moves it towards $r_i^{\text{ref}}$. $\tilde r_i$ is not a weighted average of $r_i$ and $r_i^{\text{ref}}$, and a history with preceding population but no preceding case keeps $\tilde r_i > 0$. For a district with no earlier data, the rate is $\text{E}(\theta) \, r_i^{\text{ref}}$.
+
+**Index.** $E_{it} = P_{it} \, \tilde r_i$ and
+
+$$
+\text{SPI}_{it} = \frac{Y_{it}/E_{it}}{\sum_j Y_{jt} / \sum_j E_{jt}}
+$$
+
+`history_info` labels the information behind each rate (substantial, moderate, limited or none) from the share of information from the district's own history, $I_i / (I_i + k)$, where $k$ is the credibility constant of a gamma distribution with the fitted mean and variance. The label describes the stabilisation and does not enter the calculation. `stabilise = FALSE` uses $r_i$ unchanged.
+
+**Population check.** Each district's year-on-year change in log population is compared with the median change across districts in the same year. A change is unusual when the difference lies outside Tukey's far-out fences (three interquartile ranges beyond the quartiles) of all such differences and is at least 10%. `population_qc` is `check_spike` when an unusual change is reversed by an unusual change in the other direction within two years, `check_change` for any other unusual change, `check_history` when the district is missing from some years, and `ok` otherwise. Populations are never altered.
+
 ## Limitations
 
 These limits follow from how the reference is estimated and how the ratio is centred:
@@ -70,8 +100,8 @@ These limits follow from how the reference is estimated and how the ratio is cen
 | Persistent low reporting can become the baseline | A district with years of low reporting can have an SPI near 1. Keep the conventional NPAFP target as an external benchmark; persistent failure to meet it remains a reason for closer review. |
 | National change is removed when `centre = "national"` | Review the national observed-to-expected ratio in `spi_dy$national` separately. SPI describes relative district differences, so a shared decline can leave district SPI values largely unchanged. Also inspect absolute reporting rates and counts. |
 | Population and boundary errors affect the comparison | Population error affects both expected counts and the conventional rate. Check denominators and use consistent boundaries across years, especially after district splits or mergers. |
-| Limited history means more reliance on shared information | Sparse reporting histories give the model less district-specific information. Review the available history and uncertainty before interpreting changes. |
-| Spatial borrowing can smooth local differences | Sharing information improves stability but can pull an unusual district towards its neighbours. Check local counts and context when the fitted expectation seems implausible. |
+| Districts with little history rely more on other districts | Sparse reporting histories give the model less district-specific information. Review the available history and uncertainty before interpreting changes. |
+| Using neighbours can reduce estimated differences between districts | Sharing information improves stability but can pull an unusual district towards its neighbours. Check local counts and context when the fitted expectation seems implausible. |
 | Results depend on model choices | The training period, spatial structure, seasonality, priors, and centring affect results. Keep these choices consistent when comparing years and assess sensitivity to plausible alternatives. |
 
 SPI does not directly estimate missed cases, detection probability, poliovirus circulation, outbreak risk, or overall surveillance quality.

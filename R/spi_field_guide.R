@@ -22,17 +22,18 @@
 #' `No SPI indication`). STEPS is applied only to districts with an SPI below
 #' `spi_cut` (1 by default, as in the field guide).
 #'
-#' SPI measures relative NPAFP reporting volume. STEPS brings this together with
-#' timeliness and stool quality, plus the extent and persistence of a shortfall.
+#' SPI compares reported NPAFP cases with expected counts. STEPS adds
+#' specimen transport and stool adequacy, and checks whether a low SPI also
+#' appears elsewhere in the area or in the previous year.
 #' The five components and what each asks:
 #' \itemize{
-#'   \item **S: Strength** -- how large and how certain is the shortfall? Read
+#'   \item **S: Strength** -- how large is the shortfall, and how uncertain is the estimate? Read
 #'     from the SPI value and whether its 90% credible interval lies entirely
 #'     below 1.
 #'   \item **T: Timeliness** -- are specimens reaching the laboratory within 3
 #'     days? Needs `process`.
-#'   \item **E: Extent** -- are other districts in the same admin-1 area (the
-#'     other LGAs in the same state, in Nigeria) also below the SPI cutoff? Needs
+#'   \item **E: Extent** -- is a low SPI more common in the same region
+#'     (such as a province or state) than nationally? Needs
 #'     an `extent_col` in the comparison.
 #'   \item **P: Persistence** -- was the SPI also below the cut in the previous
 #'     year?
@@ -40,9 +41,9 @@
 #'     `process`.
 #' }
 #'
-#' STEPS is not a combined score. Extent and persistence provide supporting
-#' context for a relative reporting shortfall. Timeliness and stool adequacy describe separate
-#' dimensions of surveillance and do not change the generated label. These
+#' The five STEPS components are reported separately. The review label
+#' depends on strength, extent, and persistence. Timeliness and stool
+#' adequacy describe specimen handling and do not change the label. These
 #' labels are not validated measures of surveillance adequacy or automatic
 #' recommendations for field action.
 #'
@@ -82,7 +83,7 @@
 #'
 #' Without `process`
 #' or an `extent_col` the corresponding component is `NA`. `signals_active`
-#' records which components and context signals were computable.
+#' records which components and additional findings could be calculated.
 #'
 #' @param comparison A [spi_compare_npafp()] result (class
 #'   `spi_compare_npafp`). Supplies SPI and NPAFP results for every
@@ -123,8 +124,7 @@
 #' @param serotype_col Optional name of a serotype column in `detections` and / or
 #'   `es`, e.g. holding `"cVDPV2"`, `"WPV1"`. When given, the distinct serotypes
 #'   seen up to each year are recorded as `orphan_serotypes` / `es_serotypes`,
-#'   so a reading can name what was actually found rather than assuming one
-#'   serotype. Without it those columns are NA, which downstream reads as "not
+#'   so the report can name the serotypes found. Without it those columns are NA, which downstream reads as "not
 #'   recorded" rather than "none found". Default: NULL.
 #' @param detection_serotypes Optional character vector of the serotypes that
 #'   count as a detection, matched against `serotype_col`, e.g.
@@ -132,8 +132,8 @@
 #'   dropped before the detection years, flags and serotypes are computed.
 #'   Requires `serotype_col`. Default: NULL (whatever the input contains
 #'   counts).
-#' @param read_year Integer focal year for `print()` and the default table /
-#'   help rendering. Default: NULL (latest year present).
+#' @param read_year Integer year shown by `print()` and by default in tables and
+#'   worked examples. Default: NULL (latest year present).
 #' @param spi_cut Numeric SPI cutoff below which STEPS is applied. Lower
 #'   values such as 0.80, 0.60, or 0.40 focus review on larger reporting
 #'   shortfalls. The same cutoff is used for persistence and extent; the
@@ -148,8 +148,8 @@
 #'   [spi_compare_npafp()]).
 #' @param traj_window Integer. Trend regression window in years, ending at
 #'   each year (context). Default: 5.
-#' @param traj_tol Numeric slope dead-band per year below which a trend is
-#'   "flat" (context). Default: 0.01.
+#' @param traj_tol Numeric tolerance for the annual trend slope. A slope whose
+#'   absolute value is below this tolerance is labelled "flat". Default: 0.01.
 #' @param traj_alpha Optional numeric significance level for the trend. When
 #'   set, a trajectory is only "falling" or "rising" if its OLS slope differs
 #'   from zero at this two-sided level (needing at least three points in the
@@ -421,7 +421,7 @@ spi_field_guide <- function(
   }
 
   # --- judgement ------------------------------------------------------
-  # extent and persistence are the two validated corroborators of the SPI
+  # extent and persistence are the two components that support a low SPI in the review rule
   # signal, so either one lifts a certain shortfall to priority for review.
   # timeliness and stool adequacy are reported beside them and never move the
   # judgement.
@@ -931,19 +931,19 @@ spi_field_guide <- function(
     "No",
     "T: Timeliness",
     "Are specimens reaching the laboratory within 3 days?",
-    "Measures specimen transport after detection. It has not been validated as evidence for a low SPI and does not change the judgement.",
+    "Measures how quickly specimens reach the laboratory after collection. It is reported separately and does not change the review label.",
     "No (independent)",
     "E: Extent",
     "Is an SPI below the chosen cutoff more common among other districts in the same admin-1 area than nationally?",
-    "Provides contextual evidence about whether the shortfall is shared with nearby districts.",
+    "Checks whether a low SPI is more common in the same region than nationally.",
     "Yes",
     "P: Persistence",
     "Was SPI also below the chosen cutoff in the previous year?",
-    "Provides contextual evidence about whether the shortfall is repeated over time. A shortfall in the previous year is common.",
+    "Checks whether the district also had a low SPI in the previous year.",
     "Yes (supporting)",
     "S: Stool adequacy",
     "Are stool specimens adequate?",
-    "Measures stool specimen adequacy. It has not been validated as evidence for a low SPI and does not change the judgement.",
+    "Reports the share of AFP cases with adequate stool specimens. It does not change the review label.",
     "No (independent)"
   )
 }
@@ -978,7 +978,7 @@ spi_field_guide <- function(
 print.spi_field_guide <- function(x, ...) {
   cli::cli_h1("SPI field guide")
   cli::cli_inform(c(
-    "Read year: {.val {x$read_year}} \\
+    "Review year: {.val {x$read_year}} \\
      | STEPS applied below SPI {.val {x$thresholds$spi}} \\
      ({x$thresholds$rule %||% 'median'} rule) \\
      | priority for review: 90% CrI below 1, with extent or \\
@@ -989,12 +989,12 @@ print.spi_field_guide <- function(x, ...) {
   inactive <- names(x$signals_active)[!x$signals_active]
   active_str <- if (length(active)) active else "none"
   inactive_str <- if (length(inactive)) {
-    paste0(" | inactive: ", paste(inactive, collapse = ", "))
+    paste0(" | unavailable: ", paste(inactive, collapse = ", "))
   } else {
     ""
   }
   cli::cli_inform(
-    "Optional components and context active: {.val {active_str}}{inactive_str}"
+    "Available components and additional findings: {.val {active_str}}{inactive_str}"
   )
 
   foc <- x$focal
@@ -1091,25 +1091,25 @@ as_tibble.spi_field_guide <- function(x, ...) {
 #' Learn to read the SPI field guide
 #'
 #' @description
-#' An interpretation aid for the console. Explains the five STEPS components
+#' Prints explanations in the R console. Describes the five STEPS components
 #' and the review labels behind [spi_field_guide()], lists common errors in
 #' interpreting SPI, and explains four districts selected from a field guide:
 #' SPI at or above 1, an uncertain shortfall, a large shortfall supported by
 #' extent and persistence, and a shortfall without nearby supporting evidence.
 #'
 #' @details
-#' By default the worked example is narrated from `synth_field_guide`, the
-#' precomputed field guide on the synthetic data, so it runs with
-#' no model fit. Pass `guide` to narrate your own [spi_field_guide()] result.
+#' By default, the worked example uses `synth_field_guide`, the precomputed
+#' result for the synthetic data, so no model fit is needed. Pass `guide`
+#' to explain the results from your own [spi_field_guide()] call.
 #'
 #' @param topic One or more of `"all"`, `"signals"`, `"verdict"`,
 #'   `"misreadings"`, `"example"`. Default: `"all"`.
-#' @param guide A [spi_field_guide()] result to narrate for the worked example.
+#' @param guide A [spi_field_guide()] result to use for the worked example.
 #'   Default: NULL (use `synth_field_guide`).
 #' @param year Focal year for the worked example. Default: NULL
 #'   (`guide$read_year`).
 #'
-#' @return The narrated worked-example tibble, invisibly.
+#' @return The tibble of districts used in the worked example, returned invisibly.
 #'
 #' @seealso [spi_field_guide()], [spi_field_guide_table()].
 #'
@@ -1132,7 +1132,7 @@ spi_field_guide_help <- function(
 
   spi_cut <- if (!is.null(guide)) guide$thresholds$spi else 1
 
-  cli::cli_h1("Reviewing reporting below expectation")
+  cli::cli_h1("Reviewing districts with a low SPI")
 
   if ("signals" %in% topic) {
     cli::cli_h2("The five STEPS components")
@@ -1149,7 +1149,7 @@ spi_field_guide_help <- function(
       cli::cli_ul()
       cli::cli_li("{.strong Asks:} {ref$asks[i]}")
       cli::cli_li("{.strong Interpretation:} {ref$interpret[i]}")
-      cli::cli_li("{.strong Corroborates the SPI signal:} {ref$corroborates[i]}")
+      cli::cli_li("{.strong Adds evidence about the shortfall:} {ref$corroborates[i]}")
       cli::cli_end()
     }
   }
@@ -1157,17 +1157,16 @@ spi_field_guide_help <- function(
   if ("verdict" %in% topic) {
     cli::cli_h2("Review labels")
     cli::cli_text(
-      "Extent alone raises the level of concern. Other single concerns add \\
-       weight only in combination, and there is no requirement for agreement \\
-       across all components. This ranks where to look first; it is not a \\
-       forecast."
+      "The review label uses the SPI value, its interval, and findings for \\
+       extent and persistence. The labels help decide which districts to \\
+       review first."
     )
     cli::cli_ul()
     cli::cli_li(
       "{.strong Priority for review} -- SPI below {format(spi_cut)}, the 90% \\
-       credible interval entirely below 1, and the shortfall corroborated by \\
-       extent or persistence. Evidence of reporting below expectation is \\
-       sufficiently strong or persistent to warrant further investigation."
+       credible interval entirely below 1, and extent or persistence also \\
+       raises concern. If enabled, the sampling-noise check must also pass. \\
+       These findings identify districts for closer review."
     )
     cli::cli_li(
       "{.strong Monitor} -- SPI below {format(spi_cut)}, but uncertainty or \\
@@ -1187,7 +1186,7 @@ spi_field_guide_help <- function(
       )
     }
     cli::cli_text(
-      "Timeliness and stool adequacy are reported beside the judgement but \\
+      "Timeliness and stool adequacy are reported beside the review label but \\
        never change it. Trend, neighbouring-district context, seasonal patterns and \\
        any AFP or ES detection are context outside STEPS."
     )
@@ -1218,15 +1217,15 @@ spi_field_guide_help <- function(
 
     cli::cli_h2("Worked example ({year})")
     cli::cli_text(
-      "Four districts, chosen by rule, running from at or above expectation \\
-       to a shortfall without spatial corroboration:"
+      "Four districts selected to illustrate different SPI results and \\
+       findings for the wider area and previous year:"
     )
     for (i in seq_len(nrow(sel))) {
       r <- as.list(sel[i, ])
       cli::cli_h3("{sel[[name_col]][i]} -- {sel$case_label[i]}")
       cli::cli_text(.fg_narrate(r, guide$thresholds$spi))
       action <- .fg_action(r)
-      cli::cli_alert_info("Judgement: {action}")
+      cli::cli_alert_info("Review label: {action}")
     }
     worked <- sel
   }
@@ -1292,7 +1291,7 @@ spi_field_guide_help <- function(
 
   switch(
     label,
-    "At or above expectation" = paste0(
+    "SPI at or above cutoff" = paste0(
       sprintf("SPI %s (%s), so STEPS is not applied. ", spi, cri),
       if (is.na(r$spi_previous)) "" else sprintf(
         paste0("Its SPI was %.2f in %d, which shows why a single year at or ",
@@ -1304,34 +1303,32 @@ spi_field_guide_help <- function(
     "Uncertain shortfall" = paste0(
       sprintf(
         paste0("SPI %s, and its 90%% credible interval extends to %.2f, so ",
-               "reporting at the expected level remains compatible with the ",
-               "data and model. %s, and %s. "),
+               "an SPI of 1 remains compatible with the data and model. %s, and %s. "),
         spi, r$spi_q95, persist_cap, extent
       ),
       if (identical(as.character(r$verdict), "Monitor")) {
-        paste0("The uncertain strength supports monitoring and reassessment ",
-               "rather than immediate priority.")
+        paste0("The interval includes 1. Review the result again when more data ",
+               "are available.")
       } else {
         paste0("Under the interval rule, a shortfall whose interval includes ",
                "1 receives no SPI indication.")
       }
     ),
-    "Large, corroborated shortfall" = sprintf(
+    "Large shortfall with supporting evidence" = sprintf(
       paste0("NPAFP rate %.1f, yet %d cases reported against %.1f expected, ",
-             "giving an SPI of %s (%s). %s, and %s. The certain ",
-             "shortfall is corroborated, which supports prioritising ",
-             "surveillance review."),
+             "giving an SPI of %s (%s). %s, and %s. The interval is below 1, ",
+             "and the area or previous year also raises concern. These ",
+             "findings support closer review."),
       r$npafp_rate, as.integer(round(r$observed)), r$expected_total, spi,
       cri, persist_cap, extent
     ),
-    "Shortfall without spatial corroboration" = sprintf(
+    "Shortfall without wider area concern" = sprintf(
       paste0("SPI %s (%s); %s. However, %s. The shortfall warrants review, ",
-             "but without spatial corroboration local explanations such as ",
-             "population estimates or boundary changes should be checked ",
-             "first."),
+             "and local explanations, including population estimates and ",
+             "boundary changes, should be checked."),
       spi, cri, persist, extent
     ),
-    sprintf("SPI %s (%s); %s; %s. Judgement: %s.", spi, cri, persist, extent,
+    sprintf("SPI %s (%s); %s; %s. Review label: %s.", spi, cri, persist, extent,
             as.character(r$verdict))
   )
 }
@@ -1378,8 +1375,8 @@ spi_field_guide_help <- function(
 #'     few districts as columns, every cell shaded as adding to concern
 #'     (rose), intermediate (amber) or reassuring (green). When `districts` is
 #'     NULL, four districts (SPI at or above 1, an uncertain shortfall,
-#'     a large corroborated shortfall, a shortfall without spatial
-#'     corroboration) are chosen by rule.
+#'     a large shortfall with supporting evidence, and a shortfall without
+#'     wider area concern) are selected.
 #' }
 #'
 #' @param x A [spi_field_guide()] result (class `spi_field_guide`).
@@ -1388,7 +1385,7 @@ spi_field_guide_help <- function(
 #'   rows).
 #' @param year Focal year. Default: NULL (`x$read_year`).
 #' @param districts Character vector of district ids for the `"worked"`
-#'   layout. Default: NULL (rule-select four districts).
+#'   layout. Default: NULL (select four districts with different findings).
 #' @param name_col Column to label districts by. Default: NULL (first of
 #'   `adm2_name`, `adm1_name`, else the id column).
 #' @param file Optional output path; the extension sets the format. Default:
@@ -1519,7 +1516,7 @@ FG_CLASS_FILL <- c(
     Extent = .fg_yes_no(foc$extent_concern),
     `Previous yr below` = .fg_yes_no(foc$persistence_concern),
     `Stool adequacy` = .fg_pct_word(foc$pct_adequate, foc$adequacy_assessed),
-    Judgement = as.character(foc$verdict)
+    `Review label` = as.character(foc$verdict)
   )
   vclass <- .fg_verdict_class(foc$verdict)
   title <- sprintf("SPI field guide: district scan, %d", year)
@@ -1537,7 +1534,7 @@ FG_CLASS_FILL <- c(
         g <- gt::tab_style(
           g,
           style = gt::cell_fill(color = FG_CLASS_FILL[[cl]]),
-          locations = gt::cells_body(columns = "Judgement", rows = vclass == cl)
+          locations = gt::cells_body(columns = "Review label", rows = vclass == cl)
         )
       }
     }
@@ -1549,7 +1546,7 @@ FG_CLASS_FILL <- c(
     if (shade) {
       for (i in seq_len(nrow(df))) {
         ft <- flextable::bg(
-          ft, i = i, j = "Judgement", bg = FG_CLASS_FILL[[vclass[i]]]
+          ft, i = i, j = "Review label", bg = FG_CLASS_FILL[[vclass[i]]]
         )
       }
     }
@@ -1574,13 +1571,13 @@ FG_CLASS_FILL <- c(
   row_key <- c("strength", "timeliness", "extent", "persistence",
                "adequacy", "conventional", "verdict")
   row_lab <- c(
-    strength = "S: Strength (size and certainty of the shortfall)",
+    strength = "S: Strength (size and uncertainty of the shortfall)",
     timeliness = "T: Timeliness (specimen transport to the laboratory)",
     extent = "E: Extent (other districts in the same admin-1 area)",
     persistence = "P: Persistence (SPI in the previous year)",
     adequacy = "S: Stool adequacy",
     conventional = "Conventional NPAFP rate",
-    verdict = "Review judgement"
+    verdict = "Review label"
   )
 
   cells <- lapply(seq_len(nrow(sel)), function(i) {
@@ -1744,10 +1741,10 @@ FG_CLASS_FILL <- c(
   )
 
   parts <- list(
-    .fg_tag(good, "At or above expectation"),
+    .fg_tag(good, "SPI at or above cutoff"),
     .fg_tag(uncertain, "Uncertain shortfall"),
-    .fg_tag(corrob, "Large, corroborated shortfall"),
-    .fg_tag(local, "Shortfall without spatial corroboration")
+    .fg_tag(corrob, "Large shortfall with supporting evidence"),
+    .fg_tag(local, "Shortfall without wider area concern")
   )
   dplyr::bind_rows(parts[!vapply(parts, is.null, logical(1))])
 }
@@ -1767,8 +1764,8 @@ FG_CLASS_FILL <- c(
 .fg_process_cell <- function(ok, n, what, min_cases) {
   if (is.na(n)) return("Not supplied")
   if (n < min_cases) {
-    return(sprintf("%d cases; fewer than %d, not assessed", as.integer(n),
-                   as.integer(min_cases)))
+    return(sprintf("%d case%s; fewer than %d, not assessed", as.integer(n),
+                   if (n == 1L) "" else "s", as.integer(min_cases)))
   }
   sprintf("%d of %d %s (%.0f%%)", as.integer(ok), as.integer(n), what,
           100 * ok / n)

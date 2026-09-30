@@ -1,3 +1,7 @@
+# the synthetic data carry sf boundary layers
+testthat::skip_if_not_installed("sf")
+testthat::skip_if_not_installed("spdep")
+
 test_that("synth_surveillance has the expected structure", {
   skip_if_not_installed("sf")
 

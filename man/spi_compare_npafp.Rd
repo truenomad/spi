@@ -32,7 +32,7 @@ and the population denominator column (see \code{pop_col}). Required, with one
 positive denominator per district and reporting year. For non-calendar
 years, supply the mean population over that reporting year.}
 
-\item{year_end_month}{Integer 1 to 12. Month in which the reading year
+\item{year_end_month}{Integer 1 to 12. Month in which the reporting year
 closes, matching the \code{year_end_month} the SPI was computed with. The
 conventional rate is grouped on the same rolling year, so the two sides of
 the comparison cover the same months. Default: 12 (calendar years).}
@@ -58,7 +58,7 @@ Default: 100000 (per 100,000 under-15 person-years).}
 \item{strata}{Character vector of column names to stratify the
 comparison by. Any column present in the district-year summary is valid:
 \code{"year"}, \code{"adm1_name"}, \code{"adm0_name"}, or any joined covariate.
-Set NULL for pooled analysis. Default: NULL.}
+Set NULL to summarise all district-years together. Default: NULL.}
 
 \item{id_col}{Character. Name of the district id column. Inferred from
 \code{spi$id_col} if NULL. Default: NULL.}
@@ -85,12 +85,12 @@ expected count, when present), \code{spi_median}, \code{spi_q05}, \code{spi_q95}
 \code{!spi_below_threshold}), \code{category} (factor: Neither below / SPI below
 threshold only / NPAFP below target only / Both below).}
 \item{crosstab}{2x2 table of counts and row/column percentages.}
-\item{metrics}{Pooled scalar metrics: \code{n}, \code{pct_agreement},
+\item{metrics}{Summary measures across all district-years: \code{n}, \code{pct_agreement},
 \code{cohens_kappa}, \code{mcnemar_p}, plus per-cell counts.}
 \item{by_stratum}{Tibble of per-stratum metrics when \code{strata} is
 non-NULL; else NULL.}
-\item{thresholds}{Named list echoing the SPI cut, the \code{spi_rule}, and
-the NPAFP cuts used.}
+\item{thresholds}{Named list echoing the SPI threshold, the \code{spi_rule}, and
+the NPAFP target used.}
 \item{id_col}{The id column name.}
 \item{call}{Matched call.}
 }
@@ -109,7 +109,7 @@ The two measures answer different questions, so neither is a reference
 standard for the other. The categories describe where they agree or
 differ; they do not establish whether surveillance is adequate.
 
-Agreement is summarised as raw percent agreement and Cohen's kappa, plus a
+Agreement is summarised as percentage agreement and Cohen's kappa, plus a
 McNemar test of whether one measure places more district-years below its
 threshold than the other.
 }
