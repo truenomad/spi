@@ -1,3 +1,55 @@
+# spi (development version)
+
+### Documentation
+
+* Simplified language throughout the articles, function help, console output,
+  and district reports. Clarified national centring, uncertainty, and review
+  labels. Calculations and function arguments are unchanged.
+
+* Aligned the README, articles and function help with the direct calculation:
+  each district's earlier rate is used unchanged, and national centring
+  includes only districts with positive expected counts. Clarified which
+  review tools require model-based results.
+
+### Bug fixes
+
+* Direct SPI reports and explanations now count and explain missing SPI
+  values when the national ratio is zero, even if district history is
+  available. Reported national totals use the same districts as the ratio.
+
+### New features
+
+* `spi_direct()` calculates SPI directly from preceding reporting, without
+  fitting the INLA spatial and temporal model. It needs only NPAFP cases and
+  the population under 15 by district and year. A district's expected count
+  is its current population times its NPAFP rate over all earlier years.
+  `history_check` records when the SPI cannot be calculated: a district with
+  no earlier case, or no earlier year, has no SPI and does not contribute to
+  the national ratio. Each district's population series is checked for
+  unusual changes before calculation.
+
+* `spi_direct()` needs no other argument when the table has the columns
+  `district`, `year`, `npafp_cases` and `population_u15`.
+
+* `spi_direct_explain()` shows how one district's direct SPI was calculated,
+  from current and previous reporting to the expected count and the national
+  comparison.
+
+* `spi_direct_explain()` can show its labels in another language, for example
+  `language = "fr"` for French. English is the default. Translation uses the
+  sntutils and gtranslate packages and needs an internet connection.
+
+* `spi_check_inputs()` also checks the inputs of the direct SPI with
+  `method = "direct"`. Boundaries are not needed for that check.
+
+* New article, "The direct SPI", explains the calculation step by step.
+
+* New article, "Preparing data for SPI", shows what data each calculation
+  needs and how to prepare them.
+
+* New article, "Using SPI with POLIS data", shows the workflow from the POLIS
+  AFP line list to the direct and model-based SPI.
+
 # spi 0.2.0
 
 ### Bug fixes
@@ -96,7 +148,7 @@
   pattern and trend. At or above the cutoff, the report says SPI indicates no relative reporting
   shortfall and points to the other surveillance indicators.
 
-### SPI, concordance and inputs
+### SPI, comparison with the NPAFP target, and inputs
 
 * Added `spi_check_inputs()` and `check` to find problems with counts, population, IDs, missing
   records, and boundaries before fitting.
@@ -105,9 +157,9 @@
   incomplete periods.
 
 * Fixed the NPAFP population calculation for custom reporting years. Use the same `year_end_month`
-  in SPI and concordance.
+  in SPI and the NPAFP comparison.
 
-* Added `boundaries` to include district and area names in SPI results. Concordance uses the same
+* Added `boundaries` to include district and area names in SPI results. The NPAFP comparison uses the same
   column order.
 
 * Added national centring as the default and `$national` ratios. Use `centre = "none"` for uncentred

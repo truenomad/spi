@@ -46,23 +46,22 @@ window must open at least \code{min_history} years after the first month in
 \item{min_history}{Integer. The number of years of history a fit needs
 before the window it assesses. Default: 3.}
 
-\item{level}{Character. Aggregation level: "district_month" (raw, highest
-temporal resolution), "district_quarter" (calendar-quarter SPI per
+\item{level}{Character. Aggregation level: "district_month" (monthly SPI per district), "district_quarter" (calendar-quarter SPI per
 district), "district_year" (annual SPI per district, default),
 "district_total" (single SPI per district over all assessment years).}
 
 \item{centre}{Character. "national" (default) divides each period's SPI
 draws and summaries by that period's national observed-to-expected
-ratio, so a country-wide reporting change does not move every district
-the same way. "none" leaves the raw ratio untouched.}
+ratio, so SPI compares each district
+with the country in that period. "none" returns the district
+observed-to-expected ratio without this adjustment.}
 
 \item{year_end_month}{Integer 1 to 12. Month in which the assessment year
 closes, for \code{level = "district_year"}. The default, 12, gives calendar
 years. Any other value gives a non-calendar reporting year:
-\code{year_end_month = 4} assesses May through April, so a review can close on
-the month the decision was actually taken rather than on 31 December.
+\code{year_end_month = 4} assesses May through April.
 Each window is labelled by the calendar year in which it closes, so May
-2024 to April 2025 reads as 2025, and is predicted from the months before
+2024 to April 2025 is labelled 2025, and is predicted from the months before
 it opens, here up to April 2024. The monthly offset still uses the
 calendar-year denominator. Ignored at every other level, which assess
 calendar years. For a rolling 12-month SPI updated every month, rerun
@@ -81,9 +80,7 @@ Default: "pop_u15".}
 
 \item{boundaries}{Optional \code{sf} object or data frame carrying the id column
 plus admin name columns (\code{adm1_name}, \code{adm2_name}, ...). When supplied,
-those names are joined onto the \code{summary} output immediately before the
-id column, so saved SPI tables carry human-readable labels next to the
-district id. Default \code{NULL}.}
+the names are added to \code{summary} next to the district identifier. Default \code{NULL}.}
 
 \item{min_expected}{Numeric. Districts or district-periods with total
 expected count below this threshold are marked as low-information. SPI
@@ -133,22 +130,23 @@ months are dropped. The year's observed counts are then compared with that
 prediction. At least \code{min_history} years of history are required before the
 first assessment year.
 
-The credible interval reflects uncertainty in expected counts. With national
-centring, SPI ~= 1 means reporting matches the national pattern. With
-\code{centre = "none"}, the reference is the district's own expected count.
-Values below 1 mean reporting is below the chosen reference. The model
+The credible interval describes uncertainty in expected counts. With
+national centring, SPI = 1 means the district and national
+observed-to-expected ratios are equal. SPI below 1 means the district
+ratio is lower. With \code{centre = "none"}, SPI below 1 means the district
+reported fewer cases than its own expected count. The model
 defaults are those of \code{\link[=spi_expected]{spi_expected()}}, which are the paper specification.
 }
 \details{
 For aggregated levels, observed counts are summed within each grouping,
 expected counts are summed within each grouping per posterior draw, and
-the ratio is computed per draw. This preserves the joint uncertainty in
-the expected denominator.
+the ratio is computed per draw. Within each fit, this keeps the uncertainty shared by
+expected counts in different districts and months.
 
 The draws of different assessment years come from separate fits. At
 \code{level = "district_total"} and in the \code{totals} row, expected counts are
-summed across years draw by draw, which gives a usable median but is not a
-joint posterior.
+summed across years draw by draw, so these summaries do not describe a
+joint posterior distribution across years.
 
 With \code{centre = "national"}, every district's SPI draws for a period are
 further divided by that period's national observed-to-expected ratio
@@ -189,6 +187,7 @@ spi_dy$windows
 }
 }
 \seealso{
-\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}
+\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}, and
+\code{vignette("spi-data-preparation")} for how to prepare the inputs.
 }
 \concept{spi core functions}

@@ -80,8 +80,7 @@ with a positive count (or \code{TRUE}) count as detections. Default: NULL
 \item{serotype_col}{Optional name of a serotype column in \code{detections} and / or
 \code{es}, e.g. holding \code{"cVDPV2"}, \code{"WPV1"}. When given, the distinct serotypes
 seen up to each year are recorded as \code{orphan_serotypes} / \code{es_serotypes},
-so a reading can name what was actually found rather than assuming one
-serotype. Without it those columns are NA, which downstream reads as "not
+so the report can name the serotypes found. Without it those columns are NA, which downstream reads as "not
 recorded" rather than "none found". Default: NULL.}
 
 \item{detection_serotypes}{Optional character vector of the serotypes that
@@ -91,8 +90,8 @@ dropped before the detection years, flags and serotypes are computed.
 Requires \code{serotype_col}. Default: NULL (whatever the input contains
 counts).}
 
-\item{read_year}{Integer focal year for \code{print()} and the default table /
-help rendering. Default: NULL (latest year present).}
+\item{read_year}{Integer year shown by \code{print()} and by default in tables and
+worked examples. Default: NULL (latest year present).}
 
 \item{spi_cut}{Numeric SPI cutoff below which STEPS is applied. Lower
 values such as 0.80, 0.60, or 0.40 focus review on larger reporting
@@ -111,8 +110,8 @@ persistence still use the median. Default: NULL (the \code{spi_rule} given to
 \item{traj_window}{Integer. Trend regression window in years, ending at
 each year (context). Default: 5.}
 
-\item{traj_tol}{Numeric slope dead-band per year below which a trend is
-"flat" (context). Default: 0.01.}
+\item{traj_tol}{Numeric tolerance for the annual trend slope. A slope whose
+absolute value is below this tolerance is labelled "flat". Default: 0.01.}
 
 \item{traj_alpha}{Optional numeric significance level for the trend. When
 set, a trajectory is only "falling" or "rising" if its OLS slope differs
@@ -173,17 +172,18 @@ guide's three review labels (\verb{Priority for review}, \code{Monitor},
 \verb{No SPI indication}). STEPS is applied only to districts with an SPI below
 \code{spi_cut} (1 by default, as in the field guide).
 
-SPI measures relative NPAFP reporting volume. STEPS brings this together with
-timeliness and stool quality, plus the extent and persistence of a shortfall.
+SPI compares reported NPAFP cases with expected counts. STEPS adds
+specimen transport and stool adequacy, and checks whether a low SPI also
+appears elsewhere in the area or in the previous year.
 The five components and what each asks:
 \itemize{
-\item \strong{S: Strength} -- how large and how certain is the shortfall? Read
+\item \strong{S: Strength} -- how large is the shortfall, and how uncertain is the estimate? Read
 from the SPI value and whether its 90\% credible interval lies entirely
 below 1.
 \item \strong{T: Timeliness} -- are specimens reaching the laboratory within 3
 days? Needs \code{process}.
-\item \strong{E: Extent} -- are other districts in the same admin-1 area (the
-other LGAs in the same state, in Nigeria) also below the SPI cutoff? Needs
+\item \strong{E: Extent} -- is a low SPI more common in the same region
+(such as a province or state) than nationally? Needs
 an \code{extent_col} in the comparison.
 \item \strong{P: Persistence} -- was the SPI also below the cut in the previous
 year?
@@ -191,9 +191,9 @@ year?
 \code{process}.
 }
 
-STEPS is not a combined score. Extent and persistence provide supporting
-context for a relative reporting shortfall. Timeliness and stool adequacy describe separate
-dimensions of surveillance and do not change the generated label. These
+The five STEPS components are reported separately. The review label
+depends on strength, extent, and persistence. Timeliness and stool
+adequacy describe specimen handling and do not change the label. These
 labels are not validated measures of surveillance adequacy or automatic
 recommendations for field action.
 
@@ -233,7 +233,7 @@ of \code{process_target} percent; below that they are \code{NA} (not assessed).
 
 Without \code{process}
 or an \code{extent_col} the corresponding component is \code{NA}. \code{signals_active}
-records which components and context signals were computable.
+records which components and additional findings could be calculated.
 }
 \examples{
 # a precomputed field guide on the synthetic bundle ships with the package

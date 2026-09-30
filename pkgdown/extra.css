@@ -43,6 +43,17 @@ details[open] > summary {
   padding-bottom: 0.4em;
 }
 
+/* Formula box: a result or formula set apart from the text, in the same
+   colours as the <details> callout. */
+.formula-box {
+  border: 1px solid #ddd5c6;
+  border-left: 4px solid #398a9d;
+  border-radius: 6px;
+  padding: 0.4em 1em;
+  margin: 1em 0;
+  background: #fbf8f2;
+}
+
 /* Content tables: rounded outer border, tinted header row, comfortable
    padding. Ported from the polished site. */
 table {
@@ -82,6 +93,12 @@ main table.table col {
 
 /* Dark mode: pkgdown's light-switch sets [data-bs-theme="dark"] on <html>. */
 [data-bs-theme="dark"] details {
+  border-color: #3d3d3a;
+  border-left-color: #7fc3d3;
+  background: #242422;
+}
+
+[data-bs-theme="dark"] .formula-box {
   border-color: #3d3d3a;
   border-left-color: #7fc3d3;
   background: #242422;

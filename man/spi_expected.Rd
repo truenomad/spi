@@ -46,9 +46,10 @@ must match those in \code{cases}.}
 covariate columns. If NULL, the model uses population, spatial, seasonal,
 and year terms according to the selected settings. Covariates are
 standardised internally (mean = 0, sd = 1). Covariate adjustment
-changes the estimand: a covariate-adjusted SPI no longer answers the same
-question as the default SPI, and the coefficients are conditional
-associations within the expected-count model, not causal effects.
+changes the expected counts and therefore the comparison made by SPI.
+For example, including travel time makes the expected count depend partly
+on access to care. Coefficients describe associations after accounting
+for the other model terms; they do not establish cause and effect.
 Default: NULL.}
 
 \item{season}{Character. Seasonal specification: "harmonic" (1st + 2nd order
@@ -56,15 +57,15 @@ sin/cos, 4 terms), "rw2" (cyclic 2nd-order random walk, 12 knots),
 "monthly" (12 monthly fixed effects, January omitted), "none" (no seasonal
 component). Default: "harmonic".}
 
-\item{year_effect}{Character. Optional between-year random effect to
+\item{year_effect}{Character. Optional year effect to
 account for differences in reported counts between years (e.g. changes
 during insecurity, programme transitions, or a pandemic). "iid" (default) estimates each year's effect
-independently; this is the paper specification, and is recommended
-when the between-year pattern is non-monotonic, such as a U shape.
+independently; this is the setting used in the accompanying study. It allows reporting
+to rise and fall between years without assuming a smooth trend.
 "none" omits the year effect; "rw1" smooths effects across adjacent
 years.}
 
-\item{overdispersion}{Character. Overdispersion mechanism: "nb" (negative
+\item{overdispersion}{Character. How to allow for count variation beyond a Poisson distribution: "nb" (negative
 binomial likelihood, default, the paper specification), "iid"
 (Poisson-lognormal, iid N(0, sigma^2) on log scale per district-month),
 "none" (plain Poisson, not recommended for sparse data), or "auto" (fit
@@ -73,7 +74,7 @@ all three and select a model using
 \code{n_draws}). Default: "nb".}
 
 \item{prior_phi}{Named list with elements \code{U} and \code{alpha} giving the BYM2
-mixing parameter PC prior \code{P(phi < U) = alpha}. Default:
+mixing parameter penalised-complexity (PC) prior \code{P(phi < U) = alpha}. Default:
 \code{list(U = 0.5, alpha = 0.5)} (50\% prior probability that phi is below 0.5).}
 
 \item{prior_precision}{Named list with elements \code{U} and \code{alpha} giving the
@@ -86,8 +87,8 @@ giving the PC prior for the year random effect precision. Default
 a 1\% prior probability that the log-scale SD exceeds 1. Ignored when
 \code{year_effect = "none"}.}
 
-\item{n_draws}{Integer. Posterior draws from joint latent field, used for
-credible intervals for SPI. Use 1000 for analysis, 100 for
+\item{n_draws}{Integer. Samples from the fitted model, used to calculate credible intervals
+for SPI. Each draw samples the model terms together. Use 1000 for analysis, 100 for
 quick checks. Default: 1000L.}
 
 \item{log_transform}{Character vector. Covariate column names to
@@ -104,8 +105,8 @@ Default: NULL.}
 For AFP surveillance the at-risk population is under-15, so the default
 is \code{"pop_u15"}. Pass \code{"pop"} if your tibble carries total population,
 \code{"pop_u16"} for under-16, or any other column name to switch
-denominators without pre-renaming. The function renames this column to
-\code{pop} internally and aborts with a helpful hint if it isn't present.
+population columns without renaming them first. The function uses \code{pop}
+internally and reports an error if the requested column is missing.
 Default: "pop_u15".}
 
 \item{keep_draws}{Logical. If TRUE (default), the full
@@ -113,24 +114,25 @@ Default: "pop_u15".}
 \code{result$draws}. Set FALSE for large jobs to keep only the summary
 quantiles and save memory.}
 
-\item{verbose}{Logical. Progress messages via cli. FALSE for batch jobs.
+\item{verbose}{Logical. Print progress messages. Set FALSE to suppress them.
 Default: TRUE.}
 
 \item{check}{Logical. Run \code{\link[=spi_check_inputs]{spi_check_inputs()}} on \code{cases}, \code{population}, and
 \code{adjacency} before fitting and abort on error-level issues. Default TRUE.
-Set FALSE only to skip a redundant re-check (the auto path and
-\code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}} set it internally so the check runs once).}
+Set FALSE only if the inputs have already been checked. Automatic model
+selection and \code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}} use this to avoid repeating
+the same check for each fit.}
 
 \item{debug}{Logical. If TRUE, runs INLA in verbose mode (prints its raw
 stdout/stderr, including VB-correction notes), prints model
 diagnostics (CPO failure rate, hyperparameter posterior summary,
 sanity check that median expected count is comparable to median
 observed count), and skips muting INLA's compiled-binary messages.
-Use when results look off or when investigating convergence. Default:
+Use to investigate unexpected results or convergence problems. Default:
 FALSE.}
 
 \item{seed}{Integer. Random seed forwarded to \code{inla.posterior.sample()},
-which pins the posterior draws. Must be a single non-negative whole
+which controls the posterior sampling. Must be a single non-negative whole
 number; \code{NULL} draws a fresh seed each call. Seeding alone is \emph{not}
 sufficient for run-to-run reproducibility -- see the Reproducibility
 section. Default: 42L.}
@@ -156,7 +158,7 @@ Object of class \code{spi_expected}. A list containing:
 \item{model}{Fitted INLA object.}
 \item{adjacency}{spdep nb object.}
 \item{hyperparameters}{Tibble with posterior summaries of tau, phi, sigma.}
-\item{priors}{List of prior specs used.}
+\item{priors}{List of prior settings used.}
 \item{cov_params}{Named list of \verb{(mean, sd)} used to standardise each
 covariate, used by \code{predict()}.}
 \item{data}{Input data tibble (for downstream functions).}
@@ -179,7 +181,7 @@ with:
 \item Optional covariates
 }
 
-\strong{Input validation.} Executed before INLA runs:
+\strong{Input checks.} Before fitting, the function checks:
 \enumerate{
 \item Required columns present and correct types
 \item No negative counts or NAs
@@ -220,7 +222,7 @@ the default \code{overdispersion = "nb"} or \code{overdispersion = "none"}.
 }
 \section{Paper specification}{
 
-The call the paper uses is \code{season = "harmonic"}, \code{year_effect = "iid"},
+The accompanying study uses \code{season = "harmonic"}, \code{year_effect = "iid"},
 \code{overdispersion = "nb"}, with no covariates -- the defaults below. The
 published index, \code{spi_index()}, is built on fits with these
 defaults.
@@ -229,8 +231,8 @@ defaults.
 \section{Choosing a seasonal specification}{
 
 Surveillance counts often show within-year cycles driven by transmission
-biology, climate, school terms, or reporting patterns. Picking the wrong
-\code{season} term either under-fits (seasonal variation is attributed to spatial effects) or over-fits (monthly effects fit random variation).
+biology, climate, school terms, or reporting patterns. A seasonal term that is too restrictive can leave seasonal variation
+unexplained; one that is too flexible can fit random variation.
 
 \strong{Quick diagnostic.} Before fitting, plot the monthly average count to see
 whether a cycle exists and what shape it has:
@@ -255,8 +257,9 @@ arbitrary shape; lets the prior do the smoothing rather than imposing a
 sinusoid. Use when seasonality is real but asymmetric or multi-modal
 (e.g. cholera in some settings).
 \item \emph{"monthly"} -- 11 free monthly fixed effects (January as reference).
-Most flexible, no smoothing. Use only with plentiful data (~3+ years
-across most districts); otherwise monthly effects absorb noise.
+Estimates each month separately, without smoothing. It needs enough
+data (about three or more years across most districts) to distinguish
+monthly patterns from random variation.
 }
 
 \strong{Compare plausible choices.} Examine the fitted seasonal pattern,
@@ -299,8 +302,8 @@ posterior. \code{num_threads} governs this.
 the caller's RNG state afterwards. (3) is why \code{num_threads} defaults to
 \code{"1:1"} alongside a seed.
 
-Changes in these settings can affect SPI values and field-guide judgements.
-A district's judgement can also change when results for other districts
+Changes in these settings can affect SPI values and field-guide labels.
+A district's label can also change when results for other districts
 change, because extent depends on their SPI values.
 
 The defaults use one thread for reproducibility. To use INLA's global thread

@@ -123,6 +123,7 @@ test_that("spi_compare_npafp groups cases on the SPI's reading year", {
 })
 
 test_that("spi_compare_npafp joins boundary strata (sf and plain frames)", {
+  testthat::skip_if_not_installed("sf")
   spi <- make_spi_dy(id_col = "adm2_guid")
   pop <- make_population(id_col = "adm2_guid")
 
@@ -207,6 +208,7 @@ test_that("spi_compare_npafp print / summary / as_tibble / plot", {
 })
 
 test_that("spi_compare_npafp_maps renders the three-panel figure", {
+  testthat::skip_if_not_installed("sf")
   skip_if_not_installed("sf")
   skip_if_not_installed("ggplot2")
   skip_if_not_installed("patchwork")

@@ -20,6 +20,33 @@
   invisible(TRUE)
 }
 
+# whether a package can be loaded; a separate function so tests can mock it
+#' @noRd
+.has_pkg <- function(pkg) requireNamespace(pkg, quietly = TRUE)
+
+#' Check that INLA is installed
+#'
+#' INLA is not on CRAN, so the generic install prompt of
+#' [rlang::check_installed()] would fail. This check prints the command that
+#' installs it from the INLA repository and points to [spi_direct()], which
+#' does not need INLA.
+#' @noRd
+.check_inla <- function(call = rlang::caller_env()) {
+  if (.has_pkg("INLA")) return(invisible(TRUE))
+  cli::cli_abort(
+    c(
+      "The model-based SPI needs the {.pkg INLA} package, which is not \\
+       installed.",
+      "i" = "INLA is not on CRAN. Install it with:",
+      " " = "{.code install.packages(\"INLA\", repos = c(getOption(\"repos\"), \\
+             INLA = \"https://inla.r-inla-download.org/R/stable\"), \\
+             dep = TRUE)}",
+      "i" = "{.fn spi_direct} calculates the SPI without INLA."
+    ),
+    call = call
+  )
+}
+
 #' Attach administrative name columns before the id column
 #'
 #' Left-joins the standard admin-hierarchy name columns

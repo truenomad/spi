@@ -45,7 +45,7 @@ Object of class \code{spi_comparison}. A list containing:
 \item{fits}{Named list of \code{spi_expected} objects, keyed by spec.}
 \item{summary}{Tibble of key diagnostics, one row per specification.}
 \item{recommendation}{List with \code{choice} (the specification selected by
-the package's diagnostic rule, a diagnostic recommendation),
+the package's diagnostic rule),
 \code{reasoning} (string explaining the choice), \code{excluded} (specs failing
 a diagnostic rule), and \code{survivors} (specs that passed all rules).}
 }
@@ -57,12 +57,13 @@ diagnostics. Helps assess the \code{overdispersion} setting in
 \code{\link[=spi_expected]{spi_expected()}}.
 }
 \details{
-For each spec the function refits \code{\link[=spi_expected]{spi_expected()}} and extracts: DIC, WAIC,
+For each specification the function refits \code{\link[=spi_expected]{spi_expected()}} and extracts: DIC, WAIC,
 effective parameter count, spatial SD (\code{1/sqrt(tau_spatial)}), BYM2 phi
 posterior median (with a "pegged" flag for boundary values), an
 overdispersion SD (\code{1/sqrt(tau_obs)} for "iid", \code{1/sqrt(nb_size)} for "nb",
 NA for "none"), the share of observations with valid CPO, and a
-KS-distance-to-uniform PIT calibration statistic.
+Kolmogorov-Smirnov (KS) distance of the probability integral transform
+(PIT) values from a uniform distribution.
 
 \strong{Selection rule.} A model is excluded if fewer than half its CPO values
 are valid, its effective parameter count exceeds 20\% of observations, or

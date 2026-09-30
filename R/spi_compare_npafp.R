@@ -24,7 +24,7 @@
 #' standard for the other. The categories describe where they agree or
 #' differ; they do not establish whether surveillance is adequate.
 #'
-#' Agreement is summarised as raw percent agreement and Cohen's kappa, plus a
+#' Agreement is summarised as percentage agreement and Cohen's kappa, plus a
 #' McNemar test of whether one measure places more district-years below its
 #' threshold than the other.
 #'
@@ -36,7 +36,7 @@
 #'   and the population denominator column (see `pop_col`). Required, with one
 #'   positive denominator per district and reporting year. For non-calendar
 #'   years, supply the mean population over that reporting year.
-#' @param year_end_month Integer 1 to 12. Month in which the reading year
+#' @param year_end_month Integer 1 to 12. Month in which the reporting year
 #'   closes, matching the `year_end_month` the SPI was computed with. The
 #'   conventional rate is grouped on the same rolling year, so the two sides of
 #'   the comparison cover the same months. Default: 12 (calendar years).
@@ -57,7 +57,7 @@
 #' @param strata Character vector of column names to stratify the
 #'   comparison by. Any column present in the district-year summary is valid:
 #'   `"year"`, `"adm1_name"`, `"adm0_name"`, or any joined covariate.
-#'   Set NULL for pooled analysis. Default: NULL.
+#'   Set NULL to summarise all district-years together. Default: NULL.
 #' @param id_col Character. Name of the district id column. Inferred from
 #'   `spi$id_col` if NULL. Default: NULL.
 #' @param pop_col Character. Population denominator column name. Default:
@@ -79,12 +79,12 @@
 #'     `!spi_below_threshold`), `category` (factor: Neither below / SPI below
 #'     threshold only / NPAFP below target only / Both below).}
 #'   \item{crosstab}{2x2 table of counts and row/column percentages.}
-#'   \item{metrics}{Pooled scalar metrics: `n`, `pct_agreement`,
+#'   \item{metrics}{Summary measures across all district-years: `n`, `pct_agreement`,
 #'     `cohens_kappa`, `mcnemar_p`, plus per-cell counts.}
 #'   \item{by_stratum}{Tibble of per-stratum metrics when `strata` is
 #'     non-NULL; else NULL.}
-#'   \item{thresholds}{Named list echoing the SPI cut, the `spi_rule`, and
-#'     the NPAFP cuts used.}
+#'   \item{thresholds}{Named list echoing the SPI threshold, the `spi_rule`, and
+#'     the NPAFP target used.}
 #'   \item{id_col}{The id column name.}
 #'   \item{call}{Matched call.}
 #' }
@@ -250,7 +250,10 @@ spi_compare_npafp <- function(
   # optional join with boundaries so `strata` can reference adm1/adm0 labels
   if (!is.null(boundaries)) {
     bnd_flat <- boundaries
-    if (inherits(bnd_flat, "sf")) bnd_flat <- sf::st_drop_geometry(bnd_flat)
+    if (inherits(bnd_flat, "sf")) {
+      .check_pkg("sf", reason = "to read labels from the boundaries layer")
+      bnd_flat <- sf::st_drop_geometry(bnd_flat)
+    }
     if (id_col %in% names(bnd_flat)) {
       # avoid duplicating columns already present in dy
       keep_cols <- setdiff(names(bnd_flat), setdiff(names(dy), id_col))
@@ -610,13 +613,12 @@ plot.spi_compare_npafp <- function(x, ...) {
 #'   default panel titles.
 #' @param year_label Character. What to call the displayed year in the
 #'   panel titles. Defaults to the plain year (e.g. `"2023"`). Pass
-#'   `sprintf("year T-1: %d", year)` to restore the paper's
-#'   validation-narrative wording where the map sits beside the
-#'   year-T detection panel.
-#' @param provinces Logical. Overlay dissolved adm1 (province) outlines (dark
-#'   grey) on the light-grey district choropleths? Default `TRUE`. Assumes the
-#'   adm2 layer is a clean coverage (shared edges); on an imperfectly
-#'   edge-matched layer the dissolve can leave sliver artefacts, so set `FALSE`.
+#'   `sprintf("year T-1: %d", year)` when displaying this map
+#'   beside detections from the following year.
+#' @param provinces Logical. Add province outlines in dark grey over the district maps.
+#'   Default `TRUE`. The outlines are formed by merging district polygons.
+#'   If district edges do not align, this can leave small gaps or strips;
+#'   set `FALSE` to omit the province outlines.
 #'
 #' @return A `patchwork` object plotting the three panels side by side.
 #'

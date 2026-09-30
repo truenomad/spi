@@ -6,8 +6,8 @@
 \title{Precomputed SPI field guide for the synthetic data}
 \format{
 An object of class \code{spi_field_guide}; see the Value section
-of \code{\link[=spi_field_guide]{spi_field_guide()}} for the element structure. Read year 2024; SPI cut
-1; NPAFP target 3 per 100,000 under-15-years.
+of \code{\link[=spi_field_guide]{spi_field_guide()}} for its contents. The review year is 2024, the SPI
+cutoff is 1, and the NPAFP target is 3 per 100,000 under-15 person-years.
 }
 \usage{
 synth_field_guide

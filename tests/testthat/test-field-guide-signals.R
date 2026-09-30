@@ -173,9 +173,9 @@ test_that("spi_field_guide_help runs every topic and the synth fallback", {
   w <- spi_field_guide_help("example", guide = fg)
   expect_s3_class(w, "tbl_df")
   expect_setequal(w$case_label, c(
-    "At or above expectation", "Uncertain shortfall",
-    "Large, corroborated shortfall",
-    "Shortfall without spatial corroboration"
+    "SPI at or above cutoff", "Uncertain shortfall",
+    "Large shortfall with supporting evidence",
+    "Shortfall without wider area concern"
   ))
 
   # default guide argument loads the shipped synth_field_guide
@@ -265,7 +265,7 @@ test_that("field-guide cell + narrative helpers cover their branches", {
             spi_median = 0.9, spi_q05 = 0.8, spi_q95 = 1.0,
             spi_previous = NA_real_, extent_others = 0L,
             expected_total = 5)
-  expect_match(spi:::.fg_narrate(r, 1), "Judgement: Monitor")
+  expect_match(spi:::.fg_narrate(r, 1), "Review label: Monitor")
   expect_match(spi:::.fg_narrate(r, 1), "no SPI for the previous year")
 })
 

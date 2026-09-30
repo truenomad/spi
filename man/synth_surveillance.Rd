@@ -10,8 +10,8 @@ A named list with twelve elements:
 \item{cases}{Tibble, 28,320 x 3. Columns: \code{adm2_guid} (character district
 id, a POLIS-style GUID such as
 \code{"{54CD979C-CF9D-6A65-567F-8976C9546137}"}), \code{month} (Date,
-first-of-month), \code{count} (integer). Full 236 x 120 district-month grid
-with zero counts explicit.}
+first-of-month), \code{count} (integer). Includes every combination of 236 districts and 120 months,
+including months with zero cases.}
 \item{population}{Tibble, 2,360 x 3. Columns: \code{adm2_guid}, \code{year}
 (integer, 2015-2024), \code{pop_u15} (numeric, under-15 population). Real
 annual under-15 counts extracted from the WorldPop 0-14 rasters over the
@@ -20,9 +20,9 @@ source geometry (range ~19k-900k).}
 adjusted \code{spi_expected()} model. Columns: \code{adm2_guid}, \code{year} (integer,
 2015-2024), \code{dtp3} (numeric, DTP3 immunisation coverage \%, a
 proxy for health service access), \code{urban_prop} (numeric, 0-1 urban share,
-structural per district), \code{travel_time_min} (numeric, median minutes to
+fixed for each district), \code{travel_time_min} (numeric, median minutes to
 the nearest health facility, an access-to-care proxy; right-skewed, a
-\code{log_transform} candidate). Correlated with the planted blindspots (lower
+\code{log_transform} candidate). Correlated with the simulated reporting shortfalls (lower
 coverage, worse access) and population (denser is more urban).}
 \item{boundaries}{\code{sf} object, 236 x 4 (+ geometry). Columns: \code{adm2_guid},
 \code{adm2_name} (fictional place names), \code{adm1_name} (one of
@@ -43,7 +43,7 @@ subdivided into 5-8 wards by nested Voronoi tessellation.}
 \code{any_wpv1} (integer, 0/1; always 0 in these data), \code{any_cvdpv2}
 (integer, 0/1), \code{any_virus} (integer, 0/1). cVDPV2 detections occur
 the year after a district's detection completeness falls well below the
-contemporaneous norm (relative completeness < 0.6), at rate
+national level in the same year (relative completeness < 0.6), at rate
 \code{plogis(-0.6)}; background rate \code{plogis(-4)}. Included for comparison with SPI results.}
 \item{es_sites}{\code{sf} object, 160 x 5 (+ geometry). Environmental
 surveillance sentinel sites (~67\% of districts host one). Columns:
@@ -52,9 +52,8 @@ surveillance sentinel sites (~67\% of districts host one). Columns:
 centroid of a random ward.}
 \item{es_data}{Tibble, 19,200 x 4. Monthly ES sample-level rows. Columns:
 \code{es_site_id}, \code{adm2_guid}, \code{sample_date} (Date, first-of-month),
-\code{positive_cvdpv2} (integer, 0/1). Positivity probability shares the
-same true-vs-observed gap signal as \code{virus_outcome}, so the two ES
-proxies are internally consistent.}
+\code{positive_cvdpv2} (integer, 0/1). The probability of a positive sample depends on the same simulated
+detection shortfall used for \code{virus_outcome}.}
 \item{es_district_year}{Tibble, 1,600 x 4. Annual ES totals by district.
 Columns: \code{adm2_guid}, \code{year}, \code{n_samples}, \code{n_positive}.}
 \item{afp_timeliness}{Tibble, 2,360 x 5. District-year AFP timeliness
@@ -69,8 +68,8 @@ for the STEPS timeliness and stool adequacy components. Columns:
 \code{adm2_guid}, \code{year}, \code{n_cases} (AFP cases), \code{n_adequate} (cases with
 adequate stool specimens), \code{n_transport} (cases with both the second
 stool collection and laboratory receipt dates), \code{n_transport_timely}
-(of those, received by the laboratory within 3 days). The shape
-\code{\link[=spi_field_guide]{spi_field_guide()}}'s \code{process} argument expects.}
+(of those, received by the laboratory within 3 days). These are the columns
+required by \code{\link[=spi_field_guide]{spi_field_guide()}}'s \code{process} argument.}
 \item{simulation_truth}{Tibble, 236 x 6. Settings the simulation used
 for each district; they describe the synthetic data, not true
 surveillance performance. Columns:
@@ -95,8 +94,8 @@ and the original boundary geometry come from the sources listed below.
 }
 \section{Data-generating process}{
 
-True AFP burden is stable over time; observed counts are that burden thinned
-by \emph{detection completeness}. Counts are drawn from a negative-binomial
+The simulated underlying AFP rate is stable over time. The proportion
+of cases reported, called \emph{detection completeness}, changes over time. Counts are drawn from a negative-binomial
 likelihood with mean
 \deqn{\mu^{obs}_{it} = c_{it}\,\exp\!\big(\alpha + b_i + s(m_t) +
   \log(\mathrm{pop}_{u15,it} / 10^5)\big),}
@@ -144,7 +143,7 @@ gaps, renamed, and rotated (see
 \code{data-raw/synth_admin_polygons.R} and the shipped
 \code{inst/extdata/synth_admin_polygons.provenance.txt}).
 
-Population (\code{pop_u15}) is real under-15 counts zonal-summed from
+Population (\code{pop_u15}) is under-15 population estimates summed within each district from
 \strong{WorldPop} unconstrained global age-structured rasters (0-14), keyed to
 the source geometry and shipped as \code{inst/extdata/synth_admin_pop_u15.csv}.
 WorldPop is released under CC-BY 4.0 (\url{https://www.worldpop.org}).

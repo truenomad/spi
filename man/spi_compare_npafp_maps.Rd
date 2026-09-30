@@ -43,14 +43,13 @@ default panel titles.}
 
 \item{year_label}{Character. What to call the displayed year in the
 panel titles. Defaults to the plain year (e.g. \code{"2023"}). Pass
-\code{sprintf("year T-1: \%d", year)} to restore the paper's
-validation-narrative wording where the map sits beside the
-year-T detection panel.}
+\code{sprintf("year T-1: \%d", year)} when displaying this map
+beside detections from the following year.}
 
-\item{provinces}{Logical. Overlay dissolved adm1 (province) outlines (dark
-grey) on the light-grey district choropleths? Default \code{TRUE}. Assumes the
-adm2 layer is a clean coverage (shared edges); on an imperfectly
-edge-matched layer the dissolve can leave sliver artefacts, so set \code{FALSE}.}
+\item{provinces}{Logical. Add province outlines in dark grey over the district maps.
+Default \code{TRUE}. The outlines are formed by merging district polygons.
+If district edges do not align, this can leave small gaps or strips;
+set \code{FALSE} to omit the province outlines.}
 }
 \value{
 A \code{patchwork} object plotting the three panels side by side.

@@ -9,8 +9,8 @@
 #'   \item{cases}{Tibble, 28,320 x 3. Columns: `adm2_guid` (character district
 #'     id, a POLIS-style GUID such as
 #'     `"{54CD979C-CF9D-6A65-567F-8976C9546137}"`), `month` (Date,
-#'     first-of-month), `count` (integer). Full 236 x 120 district-month grid
-#'     with zero counts explicit.}
+#'     first-of-month), `count` (integer). Includes every combination of 236 districts and 120 months,
+#'     including months with zero cases.}
 #'   \item{population}{Tibble, 2,360 x 3. Columns: `adm2_guid`, `year`
 #'     (integer, 2015-2024), `pop_u15` (numeric, under-15 population). Real
 #'     annual under-15 counts extracted from the WorldPop 0-14 rasters over the
@@ -19,9 +19,9 @@
 #'     adjusted `spi_expected()` model. Columns: `adm2_guid`, `year` (integer,
 #'     2015-2024), `dtp3` (numeric, DTP3 immunisation coverage %, a
 #'     proxy for health service access), `urban_prop` (numeric, 0-1 urban share,
-#'     structural per district), `travel_time_min` (numeric, median minutes to
+#'     fixed for each district), `travel_time_min` (numeric, median minutes to
 #'     the nearest health facility, an access-to-care proxy; right-skewed, a
-#'     `log_transform` candidate). Correlated with the planted blindspots (lower
+#'     `log_transform` candidate). Correlated with the simulated reporting shortfalls (lower
 #'     coverage, worse access) and population (denser is more urban).}
 #'   \item{boundaries}{`sf` object, 236 x 4 (+ geometry). Columns: `adm2_guid`,
 #'     `adm2_name` (fictional place names), `adm1_name` (one of
@@ -42,7 +42,7 @@
 #'     `any_wpv1` (integer, 0/1; always 0 in these data), `any_cvdpv2`
 #'     (integer, 0/1), `any_virus` (integer, 0/1). cVDPV2 detections occur
 #'     the year after a district's detection completeness falls well below the
-#'     contemporaneous norm (relative completeness < 0.6), at rate
+#'     national level in the same year (relative completeness < 0.6), at rate
 #'     `plogis(-0.6)`; background rate `plogis(-4)`. Included for comparison with SPI results.}
 #'   \item{es_sites}{`sf` object, 160 x 5 (+ geometry). Environmental
 #'     surveillance sentinel sites (~67% of districts host one). Columns:
@@ -51,9 +51,8 @@
 #'     centroid of a random ward.}
 #'   \item{es_data}{Tibble, 19,200 x 4. Monthly ES sample-level rows. Columns:
 #'     `es_site_id`, `adm2_guid`, `sample_date` (Date, first-of-month),
-#'     `positive_cvdpv2` (integer, 0/1). Positivity probability shares the
-#'     same true-vs-observed gap signal as `virus_outcome`, so the two ES
-#'     proxies are internally consistent.}
+#'     `positive_cvdpv2` (integer, 0/1). The probability of a positive sample depends on the same simulated
+#'     detection shortfall used for `virus_outcome`.}
 #'   \item{es_district_year}{Tibble, 1,600 x 4. Annual ES totals by district.
 #'     Columns: `adm2_guid`, `year`, `n_samples`, `n_positive`.}
 #'   \item{afp_timeliness}{Tibble, 2,360 x 5. District-year AFP timeliness
@@ -68,8 +67,8 @@
 #'     `adm2_guid`, `year`, `n_cases` (AFP cases), `n_adequate` (cases with
 #'     adequate stool specimens), `n_transport` (cases with both the second
 #'     stool collection and laboratory receipt dates), `n_transport_timely`
-#'     (of those, received by the laboratory within 3 days). The shape
-#'     [spi_field_guide()]'s `process` argument expects.}
+#'     (of those, received by the laboratory within 3 days). These are the columns
+#'     required by [spi_field_guide()]'s `process` argument.}
 #'   \item{simulation_truth}{Tibble, 236 x 6. Settings the simulation used
 #'     for each district; they describe the synthetic data, not true
 #'     surveillance performance. Columns:
@@ -85,8 +84,8 @@
 #' }
 #'
 #' @section Data-generating process:
-#' True AFP burden is stable over time; observed counts are that burden thinned
-#' by *detection completeness*. Counts are drawn from a negative-binomial
+#' The simulated underlying AFP rate is stable over time. The proportion
+#' of cases reported, called *detection completeness*, changes over time. Counts are drawn from a negative-binomial
 #' likelihood with mean
 #' \deqn{\mu^{obs}_{it} = c_{it}\,\exp\!\big(\alpha + b_i + s(m_t) +
 #'   \log(\mathrm{pop}_{u15,it} / 10^5)\big),}
@@ -130,7 +129,7 @@
 #' `data-raw/synth_admin_polygons.R` and the shipped
 #' `inst/extdata/synth_admin_polygons.provenance.txt`).
 #'
-#' Population (`pop_u15`) is real under-15 counts zonal-summed from
+#' Population (`pop_u15`) is under-15 population estimates summed within each district from
 #' **WorldPop** unconstrained global age-structured rasters (0-14), keyed to
 #' the source geometry and shipped as `inst/extdata/synth_admin_pop_u15.csv`.
 #' WorldPop is released under CC-BY 4.0 (<https://www.worldpop.org>).
@@ -179,8 +178,8 @@
 #' `spi_field_guide()`.
 #'
 #' @format An object of class `spi_field_guide`; see the Value section
-#'   of [spi_field_guide()] for the element structure. Read year 2024; SPI cut
-#'   1; NPAFP target 3 per 100,000 under-15-years.
+#'   of [spi_field_guide()] for its contents. The review year is 2024, the SPI
+#'   cutoff is 1, and the NPAFP target is 3 per 100,000 under-15 person-years.
 #'
 #' @section Reproducibility:
 #' Regenerate with `Rscript data-raw/synth_field_guide.R` (needs INLA). The

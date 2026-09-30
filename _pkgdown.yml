@@ -84,6 +84,12 @@ navbar:
       menu:
       - text: Getting started
         href: articles/spi-getting-started.html
+      - text: The direct SPI
+        href: articles/spi-direct.html
+      - text: Preparing data
+        href: articles/spi-data-preparation.html
+      - text: Using SPI with POLIS data
+        href: articles/spi-polis.html
       - text: How SPI works
         href: articles/spi-methods.html
       - text: Interpreting SPI
@@ -98,7 +104,7 @@ reference:
   desc: >
     Check the inputs and fit expected monthly counts with INLA. Pass district
     boundaries directly, or inspect the neighbour graph separately. `spi_compare_overdispersion()` compares the three
-    observation models.
+    models for count variation.
   contents:
   - spi_check_inputs
   - spi_adjacency
@@ -113,9 +119,17 @@ reference:
   - spi_index
   - spi_compare_npafp
   - spi_compare_npafp_maps
+- title: Calculate SPI directly
+  desc: >
+    Calculate annual SPI from earlier case counts and population estimates
+    without INLA, and inspect the calculation for one district. Check the
+    table first with `spi_check_inputs(method = "direct")`.
+  contents:
+  - spi_direct
+  - spi_direct_explain
 - title: Review districts
   desc: >
-    Organise district review with the five STEPS components, then produce a
+    Use model-based SPI results to organise district review with the five STEPS components, then produce a
     table or a one-page district report.
   contents:
   - spi_field_guide
@@ -140,6 +154,9 @@ articles:
   navbar: ~
   contents:
   - spi-getting-started
+  - spi-direct
+  - spi-data-preparation
+  - spi-polis
   - spi-methods
   - spi-interpretation
   - spi-field-guide

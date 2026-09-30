@@ -1,0 +1,139 @@
+---
+title: "Using SPI with POLIS data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using SPI with POLIS data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+This article shows the workflow from the POLIS AFP line list to the direct SPI (`spi_direct()`, see [The direct SPI](spi-direct.html)) and the model-based SPI (`spi_index()`, see [Getting started with SPI](spi-getting-started.html)). It is for users with POLIS access under a GPEI data-sharing agreement who clean their data with [polished](https://truenomad.github.io/polished/). The examples require your own POLIS data and are not run when this article is built. [Preparing data for SPI](spi-data-preparation.html) covers data preparation in general.
+
+## 1. Load the cleaned data
+
+polished downloads and cleans the AFP line list, the population and the district boundaries.
+
+```{r polished-load}
+cleaned <- polished::load_polished(country = "AFG")
+
+afp <- cleaned$afp
+population <- cleaned$pop_adm2
+districts <- readRDS("data/gpei_adm2_shape.rds")
+```
+
+## 2. What the tables contain
+
+| Table | Rows | Columns used here |
+|---|---|---|
+| `afp` | One per AFP case | `adm2_guid`, the paralysis onset date (`paralysis_onset_date`), the onset year (`year_onset`) and the classification (`classification_all`) |
+| `population` | One per district and year | `adm2_guid`, `year` and the under-15 population (`u15_pop`) |
+| `districts` | One per district | `adm2_guid` and the geometry |
+
+`districts` is the GPEI district shapefile used when running polished. All three tables use the POLIS district GUID (`adm2_guid`), so they link to each other without matching names.
+
+Cases are assigned to a month and a year by their date of paralysis onset.
+
+## 3. Decide how to handle pending classifications
+
+Cases still pending classification are mostly recent cases. The expected history can be biased if recent years contain many unresolved cases but previous years do not.
+
+Decide whether pending cases count as NPAFP before aggregating, and apply the same rule to every year. Define the rule once and use it for both the direct and the model-based SPI:
+
+```{r pending}
+# NPAFP with pending cases; use "NPAFP" alone to leave them out
+npafp_classes <- c("NPAFP", "PENDING", "LAB PENDING")
+
+afp_npafp <- afp |>
+  dplyr::filter(classification_all %in% npafp_classes)
+```
+
+Leaving pending cases out lowers the most recent counts relative to earlier years. Counting them includes some cases that may later receive another classification.
+
+## 4. NPAFP counts for the direct SPI
+
+Count the cases by district and year of onset:
+
+```{r polished-direct}
+npafp_year <- afp_npafp |>
+  dplyr::count(adm2_guid, year = year_onset, name = "npafp_cases")
+
+spi_results <- spi_direct(
+  npafp_year,
+  population = population,
+  id_col = "adm2_guid",
+  pop_col = "u15_pop"
+)
+```
+
+A count from the line list has no row for a district-year without a case. Passing the population table means those district-years are included with zero cases.
+
+polished can also produce the counts directly. `polished::calc_polio_indicators()` returns, at district level, one row per district and year with the district GUID in `guid` and the number of NPAFP cases in `npafp_cases`:
+
+```{r polished-indicators}
+indicators <- polished::calc_polio_indicators(
+  cases = afp,
+  population = population,
+  levels = "adm2"
+)
+
+npafp_year <- indicators$adm2 |>
+  dplyr::select(adm2_guid = guid, year, npafp_cases)
+```
+
+By default `calc_polio_indicators()` counts pending cases as NPAFP (`include_pending = TRUE`). Set `include_pending` to match the rule chosen in section 3. Its district table lists only district-years with AFP activity, so pass the population table to `spi_direct()` as above.
+
+The direct expectation uses each district's own earlier NPAFP rate. If a district has no earlier year or no earlier NPAFP case, `history_check` records the reason and SPI is `NA`. Review these rows alongside the NPAFP rate rather than dropping them from the surveillance review.
+
+## 5. Monthly counts for the model-based SPI
+
+The model needs one row per district and month, including months with no case. Count the cases by district and month of onset:
+
+```{r polished-monthly}
+months <- seq(as.Date("2016-01-01"), as.Date("2025-12-01"), by = "month")
+
+npafp_month <- afp_npafp |>
+  dplyr::mutate(
+    month = as.Date(format(paralysis_onset_date, "%Y-%m-01"))
+  ) |>
+  dplyr::count(adm2_guid, month, name = "count")
+```
+
+Then build the monthly grid. Start from all districts in the boundary file, not only districts that appear in the case data. This keeps districts that reported zero NPAFP cases during the entire period.
+
+```{r polished-grid}
+cases <- tibble::tibble(adm2_guid = unique(districts$adm2_guid)) |>
+  dplyr::cross_join(tibble::tibble(month = months)) |>
+  dplyr::left_join(npafp_month, by = c("adm2_guid", "month")) |>
+  dplyr::mutate(count = dplyr::coalesce(count, 0L))
+```
+
+## 6. Check the inputs and calculate the model-based SPI
+
+`spi_check_inputs()` reports any case or population GUID that is not in the district layer, along with missing months and population problems:
+
+```{r polished-check}
+spi_check_inputs(
+  cases = cases,
+  population = population,
+  shapefile = districts,
+  id_col = "adm2_guid",
+  pop_col = "u15_pop"
+)
+```
+
+Then fit the model and calculate the SPI. This needs INLA and takes several minutes; see [Getting started with SPI](spi-getting-started.html).
+
+```{r polished-model}
+spi_year <- spi_index(
+  cases = cases,
+  population = population,
+  adjacency = districts,
+  first_assessment = 2019,
+  id_col = "adm2_guid",
+  pop_col = "u15_pop"
+)
+```

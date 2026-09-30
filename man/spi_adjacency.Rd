@@ -47,18 +47,17 @@ Builds a neighbour list from an \code{sf} polygon layer for the BYM2 model.
 By default, a district with no neighbours is linked to the nearest district.
 }
 \details{
-\strong{What this is.} An \code{nb} object (from \pkg{spdep}) is a list of length n
-(one slot per district) where slot \code{i} holds the integer indices of
-district \code{i}'s neighbours. It is the graph form of a sparse adjacency
-matrix W with \code{W[i, j] = 1} iff districts i and j share a boundary.
+\strong{Neighbour list.} An \code{nb} object (from \pkg{spdep}) has one element per
+district. Element \code{i} lists the row numbers of district \code{i}'s neighbours.
+This records which districts share a boundary under the chosen rule.
 
-\strong{Why the package needs it.} The BYM2 spatial random effect fitted inside
+\strong{Use in the model.} The BYM2 spatial random effect fitted inside
 \code{\link[=spi_expected]{spi_expected()}} separates district variation into a structured component (correlated
 across neighbours) and an unstructured component. The structured part is
 a Gaussian Markov random field whose precision matrix is built directly
 from this neighbour graph. Districts with no neighbours contribute no
-spatial smoothing -- which is why we attach islands to their nearest
-district by default.
+spatial smoothing. By default, the function links these isolated
+districts to their nearest district.
 
 \strong{Contiguity rule.} Queen contiguity treats districts as neighbours if
 they share \emph{any} boundary point (edge or corner); rook requires a shared
@@ -66,8 +65,7 @@ edge. Queen is the usual choice for administrative polygons.
 }
 \section{Inspecting the output}{
 
-The returned object has a print/summary method from \pkg{spdep}. Quick
-checks:
+Use the print and summary methods from \pkg{spdep} to inspect the graph:
 
 \preformatted{
 summary(adj)                   # link counts, component count, extremes
@@ -88,13 +86,13 @@ plot(adj, sf::st_coordinates(ctr), add = TRUE, col = "steelblue")
 \strong{What to look for.}
 \itemize{
 \item \emph{Average neighbours} of roughly 4-7 is typical for admin-2
-layers. <2 suggests a bad CRS or a topology problem; >10 may
-indicate slivers or duplicated geometry.
+layers. An average below 2 or above 10 is a reason to check the
+coordinate reference system and look for gaps, overlaps, or duplicated
+polygons.
 \item \emph{Disjoint connected subgraphs} > 1 means the country splits into
 separate components. BYM2 still fits, but each component is
-smoothed independently -- fine if the extra components are small
-(islands, enclaves), worth investigating if a large region is
-unexpectedly cut off.
+smoothed independently. Check whether the separate components reflect
+actual geography, such as islands, or errors in the boundaries.
 \item \emph{Remaining islands} (\code{card == 0}) should be empty when
 \code{handle_islands = TRUE}.
 }

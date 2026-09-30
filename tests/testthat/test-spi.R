@@ -269,6 +269,29 @@ test_that("case overrides preserve alignment", {
 test_that("INLA integration helpers do not hide package errors", {
   expect_error(inla_or_skip(stop("unexpected package regression")),
                "unexpected package regression")
+  expect_error(inla_or_skip(stop("model matrix is not positive definite")),
+               "not positive definite")
+  expect_error(inla_or_skip(stop("input data: no such file")),
+               "input data: no such file")
+})
+
+test_that("INLA integration helpers recognise missing executables", {
+  result <- tryCatch(
+    inla_or_skip(stop("INLA installation error; no such file ")),
+    skip = identity
+  )
+  expect_s3_class(result, "skip")
+  expect_match(conditionMessage(result), "INLA binary unavailable", fixed = TRUE)
+})
+
+test_that("INLA integration helpers recognise a failed INLA program", {
+  crash <- paste(
+    "INLA model fitting failed.",
+    "12 simultaneous processes spawned The inla program failed and the",
+    "maximum number of tries has been reached."
+  )
+  result <- tryCatch(inla_or_skip(stop(crash)), skip = identity)
+  expect_s3_class(result, "skip")
 })
 
 test_that("SPI summaries handle constant and unavailable distributions", {

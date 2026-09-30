@@ -35,7 +35,7 @@ INLA::inla.setOption(num.threads = "1:1")
 set.seed(1)
 ```
 
-The default SPI model uses no covariates and negative binomial overdispersion. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period.
+The default SPI model uses a negative binomial distribution for counts and no additional explanatory variables (covariates). The negative binomial distribution allows counts to vary more than a Poisson distribution would. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period. These options apply to the model-based SPI (`spi_index()`), not to the direct SPI.
 
 The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes.
 
@@ -46,7 +46,7 @@ synth <- synth_surveillance
 
 ## Adjusting for covariates
 
-Covariates are optional and are not part of the default SPI used in the accompanying study. Covariate adjustment changes the estimand: a covariate-adjusted SPI no longer answers the same question as the default SPI. Pass district-year covariates to `spi_index()` or `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
+Covariates are optional and are not part of the default SPI used in the accompanying study. Adding covariates changes the expected counts and therefore what SPI compares. For example, including travel time makes the expected count depend partly on access to care. Pass district-year covariates to `spi_index()` or `spi_expected()` through the `covariates` argument. The example data include DTP3 coverage, urban population share, and travel time to care:
 
 ```{r covariates}
 synth$covariates |>
@@ -69,7 +69,7 @@ fit_adj <- spi_expected(
 )
 ```
 
-Effects are reported as rate ratios per standard deviation of the covariate. The model standardises covariates internally. Here are the three covariate effects, excluding the seasonal terms:
+Effects are reported as rate ratios for a one-standard-deviation increase in each covariate. The model first rescales each covariate to have mean 0 and standard deviation 1. Here are the three covariate effects, excluding the seasonal terms:
 
 ```{r fit-adjusted-show}
 summary(fit_adj)$effects |>
@@ -77,7 +77,7 @@ summary(fit_adj)$effects |>
   dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
 ```
 
-These coefficients describe conditional associations within the expected-count model and should not be interpreted causally.
+These coefficients describe associations with reporting after accounting for the other model terms. They do not show that changing a covariate would cause reporting to change.
 
 ## Compare overdispersion options
 
@@ -99,7 +99,7 @@ od <- spi_compare_overdispersion(
 od$summary
 ```
 
-`od$summary` has one row per observation model. DIC and WAIC compare model fit while allowing for complexity; lower values are preferred. The CPO column is the share of observations with a valid leave-one-out predictive value. The PIT statistic is the distance of the probability integral transform values from a uniform distribution, and smaller values indicate closer agreement with that reference distribution.
+`od$summary` has one row per model. DIC (deviance information criterion) and WAIC (widely applicable information criterion) compare fit while allowing for model complexity; lower values are preferred. `cpo_valid` is the share of observations with a valid conditional predictive ordinate, a check of how well each observation is predicted when left out of the fit. `pit_ks` measures how far the probability integral transform (PIT) values are from a uniform distribution; smaller values indicate closer agreement with that reference.
 
 `od$recommendation` gives the model selected by the package's diagnostic rule, with its reasoning:
 
@@ -126,13 +126,13 @@ adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
 ```
 
-Districts are neighbours when their boundaries touch at any point (`contiguity = "queen"`); `contiguity = "rook"` requires a shared edge. With `handle_islands = TRUE`, the default, a district with no neighbours is linked to its nearest district by centroid distance. A group of districts cut off from the rest stays a separate component, and the printed graph reports the number of disjoint connected subgraphs when there is more than one.
+Districts are neighbours when their boundaries touch at any point (`contiguity = "queen"`); `contiguity = "rook"` requires a shared edge. With `handle_islands = TRUE`, the default, a district with no neighbours is linked to its nearest district by centroid distance. A group of connected districts that has no link to the rest remains separate. The printed graph calls these groups "disjoint connected subgraphs".
 
-The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits district-level variation into a spatially structured part, shared with neighbours, and an unstructured part specific to each district; `phi` is the share of that variation that is spatially structured. Where district information is sparse, partial pooling and spatial borrowing help estimate the expected count. This makes the estimate more stable, but it can pull an unusual district towards its neighbours.
+The spatial term is a BYM2 random effect (Riebler et al. 2016). It splits district-level variation into a spatially structured part, shared with neighbours, and an unstructured part specific to each district; `phi` is the share of that variation that is spatially structured. When a district has little data, the model uses information from other districts, including its neighbours, to help estimate its expected count. This makes the estimate more stable, but it can pull an unusual district towards its neighbours.
 
 ## Sensitivity checks
 
-Results can depend on the training period, observation model, covariates, centring, and reporting year. Each check below calculates SPI for 2022 to 2024 with one setting changed, using 100 posterior draws to keep the run time down. Each counts the complete district-years with an SPI below 1. The count is a simple illustration of how classification changes between settings, not a measure of model performance:
+Results can depend on the training period, observation model, covariates, centring, and reporting year. Each check below calculates SPI for 2022 to 2024 with one setting changed, using 100 posterior draws to keep the run time down. Each check counts district-years that cover all 12 months and have an SPI below 1. The count is a simple illustration of how classification changes between settings, not a measure of model performance:
 
 ```{r sensitivity}
 sensitivity_index <- function(...) {
