@@ -121,5 +121,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Mohamed Yusuf \email{moyusuf@who.int} (\href{https://orcid.org/0000-0002-9339-4613}{ORCID})
 
+Authors:
+\itemize{
+  \item Chibuzor Christopher Nnanatu (\href{https://orcid.org/0000-0002-5841-3700}{ORCID})
+}
+
 }
 \keyword{internal}

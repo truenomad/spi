@@ -1,0 +1,246 @@
+---
+title: "The direct SPI"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The direct SPI}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(cli.width = 80, width = 80)
+library(spi)
+
+num <- function(x, d = 2) {
+  formatC(x, format = "f", digits = d, big.mark = " ")
+}
+pct <- function(x) paste0(round(100 * x), "%")
+```
+
+```{r example-country, include = FALSE}
+# an invented country of 30 districts in three provinces. Districts A, B and
+# C carry the teaching example; the others are simulated around a common
+# rate.
+set.seed(1)
+ids <- sprintf("D%02d", 1:30)
+ids[c(8, 11, 22)] <- c("A", "B", "C")
+provinces <- rep(c("North", "Central", "South"), each = 10)
+
+others <- tibble::tibble(
+  district = ids,
+  province = provinces,
+  pop0 = round(stats::runif(30, 80000, 300000), -3),
+  rate = 8e-5 * exp(stats::rnorm(30, 0, 0.3))
+) |>
+  dplyr::cross_join(tibble::tibble(year = 2022:2026)) |>
+  dplyr::mutate(
+    pop_u15 = round(pop0 * 1.03^(year - 2022), -3),
+    count = stats::rpois(
+      dplyr::n(), pop_u15 * rate * ifelse(year == 2026, 0.9, 1)
+    )
+  ) |>
+  dplyr::filter(!district %in% c("A", "B", "C")) |>
+  dplyr::select(district, province, year, count, pop_u15)
+
+teaching <- tibble::tribble(
+  ~district, ~year, ~count, ~pop_u15,
+  "A", 2022, 8, 100000, "A", 2023, 10, 105000,
+  "A", 2024, 9, 110000, "A", 2025, 11, 115000,
+  "A", 2026, 6, 120000,
+  "B", 2025, 1, 40000, "B", 2026, 1, 42000,
+  "C", 2022, 0, 250000, "C", 2023, 1, 250000,
+  "C", 2024, 0, 250000, "C", 2025, 1, 250000,
+  "C", 2026, 1, 255000
+) |>
+  dplyr::left_join(tibble::tibble(district = ids, province = provinces),
+                   by = "district")
+
+afp <- dplyr::bind_rows(others, teaching)
+
+res <- spi_direct(
+  afp, id_col = "district", region_col = "province",
+  first_assessment = 2026, verbose = FALSE
+)
+row <- function(d) res$summary[res$summary$district == d, ]
+a <- row("A")
+b <- row("B")
+c_ <- row("C")
+nat <- res$national
+```
+
+The SPI can be calculated with the same arithmetic as the NPAFP rate. This article shows how, what the result means, and how to run it on your own data. Every SPI value can be traced back to the cases and populations it came from.
+
+## 1. What does the SPI measure?
+
+$$
+\text{NPAFP rate} = \frac{\text{NPAFP cases}}{\text{population under 15}}
+\times 100\,000
+$$
+
+In 2026, District A reported 6 NPAFP cases among 120 000 children under 15, a rate of 5.0 per 100 000.
+
+The NPAFP rate measures the absolute level of reporting. The SPI asks a different question: **is current reporting lower or higher than expected from the district's previous reporting, relative to the national pattern?**
+
+## 2. Calculate it by hand
+
+We follow District A, one of 30 invented districts in one country, and assess 2026. Only earlier years are used to build the expectation.
+
+| Year | NPAFP cases | Population under 15 |
+|---|---|---|
+| 2022 | 8 | 100 000 |
+| 2023 | 10 | 105 000 |
+| 2024 | 9 | 110 000 |
+| 2025 | 11 | 115 000 |
+| 2026 | 6 | 120 000 |
+
+**Step 1. Count the previous cases.** 8 + 10 + 9 + 11 = **38 cases**.
+
+**Step 2. Add the populations from those years.** 100 000 + 105 000 + 110 000 + 115 000 = **430 000 child-years**. This is the same numerator and denominator as the NPAFP rate, pooled over the previous years.
+
+**Step 3. Calculate the district's usual reporting rate.** 38 / 430 000 × 100 000 = **8.84 per 100 000**.
+
+**Step 4. Stabilise the rate if the history is limited.** If a district has enough historical information, its own rate is used almost unchanged. If its history is limited, the calculation automatically uses more information from the other districts in its province. District A has `r a$history_info` historical information, so its stabilised rate remains close to its own historical rate: 8.84 becomes **`r num(a$stabilised_rate)` per 100 000**.
+
+**Step 5. Calculate expected cases.** 120 000 × `r num(a$stabilised_rate)` / 100 000 = **`r num(a$expected)`**. Based on its history, District A was expected to report about `r round(a$expected)` NPAFP cases in 2026.
+
+**Step 6. Compare reported with expected.** 6 / `r num(a$expected)` = **`r num(a$oe)`**. District A reported `r pct(a$oe)` of the cases expected from its history.
+
+**Step 7. Compare with the country.** National centring separates a district-specific departure from a change occurring across the country. Across all 30 districts, `r format(nat$national_observed, big.mark = " ")` NPAFP cases were reported against `r num(nat$national_expected, 1)` expected, a national ratio of `r num(nat$national_oe)`.
+
+$$
+\text{SPI} = \frac{O_{\text{district}} / E_{\text{district}}}
+{O_{\text{national}} / E_{\text{national}}}
+= \frac{`r num(a$oe)`}{`r num(a$national_oe)`} = `r num(a$spi)`
+$$
+
+## 3. Why borrow from other districts?
+
+| District | What do we know? | Own previous rate | Province rate | Rate used | Historical information |
+|---|---|---|---|---|---|
+| A | Four years of history, regular reporting | `r num(a$history_rate)` | `r num(a$reference_rate)` | `r num(a$stabilised_rate)` | `r a$history_info` |
+| B | New district, one year of history | `r num(b$history_rate)` | `r num(b$reference_rate)` | `r num(b$stabilised_rate)` | `r b$history_info` |
+| C | Four years and a large population, but consistently few cases | `r num(c_$history_rate)` | `r num(c_$reference_rate)` | `r num(c_$stabilised_rate)` | `r c_$history_info` |
+
+Rates are NPAFP cases per 100 000 children under 15. The province rate is the previous rate of the other districts in the same province.
+
+**District A** has a long history, so its own rate is used almost unchanged.
+
+**District B** was created in 2025 and reported one case in its only previous year. That says little about its usual reporting, so the calculation moves its rate a long way towards its province.
+
+**District C** reported only two cases in four years, but those years covered 1 million child-years. Its low rate is well established, so the calculation keeps it far below its province's rate. A rule based only on the number of cases would treat C as poorly observed and pull it up to the province level.
+
+**Few reported cases do not automatically mean little information.** A district with no previous reported case is not given an expected rate of zero.
+
+## 4. How do I interpret it?
+
+| SPI | Meaning |
+|---|---|
+| 1.00 | The district's observed-to-expected ratio equals the national ratio |
+| 0.80 | The district's ratio is 80% of the national ratio |
+| 0.60 | The district's ratio is 60% of the national ratio |
+| 1.20 | The district's ratio is 20% higher than the national ratio |
+
+An SPI below 1 means the district's observed-to-expected ratio was lower than the national ratio that year. In practical terms, reporting fell further below historical expectation in that district than it did nationally.
+
+The SPI measures reporting relative to previous reporting. It does not establish that AFP cases were missed. Interpret it alongside the NPAFP rate and the other surveillance indicators, and open the calculation (section 7) to see why a district's value is low before deciding on any action. See `vignette("spi-interpretation")`.
+
+## 5. Before calculating: check the population
+
+The SPI uses the population to calculate expected cases, so an abrupt change in the population can move the result. `spi_direct()` checks each district's population series before calculating. It does not alter the populations you supply. Unusual patterns are returned in `population_qc` for review; a flag does not mean the population is wrong.
+
+```{r population}
+res$population_qc |>
+  dplyr::filter(population_qc != "ok")
+```
+
+`check_boundary` marks District B, which is missing from the early years because it was created in 2025. `check_spike` marks a population that jumps and then falls back, and `check_change` any other unusual change.
+
+## 6. Run it on your own data
+
+You need one row per district and year with the number of NPAFP cases and the population under 15. A region, such as the province, is optional; without it the rest of the country is used for districts with limited history.
+
+| district | province | year | npafp_cases | population_u15 |
+|---|---|---|---|---|
+| A | North | 2022 | 8 | 100 000 |
+| A | North | 2023 | 10 | 105 000 |
+| ... | ... | ... | ... | ... |
+
+Map your column names to the function's arguments:
+
+```r
+res <- spi_direct(
+  cases = afp_counts,
+  id_col = "district",
+  year_col = "year",
+  count_col = "npafp_cases",
+  population_col = "population_u15",
+  region_col = "province"
+)
+```
+
+If the population is in a separate table, pass it as `population`. The example below uses the synthetic data shipped with the package, which has monthly counts, so they are first added up to years.
+
+```{r own-data}
+provinces_harad <- sf::st_drop_geometry(synth_surveillance$boundaries)
+
+afp_harad <- synth_surveillance$cases |>
+  dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year)) |>
+  dplyr::left_join(provinces_harad[c("adm2_guid", "adm1_name")],
+                   by = "adm2_guid")
+
+res_harad <- spi_direct(
+  cases = afp_harad,
+  population = synth_surveillance$population,
+  id_col = "adm2_guid",
+  count_col = "count",
+  population_col = "pop_u15",
+  region_col = "adm1_name"
+)
+```
+
+The messages report each step and end with the formulas used, an overview of the latest year and a summary by year. Set `verbose = FALSE` to run silently. Printing the result gives a short summary:
+
+```{r print}
+res_harad
+```
+
+`res_harad$summary` holds one row per district and year; see `?spi_direct` for every column.
+
+## 7. Inspect a district
+
+Every SPI value can be opened to show how it was built:
+
+```{r explain}
+spi_direct_explain(res, "A", year = 2026)
+```
+
+Each line can be checked from the lines above it. If a district's SPI is low, this is where to start: is the population plausible, how much history is behind the expectation, did reporting fall across the whole country, and how does the district's previous rate compare with its province?
+
+## Technical details
+
+<details>
+<summary>How the automatic stabilisation works</summary>
+
+The amount borrowed from other districts is set automatically from the country's own data. Districts with substantial historical observation rely almost entirely on their own reporting history. Districts with limited historical observation borrow more. No threshold or borrowing setting is chosen by the user.
+
+For each assessment year, and using only earlier years:
+
+1. The **reference rate** for a district is the pooled previous rate of the other districts in its region, or of the rest of the country when no region is given.
+2. The **information** in a district's history is the number of cases it would have reported over its previous child-years at the reference rate. It grows with both the number of years and the size of the population.
+3. Each district's previous count is treated as a Poisson count around its information times a relative rate. Relative rates are assumed to follow a log-normal distribution across the country, whose centre and spread are estimated by maximum likelihood from all districts' histories.
+4. The **stabilised rate** is the reference rate times the district's expected relative rate given its own history. A long history keeps it close to the district's own rate; a short one leaves it closer to the country's typical relative rate.
+
+`history_info` summarises how much information the history holds (substantial, moderate, limited or none). `res$stabilisation` reports the estimated spread for each year. The stabilisation needs enough districts to estimate that spread; `spi_direct()` warns when fewer than 20 districts have history.
+
+Supplying district `boundaries` makes the districts that share a boundary the first reference, before the region. In tests in four countries this made little difference, so it is not required.
+
+</details>
+
+<details>
+<summary>Relation to the model-based SPI</summary>
+
+`spi_index()` estimates expected counts with a Bayesian spatial model fitted with INLA and gives credible intervals. The direct calculation needs no model fit and gives a point value. It was developed and evaluated against the model-based SPI in four countries. See `vignette("spi-methods")`.
+
+</details>

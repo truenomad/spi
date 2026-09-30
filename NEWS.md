@@ -1,3 +1,20 @@
+# spi (development version)
+
+### New features
+
+* `spi_direct()` calculates SPI directly from preceding reporting, without
+  fitting a model. It needs only NPAFP cases and the population under 15 by
+  district and year; a region column and district boundaries are optional.
+  Limited histories are stabilised automatically, a district with no previous
+  case is not given an expected rate of zero, and each district's population
+  series is checked for unusual changes before calculation.
+
+* `spi_direct_explain()` shows how one district's direct SPI was calculated,
+  from current and previous reporting to the expected count and the national
+  comparison.
+
+* New article, "The direct SPI", explains the calculation step by step.
+
 # spi 0.2.0
 
 ### Bug fixes

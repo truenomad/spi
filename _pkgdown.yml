@@ -84,6 +84,8 @@ navbar:
       menu:
       - text: Getting started
         href: articles/spi-getting-started.html
+      - text: The direct SPI
+        href: articles/spi-direct.html
       - text: How SPI works
         href: articles/spi-methods.html
       - text: Interpreting SPI
@@ -113,6 +115,13 @@ reference:
   - spi_index
   - spi_compare_npafp
   - spi_compare_npafp_maps
+- title: Calculate SPI directly
+  desc: >
+    Calculate SPI from preceding reporting without fitting a model, and show
+    how one district's value was built.
+  contents:
+  - spi_direct
+  - spi_direct_explain
 - title: Review districts
   desc: >
     Organise district review with the five STEPS components, then produce a
@@ -140,6 +149,7 @@ articles:
   navbar: ~
   contents:
   - spi-getting-started
+  - spi-direct
   - spi-methods
   - spi-interpretation
   - spi-field-guide
