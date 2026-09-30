@@ -81,8 +81,7 @@ An \code{spi_direct} object, a list with:
 ratio for each assessment year.
 \item \code{population_qc}: the population check for each district.
 \item \code{stabilisation}: for each assessment year, the number of districts
-with history, the estimated spread of log relative rates (\code{sigma}) and
-the country scaling of the reference rate (\code{country_factor}).
+with history.
 \item \code{metadata}: the arguments and data range used.
 }
 
@@ -119,26 +118,21 @@ expected cases in the year). The result is the SPI.
 rate of the other districts in its region (\code{region_col}), or of the rest
 of the country when no region is given or the region has no preceding
 case. When \code{boundaries} are supplied, the districts that share a boundary
-with it come first. The information in a
-district's history is the number of cases it would have reported over its
-preceding child-years at the reference rate. Preceding counts are treated
-as Poisson around that number times a relative rate, with log relative
-rates normally distributed across the country. The centre and spread of
-that distribution are estimated by maximum likelihood from all districts'
-histories for each assessment year, and the stabilised rate is the
-district's posterior mean relative rate times its reference rate. The function estimates these parameters
-automatically.
+with it come first. The stabilised rate adds one case's worth of the
+reference rate to the district's history:
 
-A district whose history covers many child-years keeps a stabilised rate
-close to its own rate, including when its record is persistently low. A
-district with a short history, or a new district, moves further towards
-its reference rate. A district with preceding child-years but no preceding
-case is not given an expected rate of zero. \code{history_info} describes how
-much information the history holds: substantial, moderate, limited or
-none, from \code{information_score}, the share of information from the
-district's own history (0.9 or more, 0.5 to 0.9, below 0.5). The score
-describes the stabilisation; the stabilised rate is not a weighted average
-with these weights.
+\code{stabilised_rate = (history_cases + 1) / (history_pop + 1 / reference_rate)}
+
+This is arithmetic, with nothing estimated. It is the same as a weighted
+average, \code{information_score * history_rate + (1 - information_score) * reference_rate}, where \code{information_score = information / (information + 1)} and \code{information} is the number of cases the district would have
+reported over its preceding child-years at the reference rate. A district
+whose history covers many child-years keeps a stabilised rate close to its
+own rate, including when its record is persistently low. A district with a
+short history moves further towards its reference rate, and a new district
+takes the reference rate. A district with preceding child-years but no
+preceding case is not given an expected rate of zero. \code{history_info}
+describes \code{information_score} in words: substantial (0.9 or more), moderate
+(0.5 to 0.9), limited (below 0.5) or none (no preceding year).
 
 \strong{Population check.} Expected cases depend on the population, so each
 district's population series is screened before calculation. Each

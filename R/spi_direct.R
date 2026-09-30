@@ -29,26 +29,23 @@
 #' rate of the other districts in its region (`region_col`), or of the rest
 #' of the country when no region is given or the region has no preceding
 #' case. When `boundaries` are supplied, the districts that share a boundary
-#' with it come first. The information in a
-#' district's history is the number of cases it would have reported over its
-#' preceding child-years at the reference rate. Preceding counts are treated
-#' as Poisson around that number times a relative rate, with log relative
-#' rates normally distributed across the country. The centre and spread of
-#' that distribution are estimated by maximum likelihood from all districts'
-#' histories for each assessment year, and the stabilised rate is the
-#' district's posterior mean relative rate times its reference rate. The function estimates these parameters
-#' automatically.
+#' with it come first. The stabilised rate adds one case's worth of the
+#' reference rate to the district's history:
 #'
-#' A district whose history covers many child-years keeps a stabilised rate
-#' close to its own rate, including when its record is persistently low. A
-#' district with a short history, or a new district, moves further towards
-#' its reference rate. A district with preceding child-years but no preceding
-#' case is not given an expected rate of zero. `history_info` describes how
-#' much information the history holds: substantial, moderate, limited or
-#' none, from `information_score`, the share of information from the
-#' district's own history (0.9 or more, 0.5 to 0.9, below 0.5). The score
-#' describes the stabilisation; the stabilised rate is not a weighted average
-#' with these weights.
+#' `stabilised_rate = (history_cases + 1) / (history_pop + 1 / reference_rate)`
+#'
+#' This is arithmetic, with nothing estimated. It is the same as a weighted
+#' average, `information_score * history_rate + (1 - information_score) *
+#' reference_rate`, where `information_score = information / (information +
+#' 1)` and `information` is the number of cases the district would have
+#' reported over its preceding child-years at the reference rate. A district
+#' whose history covers many child-years keeps a stabilised rate close to its
+#' own rate, including when its record is persistently low. A district with a
+#' short history moves further towards its reference rate, and a new district
+#' takes the reference rate. A district with preceding child-years but no
+#' preceding case is not given an expected rate of zero. `history_info`
+#' describes `information_score` in words: substantial (0.9 or more), moderate
+#' (0.5 to 0.9), limited (below 0.5) or none (no preceding year).
 #'
 #' **Population check.** Expected cases depend on the population, so each
 #' district's population series is screened before calculation. Each
@@ -112,8 +109,7 @@
 #'     ratio for each assessment year.
 #'   * `population_qc`: the population check for each district.
 #'   * `stabilisation`: for each assessment year, the number of districts
-#'     with history, the estimated spread of log relative rates (`sigma`) and
-#'     the country scaling of the reference rate (`country_factor`).
+#'     with history.
 #'   * `metadata`: the arguments and data range used.
 #'
 #'   `print()` gives a short country summary, `summary()` a fuller report and
@@ -605,33 +601,20 @@ spi_direct <- function(
     )
 
   if (stabilise) {
-    fit <- .direct_pln(tbl$history_cases, tbl$information)
-    if (is.null(fit)) {
-      cli::cli_warn(
-        "{target}: too little history to stabilise the rates; expected \\
-         cases are missing for this year."
-      )
-      fit <- list(post = NA_real_, sigma = NA_real_, prior_mean = NA_real_,
-                  n = 0L)
-    } else if (fit$n < 20L) {
-      cli::cli_warn(
-        "{target}: the stabilisation was estimated from {fit$n} \\
-         district{?s} with history; treat it as approximate."
-      )
-    }
-    # share of information from the district's own history: the credibility
-    # weight of a gamma distribution with the fitted mean and variance
-    k_equiv <- 1 / (fit$prior_mean * (exp(fit$sigma^2) - 1))
+    # one case's worth of the reference rate added to the history; the same
+    # as weighting the two rates by information / (information + 1)
     tbl <- tbl |>
       dplyr::mutate(
-        stabilised_rate = fit$post * .data$reference_rate,
         information_score = .data$information /
-          (.data$information + k_equiv)
+          (.data$information + .DIRECT_BORROWED_CASES),
+        stabilised_rate = dplyr::if_else(
+          is.finite(.data$reference_rate) & .data$reference_rate > 0,
+          (.data$history_cases + .DIRECT_BORROWED_CASES) /
+            (.data$history_pop +
+               .DIRECT_BORROWED_CASES / .data$reference_rate),
+          .data$history_rate
+        )
       )
-    stab <- tibble::tibble(
-      year = target, districts_with_history = fit$n, sigma = fit$sigma,
-      country_factor = fit$prior_mean
-    )
   } else {
     tbl <- tbl |>
       dplyr::mutate(
@@ -639,11 +622,10 @@ spi_direct <- function(
                                          .data$history_rate, NA_real_),
         information_score = NA_real_
       )
-    stab <- tibble::tibble(
-      year = target, districts_with_history = sum(hist$history_pop > 0),
-      sigma = NA_real_, country_factor = NA_real_
-    )
   }
+  stab <- tibble::tibble(
+    year = target, districts_with_history = sum(hist$history_pop > 0)
+  )
 
   rows <- tbl |>
     dplyr::filter(!is.na(.data$observed)) |>
@@ -675,48 +657,11 @@ spi_direct <- function(
   )
 }
 
-# --- Poisson-lognormal stabilisation ------------------------------------
+# --- stabilisation constant ---------------------------------------------
 
-# Preceding counts y ~ Poisson(theta * e), log theta ~ Normal(mu, sigma^2).
-# mu and sigma by maximum likelihood over a fixed normal grid; returns each
-# district's posterior mean theta and the prior mean (the country factor).
+# cases' worth of the reference rate added to each district's history
 #' @noRd
-.direct_pln <- function(y, e, grid_n = 241L) {
-  fit_rows <- is.finite(e) & e > 0
-  if (sum(fit_rows) < 2L || sum(y[fit_rows]) == 0) return(NULL)
-  z <- seq(-6, 6, length.out = grid_n)
-  log_w <- log(stats::dnorm(z) / sum(stats::dnorm(z)))
-
-  log_lik <- function(mu, sigma, yy, ee) {
-    theta <- exp(mu + sigma * z)
-    outer(yy, log(theta)) + yy * log(ee) - outer(ee, theta) - lgamma(yy + 1)
-  }
-  weighted <- function(ll) {
-    ll + matrix(log_w, nrow(ll), length(z), byrow = TRUE)
-  }
-  yy <- y[fit_rows]
-  ee <- e[fit_rows]
-  nll <- function(p) {
-    m <- weighted(log_lik(p[1], exp(p[2]), yy, ee))
-    mx <- apply(m, 1, max)
-    -sum(mx + log(rowSums(exp(m - mx))))
-  }
-  opt <- stats::optim(
-    c(log(sum(yy) / sum(ee)), log(0.5)), nll, method = "L-BFGS-B",
-    lower = c(-20, log(0.01)), upper = c(20, log(5))
-  )
-  mu <- opt$par[1]
-  sigma <- exp(opt$par[2])
-  theta <- exp(mu + sigma * z)
-  prior_mean <- exp(mu + sigma^2 / 2)
-
-  m <- weighted(log_lik(mu, sigma, yy, ee))
-  p <- exp(m - apply(m, 1, max))
-  post <- rep(prior_mean, length(y))
-  post[fit_rows] <- as.vector((p %*% theta) / rowSums(p))
-  list(post = post, prior_mean = prior_mean, sigma = sigma,
-       n = sum(fit_rows))
-}
+.DIRECT_BORROWED_CASES <- 1
 
 # --- population check ---------------------------------------------------
 
@@ -827,8 +772,8 @@ spi_direct <- function(
   )
   if (p$stabilise) {
     cli::cli_text(
-      "stabilised_rate = rate estimated from district history and reference rate \\
-       using more information from other districts when history is limited"
+      "stabilised_rate = (preceding cases + 1) / (preceding population + \\
+       1 / reference_rate) x {per_lab}"
     )
   } else {
     cli::cli_text("stabilised_rate = history_rate (no stabilisation)")

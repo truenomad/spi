@@ -11,8 +11,10 @@
 * `spi_direct()` calculates SPI directly from preceding reporting, without
   fitting the INLA spatial and temporal model. It needs only NPAFP cases and the population under 15 by
   district and year; a region column and district boundaries are optional.
-  Rates based on little history are adjusted using other districts. A
-  district with no previous case is not given an expected rate of zero, and each district's population
+  Rates based on little history are stabilised by adding one case's worth
+  of the reference rate to the district's history, which is arithmetic with
+  nothing estimated. A district with no previous case is not given an
+  expected rate of zero, and each district's population
   series is checked for unusual changes before calculation.
 
 * `spi_direct()` needs no other argument when the table has the columns

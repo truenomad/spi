@@ -73,13 +73,15 @@ $$
 
 **Information.** $I_i = P_i \, r_i^{\text{ref}}$, the number of cases expected at the reference rate over the district's earlier child-years (the sum of its annual under-15 populations). It grows with both the number of years and the size of the population.
 
-**Stabilisation.** Preceding counts are modelled as
+**Stabilisation.** One case's worth of the reference rate is added to the district's history:
 
 $$
-Y_i \sim \text{Poisson}(\theta_i I_i), \qquad \log \theta_i \sim \text{Normal}(\mu, \sigma^2)
+\tilde r_i = \frac{Y_i + 1}{P_i + 1 / r_i^{\text{ref}}}
+= w_i \, r_i + (1 - w_i) \, r_i^{\text{ref}},
+\qquad w_i = \frac{I_i}{I_i + 1}
 $$
 
-across the districts of one country. $\mu$ and $\sigma$ are estimated by maximum likelihood for each assessment year, integrating over $\theta_i$ on a fixed grid. The stabilised rate is $\tilde r_i = \hat\theta_i \, r_i^{\text{ref}}$, where $\hat\theta_i = \text{E}(\theta_i \mid Y_i)$ is the posterior mean relative rate. A history covering many child-years keeps $\tilde r_i$ close to $r_i$, including when $r_i$ is persistently low; a short history moves it towards $r_i^{\text{ref}}$. $\tilde r_i$ is not a weighted average of $r_i$ and $r_i^{\text{ref}}$, and a history with preceding population but no preceding case keeps $\tilde r_i > 0$. For a district with no earlier data, the rate is $\text{E}(\theta) \, r_i^{\text{ref}}$.
+This is arithmetic, with nothing estimated. It is the posterior mean of a Poisson rate under a gamma distribution centred on the reference rate that carries the information of one case. A history covering many child-years keeps $\tilde r_i$ close to $r_i$, including when $r_i$ is persistently low; a short history moves it towards $r_i^{\text{ref}}$. A history with preceding population but no preceding case keeps $\tilde r_i > 0$, and a district with no earlier data takes $r_i^{\text{ref}}$.
 
 **Index.** $E_{it} = P_{it} \, \tilde r_i$ and
 
@@ -87,7 +89,7 @@ $$
 \text{SPI}_{it} = \frac{Y_{it}/E_{it}}{\sum_j Y_{jt} / \sum_j E_{jt}}
 $$
 
-`history_info` labels the information behind each rate (substantial, moderate, limited or none) from the share of information from the district's own history, $I_i / (I_i + k)$, where $k$ is the credibility constant of a gamma distribution with the fitted mean and variance. The label describes the stabilisation and does not enter the calculation. `stabilise = FALSE` uses $r_i$ unchanged.
+`history_info` describes $w_i$ in words: substantial (0.9 or more), moderate (0.5 to 0.9), limited (below 0.5) or none (no earlier year). `stabilise = FALSE` uses $r_i$ unchanged.
 
 **Population check.** Each district's year-on-year change in log population is compared with the median change across districts in the same year. A change is unusual when the difference lies outside Tukey's far-out fences (three interquartile ranges beyond the quartiles) of all such differences and is at least 10%. `population_qc` is `check_spike` when an unusual change is reversed by an unusual change in the other direction within two years, `check_change` for any other unusual change, `check_history` when the district is missing from some years, and `ok` otherwise. Populations are never altered.
 

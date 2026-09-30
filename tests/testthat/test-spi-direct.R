@@ -48,6 +48,18 @@ test_that("the SPI follows from its components", {
   expect_equal(sm$spi, sm$oe / sm$national_oe)
   expect_equal(sum(sm$observed) / sum(sm$expected), sm$national_oe[1])
   expect_true(all(sm$information_score >= 0 & sm$information_score <= 1))
+  # one case's worth of the reference rate added to the history is the same
+  # as weighting the two rates by the information score
+  expect_equal(
+    sm$stabilised_rate,
+    sm$information_score * sm$history_rate +
+      (1 - sm$information_score) * sm$reference_rate
+  )
+  a <- sm[sm$district == "A", ]
+  expect_equal(
+    a$stabilised_rate,
+    (38 + 1) / (430000 + 1 / (a$reference_rate / 1e5)) * 1e5
+  )
 })
 
 test_that("history is taken from preceding years only", {
@@ -231,10 +243,7 @@ test_that("a district with no preceding year takes the reference rate", {
   b <- res$summary[res$summary$district == "B", ]
   expect_equal(b$history_years, 0L)
   expect_equal(b$history_info, "none")
-  expect_equal(
-    b$stabilised_rate,
-    b$reference_rate * res$stabilisation$country_factor
-  )
+  expect_equal(b$stabilised_rate, b$reference_rate)
 })
 
 test_that("the population check flags a spike and a new district", {
