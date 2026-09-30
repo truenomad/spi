@@ -42,7 +42,9 @@ set.seed(1)
 
 <!-- badges: end -->
 
-spi is an R package for comparing reported non-polio acute flaccid paralysis (NPAFP) cases with the number expected from past reporting and population size. The surveillance performance index (SPI) divides reported cases by expected cases. By default, it then divides this district ratio by the national ratio for the same period. Use SPI alongside the conventional NPAFP rate, timeliness, and specimen quality.
+spi is an R package for identifying changes in non-polio acute flaccid paralysis (NPAFP) reporting relative to a district's preceding reporting history. The surveillance performance index (SPI) compares reported NPAFP cases with the number expected, then compares the district's observed-to-expected ratio with the corresponding national ratio. Expected counts can be estimated using the full spatial and temporal model or a direct calculation with empirical Bayes stabilisation when reporting history is limited.
+
+SPI complements the conventional NPAFP rate. The NPAFP rate measures the absolute level of reporting, whereas SPI measures reporting relative to preceding reporting and the national pattern. A district can therefore continue to meet the NPAFP target while reporting substantially fewer cases than expected from its history. Conversely, a district with persistently low reporting can have an SPI near 1 while its NPAFP rate remains below the target. SPI should therefore be interpreted alongside the NPAFP rate, timeliness, specimen quality, and other surveillance information.
 
 ## Installation
 
@@ -65,13 +67,11 @@ install.packages(
 
 ## Overview
 
-For the model-based SPI, start with monthly NPAFP counts, annual under-15 population estimates, and district boundaries. spi estimates expected counts, calculates annual or monthly SPI with credible intervals, and produces plots and maps. For the direct SPI, use annual counts and population estimates with `spi_direct()`; district boundaries are optional. The package also compares SPI with the conventional NPAFP target and brings the results together for district review in the STEPS field guide.
-
-A district that previously reported many cases can report far fewer and still meet the conventional NPAFP target. SPI can help identify this decline because it uses past reporting to estimate expected counts. However, if a district has reported few cases for years, its expected count may also be low. Its SPI can then be near 1 even while its NPAFP rate remains below the target.
+For the direct SPI, start with annual NPAFP counts and under-15 population estimates by district. `spi_direct()` calculates annual SPI without INLA; a region column and district boundaries are optional. For the model-based SPI, start with monthly NPAFP counts, annual under-15 population estimates, and district boundaries. `spi_index()` estimates expected counts with the spatial and temporal model and calculates annual or monthly SPI with credible intervals. The package also produces plots and maps, compares SPI with the conventional NPAFP target, and brings the results together for district review in the STEPS field guide.
 
 ## Quick start
 
-The bundled `synth_surveillance` data cover 236 districts in the fictional country Harad, from 2015 to 2024. All examples use synthetic data and require no access to GPEI POLIS. `spi_index()` estimates each assessment year's expected counts from the preceding years only, so it refits the model once per year. This example assesses 2018 to 2024 without covariates.
+The bundled `synth_surveillance` data cover 236 districts in the fictional country Harad, from 2015 to 2024. All examples use synthetic data and require no access to GPEI POLIS.
 
 ```{r library, cache = FALSE}
 library(spi)
@@ -80,6 +80,56 @@ library(spi)
 ```{r data, cache = FALSE}
 synth <- synth_surveillance
 ```
+
+### The direct SPI
+
+Use the direct SPI if you want SPI without fitting a statistical model. It needs no INLA and no district boundaries, only annual counts and population by district. The bundled counts are monthly, so add them up to years first:
+
+```{r direct-data, cache = FALSE}
+annual <- synth$cases |>
+  dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
+```
+
+Calculate annual SPI:
+
+```{r direct-spi, cache = FALSE}
+spi_direct_dy <- spi_direct(
+  annual,
+  population = synth$population,
+  id_col = "adm2_guid",
+  count_col = "count",
+  population_col = "pop_u15",
+  first_assessment = 2018,
+  verbose = FALSE
+)
+```
+
+View the results:
+
+```{r direct-results, cache = FALSE}
+spi_direct_dy$summary |>
+  dplyr::select(adm2_guid, year, observed, expected, oe, spi) |>
+  dplyr::slice_head(n = 6)
+```
+
+`observed` and `expected` are the reported and expected cases, `oe` is their ratio, and `spi` is that ratio divided by the national ratio for the year. `spi_direct_explain()` shows how one district's value was calculated:
+
+```{r direct-explain, cache = FALSE, message = TRUE}
+spi_direct_explain(
+  spi_direct_dy,
+  district = spi_direct_dy$summary$adm2_guid[1],
+  year = 2023
+)
+```
+
+The direct SPI gives one value per district and year, without credible intervals. With a table that has the columns `district`, `year`, `npafp_cases` and `population_u15`, `spi_direct(afp_data)` needs no other argument.
+
+For the full direct SPI workflow, see [The direct SPI](https://truenomad.github.io/spi/articles/spi-direct.html).
+
+### The model-based SPI
+
+Use the model-based SPI when you need credible intervals or monthly results. `spi_index()` estimates each assessment year's expected counts from the preceding years only, so it refits the model once per year. This example assesses 2018 to 2024 without covariates.
 
 Calculate annual SPI, passing the district boundaries directly:
 
@@ -107,7 +157,19 @@ spi_dy |>
 
 `spi_dy$national` contains the national observed-to-expected ratio. Set `centre = "none"` for the uncentred district ratio. A district-year with no reported cases has an SPI of 0 and a 0 to 0 interval, because the interval reflects uncertainty in the expected count only; this is not certainty about surveillance performance.
 
+For the full model-based SPI workflow, see [Getting started with SPI](https://truenomad.github.io/spi/articles/spi-getting-started.html).
+
 ## Recommended workflow
+
+For the direct SPI:
+
+1. Check the table with `spi_check_inputs(method = "direct")`.
+2. Calculate annual SPI with `spi_direct()`.
+3. Review the districts flagged in `population_qc` before interpreting their SPI.
+4. Check the national observed-to-expected ratio.
+5. Inspect individual districts with `spi_direct_explain()`.
+
+For the model-based SPI:
 
 1. Check the inputs with `spi_check_inputs()`.
 2. Calculate annual SPI with `spi_index()`, which fits the expected-count model for each assessment year from the preceding years.
