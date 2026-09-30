@@ -10,7 +10,11 @@ vignette: >
 <!-- Edit spi-data-preparation.Rmd.orig, not the .Rmd. Knit with
      Rscript --no-init-file vignettes/precompile.R spi-data-preparation -->
 
-
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(cli.width = 80, width = 80)
+library(spi)
+```
 
 This article explains what data SPI needs and how to prepare them for the direct SPI (`spi_direct()`) or the model-based SPI (`spi_index()`).
 
@@ -36,14 +40,12 @@ Use a stable code, such as the POLIS district GUID (`adm2_guid`), rather than th
 <details>
 <summary>Check that the identifiers match</summary>
 
-
-``` r
+```{r ids}
 ids_cases <- unique(synth_surveillance$cases$adm2_guid)
 ids_pop <- unique(synth_surveillance$population$adm2_guid)
 
 # districts in the case data with no population
 setdiff(ids_cases, ids_pop)
-#> character(0)
 ```
 
 The result is empty here, so every district identifier in the case data also appears in the population table.
@@ -60,8 +62,7 @@ Supply a separate population table covering every district-year to be analysed. 
 
 Population is used to calculate expected cases, so an abrupt change can affect the SPI. `spi_direct()` checks each district's population history. After calculating `spi_results` in section 3, use the following code to list districts flagged for review:
 
-
-``` r
+```{r population-qc, eval = FALSE}
 spi_results$population_qc |>
   dplyr::filter(population_qc != "ok")
 ```
@@ -85,8 +86,7 @@ The expected count uses the district's own rate over all earlier years. At least
 
 To try this with the bundled example data, create `afp_data` by adding the monthly counts for each district and year and joining the annual population:
 
-
-``` r
+```{r annual-example}
 afp_data <- synth_surveillance$cases |>
   dplyr::mutate(year = lubridate::year(month)) |>
   dplyr::summarise(npafp_cases = sum(count), .by = c(adm2_guid, year)) |>
@@ -95,46 +95,13 @@ afp_data <- synth_surveillance$cases |>
   dplyr::rename(district = adm2_guid, population_u15 = pop_u15)
 ```
 
-
-``` r
+```{r standard, results = 'hide'}
 spi_results <- spi_direct(afp_data)
-#> ℹ Reading district-year counts...
-#> ✔ 236 districts, 10 years (2015-2024).
-#> ℹ Checking population series...
-#> ✔ No unusual population pattern found.
-#> ℹ Calculating expected cases for 7 assessment years (2018-2024)...
-#> ✔ SPI calculated for 1644 district-years.
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Direct SPI summary ──
-#> 
-#> ── Formulas used
-#> history_rate = preceding cases / preceding population x 100 000
-#> expected = pop x history_rate / 100 000
-#> oe = observed / expected
-#> spi = oe / national_oe
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Data overview (2024)
-#> Districts assessed: 236
-#> Reported NPAFP cases (all districts): 6 085
-#> National comparison (positive expected counts only): 6 085 reported; 4 771.9
-#> expected
-#> National observed/expected: 1.28
-#> Districts with SPI below 1: 141 of 236
-#> No SPI: 0 with no previous case, 0 with no previous year, 0 with no positive
-#> national ratio
-#> Population flags: 0
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Results by year
-#> ────────────────────────────────────────────────────────────────────────────────
 ```
 
 If the population is in a separate table, pass it as `population`:
 
-
-``` r
+```{r separate-pop, results = 'hide'}
 afp_counts <- dplyr::select(afp_data, district, year, npafp_cases)
 population <- dplyr::select(afp_data, district, year, population_u15)
 
@@ -142,43 +109,11 @@ spi_results <- spi_direct(
   afp_counts,
   population = population
 )
-#> ℹ Reading district-year counts...
-#> ✔ 236 districts, 10 years (2015-2024).
-#> ℹ Checking population series...
-#> ✔ No unusual population pattern found.
-#> ℹ Calculating expected cases for 7 assessment years (2018-2024)...
-#> ✔ SPI calculated for 1644 district-years.
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Direct SPI summary ──
-#> 
-#> ── Formulas used
-#> history_rate = preceding cases / preceding population x 100 000
-#> expected = pop x history_rate / 100 000
-#> oe = observed / expected
-#> spi = oe / national_oe
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Data overview (2024)
-#> Districts assessed: 236
-#> Reported NPAFP cases (all districts): 6 085
-#> National comparison (positive expected counts only): 6 085 reported; 4 771.9
-#> expected
-#> National observed/expected: 1.28
-#> Districts with SPI below 1: 141 of 236
-#> No SPI: 0 with no previous case, 0 with no previous year, 0 with no positive
-#> national ratio
-#> Population flags: 0
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Results by year
-#> ────────────────────────────────────────────────────────────────────────────────
 ```
 
 If your columns have different names, specify them in the function call:
 
-
-``` r
+```{r mapping, results = 'hide'}
 afp_custom <- afp_data |>
   dplyr::rename(adm2_guid = district, yr = year,
                 npafp = npafp_cases, u15_pop = population_u15)
@@ -190,37 +125,6 @@ spi_results <- spi_direct(
   count_col = "npafp",
   pop_col = "u15_pop"
 )
-#> ℹ Reading district-year counts...
-#> ✔ 236 districts, 10 years (2015-2024).
-#> ℹ Checking population series...
-#> ✔ No unusual population pattern found.
-#> ℹ Calculating expected cases for 7 assessment years (2018-2024)...
-#> ✔ SPI calculated for 1644 district-years.
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Direct SPI summary ──
-#> 
-#> ── Formulas used
-#> history_rate = preceding cases / preceding population x 100 000
-#> expected = pop x history_rate / 100 000
-#> oe = observed / expected
-#> spi = oe / national_oe
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Data overview (2024)
-#> Districts assessed: 236
-#> Reported NPAFP cases (all districts): 6 085
-#> National comparison (positive expected counts only): 6 085 reported; 4 771.9
-#> expected
-#> National observed/expected: 1.28
-#> Districts with SPI below 1: 141 of 236
-#> No SPI: 0 with no previous case, 0 with no previous year, 0 with no positive
-#> national ratio
-#> Population flags: 0
-#> ────────────────────────────────────────────────────────────────────────────────
-#> 
-#> ── Results by year
-#> ────────────────────────────────────────────────────────────────────────────────
 ```
 
 <details>
@@ -230,8 +134,7 @@ Sum the monthly counts for each district and year before running `spi_direct()`.
 
 The complete population table supplied below restores district-years with no case rows as zero counts.
 
-
-``` r
+```{r monthly}
 afp_harad <- synth_surveillance$cases |>
   dplyr::mutate(year = lubridate::year(month)) |>
   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
@@ -246,27 +149,13 @@ res_harad <- spi_direct(
 )
 
 res_harad
-#> 
-#> ── Direct SPI ──
-#> 
-#> Assessment years:   2018-2024
-#> Districts:          236
-#> Latest assessment:  2024
-#> SPI < 1:            141 (60%)
-#> SPI < 0.8:          93 (39%)
-#> SPI < 0.6:          56 (24%)
-#> Population flags:   0
-#> No SPI:             0
-#> Use summary() for the full report, as_tibble() for the table and
-#> spi_direct_explain() for one district.
 ```
 
 </details>
 
 Use `spi_check_inputs()` with `method = "direct"` to check the table before calculating. It reports missing columns, duplicate district-years, invalid counts or populations, district-years with no row, and districts whose population series needs review:
 
-
-``` r
+```{r check-direct, eval = FALSE}
 spi_check_inputs(afp_data, method = "direct")
 ```
 
@@ -283,8 +172,7 @@ The model-based SPI needs monthly NPAFP counts, annual population under 15 and d
 
 Include one row for every district-month, with a zero count for months with no cases. Start with all districts in the boundary file so that districts with no case records are included. Create a row for each district and month, then join the case counts:
 
-
-``` r
+```{r grid}
 boundaries <- synth_surveillance$boundaries |>
   dplyr::rename(district_id = adm2_guid)
 monthly_counts <- synth_surveillance$cases |>
@@ -311,17 +199,13 @@ cases <- district_months |>
 
 Use `spi_check_inputs()` to check the case table, population table and district boundaries together. This check does not require INLA:
 
-
-``` r
+```{r check}
 spi_check_inputs(
   cases = synth_surveillance$cases,
   population = synth_surveillance$population,
   shapefile = synth_surveillance$boundaries,
   id_col = "adm2_guid"
 )
-#> 
-#> ── spi input check ─────────────────────────────────────────────────────────────
-#> ✔ All input checks passed -- 236 districts x 120 months (2015-01 to 2024-12).
 ```
 
 [Getting started with SPI](spi-getting-started.html) shows how to fit the model and calculate the SPI from these inputs.

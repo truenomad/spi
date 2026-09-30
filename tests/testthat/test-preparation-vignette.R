@@ -1,9 +1,7 @@
 test_that("the preparation vignette creates the inputs used by its direct examples", {
-  path <- test_path("..", "..", "vignettes", "spi-data-preparation.Rmd")
-  if (!file.exists(path)) {
-    path <- system.file("doc", "spi-data-preparation.Rmd", package = "spi")
-  }
-  skip_if_not(file.exists(path), "Vignette source is not installed")
+  # the source keeps the chunk labels; it is not part of the built package
+  path <- test_path("..", "..", "vignettes", "spi-data-preparation.Rmd.orig")
+  skip_if_not(file.exists(path), "Vignette source is not available")
   lines <- readLines(path, warn = FALSE)
   example <- new.env(parent = environment())
   run_chunk <- function(label) {

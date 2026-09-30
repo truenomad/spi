@@ -76,9 +76,13 @@ home:
 navbar:
   bg: primary
   structure:
-    left: [intro, articles, reference, news]
+    left: [home, intro, articles, reference, news]
     right: [search, lightswitch, github]
   components:
+    home:
+      icon: fa-house
+      href: index.html
+      aria-label: Home
     articles:
       text: Articles
       menu:

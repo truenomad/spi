@@ -82,11 +82,9 @@ test_that("one table with the standard names needs no other argument", {
 })
 
 test_that("the vignette's District A matches the hand calculation", {
-  path <- test_path("..", "..", "vignettes", "spi-direct.Rmd")
-  if (!file.exists(path)) {
-    path <- system.file("doc", "spi-direct.Rmd", package = "spi")
-  }
-  skip_if_not(file.exists(path), "Vignette source is not installed")
+  # the source keeps the chunk labels; it is not part of the built package
+  path <- test_path("..", "..", "vignettes", "spi-direct.Rmd.orig")
+  skip_if_not(file.exists(path), "Vignette source is not available")
   lines <- readLines(path, warn = FALSE)
   chunk <- function(label) {
     start <- grep(paste0("^```\\{r ", label, "[,}]"), lines)

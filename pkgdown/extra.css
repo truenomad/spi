@@ -121,3 +121,9 @@ main table.table col {
   color: #f5f0e8;
   border-bottom: 1.5px solid #444441;
 }
+
+/* The logo and the page heading already name the package, so the navbar
+   leaves out the name and links home through the home icon. */
+.navbar-brand {
+  display: none;
+}
