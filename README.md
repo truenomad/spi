@@ -82,10 +82,10 @@ synth <- synth_surveillance
 
 ### The direct SPI
 
-Use the direct SPI if you want SPI without fitting a statistical model.
-It needs no INLA and no district boundaries, only annual counts and
-population by district. The bundled counts are monthly, so add them up
-to years first:
+The direct SPI uses each district's own earlier rate: expected cases =
+current population × earlier cases ÷ earlier child-years. It needs only
+annual counts and population by district. The bundled counts are
+monthly, so add them up to years first:
 
 ``` r
 annual <- synth$cases |>
@@ -111,17 +111,17 @@ View the results:
 
 ``` r
 spi_direct_dy$summary |>
-  dplyr::select(adm2_guid, year, observed, expected, oe, spi) |>
+  dplyr::select(adm2_guid, year, observed, expected, oe, spi, history_check) |>
   dplyr::slice_head(n = 6)
-#> # A tibble: 6 x 6
-#>   adm2_guid                               year observed expected    oe   spi
-#>   <chr>                                  <int>    <dbl>    <dbl> <dbl> <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018        2     1.08 1.86  1.69 
-#> 2 {040649D0-A0BA-C005-ADEF-90E3E4358730}  2018        7     6.74 1.04  0.946
-#> 3 {04CBADAF-5577-E1AB-12F7-49CD628AA70F}  2018       11    25.7  0.428 0.391
-#> 4 {0673C3E5-5534-6578-70F4-B6B48BA0D331}  2018       52    40.6  1.28  1.17 
-#> 5 {069B1B50-BB32-0C5A-DC20-C9643EC4583D}  2018        2     2.49 0.803 0.732
-#> 6 {07BC4455-2DED-3E72-89F5-F1123A963742}  2018        4     9.65 0.415 0.378
+#> # A tibble: 6 x 7
+#>   adm2_guid                     year observed expected    oe   spi history_check
+#>   <chr>                        <int>    <dbl>    <dbl> <dbl> <dbl> <chr>        
+#> 1 {01325AA0-BEA1-66FE-9B5C-88~  2018        2     1.08 1.86  1.69  ok           
+#> 2 {040649D0-A0BA-C005-ADEF-90~  2018        7     6.74 1.04  0.946 ok           
+#> 3 {04CBADAF-5577-E1AB-12F7-49~  2018       11    25.7  0.428 0.391 ok           
+#> 4 {0673C3E5-5534-6578-70F4-B6~  2018       52    40.6  1.28  1.17  ok           
+#> 5 {069B1B50-BB32-0C5A-DC20-C9~  2018        2     2.49 0.803 0.732 ok           
+#> 6 {07BC4455-2DED-3E72-89F5-F1~  2018        4     9.65 0.415 0.378 ok
 ```
 
 `observed` and `expected` are the reported and expected cases, `oe` is
@@ -167,9 +167,14 @@ spi_direct_explain(
 ```
 
 The direct SPI gives one value per district and year, without credible
-intervals. With a table that has the columns `district`, `year`,
-`npafp_cases` and `population_u15`, `spi_direct(afp_data)` needs no
-other argument.
+intervals. A district with no earlier year or no earlier NPAFP case has
+`spi = NA`; `history_check` records the reason. National centring uses
+only districts with positive expected counts. If those districts report
+no cases in the assessment year, the national ratio is zero and SPI is
+`NA` for every district.
+
+With a table that has the columns `district`, `year`, `npafp_cases` and
+`population_u15`, `spi_direct(afp_data)` needs no other argument.
 
 For the full direct SPI workflow, see [The direct
 SPI](https://truenomad.github.io/spi/articles/spi-direct.html).
@@ -229,8 +234,8 @@ For the direct SPI:
 
 1.  Check the table with `spi_check_inputs(method = "direct")`.
 2.  Calculate annual SPI with `spi_direct()`.
-3.  Review the districts flagged in `population_qc` before interpreting
-    their SPI.
+3.  Review `history_check` for missing SPI values and `population_qc`
+    for population records to check.
 4.  Check the national observed-to-expected ratio.
 5.  Inspect individual districts with `spi_direct_explain()`.
 
