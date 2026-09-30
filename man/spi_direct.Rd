@@ -10,7 +10,7 @@ spi_direct(
   id_col = "district",
   year_col = "year",
   count_col = "npafp_cases",
-  population_col = "population_u15",
+  pop_col = "population_u15",
   region_col = "province",
   boundaries = NULL,
   first_assessment = NULL,
@@ -24,18 +24,18 @@ spi_direct(
 \arguments{
 \item{data}{Data frame with one row per district and year: the district
 identifier (\code{id_col}), the year (\code{year_col}), the number of NPAFP cases
-(\code{count_col}) and the population under 15 (\code{population_col}). A table
+(\code{count_col}) and the population under 15 (\code{pop_col}). A table
 with columns \code{district}, \code{year}, \code{npafp_cases} and \code{population_u15}, and
 optionally \code{province}, needs no other argument.}
 
 \item{population}{Optional data frame with one row per district and year,
 for when the population is held in a separate table: the district
-identifier, the year and the population under 15 (\code{population_col}). It
+identifier, the year and the population under 15 (\code{pop_col}). It
 then defines which districts and years are assessed; a district-year
 with no row in \code{data} is counted as zero cases. Default \code{NULL}: the
 population is taken from \code{data}.}
 
-\item{id_col, year_col, count_col, population_col}{Character. Column names in
+\item{id_col, year_col, count_col, pop_col}{Character. Column names in
 \code{data}, \code{population} and \code{boundaries}. Defaults \code{"district"}, \code{"year"},
 \code{"npafp_cases"} and \code{"population_u15"}.}
 
@@ -170,7 +170,7 @@ res <- spi_direct(
   population = synth_surveillance$population,
   id_col = "adm2_guid",
   count_col = "count",
-  population_col = "pop_u15",
+  pop_col = "pop_u15",
   region_col = "adm1_name",
   verbose = FALSE
 )

@@ -69,7 +69,7 @@ spi_results <- spi_direct(
   npafp_year,
   population = population,
   id_col = "adm2_guid",
-  population_col = "u15_pop"
+  pop_col = "u15_pop"
 )
 ```
 

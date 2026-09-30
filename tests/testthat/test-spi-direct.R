@@ -149,7 +149,7 @@ test_that("column names can be mapped", {
     dplyr::rename(dist_name = district, yr = year, npafp = npafp_cases,
                   u15_pop = population_u15, province_name = province)
   res <- run_toy(renamed, id_col = "dist_name", year_col = "yr",
-                 count_col = "npafp", population_col = "u15_pop",
+                 count_col = "npafp", pop_col = "u15_pop",
                  region_col = "province_name", first_assessment = 2026)
   ref <- run_toy(toy$cases, toy$population, first_assessment = 2026)
   expect_equal(res$summary$spi, ref$summary$spi)

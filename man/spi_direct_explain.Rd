@@ -41,7 +41,7 @@ res <- spi_direct(
   population = synth_surveillance$population,
   id_col = "adm2_guid",
   count_col = "count",
-  population_col = "pop_u15",
+  pop_col = "pop_u15",
   verbose = FALSE
 )
 spi_direct_explain(res, res$summary$adm2_guid[1])

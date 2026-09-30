@@ -103,7 +103,7 @@ spi_direct_dy <- spi_direct(
   population = synth$population,
   id_col = "adm2_guid",
   count_col = "count",
-  population_col = "pop_u15",
+  pop_col = "pop_u15",
   first_assessment = 2018,
   verbose = FALSE
 )

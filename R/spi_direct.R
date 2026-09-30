@@ -67,12 +67,12 @@
 #'
 #' @param data Data frame with one row per district and year: the district
 #'   identifier (`id_col`), the year (`year_col`), the number of NPAFP cases
-#'   (`count_col`) and the population under 15 (`population_col`). A table
+#'   (`count_col`) and the population under 15 (`pop_col`). A table
 #'   with columns `district`, `year`, `npafp_cases` and `population_u15`, and
 #'   optionally `province`, needs no other argument.
 #' @param population Optional data frame with one row per district and year,
 #'   for when the population is held in a separate table: the district
-#'   identifier, the year and the population under 15 (`population_col`). It
+#'   identifier, the year and the population under 15 (`pop_col`). It
 #'   then defines which districts and years are assessed; a district-year
 #'   with no row in `data` is counted as zero cases. Default `NULL`: the
 #'   population is taken from `data`.
@@ -90,7 +90,7 @@
 #'   year in the data.
 #' @param min_history Integer. Preceding years required before the first
 #'   assessment year when `first_assessment` is not given. Default 3.
-#' @param id_col,year_col,count_col,population_col Character. Column names in
+#' @param id_col,year_col,count_col,pop_col Character. Column names in
 #'   `data`, `population` and `boundaries`. Defaults `"district"`, `"year"`,
 #'   `"npafp_cases"` and `"population_u15"`.
 #' @param stabilise Logical. Stabilise limited histories. Default `TRUE`.
@@ -136,7 +136,7 @@
 #'   population = synth_surveillance$population,
 #'   id_col = "adm2_guid",
 #'   count_col = "count",
-#'   population_col = "pop_u15",
+#'   pop_col = "pop_u15",
 #'   region_col = "adm1_name",
 #'   verbose = FALSE
 #' )
@@ -148,7 +148,7 @@ spi_direct <- function(
   id_col = "district",
   year_col = "year",
   count_col = "npafp_cases",
-  population_col = "population_u15",
+  pop_col = "population_u15",
   region_col = "province",
   boundaries = NULL,
   first_assessment = NULL,
@@ -165,13 +165,13 @@ spi_direct <- function(
   }
   .direct_check_args(
     data, population, boundaries, id_col, year_col, count_col,
-    population_col, region_col, stabilise, per, verbose
+    pop_col, region_col, stabilise, per, verbose
   )
 
   # --- annual panel -----------------------------------------------------
   if (verbose) cli::cli_alert_info("Reading district-year counts...")
   annual <- .direct_annual(
-    data, population, id_col, year_col, count_col, population_col, verbose
+    data, population, id_col, year_col, count_col, pop_col, verbose
   )
   years_all <- sort(unique(annual$year))
   if (verbose) {
@@ -280,7 +280,7 @@ spi_direct <- function(
         first_assessment = min(targets), last_assessment = max(targets),
         years_in_data = range(years_all), stabilise = stabilise,
         id_col = id_col, year_col = year_col, count_col = count_col,
-        population_col = population_col,
+        pop_col = pop_col,
         population_source = if (is.null(population)) "data" else
           "population",
         region_col = region_col, neighbours = !is.null(boundaries),
@@ -299,7 +299,7 @@ spi_direct <- function(
 
 #' @noRd
 .direct_check_args <- function(data, population, boundaries, id_col,
-                               year_col, count_col, population_col,
+                               year_col, count_col, pop_col,
                                region_col, stabilise, per, verbose) {
   if (!is.data.frame(data)) {
     cli::cli_abort("{.arg data} must be a data frame.")
@@ -314,7 +314,7 @@ spi_direct <- function(
     ))
   }
   cols <- list(id_col = id_col, year_col = year_col, count_col = count_col,
-               population_col = population_col)
+               pop_col = pop_col)
   for (nm in names(cols)) {
     if (!rlang::is_string(cols[[nm]])) {
       cli::cli_abort("{.arg {nm}} must be a single string.")
@@ -350,13 +350,13 @@ spi_direct <- function(
 # counts as zero cases, and one with no population is dropped.
 #' @noRd
 .direct_annual <- function(data, population, id_col, year_col, count_col,
-                           population_col, verbose) {
+                           pop_col, verbose) {
   from_data <- is.null(population)
   if (from_data) {
-    if (!population_col %in% names(data)) {
+    if (!pop_col %in% names(data)) {
       cli::cli_abort(c(
-        "{.arg data} has no {.field {population_col}} column.",
-        "i" = "Name the population column with {.arg population_col}, or \\
+        "{.arg data} has no {.field {pop_col}} column.",
+        "i" = "Name the population column with {.arg pop_col}, or \\
                supply a separate {.arg population} table."
       ))
     }
@@ -365,7 +365,7 @@ spi_direct <- function(
 
   need <- list(
     data = c(id_col, year_col, count_col),
-    population = c(id_col, year_col, population_col)
+    population = c(id_col, year_col, pop_col)
   )
   inputs <- list(data = data, population = population)
   for (nm in names(need)) {
@@ -374,7 +374,7 @@ spi_direct <- function(
       cli::cli_abort(c(
         "{.arg {nm}} is missing column{?s} {.field {miss}}.",
         "i" = "Map your column names with {.arg id_col}, {.arg year_col}, \\
-               {.arg count_col} and {.arg population_col}."
+               {.arg count_col} and {.arg pop_col}."
       ))
     }
   }
@@ -387,7 +387,7 @@ spi_direct <- function(
   ps <- tibble::tibble(
     district_id = as.character(population[[id_col]]),
     year = population[[year_col]],
-    pop = population[[population_col]]
+    pop = population[[pop_col]]
   )
   checks <- if (from_data) list(list(cs, "data")) else
     list(list(cs, "data"), list(ps, "population"))
@@ -423,10 +423,10 @@ spi_direct <- function(
     )
   }
   if (!is.numeric(ps$pop)) {
-    cli::cli_abort("{.field {population_col}} must be numeric.")
+    cli::cli_abort("{.field {pop_col}} must be numeric.")
   }
   if (any(ps$pop < 0, na.rm = TRUE)) {
-    cli::cli_abort("{.field {population_col}} has negative values.")
+    cli::cli_abort("{.field {pop_col}} has negative values.")
   }
 
   bad_pop <- is.na(ps$pop) | ps$pop == 0
@@ -973,7 +973,7 @@ as_tibble.spi_direct <- function(x, ...) {
 #'   population = synth_surveillance$population,
 #'   id_col = "adm2_guid",
 #'   count_col = "count",
-#'   population_col = "pop_u15",
+#'   pop_col = "pop_u15",
 #'   verbose = FALSE
 #' )
 #' spi_direct_explain(res, res$summary$adm2_guid[1])

@@ -121,7 +121,7 @@ spi_results <- spi_direct(
   id_col = "adm2_guid",
   year_col = "yr",
   count_col = "npafp",
-  population_col = "u15_pop"
+  pop_col = "u15_pop"
 )
 ```
 
@@ -146,7 +146,7 @@ res_harad <- spi_direct(
   population = synth_surveillance$population,
   id_col = "adm2_guid",
   count_col = "count",
-  population_col = "pop_u15",
+  pop_col = "pop_u15",
   region_col = "adm1_name",
   verbose = FALSE
 )
