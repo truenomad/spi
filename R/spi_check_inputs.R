@@ -1,8 +1,9 @@
-#' Check model inputs
+#' Check the inputs before calculating SPI
 #'
 #' Checks case counts, population denominators, and district boundaries before
-#' fitting. Reports mismatched district IDs, missing months, invalid population
-#' values, and geometry problems together.
+#' fitting the model-based SPI (`method = "model"`) or calculating the direct
+#' SPI (`method = "direct"`). Reports mismatched district IDs, missing periods,
+#' invalid population values, and geometry problems together.
 #'
 #' Issues have three severity levels:
 #'
@@ -16,33 +17,66 @@
 #' [spi_expected()] calls this check and stops on errors. Run it separately
 #' to review warnings before fitting.
 #'
-#' @param cases Tibble with the district identifier (see `id_col`), `month`
-#'   (Date), and `count` (integer-valued).
+#' **Direct SPI.** With `method = "direct"`, `cases` is the district-year table
+#' passed to [spi_direct()] and `shapefile` is not needed. The check covers
+#' missing columns, years that are not whole numbers, invalid or negative
+#' counts, duplicate district-years, missing, zero or negative populations,
+#' district-years that would be left out or counted as zero cases, and the
+#' population flags that [spi_direct()] returns in `population_qc`.
+#'
+#' @param cases For `method = "model"`, a tibble with the district identifier
+#'   (see `id_col`), `month` (Date), and `count` (integer-valued). For
+#'   `method = "direct"`, the district-year table: the district identifier,
+#'   the year (`year_col`), the number of cases (`count_col`) and, when
+#'   `population` is `NULL`, the population (`pop_col`).
 #' @param population Tibble with the district identifier, the denominator
 #'   column (see `pop_col`), and either a `month` (Date) or `year` (integer)
-#'   column. The time unit is inferred from these columns.
+#'   column. The time unit is inferred from these columns. For
+#'   `method = "direct"` it is optional and keyed by year; `NULL` takes the
+#'   population from `cases`.
 #' @param shapefile An `sf` object of district polygons, or a pre-built `nb`
 #'   neighbour object. Geometry validity is only checked for `sf` input.
+#'   Required for `method = "model"`, optional for `method = "direct"`.
 #' @param covariates Optional tibble of district covariates. Only its ids are
 #'   compared with the district IDs in the case data.
 #' @param id_col Character. Name of the district identifier column, shared by
 #'   `cases`, `population`, `covariates`, and `shapefile`. Default
-#'   `"district_id"`.
-#' @param pop_col Character. Name of the denominator column in `population`.
-#'   Default `"pop_u15"` (the under-15 at-risk population used for AFP).
+#'   `"district_id"` for `method = "model"` and `"district"` for
+#'   `method = "direct"`.
+#' @param pop_col Character. Name of the denominator column. Default
+#'   `"pop_u15"` for `method = "model"` and `"population_u15"` for
+#'   `method = "direct"`.
 #' @param verbose Logical. Print the report once built. Default `TRUE`.
+#' @param method Character. `"model"` (default) checks the inputs of
+#'   [spi_index()]; `"direct"` checks the inputs of [spi_direct()].
+#' @param year_col,count_col Character. Year and case-count columns for
+#'   `method = "direct"`. Defaults `"year"` and `"npafp_cases"`.
 #'
 #' @return A `spi_input_check` object: a list with `issues` (a tibble of
-#'   findings by severity, one row each with `severity`, `code`, `message`, and the
-#'   affected `ids`), `gaps` (a `district_id` x `month` tibble of missing
-#'   district-months), `n_error` / `n_warning` /
-#'   `n_note` counts, `ok` (`TRUE` when there are no error-level issues), and
-#'   the numbers of districts and months. Has a `print` method.
+#'   findings by severity, one row each with `severity`, `code`, `message`,
+#'   and the affected `ids`), `gaps` (a `district_id` x `month` tibble of
+#'   missing district-months, or `district_id` x `year` for
+#'   `method = "direct"`), `n_error` / `n_warning` / `n_note` counts, `ok`
+#'   (`TRUE` when there are no error-level issues), and the numbers of
+#'   districts and months or years. Has a `print` method.
 #'
-#' @seealso [spi_expected()], [spi_adjacency()], and
+#' @seealso [spi_expected()], [spi_direct()], [spi_adjacency()], and
 #'   `vignette("spi-data-preparation")` for how to prepare the inputs.
 #'
 #' @examples
+#' # inputs of the direct SPI: annual counts and population
+#' annual <- synth_surveillance$cases |>
+#'   dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
+#'   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
+#' spi_check_inputs(
+#'   cases = annual,
+#'   population = synth_surveillance$population,
+#'   method = "direct",
+#'   id_col = "adm2_guid",
+#'   count_col = "count",
+#'   pop_col = "pop_u15"
+#' )
+#'
 #' \dontrun{
 #' rpt <- spi_check_inputs(
 #'   cases = synth_surveillance$cases,
@@ -55,19 +89,39 @@
 #' }
 #' @export
 spi_check_inputs <- function(cases,
-                            population,
-                            shapefile,
+                            population = NULL,
+                            shapefile = NULL,
                             covariates = NULL,
-                            id_col = "district_id",
-                            pop_col = "pop_u15",
-                            verbose = TRUE) {
+                            id_col = NULL,
+                            pop_col = NULL,
+                            verbose = TRUE,
+                            method = c("model", "direct"),
+                            year_col = "year",
+                            count_col = "npafp_cases") {
+  method <- match.arg(method)
+  direct <- method == "direct"
+  if (is.null(id_col)) id_col <- if (direct) "district" else "district_id"
+  if (is.null(pop_col)) pop_col <- if (direct) "population_u15" else "pop_u15"
   stopifnot(
     is.character(id_col), length(id_col) == 1,
     is.character(pop_col), length(pop_col) == 1,
     is.data.frame(cases),
-    is.data.frame(population),
+    is.null(population) || is.data.frame(population),
     is.null(covariates) || is.data.frame(covariates)
   )
+  if (direct) {
+    out <- .check_inputs_direct(
+      cases, population, shapefile, id_col, year_col, count_col, pop_col
+    )
+    out$call <- match.call()
+    if (verbose) print(out)
+    return(invisible(out))
+  }
+  if (is.null(population)) {
+    cli::cli_abort(
+      "{.arg population} is required when {.code method = \"model\"}."
+    )
+  }
   if (!inherits(shapefile, "sf") && !inherits(shapefile, "nb")) {
     cli::cli_abort(
       "{.arg shapefile} must be an {.cls sf} object or a {.cls nb} \\
@@ -330,6 +384,7 @@ spi_check_inputs <- function(cases,
       ),
       id_col = id_col,
       pop_col = pop_col,
+      method = "model",
       call = match.call()
     ),
     class = "spi_input_check"
@@ -346,7 +401,13 @@ print.spi_input_check <- function(x, ...) {
   cli::cli_h1("spi input check")
 
   d <- x$dims
-  dim_str <- if (!is.na(d$n_months)) {
+  direct <- identical(x$method, "direct")
+  dim_str <- if (direct && !is.na(d$n_years)) {
+    .ic_msg(
+      "{format(d$n_districts, big.mark = ',')} districts x \\
+       {d$n_years} years"
+    )
+  } else if (!is.na(d$n_months)) {
     .ic_msg(
       "{format(d$n_districts, big.mark = ',')} districts x \\
        {format(d$n_months, big.mark = ',')} months"
@@ -376,16 +437,289 @@ print.spi_input_check <- function(x, ...) {
 
   cli::cli_rule()
   if (x$ok) {
+    next_step <- if (direct) {
+      "the direct SPI can be calculated"
+    } else {
+      "a fit can proceed"
+    }
     cli::cli_alert_success(
-      "No errors -- a fit can proceed \\
+      "No errors -- {next_step} \\
        ({x$n_warning} warning{?s}, {x$n_note} note{?s})."
     )
   } else {
+    next_step <- if (direct) "calculating" else "fitting"
     cli::cli_alert_danger(
-      "{x$n_error} error{?s} -- resolve before fitting."
+      "{x$n_error} error{?s} -- resolve before {next_step}."
     )
   }
   invisible(x)
+}
+
+# ---------------------------------------------------------------------------
+# direct SPI inputs
+# ---------------------------------------------------------------------------
+
+# Same graded report as the model check, for the district-year inputs of
+# spi_direct(); every check appends and none stops the report.
+.check_inputs_direct <- function(cases, population, shapefile, id_col,
+                                 year_col, count_col, pop_col) {
+  issues <- list()
+  add <- function(severity, code, message, ids = NULL) {
+    issues[[length(issues) + 1L]] <<- tibble::tibble(
+      severity = severity,
+      code = code,
+      message = message,
+      n = if (is.null(ids)) NA_integer_ else length(ids),
+      ids = list(ids)
+    )
+  }
+  show <- function(ids) utils::head(ids, 5)
+  one_table <- is.null(population)
+  pop_tbl <- if (one_table) cases else population
+  pop_name <- if (one_table) "cases" else "population"
+  gaps <- tibble::tibble(district_id = character(0), year = integer(0))
+
+  # --- columns ------------------------------------------
+  if (nrow(cases) == 0) {
+    add("error", "cases_empty", "cases has no rows")
+  }
+  case_missing <- setdiff(c(id_col, year_col, count_col), names(cases))
+  if (length(case_missing) > 0) {
+    add("error", "cases_missing_cols", .ic_msg(
+      "cases missing column{?s}: {.val {case_missing}}"
+    ))
+  }
+  pop_missing <- setdiff(c(id_col, year_col, pop_col), names(pop_tbl))
+  if (length(pop_missing) > 0) {
+    add("error", "pop_missing_cols", .ic_msg(
+      "{pop_name} missing column{?s}: {.val {pop_missing}}"
+    ))
+  }
+
+  whole_years <- function(y) {
+    is.numeric(y) && !anyNA(y) && all(y == floor(y))
+  }
+  keyed <- function(tbl, value_col) {
+    tibble::tibble(
+      district_id = as.character(tbl[[id_col]]),
+      year = tbl[[year_col]],
+      value = tbl[[value_col]]
+    )
+  }
+
+  # --- cases: years, counts, duplicates -----------------
+  cs <- NULL
+  if (length(case_missing) == 0 && nrow(cases) > 0) {
+    cs <- keyed(cases, count_col)
+    if (!whole_years(cs$year)) {
+      add("error", "cases_year", .ic_msg(
+        "cases${year_col} must hold whole years with no missing value"
+      ))
+      cs <- NULL
+    }
+  }
+  if (!is.null(cs)) {
+    if (!is.numeric(cs$value)) {
+      add("error", "cases_count_type", .ic_msg(
+        "cases${count_col} must be numeric (integer-valued)"
+      ))
+    } else {
+      known <- cs$value[!is.na(cs$value)]
+      if (any(!is.finite(known) | known != floor(known))) {
+        add("error", "cases_invalid_count", .ic_msg(
+          "cases${count_col} must contain finite, integer-valued counts"
+        ))
+      }
+      n_neg <- sum(known < 0)
+      if (n_neg > 0) {
+        add("error", "cases_negative", .ic_msg(
+          "{n_neg} case row{?s} {?has/have} negative counts"
+        ))
+      }
+      n_na <- sum(is.na(cs$value))
+      if (n_na > 0) {
+        add("warning", "cases_missing_count", .ic_msg(
+          "{n_na} case row{?s} with a missing count (counted as zero cases)"
+        ))
+      }
+    }
+    n_dup <- sum(duplicated(cs[c("district_id", "year")]))
+    if (n_dup > 0) {
+      add("error", "cases_duplicates", .ic_msg(
+        "{n_dup} duplicate district-year row{?s} in cases"
+      ))
+    }
+  }
+
+  # --- population: years, values, duplicates ------------
+  ps <- NULL
+  if (length(pop_missing) == 0 && nrow(pop_tbl) > 0) {
+    ps <- keyed(pop_tbl, pop_col)
+    if (!whole_years(ps$year)) {
+      if (!one_table) {
+        add("error", "pop_year", .ic_msg(
+          "population${year_col} must hold whole years with no missing value"
+        ))
+      }
+      ps <- NULL
+    }
+  }
+  if (!is.null(ps) && !is.numeric(ps$value)) {
+    add("error", "pop_type", .ic_msg("{pop_name}${pop_col} must be numeric"))
+    ps <- NULL
+  }
+  if (!is.null(ps)) {
+    negative <- !is.na(ps$value) & ps$value < 0
+    if (any(negative)) {
+      add("error", "pop_negative", .ic_msg(
+        "{sum(negative)} row{?s} with negative {pop_col}"
+      ), ids = unique(ps$district_id[negative]))
+    }
+    unusable <- is.na(ps$value) | ps$value == 0
+    if (any(unusable)) {
+      ids <- unique(ps$district_id[unusable])
+      add("warning", "pop_missing_or_zero", .ic_msg(
+        "{sum(unusable)} district-year{?s} with missing or zero {pop_col} \\
+         (left out of the calculation): {.val {show(ids)}}"
+      ), ids = ids)
+    }
+    n_dup <- sum(duplicated(ps[c("district_id", "year")]))
+    if (n_dup > 0 && !one_table) {
+      add("error", "pop_duplicates", .ic_msg(
+        "{n_dup} duplicate district-year row{?s} in population"
+      ))
+    }
+    if (n_dup > 0) ps <- NULL
+  }
+
+  # --- district-years left out or counted as zero -------
+  if (!is.null(cs) && one_table) {
+    ids <- sort(unique(cs$district_id))
+    years <- sort(unique(cs$year))
+    full <- tibble::tibble(
+      district_id = rep(ids, times = length(years)),
+      year = rep(years, each = length(ids))
+    )
+    gaps <- dplyr::anti_join(full, cs, by = c("district_id", "year"))
+    if (nrow(gaps) > 0) {
+      add("warning", "panel_gaps", .ic_msg(
+        "{nrow(gaps)} district-year{?s} with no row (left out of the \\
+         calculation; add a row with zero cases if none were reported)"
+      ), ids = unique(gaps$district_id))
+    }
+  }
+  if (!is.null(cs) && !is.null(ps) && !one_table) {
+    no_pop <- dplyr::anti_join(cs, ps, by = c("district_id", "year"))
+    if (nrow(no_pop) > 0) {
+      ids <- unique(no_pop$district_id)
+      add("warning", "cases_no_population", .ic_msg(
+        "{nrow(no_pop)} district-year{?s} with cases but no population \\
+         (left out of the calculation): {.val {show(ids)}}"
+      ), ids = ids)
+    }
+    gaps <- dplyr::anti_join(ps, cs, by = c("district_id", "year")) |>
+      dplyr::select("district_id", "year")
+    if (nrow(gaps) > 0) {
+      add("note", "zero_filled", .ic_msg(
+        "{nrow(gaps)} district-year{?s} with population but no case row \\
+         (counted as zero cases)"
+      ), ids = unique(gaps$district_id))
+    }
+  }
+
+  # --- population flags, as returned by spi_direct() ----
+  usable <- NULL
+  if (!is.null(ps)) {
+    usable <- ps[!is.na(ps$value) & ps$value > 0, ]
+    names(usable)[names(usable) == "value"] <- "pop"
+  }
+  n_years <- if (is.null(usable)) {
+    NA_integer_
+  } else {
+    length(unique(usable$year))
+  }
+  if (!is.null(usable) && n_years >= 2L) {
+    usable$year <- as.integer(usable$year)
+    qc <- .direct_population_qc(usable, max(usable$year))$by_district
+    for (flag in c("check_spike", "check_change", "check_history")) {
+      ids <- qc$district_id[qc$population_qc == flag]
+      if (length(ids) > 0) {
+        add("warning", paste0("pop_", flag), .ic_msg(
+          "{length(ids)} district{?s} with population flag \\
+           {.val {flag}}: {.val {show(ids)}}"
+        ), ids = ids)
+      }
+    }
+  }
+
+  # --- enough years and districts -----------------------
+  if (!is.na(n_years) && n_years < 2L) {
+    add("error", "too_few_years",
+      "fewer than two years of data; the direct SPI needs earlier years")
+  } else if (!is.na(n_years) && n_years < 4L) {
+    add("warning", "few_years", .ic_msg(
+      "{n_years} years of data; set {.arg first_assessment} or \\
+       {.arg min_history}, since the default needs three earlier years"
+    ))
+  }
+  district_ids <- unique(c(cs$district_id, ps$district_id))
+  if (length(district_ids) > 0 && length(district_ids) < 20L) {
+    add("note", "few_districts", .ic_msg(
+      "{length(district_ids)} district{?s}; the stabilisation is \\
+       approximate with fewer than 20"
+    ))
+  }
+
+  # --- optional boundaries ------------------------------
+  if (inherits(shapefile, "sf") && id_col %in% names(shapefile)) {
+    off_map <- setdiff(district_ids, as.character(shapefile[[id_col]]))
+    if (length(off_map) > 0) {
+      add("warning", "district_not_in_shapefile", .ic_msg(
+        "{length(off_map)} district{?s} not in the shapefile (the region \\
+         or country is used as their reference): {.val {show(off_map)}}"
+      ), ids = off_map)
+    }
+  }
+
+  # --- assemble -----------------------------------------
+  issues_tbl <- if (length(issues) > 0) {
+    dplyr::bind_rows(issues)
+  } else {
+    tibble::tibble(
+      severity = character(0), code = character(0),
+      message = character(0), n = integer(0), ids = list()
+    )
+  }
+  sev_rank <- c(error = 1L, warning = 2L, note = 3L)
+  issues_tbl <- issues_tbl[order(sev_rank[issues_tbl$severity]), ]
+  years_all <- c(cs$year, ps$year)
+  date_range <- if (length(years_all) > 0 && is.numeric(years_all)) {
+    paste(min(years_all), "to", max(years_all))
+  } else {
+    NA_character_
+  }
+
+  structure(
+    list(
+      issues = issues_tbl,
+      gaps = gaps,
+      n_error = sum(issues_tbl$severity == "error"),
+      n_warning = sum(issues_tbl$severity == "warning"),
+      n_note = sum(issues_tbl$severity == "note"),
+      ok = !any(issues_tbl$severity == "error"),
+      dims = list(
+        n_districts = length(district_ids),
+        n_months = NA_integer_,
+        n_years = n_years,
+        date_range = date_range
+      ),
+      id_col = id_col,
+      pop_col = pop_col,
+      method = "direct",
+      call = NULL
+    ),
+    class = "spi_input_check"
+  )
 }
 
 # ---------------------------------------------------------------------------

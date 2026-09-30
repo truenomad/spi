@@ -27,6 +27,9 @@
   `language = "fr"` for French. English is the default. Translation uses the
   sntutils and gtranslate packages and needs an internet connection.
 
+* `spi_check_inputs()` also checks the inputs of the direct SPI with
+  `method = "direct"`. Boundaries are not needed for that check.
+
 * New article, "The direct SPI", explains the calculation step by step.
 
 * New article, "Preparing data for SPI", shows what data each calculation

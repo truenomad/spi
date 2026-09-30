@@ -330,3 +330,91 @@ test_that("fractional and infinite case counts fail preflight and fit validation
     expect_error(.validate_cases(cases), "finite, integer-valued")
   }
 })
+
+# ---- direct SPI inputs -------------------------------------------------
+
+# 20 districts over five years in the standard direct SPI layout
+direct_inputs <- function() {
+  grid <- expand.grid(
+    district = sprintf("D%02d", 1:20), year = 2022:2026,
+    stringsAsFactors = FALSE
+  )
+  tibble::as_tibble(grid) |>
+    dplyr::mutate(npafp_cases = 5, population_u15 = 100000)
+}
+
+test_that("clean direct inputs pass with the standard column names", {
+  rpt <- spi_check_inputs(direct_inputs(), method = "direct", verbose = FALSE)
+  expect_s3_class(rpt, "spi_input_check")
+  expect_true(rpt$ok)
+  expect_equal(nrow(rpt$issues), 0L)
+  expect_equal(rpt$dims$n_districts, 20L)
+  expect_equal(rpt$dims$n_years, 5L)
+  expect_equal(rpt$method, "direct")
+})
+
+test_that("direct checks report missing columns and bad values as errors", {
+  afp <- direct_inputs()
+  rpt <- spi_check_inputs(afp[c("district", "year")], method = "direct",
+                          verbose = FALSE)
+  expect_false(rpt$ok)
+  expect_setequal(rpt$issues$code,
+                  c("cases_missing_cols", "pop_missing_cols"))
+
+  afp$npafp_cases[1] <- -1
+  afp$population_u15[2] <- -5
+  rpt <- spi_check_inputs(rbind(afp, afp[3, ]), method = "direct",
+                          verbose = FALSE)
+  expect_true(all(c("cases_negative", "pop_negative", "cases_duplicates") %in%
+                    rpt$issues$code))
+})
+
+test_that("a missing district-year is a gap in one table", {
+  afp <- direct_inputs()
+  afp <- afp[!(afp$district == "D03" & afp$year == 2024), ]
+  rpt <- spi_check_inputs(afp, method = "direct", verbose = FALSE)
+  expect_true(rpt$ok)
+  expect_true("panel_gaps" %in% rpt$issues$code)
+  expect_equal(rpt$gaps$district_id, "D03")
+  expect_equal(rpt$gaps$year, 2024)
+})
+
+test_that("a separate population table restores missing case rows as zero", {
+  afp <- direct_inputs()
+  cases <- afp[!(afp$district == "D03" & afp$year == 2024),
+               c("district", "year", "npafp_cases")]
+  population <- afp[c("district", "year", "population_u15")]
+  rpt <- spi_check_inputs(cases, population, method = "direct",
+                          verbose = FALSE)
+  expect_true(rpt$ok)
+  zero <- rpt$issues[rpt$issues$code == "zero_filled", ]
+  expect_equal(zero$severity, "note")
+  expect_equal(nrow(rpt$gaps), 1L)
+})
+
+test_that("direct checks flag population patterns and zero populations", {
+  afp <- direct_inputs()
+  afp$population_u15[afp$district == "D05" & afp$year == 2024] <- 600000
+  afp$population_u15[afp$district == "D07" & afp$year == 2026] <- 0
+  rpt <- spi_check_inputs(afp, method = "direct", verbose = FALSE)
+  spike <- rpt$issues[rpt$issues$code == "pop_check_spike", ]
+  expect_equal(spike$ids[[1]], "D05")
+  expect_true("pop_missing_or_zero" %in% rpt$issues$code)
+})
+
+test_that("direct checks honour mapped column names", {
+  afp <- direct_inputs() |>
+    dplyr::rename(dist = district, yr = year, npafp = npafp_cases,
+                  u15 = population_u15)
+  rpt <- spi_check_inputs(afp, method = "direct", id_col = "dist",
+                          year_col = "yr", count_col = "npafp",
+                          pop_col = "u15", verbose = FALSE)
+  expect_true(rpt$ok)
+  expect_equal(nrow(rpt$issues), 0L)
+})
+
+test_that("the model check still requires population and boundaries", {
+  expect_error(
+    spi_check_inputs(direct_inputs(), verbose = FALSE), "population"
+  )
+})

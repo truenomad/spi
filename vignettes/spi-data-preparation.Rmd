@@ -137,6 +137,12 @@ res_harad
 
 </details>
 
+Use `spi_check_inputs()` with `method = "direct"` to check the table before calculating. It reports missing columns, duplicate district-years, invalid counts or populations, district-years with no row, and districts whose population series needs review:
+
+```{r check-direct, eval = FALSE}
+spi_check_inputs(afp_data, method = "direct")
+```
+
 [The direct SPI](spi-direct.html) shows how the calculation works and how to inspect the result for one district.
 
 ## 4. Data for the model-based SPI
