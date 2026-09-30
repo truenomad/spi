@@ -122,7 +122,8 @@ reference:
 - title: Calculate SPI directly
   desc: >
     Calculate annual SPI from earlier case counts and population estimates
-    without INLA, and inspect the calculation for one district.
+    without INLA, and inspect the calculation for one district. Check the
+    table first with `spi_check_inputs(method = "direct")`.
   contents:
   - spi_direct
   - spi_direct_explain

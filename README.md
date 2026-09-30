@@ -158,7 +158,7 @@ spi_direct_explain(
 #> Reference source                  country
 #> Reference rate                      12.52
 #> Historical information        substantial
-#> Stabilised rate                      1.28
+#> Rate used for expectation            1.28
 #> Expected NPAFP cases                 2.63
 #> 
 #> -- SPI --

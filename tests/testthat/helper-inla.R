@@ -8,8 +8,9 @@ inla_or_skip <- function(expr) {
         "the inla program failed and the maximum number of tries has been reached",
         "INLA installation error; no such file"
       )
-      if (any(vapply(binary_errors, grepl, logical(1),
-                     x = message, fixed = TRUE))) {
+      # INLA words this message with and without a leading capital
+      if (any(vapply(tolower(binary_errors), grepl, logical(1),
+                     x = tolower(message), fixed = TRUE))) {
         testthat::skip(paste0("INLA binary unavailable: ", message))
       }
       stop(e)

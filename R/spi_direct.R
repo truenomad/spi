@@ -1010,7 +1010,7 @@ spi_direct_explain <- function(x, district, year = NULL, language = "en",
       "Previous years", "Previous NPAFP cases", "Previous child-years",
       "Previous rate",
       "Reference source", "Reference rate", "Historical information",
-      "Stabilised rate", "Expected NPAFP cases",
+      "Rate used for expectation", "Expected NPAFP cases",
       "District observed / expected", "National observed / expected", "SPI",
       "Population check"
     ),

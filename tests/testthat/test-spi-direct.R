@@ -298,7 +298,8 @@ test_that("the explanation follows the calculation", {
     c("Observed NPAFP cases", "Current population under 15", "NPAFP rate",
       "Previous years", "Previous NPAFP cases", "Previous child-years",
       "Previous rate", "Reference source", "Reference rate",
-      "Historical information", "Stabilised rate", "Expected NPAFP cases",
+      "Historical information", "Rate used for expectation",
+      "Expected NPAFP cases",
       "District observed / expected", "National observed / expected", "SPI",
       "Population check")
   )

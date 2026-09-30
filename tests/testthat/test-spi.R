@@ -284,6 +284,16 @@ test_that("INLA integration helpers recognise missing executables", {
   expect_match(conditionMessage(result), "INLA binary unavailable", fixed = TRUE)
 })
 
+test_that("INLA integration helpers recognise a failed INLA program", {
+  crash <- paste(
+    "INLA model fitting failed.",
+    "12 simultaneous processes spawned The inla program failed and the",
+    "maximum number of tries has been reached."
+  )
+  result <- tryCatch(inla_or_skip(stop(crash)), skip = identity)
+  expect_s3_class(result, "skip")
+})
+
 test_that("SPI summaries handle constant and unavailable distributions", {
   index <- .spi_aggregate(make_expected(), verbose = FALSE)
   index$summary$spi_median <- 1
