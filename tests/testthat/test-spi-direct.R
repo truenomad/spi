@@ -104,6 +104,7 @@ test_that("one table with the standard names needs no other argument", {
 
 test_that("the exact vignette call uses provincial reference rates", {
   path <- test_path("..", "..", "vignettes", "spi-direct.Rmd")
+  if (!file.exists(path)) path <- system.file("doc", "spi-direct.Rmd", package = "spi")
   skip_if_not(file.exists(path), "Vignette source is not installed")
   lines <- readLines(path, warn = FALSE)
   chunk <- function(label) {

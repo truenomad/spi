@@ -58,7 +58,7 @@ Supply a separate population table covering every district-year to be analysed. 
 
 ### Check the population
 
-Population is used to calculate expected cases, so an abrupt change can affect the SPI. `spi_direct()` checks each district's population history. The following code lists districts flagged for review:
+Population is used to calculate expected cases, so an abrupt change can affect the SPI. `spi_direct()` checks each district's population history. After calculating `spi_results` in section 3, use the following code to list districts flagged for review:
 
 ```{r population-qc, eval = FALSE}
 spi_results$population_qc |>
@@ -80,7 +80,18 @@ For the direct SPI, one table with one row per district and year is enough:
 | A | North | 2022 | 8 | 100 000 |
 | A | North | 2023 | 10 | 105 000 |
 
-```{r standard, eval = FALSE}
+To try this with the bundled example data, create `afp_data` by adding the monthly counts for each district and year and joining the annual population:
+
+```{r annual-example}
+afp_data <- synth_surveillance$cases |>
+  dplyr::mutate(year = lubridate::year(month)) |>
+  dplyr::summarise(npafp_cases = sum(count), .by = c(adm2_guid, year)) |>
+  dplyr::left_join(synth_surveillance$population,
+                   by = c("adm2_guid", "year")) |>
+  dplyr::rename(district = adm2_guid, population_u15 = pop_u15)
+```
+
+```{r standard, results = 'hide'}
 spi_results <- spi_direct(afp_data)
 ```
 
@@ -88,7 +99,10 @@ The `province` column is optional. Without it, reporting from the rest of the co
 
 If the population is in a separate table, pass it as `population`:
 
-```{r separate-pop, eval = FALSE}
+```{r separate-pop, results = 'hide'}
+afp_counts <- dplyr::select(afp_data, district, year, npafp_cases)
+population <- dplyr::select(afp_data, district, year, population_u15)
+
 spi_results <- spi_direct(
   afp_counts,
   population = population
@@ -97,16 +111,21 @@ spi_results <- spi_direct(
 
 If your columns have different names, specify them in the function call:
 
-```{r mapping, eval = FALSE}
+```{r mapping, results = 'hide'}
+afp_custom <- afp_data |>
+  dplyr::rename(adm2_guid = district, yr = year,
+                npafp = npafp_cases, u15_pop = population_u15)
+
 spi_results <- spi_direct(
-  afp_data,
+  afp_custom,
   id_col = "adm2_guid",
   year_col = "yr",
   count_col = "npafp",
-  population_col = "u15_pop",
-  region_col = "province_name"
+  population_col = "u15_pop"
 )
 ```
+
+If a region column has a different name, supply it too, for example `region_col = "province_name"`.
 
 <details>
 <summary>Starting from monthly counts</summary>
@@ -156,7 +175,12 @@ The model-based SPI needs monthly NPAFP counts, annual population under 15 and d
 
 Include one row for every district-month, with a zero count for months with no cases. Start with all districts in the boundary file so that districts with no case records are included. Create a row for each district and month, then join the case counts:
 
-```{r grid, eval = FALSE}
+```{r grid}
+boundaries <- synth_surveillance$boundaries |>
+  dplyr::rename(district_id = adm2_guid)
+monthly_counts <- synth_surveillance$cases |>
+  dplyr::rename(district_id = adm2_guid)
+
 # every district in the boundary file
 districts <- tibble::tibble(
   district_id = unique(boundaries$district_id)
@@ -164,7 +188,7 @@ districts <- tibble::tibble(
 
 # every month in the period to analyse
 months <- tibble::tibble(
-  month = seq(as.Date("2022-01-01"), as.Date("2026-12-01"), by = "month")
+  month = seq(min(monthly_counts$month), max(monthly_counts$month), by = "month")
 )
 
 # one row for every district and month

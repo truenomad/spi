@@ -536,7 +536,7 @@ test_that("num_threads = NULL opts out of the serial pin", {
 
   # pin the global to a multithreaded value so "did we inherit it?" is a
   # question with a distinguishable answer even on a single-core runner
-  old <- INLA::inla.getOption("num.threads")
+  old <- inla_or_skip(INLA::inla.getOption("num.threads"))
   on.exit(INLA::inla.setOption(num.threads = old), add = TRUE)
   INLA::inla.setOption(num.threads = "2:1")
 
