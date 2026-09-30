@@ -3,12 +3,10 @@
 #' @description
 #' Calculates the surveillance performance index (SPI) for each district and
 #' assessment year from earlier NPAFP counts and population estimates,
-#' without fitting the INLA spatial and temporal model. A district's expected count is its NPAFP rate over all preceding
-#' years multiplied by its current population. When a district has little reporting history, the calculation also uses
-#' reporting from other districts in its region or the rest of the country.
-#' Supplying boundaries allows neighbouring districts to be used first. The district observed-to-expected
-#' ratio is then divided by the national observed-to-expected ratio for the
-#' same year.
+#' without fitting the INLA spatial and temporal model. A district's expected
+#' count is its NPAFP rate over all preceding years multiplied by its current
+#' population. The district observed-to-expected ratio is then divided by the
+#' national observed-to-expected ratio for the same year.
 #'
 #' Inspect the inputs and calculation for one district with [spi_direct_explain()].
 #'
@@ -18,34 +16,25 @@
 #'
 #' 1. Add up each district's preceding NPAFP cases and preceding population
 #'    (child-years), and divide to get its historical rate.
-#' 2. Stabilise the historical rate when the district has little
-#'    reporting history (see below).
-#' 3. Expected cases = current population x stabilised rate.
-#' 4. Divide observed by expected cases.
-#' 5. Divide that ratio by the national ratio (all observed over all
+#' 2. Expected cases = current population x historical rate.
+#' 3. Divide observed by expected cases.
+#' 4. Divide that ratio by the national ratio (all observed over all
 #'    expected cases in the year). The result is the SPI.
 #'
-#' **Stabilisation.** Each district's reference rate is the pooled preceding
-#' rate of the other districts in its region (`region_col`), or of the rest
-#' of the country when no region is given or the region has no preceding
-#' case. When `boundaries` are supplied, the districts that share a boundary
-#' with it come first. The stabilised rate adds one case's worth of the
-#' reference rate to the district's history:
+#' **When the SPI cannot be calculated.** `history_check` records whether the
+#' district's history supports the calculation. `"ok"`: the SPI is
+#' calculated. `"no previous case"`: the district has earlier years but no
+#' NPAFP case in them, so its historical rate and expected count are 0 and the
+#' observed-to-expected ratio and SPI are `NA`. `"no previous year"`: the
+#' district has no earlier year in the data (for example a new district), so
+#' its historical rate, expected count, observed-to-expected ratio and SPI are
+#' all `NA`. A district with one earlier year gets an SPI; `history_years`,
+#' `history_cases` and `history_pop` show how much history lies behind it.
 #'
-#' `stabilised_rate = (history_cases + 1) / (history_pop + 1 / reference_rate)`
-#'
-#' This is arithmetic, with nothing estimated. It is the same as a weighted
-#' average, `information_score * history_rate + (1 - information_score) *
-#' reference_rate`, where `information_score = information / (information +
-#' 1)` and `information` is the number of cases the district would have
-#' reported over its preceding child-years at the reference rate. A district
-#' whose history covers many child-years keeps a stabilised rate close to its
-#' own rate, including when its record is persistently low. A district with a
-#' short history moves further towards its reference rate, and a new district
-#' takes the reference rate. A district with preceding child-years but no
-#' preceding case is not given an expected rate of zero. `history_info`
-#' describes `information_score` in words: substantial (0.9 or more), moderate
-#' (0.5 to 0.9), limited (below 0.5) or none (no preceding year).
+#' **National centring.** The national observed-to-expected ratio is
+#' calculated from district-years with a positive expected count. Districts
+#' for which the direct SPI cannot be calculated do not contribute to national
+#' centring.
 #'
 #' **Population check.** Expected cases depend on the population, so each
 #' district's population series is screened before calculation. Each
@@ -65,22 +54,14 @@
 #' @param data Data frame with one row per district and year: the district
 #'   identifier (`id_col`), the year (`year_col`), the number of NPAFP cases
 #'   (`count_col`) and the population under 15 (`pop_col`). A table
-#'   with columns `district`, `year`, `npafp_cases` and `population_u15`, and
-#'   optionally `province`, needs no other argument.
+#'   with columns `district`, `year`, `npafp_cases` and `population_u15`
+#'   needs no other argument.
 #' @param population Optional data frame with one row per district and year,
 #'   for when the population is held in a separate table: the district
 #'   identifier, the year and the population under 15 (`pop_col`). It
 #'   then defines which districts and years are assessed; a district-year
 #'   with no row in `data` is counted as zero cases. Default `NULL`: the
 #'   population is taken from `data`.
-#' @param region_col Character or `NULL`. Column in `data` (or in
-#'   `population`) naming each district's region, for example a province.
-#'   The region's preceding rate is the reference for a district with little
-#'   history. Default `"province"`, used when the data have that column;
-#'   without it, or with `NULL`, the rest of the country is the reference.
-#' @param boundaries Optional `sf` polygon layer of the districts, with the
-#'   district identifier. When given, the districts that share a boundary
-#'   are used as the reference before the region. Default `NULL`.
 #' @param first_assessment Integer. First assessment year. Default: the
 #'   first year that has `min_history` preceding years.
 #' @param last_assessment Integer. Last assessment year. Default: the last
@@ -88,12 +69,8 @@
 #' @param min_history Integer. Preceding years required before the first
 #'   assessment year when `first_assessment` is not given. Default 3.
 #' @param id_col,year_col,count_col,pop_col Character. Column names in
-#'   `data`, `population` and `boundaries`. Defaults `"district"`, `"year"`,
+#'   `data` and `population`. Defaults `"district"`, `"year"`,
 #'   `"npafp_cases"` and `"population_u15"`.
-#' @param stabilise Logical. Stabilise limited histories. Default `TRUE`.
-#'   `FALSE` uses each district's historical rate unchanged; a district with
-#'   no preceding case then has no expected count. Intended for research and
-#'   replication.
 #' @param per Numeric. Rates are reported per this many people. Default
 #'   100000.
 #' @param verbose Logical. Print progress and a summary. Default `TRUE`.
@@ -101,15 +78,11 @@
 #' @return An `spi_direct` object, a list with:
 #'   * `summary`: one row per district and assessment year with `observed`,
 #'     `pop`, `npafp_rate`, `history_years`, `history_cases`, `history_pop`
-#'     (preceding child-years), `history_rate`, `reference_rate`,
-#'     `reference_source`, `information_score`, `history_info`,
-#'     `stabilised_rate`, `expected`, `oe`, `national_oe`, `spi` and
-#'     `population_qc`. Rates are per `per`.
+#'     (preceding child-years), `history_rate`, `history_check`, `expected`,
+#'     `oe`, `national_oe`, `spi` and `population_qc`. Rates are per `per`.
 #'   * `national`: observed, expected and the national observed-to-expected
 #'     ratio for each assessment year.
 #'   * `population_qc`: the population check for each district.
-#'   * `stabilisation`: for each assessment year, the number of districts
-#'     with history.
 #'   * `metadata`: the arguments and data range used.
 #'
 #'   `print()` gives a short country summary, `summary()` a fuller report and
@@ -118,14 +91,10 @@
 #' @seealso [spi_direct_explain()], `vignette("spi-direct")`, and
 #'   [spi_index()] for the model-based SPI.
 #'
-#' @examplesIf requireNamespace("sf", quietly = TRUE)
-#' # annual NPAFP counts with each district's province
-#' provinces <- sf::st_drop_geometry(synth_surveillance$boundaries)
+#' @examples
 #' annual <- synth_surveillance$cases |>
 #'   dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
-#'   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year)) |>
-#'   dplyr::left_join(provinces[c("adm2_guid", "adm1_name")],
-#'                    by = "adm2_guid")
+#'   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 #'
 #' res <- spi_direct(
 #'   data = annual,
@@ -133,7 +102,6 @@
 #'   id_col = "adm2_guid",
 #'   count_col = "count",
 #'   pop_col = "pop_u15",
-#'   region_col = "adm1_name",
 #'   verbose = FALSE
 #' )
 #' res
@@ -145,23 +113,14 @@ spi_direct <- function(
   year_col = "year",
   count_col = "npafp_cases",
   pop_col = "population_u15",
-  region_col = "province",
-  boundaries = NULL,
   first_assessment = NULL,
   last_assessment = NULL,
   min_history = 3L,
-  stabilise = TRUE,
   per = 100000,
   verbose = TRUE
 ) {
-  # the default region column is used only when the data have it
-  if (missing(region_col) &&
-        !region_col %in% c(names(data), names(population))) {
-    region_col <- NULL
-  }
   .direct_check_args(
-    data, population, boundaries, id_col, year_col, count_col,
-    pop_col, region_col, stabilise, per, verbose
+    data, population, id_col, year_col, count_col, pop_col, per, verbose
   )
 
   # --- annual panel -----------------------------------------------------
@@ -213,10 +172,6 @@ spi_direct <- function(
     }
   }
 
-  # --- reference areas --------------------------------------------------
-  geo <- .direct_geography(data, population, boundaries, id_col, year_col,
-                           region_col, unique(annual$district_id), verbose)
-
   # --- one assessment year at a time ------------------------------------
   if (verbose) {
     cli::cli_alert_info(
@@ -224,13 +179,12 @@ spi_direct <- function(
        assessment year{?s} ({min(targets)}-{max(targets)})..."
     )
   }
-  per_year <- lapply(targets, function(t) {
-    .direct_one_year(annual, geo, t, stabilise)
-  })
-  summary_tbl <- dplyr::bind_rows(lapply(per_year, `[[`, "rows"))
-  stab_tbl <- dplyr::bind_rows(lapply(per_year, `[[`, "stab"))
+  summary_tbl <- dplyr::bind_rows(lapply(targets, function(t) {
+    .direct_one_year(annual, t)
+  }))
 
   # --- national centring ------------------------------------------------
+  # only district-years with a positive expected count enter the ratio
   national <- .national_oe(summary_tbl, "observed", "expected", "year") |>
     dplyr::select("year", "national_observed", "national_expected",
                   "national_oe")
@@ -244,15 +198,14 @@ spi_direct <- function(
     ) |>
     dplyr::left_join(pop_qc$by_year, by = c("district_id", "year")) |>
     dplyr::mutate(dplyr::across(
-      c("npafp_rate", "history_rate", "reference_rate", "stabilised_rate"),
+      c("npafp_rate", "history_rate"),
       function(x) x * per
     )) |>
     dplyr::select(
       "district_id", "year", "observed", "pop", "npafp_rate",
       "history_years", "history_cases", "history_pop", "history_rate",
-      "reference_rate", "reference_source", "information_score",
-      "history_info", "stabilised_rate", "expected", "oe", "national_oe",
-      "spi", "population_qc"
+      "history_check", "expected", "oe", "national_oe", "spi",
+      "population_qc"
     ) |>
     dplyr::arrange(.data$year, .data$district_id)
   if (verbose) {
@@ -271,15 +224,13 @@ spi_direct <- function(
       summary = summary_tbl,
       national = national,
       population_qc = pop_by_district,
-      stabilisation = stab_tbl,
       metadata = list(
         first_assessment = min(targets), last_assessment = max(targets),
-        years_in_data = range(years_all), stabilise = stabilise,
+        years_in_data = range(years_all),
         id_col = id_col, year_col = year_col, count_col = count_col,
         pop_col = pop_col,
         population_source = if (is.null(population)) "data" else
           "population",
-        region_col = region_col, neighbours = !is.null(boundaries),
         per = per,
         n_districts = length(unique(annual$district_id))
       )
@@ -294,20 +245,13 @@ spi_direct <- function(
 # --- argument checks ----------------------------------------------------
 
 #' @noRd
-.direct_check_args <- function(data, population, boundaries, id_col,
-                               year_col, count_col, pop_col,
-                               region_col, stabilise, per, verbose) {
+.direct_check_args <- function(data, population, id_col, year_col,
+                               count_col, pop_col, per, verbose) {
   if (!is.data.frame(data)) {
     cli::cli_abort("{.arg data} must be a data frame.")
   }
   if (!is.null(population) && !is.data.frame(population)) {
     cli::cli_abort("{.arg population} must be a data frame or NULL.")
-  }
-  if (!is.null(boundaries) && !inherits(boundaries, "sf")) {
-    cli::cli_abort(c(
-      "{.arg boundaries} must be an {.cls sf} polygon layer or NULL.",
-      "x" = "Got {.cls {class(boundaries)}}."
-    ))
   }
   cols <- list(id_col = id_col, year_col = year_col, count_col = count_col,
                pop_col = pop_col)
@@ -316,23 +260,8 @@ spi_direct <- function(
       cli::cli_abort("{.arg {nm}} must be a single string.")
     }
   }
-  if (!is.null(region_col)) {
-    if (!rlang::is_string(region_col)) {
-      cli::cli_abort("{.arg region_col} must be a single string or NULL.")
-    }
-    in_data <- region_col %in% names(data) ||
-      (!is.null(population) && region_col %in% names(population))
-    if (!in_data) {
-      cli::cli_abort(
-        "Neither {.arg data} nor {.arg population} has a \\
-         {.field {region_col}} column ({.arg region_col})."
-      )
-    }
-  }
-  if (!rlang::is_bool(stabilise) || !rlang::is_bool(verbose)) {
-    cli::cli_abort(
-      "{.arg stabilise} and {.arg verbose} must be TRUE or FALSE."
-    )
+  if (!rlang::is_bool(verbose)) {
+    cli::cli_abort("{.arg verbose} must be TRUE or FALSE.")
   }
   if (!is.numeric(per) || length(per) != 1L || !is.finite(per) || per <= 0) {
     cli::cli_abort("{.arg per} must be a single positive number.")
@@ -452,76 +381,12 @@ spi_direct <- function(
   annual |> dplyr::select("district_id", "year", "observed", "pop")
 }
 
-# --- geography ----------------------------------------------------------
-
-# Each district's region from the data (its most recent value), and
-# neighbour pairs when boundaries are supplied.
-#' @noRd
-.direct_geography <- function(data, population, boundaries, id_col,
-                              year_col, region_col, ids, verbose) {
-  region <- NULL
-  if (!is.null(region_col)) {
-    src <- if (region_col %in% names(data)) data else population
-    region <- tibble::tibble(
-      district_id = as.character(src[[id_col]]),
-      year = src[[year_col]],
-      region = as.character(src[[region_col]])
-    ) |>
-      dplyr::filter(!is.na(.data$region))
-    n_multi <- region |>
-      dplyr::distinct(.data$district_id, .data$region) |>
-      dplyr::count(.data$district_id) |>
-      dplyr::filter(.data$n > 1L) |>
-      nrow()
-    if (n_multi > 0 && verbose) {
-      cli::cli_alert_warning(
-        "{.val {n_multi}} district{?s} changed region over time; the most \\
-         recent region is used."
-      )
-    }
-    region <- region |>
-      dplyr::slice_max(.data$year, n = 1L, with_ties = FALSE,
-                       by = "district_id") |>
-      dplyr::select("district_id", "region")
-  }
-
-  edges <- NULL
-  if (!is.null(boundaries)) {
-    if (!id_col %in% names(boundaries)) {
-      cli::cli_abort("{.arg boundaries} has no {.field {id_col}} column.")
-    }
-    nb <- suppressWarnings(suppressMessages(
-      spi_adjacency(boundaries = boundaries, id_col = id_col)
-    ))
-    nb_ids <- as.character(attr(nb, "region.id"))
-    idx <- unlist(nb)
-    edges <- tibble::tibble(
-      district_id = rep(nb_ids, lengths(nb)),
-      neighbour = nb_ids[pmax(idx, 1L)]
-    )
-    edges <- edges[idx > 0, ]
-    missing <- setdiff(ids, nb_ids)
-    if (length(missing) > 0 && verbose) {
-      cli::cli_alert_warning(
-        "{.val {length(missing)}} district{?s} in the data {?is/are} not in \\
-         {.arg boundaries}; {?it/they} will use the region or country rate."
-      )
-    }
-  }
-  if (verbose) {
-    chain <- c(if (!is.null(edges)) "neighbouring districts",
-               if (!is.null(region)) "region", "country")
-    cli::cli_alert_info(
-      "Reference for limited histories: {paste(chain, collapse = ', then ')}."
-    )
-  }
-  list(edges = edges, region = region)
-}
-
 # --- one assessment year ------------------------------------------------
 
+# Expected cases from the district's own preceding rate. No preceding case:
+# rate and expected 0, no SPI. No preceding year: rate and expected NA.
 #' @noRd
-.direct_one_year <- function(annual, geo, target, stabilise) {
+.direct_one_year <- function(annual, target) {
   current <- annual[annual$year == target, ]
   hist <- annual[annual$year < target, ] |>
     dplyr::summarise(
@@ -531,137 +396,33 @@ spi_direct <- function(
       .by = "district_id"
     )
 
-  # every district with history or a current count gets a reference rate
-  tbl <- dplyr::full_join(
-    current |> dplyr::select("district_id", "observed", "pop"),
-    hist, by = "district_id"
-  ) |>
-    dplyr::mutate(
-      history_cases = dplyr::coalesce(.data$history_cases, 0),
-      history_pop = dplyr::coalesce(.data$history_pop, 0),
-      history_years = dplyr::coalesce(.data$history_years, 0L)
-    )
-
-  if (!is.null(geo$edges)) {
-    nbr <- geo$edges |>
-      dplyr::inner_join(
-        hist |> dplyr::select(neighbour = "district_id", "history_cases",
-                              "history_pop"),
-        by = "neighbour"
-      ) |>
-      dplyr::summarise(
-        nbr_cases = sum(.data$history_cases),
-        nbr_pop = sum(.data$history_pop),
-        .by = "district_id"
-      )
-    tbl <- dplyr::left_join(tbl, nbr, by = "district_id")
-  } else {
-    tbl$nbr_cases <- NA_real_
-    tbl$nbr_pop <- NA_real_
-  }
-
-  others_rate <- function(cases, pop) {
-    oc <- sum(cases) - cases
-    op <- sum(pop) - pop
-    dplyr::if_else(op > 0 & oc > 0, oc / op, NA_real_)
-  }
-  if (!is.null(geo$region)) {
-    tbl <- tbl |>
-      dplyr::left_join(geo$region, by = "district_id") |>
-      dplyr::mutate(
-        region_rate = others_rate(.data$history_cases, .data$history_pop),
-        .by = "region"
-      )
-  } else {
-    tbl$region_rate <- NA_real_
-  }
-  tbl <- tbl |>
-    dplyr::mutate(
-      nbr_rate = dplyr::if_else(
-        dplyr::coalesce(.data$nbr_cases, 0) > 0 &
-          dplyr::coalesce(.data$nbr_pop, 0) > 0,
-        .data$nbr_cases / .data$nbr_pop, NA_real_
-      ),
-      country_rate = others_rate(.data$history_cases, .data$history_pop),
-      reference_rate = dplyr::coalesce(.data$nbr_rate, .data$region_rate,
-                                       .data$country_rate),
-      reference_source = dplyr::case_when(
-        !is.na(.data$nbr_rate) ~ "neighbours",
-        !is.na(.data$region_rate) ~ "region",
-        !is.na(.data$country_rate) ~ "country",
-        TRUE ~ NA_character_
-      ),
-      history_rate = dplyr::if_else(
-        .data$history_pop > 0, .data$history_cases / .data$history_pop,
-        NA_real_
-      ),
-      information = dplyr::coalesce(
-        .data$history_pop * .data$reference_rate, 0
-      )
-    )
-
-  if (stabilise) {
-    # one case's worth of the reference rate added to the history; the same
-    # as weighting the two rates by information / (information + 1)
-    tbl <- tbl |>
-      dplyr::mutate(
-        information_score = .data$information /
-          (.data$information + .DIRECT_BORROWED_CASES),
-        stabilised_rate = dplyr::if_else(
-          is.finite(.data$reference_rate) & .data$reference_rate > 0,
-          (.data$history_cases + .DIRECT_BORROWED_CASES) /
-            (.data$history_pop +
-               .DIRECT_BORROWED_CASES / .data$reference_rate),
-          .data$history_rate
-        )
-      )
-  } else {
-    tbl <- tbl |>
-      dplyr::mutate(
-        stabilised_rate = dplyr::if_else(.data$history_cases > 0,
-                                         .data$history_rate, NA_real_),
-        information_score = NA_real_
-      )
-  }
-  stab <- tibble::tibble(
-    year = target, districts_with_history = sum(hist$history_pop > 0)
-  )
-
-  rows <- tbl |>
-    dplyr::filter(!is.na(.data$observed)) |>
+  current |>
+    dplyr::select("district_id", "observed", "pop") |>
+    dplyr::left_join(hist, by = "district_id") |>
     dplyr::mutate(
       year = target,
+      history_years = dplyr::coalesce(.data$history_years, 0L),
+      history_cases = dplyr::coalesce(.data$history_cases, 0),
+      history_pop = dplyr::coalesce(.data$history_pop, 0),
+      history_check = dplyr::case_when(
+        .data$history_years == 0L ~ "no previous year",
+        .data$history_cases == 0 ~ "no previous case",
+        TRUE ~ "ok"
+      ),
       npafp_rate = .data$observed / .data$pop,
-      expected = .data$pop * .data$stabilised_rate,
-      oe = dplyr::if_else(.data$expected > 0,
-                          .data$observed / .data$expected, NA_real_),
-      history_info = .direct_history_info(
-        .data$history_years, .data$information_score, stabilise
-      )
+      history_rate = dplyr::if_else(
+        .data$history_years > 0L, .data$history_cases / .data$history_pop,
+        NA_real_
+      ),
+      # population x cases / child-years, in the order of the hand calculation
+      expected = dplyr::if_else(
+        .data$history_years > 0L,
+        .data$pop * .data$history_cases / .data$history_pop, NA_real_
+      ),
+      oe = dplyr::if_else(.data$history_check == "ok",
+                          .data$observed / .data$expected, NA_real_)
     )
-  list(rows = rows, stab = stab)
 }
-
-# Plain label for how much information the district's own history holds;
-# the cut-offs describe the history and do not enter the SPI.
-#' @noRd
-.direct_history_info <- function(years, score, stabilise) {
-  if (!stabilise) {
-    return(dplyr::if_else(years > 0, "own history only", "none"))
-  }
-  dplyr::case_when(
-    years == 0 ~ "none",
-    score >= 0.9 ~ "substantial",
-    score >= 0.5 ~ "moderate",
-    TRUE ~ "limited"
-  )
-}
-
-# --- stabilisation constant ---------------------------------------------
-
-# cases' worth of the reference rate added to each district's history
-#' @noRd
-.DIRECT_BORROWED_CASES <- 1
 
 # --- population check ---------------------------------------------------
 
@@ -770,15 +531,7 @@ spi_direct <- function(
   cli::cli_text(
     "history_rate = preceding cases / preceding population x {per_lab}"
   )
-  if (p$stabilise) {
-    cli::cli_text(
-      "stabilised_rate = (preceding cases + 1) / (preceding population + \\
-       1 / reference_rate) x {per_lab}"
-    )
-  } else {
-    cli::cli_text("stabilised_rate = history_rate (no stabilisation)")
-  }
-  cli::cli_text("expected = pop x stabilised_rate / {per_lab}")
+  cli::cli_text("expected = pop x history_rate / {per_lab}")
   cli::cli_text("oe = observed / expected")
   cli::cli_text("spi = oe / national_oe")
   cli::cli_rule()
@@ -800,23 +553,15 @@ spi_direct <- function(
     "Districts with SPI below 1: {sum(sl$spi < 1, na.rm = TRUE)} of \\
      {sum(is.finite(sl$spi))}"
   )
-  if (p$stabilise) {
-    info <- table(factor(sl$history_info,
-                         levels = c("substantial", "moderate", "limited",
-                                    "none")))
-    cli::cli_text(
-      "Historical information: {info[['substantial']]} substantial, \\
-       {info[['moderate']]} moderate, {info[['limited']]} limited, \\
-       {info[['none']]} none"
-    )
-  }
+  n_no_case <- sum(sl$history_check == "no previous case")
+  n_no_year <- sum(sl$history_check == "no previous year")
+  cli::cli_text(
+    "No SPI: {n_no_case} with no previous case, {n_no_year} with no \\
+     previous year"
+  )
   cli::cli_text(
     "Population flags: {sum(sl$population_qc != 'ok', na.rm = TRUE)}"
   )
-  n_missing <- sum(!is.finite(sl$spi))
-  if (n_missing > 0) {
-    cli::cli_alert_warning("{n_missing} district{?s} without an SPI.")
-  }
   cli::cli_rule()
 
   cli::cli_h3("Results by year")
@@ -862,13 +607,10 @@ print.spi_direct <- function(x, ...) {
     sprintf("SPI < 0.6:          %s", band(0.6)),
     sprintf("Population flags:   %d",
             sum(x$population_qc$population_qc != "ok")),
-    sprintf("Limited histories:  %d",
-            sum(sm$history_info[sm$year == latest] %in%
-                  c("limited", "none")))
+    sprintf("No SPI:             %d",
+            sum(sm$history_check[sm$year == latest] != "ok"))
   )
-  cli::cli_h2(
-    if (p$stabilise) "Direct SPI" else "Direct SPI (no stabilisation)"
-  )
+  cli::cli_h2("Direct SPI")
   cli::cli_verbatim(lines)
   cli::cli_text(cli::col_grey(
     "Use summary() for the full report, as_tibble() for the table and \\
@@ -893,7 +635,8 @@ as_tibble.spi_direct <- function(x, ...) {
 #' Lists every component of one district's direct SPI for one year, in the
 #' order of the calculation: current reporting, previous reporting, the
 #' expected count, the SPI and the data checks. Each value can be checked by
-#' hand from the ones above it.
+#' hand from the ones above it. When the SPI cannot be calculated, the
+#' breakdown says so and gives the reason.
 #'
 #' @param x An `spi_direct` object from [spi_direct()].
 #' @param district The district identifier.
@@ -944,28 +687,36 @@ spi_direct_explain <- function(x, district, year = NULL, language = "en",
   }
   qc <- if (identical(r$population_qc, "ok")) "no flag" else r$population_qc
 
+  ok <- identical(r$history_check, "ok")
+  not_calc <- "not calculated"
+  reason <- switch(
+    r$history_check,
+    "no previous case" = "no previous NPAFP case",
+    "no previous year" = "no previous year of data",
+    NULL
+  )
   out <- tibble::tibble(
-    section = rep(
-      c("Current reporting", "Previous reporting", "Expected reporting",
-        "SPI", "Data checks"),
-      c(3L, 4L, 5L, 3L, 1L)
+    section = c(
+      rep("Current reporting", 3L), rep("Previous reporting", 4L),
+      "Expected reporting", rep("SPI", 3L + !ok), "Data checks"
     ),
     component = c(
       "Observed NPAFP cases", "Current population under 15", "NPAFP rate",
       "Previous years", "Previous NPAFP cases", "Previous child-years",
-      "Previous rate",
-      "Reference source", "Reference rate", "Historical information",
-      "Rate used for expectation", "Expected NPAFP cases",
+      "Previous rate", "Expected NPAFP cases",
       "District observed / expected", "National observed / expected", "SPI",
+      if (!ok) "Reason",
       "Population check"
     ),
     value = c(
       num(r$observed, 0), num(r$pop, 0), num(r$npafp_rate),
       as.character(r$history_years), num(r$history_cases, 0),
-      num(r$history_pop, 0), num(r$history_rate),
-      dplyr::coalesce(r$reference_source, "none"), num(r$reference_rate),
-      r$history_info, num(r$stabilised_rate), num(r$expected),
-      num(r$oe), num(r$national_oe), num(r$spi),
+      num(r$history_pop, 0),
+      if (is.na(r$history_rate)) "not available" else num(r$history_rate),
+      if (is.na(r$expected)) "not available" else num(r$expected),
+      if (ok) num(r$oe) else not_calc, num(r$national_oe),
+      if (ok) num(r$spi) else not_calc,
+      reason,
       qc
     )
   )

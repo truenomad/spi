@@ -30,7 +30,8 @@ the language requested.
 Lists every component of one district's direct SPI for one year, in the
 order of the calculation: current reporting, previous reporting, the
 expected count, the SPI and the data checks. Each value can be checked by
-hand from the ones above it.
+hand from the ones above it. When the SPI cannot be calculated, the
+breakdown says so and gives the reason.
 }
 \examples{
 annual <- synth_surveillance$cases |>

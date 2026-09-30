@@ -21,8 +21,7 @@ history. The surveillance performance index (SPI) compares reported
 NPAFP cases with the number expected, then compares the district's
 observed-to-expected ratio with the corresponding national ratio.
 Expected counts can be estimated using the full spatial and temporal
-model or a direct calculation with empirical Bayes stabilisation when
-reporting history is limited.
+model or directly from each district's own earlier reporting.
 
 SPI complements the conventional NPAFP rate. The NPAFP rate measures the
 absolute level of reporting, whereas SPI measures reporting relative to
@@ -59,14 +58,13 @@ install.packages(
 
 For the direct SPI, start with annual NPAFP counts and under-15
 population estimates by district. `spi_direct()` calculates annual SPI
-without INLA; a region column and district boundaries are optional. For
-the model-based SPI, start with monthly NPAFP counts, annual under-15
-population estimates, and district boundaries. `spi_index()` estimates
-expected counts with the spatial and temporal model and calculates
-annual or monthly SPI with credible intervals. The package also produces
-plots and maps, compares SPI with the conventional NPAFP target, and
-brings the results together for district review in the STEPS field
-guide.
+without INLA or district boundaries. For the model-based SPI, start with
+monthly NPAFP counts, annual under-15 population estimates, and district
+boundaries. `spi_index()` estimates expected counts with the spatial and
+temporal model and calculates annual or monthly SPI with credible
+intervals. The package also produces plots and maps, compares SPI with
+the conventional NPAFP target, and brings the results together for
+district review in the STEPS field guide.
 
 ## Quick start
 
@@ -118,12 +116,12 @@ spi_direct_dy$summary |>
 #> # A tibble: 6 x 6
 #>   adm2_guid                               year observed expected    oe   spi
 #>   <chr>                                  <int>    <dbl>    <dbl> <dbl> <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018        2     2.67 0.748 0.681
-#> 2 {040649D0-A0BA-C005-ADEF-90E3E4358730}  2018        7     6.72 1.04  0.950
-#> 3 {04CBADAF-5577-E1AB-12F7-49CD628AA70F}  2018       11    25.3  0.436 0.397
-#> 4 {0673C3E5-5534-6578-70F4-B6B48BA0D331}  2018       52    40.2  1.29  1.18 
-#> 5 {069B1B50-BB32-0C5A-DC20-C9643EC4583D}  2018        2     3.65 0.547 0.499
-#> 6 {07BC4455-2DED-3E72-89F5-F1123A963742}  2018        4     9.51 0.420 0.383
+#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018        2     1.08 1.86  1.69 
+#> 2 {040649D0-A0BA-C005-ADEF-90E3E4358730}  2018        7     6.74 1.04  0.946
+#> 3 {04CBADAF-5577-E1AB-12F7-49CD628AA70F}  2018       11    25.7  0.428 0.391
+#> 4 {0673C3E5-5534-6578-70F4-B6B48BA0D331}  2018       52    40.6  1.28  1.17 
+#> 5 {069B1B50-BB32-0C5A-DC20-C9643EC4583D}  2018        2     2.49 0.803 0.732
+#> 6 {07BC4455-2DED-3E72-89F5-F1123A963742}  2018        4     9.65 0.415 0.378
 ```
 
 `observed` and `expected` are the reported and expected cases, `oe` is
@@ -142,34 +140,30 @@ spi_direct_explain(
 #> 
 #> -- Current reporting --
 #> 
-#> Observed NPAFP cases                    1
-#> Current population under 15       205 717
-#> NPAFP rate                           0.49
+#> Observed NPAFP cases                  1
+#> Current population under 15     205 717
+#> NPAFP rate                         0.49
 #> 
 #> -- Previous reporting --
 #> 
-#> Previous years                          8
-#> Previous NPAFP cases                   16
-#> Previous child-years            1 526 968
-#> Previous rate                        1.05
+#> Previous years                        8
+#> Previous NPAFP cases                 16
+#> Previous child-years          1 526 968
+#> Previous rate                      1.05
 #> 
 #> -- Expected reporting --
 #> 
-#> Reference source                  country
-#> Reference rate                      12.52
-#> Historical information        substantial
-#> Rate used for expectation            1.28
-#> Expected NPAFP cases                 2.63
+#> Expected NPAFP cases               2.16
 #> 
 #> -- SPI --
 #> 
-#> District observed / expected         0.38
-#> National observed / expected         1.14
-#> SPI                                  0.33
+#> District observed / expected       0.46
+#> National observed / expected       1.14
+#> SPI                                0.41
 #> 
 #> -- Data checks --
 #> 
-#> Population check                  no flag
+#> Population check                no flag
 ```
 
 The direct SPI gives one value per district and year, without credible

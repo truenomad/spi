@@ -14,7 +14,7 @@ SPI divides reported cases by expected cases and, by default, divides the result
 | Building block | What it contributes |
 | --- | --- |
 | Reporting history | Provides a reference for each district's reporting. `spi_index()` uses preceding years only, so the year being assessed does not contribute to its own expectation. |
-| Population adjustment | Scales expected counts to the under-15 population. The model includes log population as an offset, a term whose coefficient is fixed at 1. |
+| Population adjustment | Scales expected counts to under-15 population exposure. The model includes log exposure as an offset, a term whose coefficient is fixed at 1. |
 | Partial pooling | Uses information across districts to make estimates less variable when a district has little data. |
 | Information from neighbours | Lets neighbouring districts inform the spatial estimate, with more influence where a district's own data provide little information. |
 | Seasonality and year effects | Accounts for recurring within-year patterns and differences between years. |
@@ -25,41 +25,60 @@ In the accompanying study, each district's earlier reporting provided most of th
 
 ## Model specification
 
-The default model without covariates estimates expected counts for each district-month:
+With annual population data, the default model without covariates estimates expected counts for each district $i$ and month $t$:
 
 $$
 Y_{it} \sim \text{NegBin}(\mu_{it}, \kappa)
 $$
 
 $$
-\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + u_i + v_i
+\log \mu_{it} = \log(P_{it}/12) + \beta_0 + f(\text{month}_t) + \gamma_{y(t)} + b_i
 $$
 
 where
 
-- $\log(P_{it}/12)$ is the log under-15 person-time offset
-- $\beta_0$ is the background reported NPAFP rate, estimated from the data
+- $P_{it}$ is the district's annual under-15 population for the year containing month $t$; $P_{it}/12$ approximates that month's exposure in child-years
+- $\beta_0$ is the background **log rate**; $\exp(\beta_0)$ is the rate per child-year when the other terms are zero
 - $f(\text{month}_t)$ is harmonic seasonality (12- and 6-month periodicity)
 - $\gamma_{y(t)}$ is an exchangeable year effect
-- $u_i + v_i$ is a BYM2 spatial random effect (Riebler et al. 2016)
-- $\kappa$ is the negative binomial dispersion, the default `overdispersion = "nb"`
+- $b_i$ is a BYM2 spatial random effect (Riebler et al. 2016)
+- $\kappa > 0$ is the negative binomial size parameter, with $\operatorname{Var}(Y_{it}\mid\mu_{it},\kappa) = \mu_{it} + \mu_{it}^2/\kappa$; larger values approach the Poisson model
+
+The [INLA BYM2 parameterisation](https://inla.r-inla-download.org/r-inla.org/doc/latent/bym2.pdf) is
+
+$$
+b_i = \frac{1}{\sqrt{\tau_b}}\left(\sqrt{\phi}\,u_i^* + \sqrt{1-\phi}\,v_i\right),
+$$
+
+where $u_i^*$ is the scaled, spatially structured effect and $v_i$ is an independent standard normal effect. The precision $\tau_b$ controls the overall scale and $\phi\in[0,1]$ controls the balance between the two components. The package applies scaling and constraints separately to disconnected components of the adjacency graph.
+
+The [negative binomial parameterisation](https://inla.r-inla-download.org/r-inla.org/doc/likelihood/nbinomial.pdf) above is the default `overdispersion = "nb"`. If population data are supplied by month, the package instead uses `log(pop)` directly: those values must already represent monthly exposure in child-years.
 
 Optional covariates add $x_{it}^{\top}\beta$ to the linear predictor. They are not part of the default SPI used in the accompanying study.
 
-`overdispersion = "iid"` uses a Poisson model with an observation-level term $\epsilon_{it}$ in the linear predictor. `"none"` fits a Poisson model without overdispersion. Use `spi_compare_overdispersion()` to compare the three options.
+`overdispersion = "iid"` uses a Poisson model with an independent normal observation-level term $\epsilon_{it}$ in the linear predictor. `"none"` fits a Poisson model without that extra term. Use `spi_compare_overdispersion()` to compare the three options.
 
 <img src="figures/spi-dag.svg" width="100%" alt="Diagram of the SPI model and observed-to-expected comparison" />
 
 Reported counts reflect both underlying NPAFP incidence and surveillance reporting. `spi_index()` estimates each year's expected counts from preceding years only.
 
-**National centring.** For district $i$ and year $y$, let $O_{iy}$ be the annual observed count and $E_{iy}$ the expected count summed across months. The default index is:
+**National centring.** For district $i$ and year $y$, let $O_{iy}$ be the annual observed count. Within each posterior draw $s$, sum the monthly expected counts first:
 
 $$
-\text{SPI}_{iy} = \frac{O_{iy}/E_{iy}}{r_y}, \qquad
+E_{iy}^{(s)} = \sum_{t:\,y(t)=y}\mu_{it}^{(s)}, \qquad
+\widetilde E_{iy} = \operatorname{median}_s E_{iy}^{(s)}.
+$$
+
+The annual median is therefore taken after summing months. The default index is calculated for each draw as
+
+$$
+\text{SPI}_{iy}^{(s)} = \frac{O_{iy}/E_{iy}^{(s)}}{r_y}, \qquad
 r_y = \frac{\sum_i O_{iy}}{\sum_i \widetilde{E}_{iy}}
 $$
 
-Here $\widetilde{E}_{iy}$ is the posterior median expected count. The national ratio $r_y$ is held fixed when scaling posterior draws. `centre = "none"` returns the uncentred observed-to-expected ratio.
+The national denominator is the sum of district posterior medians. The national ratio $r_y$ is held fixed when scaling posterior draws; uncertainty in that ratio is not propagated. SPI medians and credible intervals summarise the resulting draws. They reflect uncertainty in the expected counts, conditional on observed counts and this fixed national ratio, and do not include extra variation from simulated future counts. In particular, zero observed cases give zero SPI in every draw when the expected counts and national ratio are positive.
+
+National sums include rows with finite observed counts and finite, positive expected counts. A year with no observed cases nationally has an undefined centred SPI, returned as `NA`. `centre = "none"` returns the uncentred observed-to-expected ratio.
 
 ## The direct SPI
 
@@ -69,29 +88,21 @@ $$
 Y_i = \sum_{s<t} Y_{is}, \qquad P_i = \sum_{s<t} P_{is}, \qquad r_i = Y_i / P_i
 $$
 
-**Reference rate.** $r_i^{\text{ref}}$ is the pooled preceding rate of the other districts in the district's region (`region_col`), or of the rest of the country when no region is given or the region has no preceding case. When `boundaries` are supplied, the districts that share a boundary come first.
+Here $P_i$ is earlier exposure in child-years, and all rates in the equations are per child-year. The output tables multiply rates by 100,000 by default. The previous rate $r_i$ is defined only when $P_i > 0$.
 
-**Information.** $I_i = P_i \, r_i^{\text{ref}}$, the number of cases expected at the reference rate over the district's earlier child-years (the sum of its annual under-15 populations). It grows with both the number of years and the size of the population.
+**History check.** The SPI is calculated when the district has at least one earlier year and at least one earlier case. With earlier years but no earlier case ($Y_i = 0$), $r_i = 0$, the expected count is 0, and O/E and SPI are `NA`; `history_check` is `"no previous case"`. With no earlier year ($P_i = 0$), $r_i$, the expected count, O/E and SPI are all `NA`; `history_check` is `"no previous year"`. Otherwise `history_check` is `"ok"`. There is no stabilisation and no borrowing from other districts.
 
-**Stabilisation.** One case's worth of the reference rate is added to the district's history:
-
-$$
-\tilde r_i = \frac{Y_i + 1}{P_i + 1 / r_i^{\text{ref}}}
-= w_i \, r_i + (1 - w_i) \, r_i^{\text{ref}},
-\qquad w_i = \frac{I_i}{I_i + 1}
-$$
-
-This is arithmetic, with nothing estimated. It is the posterior mean of a Poisson rate under a gamma distribution centred on the reference rate that carries the information of one case. A history covering many child-years keeps $\tilde r_i$ close to $r_i$, including when $r_i$ is persistently low; a short history moves it towards $r_i^{\text{ref}}$. A history with preceding population but no preceding case keeps $\tilde r_i > 0$, and a district with no earlier data takes $r_i^{\text{ref}}$.
-
-**Index.** $E_{it} = P_{it} \, \tilde r_i$ and
+**Index.** $E_{it} = P_{it} \, r_i$, calculated as $P_{it} Y_i / P_i$, and
 
 $$
-\text{SPI}_{it} = \frac{Y_{it}/E_{it}}{\sum_j Y_{jt} / \sum_j E_{jt}}
+\text{SPI}_{it} = \frac{Y_{it}/E_{it}}{\sum_{j:E_{jt}>0} Y_{jt} \big/ \sum_{j:E_{jt}>0} E_{jt}}
 $$
 
-`history_info` describes $w_i$ in words: substantial (0.9 or more), moderate (0.5 to 0.9), limited (below 0.5) or none (no earlier year). `stabilise = FALSE` uses $r_i$ unchanged.
+The national observed-to-expected ratio is calculated from district-years with a positive expected count. Districts for which the direct SPI cannot be calculated do not contribute to national centring. A zero national ratio gives `NA`.
 
-**Population check.** Each district's year-on-year change in log population is compared with the median change across districts in the same year. A change is unusual when the difference lies outside Tukey's far-out fences (three interquartile ranges beyond the quartiles) of all such differences and is at least 10%. `population_qc` is `check_spike` when an unusual change is reversed by an unusual change in the other direction within two years, `check_change` for any other unusual change, `check_history` when the district is missing from some years, and `ok` otherwise. Populations are never altered.
+**Population check.** Each district's consecutive-year change in log population is compared with the median change across districts in the same year. A change is unusual when its deviation lies outside Tukey's far-out fences (three interquartile ranges beyond the quartiles) and has absolute magnitude greater than $\log(1.1)$. This is a multiplicative threshold relative to the median growth factor: above 1.1 or below $1/1.1$, rather than a symmetric 10% change in population. Fences are calculated from all available consecutive-year deviations; fewer than four deviations give no change flags.
+
+For each assessment year, the check considers the district's population records up to that year. `population_qc` is `check_spike` when an unusual deviation is followed by an unusual deviation in the opposite direction among the next two recorded transitions, `check_change` for any other unusual deviation, `check_history` when population records do not cover all dataset years up to that year, and `ok` otherwise. These labels take precedence in that order. With a complete annual series, the two transitions cover two years; gaps can extend that interval. The check does not alter populations.
 
 ## Limitations
 

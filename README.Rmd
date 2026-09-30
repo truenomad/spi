@@ -42,7 +42,7 @@ set.seed(1)
 
 <!-- badges: end -->
 
-spi is an R package for identifying changes in non-polio acute flaccid paralysis (NPAFP) reporting relative to a district's preceding reporting history. The surveillance performance index (SPI) compares reported NPAFP cases with the number expected, then compares the district's observed-to-expected ratio with the corresponding national ratio. Expected counts can be estimated using the full spatial and temporal model or a direct calculation with empirical Bayes stabilisation when reporting history is limited.
+spi is an R package for identifying changes in non-polio acute flaccid paralysis (NPAFP) reporting relative to a district's preceding reporting history. The surveillance performance index (SPI) compares reported NPAFP cases with the number expected, then compares the district's observed-to-expected ratio with the corresponding national ratio. Expected counts can be estimated using the full spatial and temporal model or directly from each district's own earlier reporting.
 
 SPI complements the conventional NPAFP rate. The NPAFP rate measures the absolute level of reporting, whereas SPI measures reporting relative to preceding reporting and the national pattern. A district can therefore continue to meet the NPAFP target while reporting substantially fewer cases than expected from its history. Conversely, a district with persistently low reporting can have an SPI near 1 while its NPAFP rate remains below the target. SPI should therefore be interpreted alongside the NPAFP rate, timeliness, specimen quality, and other surveillance information.
 
@@ -67,7 +67,7 @@ install.packages(
 
 ## Overview
 
-For the direct SPI, start with annual NPAFP counts and under-15 population estimates by district. `spi_direct()` calculates annual SPI without INLA; a region column and district boundaries are optional. For the model-based SPI, start with monthly NPAFP counts, annual under-15 population estimates, and district boundaries. `spi_index()` estimates expected counts with the spatial and temporal model and calculates annual or monthly SPI with credible intervals. The package also produces plots and maps, compares SPI with the conventional NPAFP target, and brings the results together for district review in the STEPS field guide.
+For the direct SPI, start with annual NPAFP counts and under-15 population estimates by district. `spi_direct()` calculates annual SPI without INLA or district boundaries. For the model-based SPI, start with monthly NPAFP counts, annual under-15 population estimates, and district boundaries. `spi_index()` estimates expected counts with the spatial and temporal model and calculates annual or monthly SPI with credible intervals. The package also produces plots and maps, compares SPI with the conventional NPAFP target, and brings the results together for district review in the STEPS field guide.
 
 ## Quick start
 

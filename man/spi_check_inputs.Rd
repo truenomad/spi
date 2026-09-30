@@ -32,7 +32,7 @@ population from \code{cases}.}
 
 \item{shapefile}{An \code{sf} object of district polygons, or a pre-built \code{nb}
 neighbour object. Geometry validity is only checked for \code{sf} input.
-Required for \code{method = "model"}, optional for \code{method = "direct"}.}
+Required for \code{method = "model"}; not used for \code{method = "direct"}.}
 
 \item{covariates}{Optional tibble of district covariates. Only its ids are
 compared with the district IDs in the case data.}

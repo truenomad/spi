@@ -9,17 +9,16 @@
 ### New features
 
 * `spi_direct()` calculates SPI directly from preceding reporting, without
-  fitting the INLA spatial and temporal model. It needs only NPAFP cases and the population under 15 by
-  district and year; a region column and district boundaries are optional.
-  Rates based on little history are stabilised by adding one case's worth
-  of the reference rate to the district's history, which is arithmetic with
-  nothing estimated. A district with no previous case is not given an
-  expected rate of zero, and each district's population
-  series is checked for unusual changes before calculation.
+  fitting the INLA spatial and temporal model. It needs only NPAFP cases and
+  the population under 15 by district and year. A district's expected count
+  is its current population times its NPAFP rate over all earlier years.
+  `history_check` records when the SPI cannot be calculated: a district with
+  no earlier case, or no earlier year, has no SPI and does not contribute to
+  the national ratio. Each district's population series is checked for
+  unusual changes before calculation.
 
 * `spi_direct()` needs no other argument when the table has the columns
-  `district`, `year`, `npafp_cases` and `population_u15`. A `province` column
-  is used when present.
+  `district`, `year`, `npafp_cases` and `population_u15`.
 
 * `spi_direct_explain()` shows how one district's direct SPI was calculated,
   from current and previous reporting to the expected count and the national

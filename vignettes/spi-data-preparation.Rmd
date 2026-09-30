@@ -25,7 +25,6 @@ The input requirements are:
 |---|---|---|
 | NPAFP cases | One row per district and year | One row per district and month, including a zero count for months with no cases |
 | Population under 15 | One row per district and year | One row per district and year |
-| Region (for example province) | Optional | Not used |
 | District boundaries | Not needed | Required, as an `sf` polygon layer with matching district identifiers |
 | INLA | Not needed | Required |
 
@@ -75,10 +74,10 @@ A new district may have no earlier records of its own. For a split or merged dis
 
 For the direct SPI, one table with one row per district and year is enough:
 
-| district | province | year | npafp_cases | population_u15 |
-|---|---|---|---|---|
-| A | North | 2022 | 8 | 100 000 |
-| A | North | 2023 | 10 | 105 000 |
+| district | year | npafp_cases | population_u15 |
+|---|---|---|---|
+| A | 2022 | 8 | 100 000 |
+| A | 2023 | 10 | 105 000 |
 
 To try this with the bundled example data, create `afp_data` by adding the monthly counts for each district and year and joining the annual population:
 
@@ -94,8 +93,6 @@ afp_data <- synth_surveillance$cases |>
 ```{r standard, results = 'hide'}
 spi_results <- spi_direct(afp_data)
 ```
-
-The `province` column is optional. Without it, reporting from the rest of the country provides the reference for districts with limited history.
 
 If the population is in a separate table, pass it as `population`:
 
@@ -125,21 +122,15 @@ spi_results <- spi_direct(
 )
 ```
 
-If a region column has a different name, supply it too, for example `region_col = "province_name"`.
-
 <details>
 <summary>Starting from monthly counts</summary>
 
-Sum the monthly counts for each district and year before running `spi_direct()`. This example uses the package's synthetic data and joins province names stored in the district boundary data.
+Sum the monthly counts for each district and year before running `spi_direct()`. This example uses the package's synthetic data.
 
 ```{r monthly}
-provinces_harad <- sf::st_drop_geometry(synth_surveillance$boundaries) |>
-  dplyr::distinct(adm2_guid, adm1_name)
-
 afp_harad <- synth_surveillance$cases |>
   dplyr::mutate(year = lubridate::year(month)) |>
-  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year)) |>
-  dplyr::left_join(provinces_harad, by = "adm2_guid")
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 
 res_harad <- spi_direct(
   afp_harad,
@@ -147,7 +138,6 @@ res_harad <- spi_direct(
   id_col = "adm2_guid",
   count_col = "count",
   pop_col = "pop_u15",
-  region_col = "adm1_name",
   verbose = FALSE
 )
 

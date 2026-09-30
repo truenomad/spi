@@ -19,7 +19,9 @@ test_that("the preparation vignette creates the inputs used by its direct exampl
   run_chunk("standard")
   combined <- example$spi_results
   expect_s3_class(combined, "spi_direct")
-  expect_true(all(is.finite(combined$summary$spi)))
+  ok <- combined$summary$history_check == "ok"
+  expect_true(all(is.finite(combined$summary$spi[ok])))
+  expect_true(all(is.na(combined$summary$spi[!ok])))
 
   run_chunk("separate-pop")
   expect_equal(example$spi_results$summary, combined$summary)

@@ -36,7 +36,7 @@
 #'   population from `cases`.
 #' @param shapefile An `sf` object of district polygons, or a pre-built `nb`
 #'   neighbour object. Geometry validity is only checked for `sf` input.
-#'   Required for `method = "model"`, optional for `method = "direct"`.
+#'   Required for `method = "model"`; not used for `method = "direct"`.
 #' @param covariates Optional tibble of district covariates. Only its ids are
 #'   compared with the district IDs in the case data.
 #' @param id_col Character. Name of the district identifier column, shared by
@@ -111,7 +111,7 @@ spi_check_inputs <- function(cases,
   )
   if (direct) {
     out <- .check_inputs_direct(
-      cases, population, shapefile, id_col, year_col, count_col, pop_col
+      cases, population, id_col, year_col, count_col, pop_col
     )
     out$call <- match.call()
     if (verbose) print(out)
@@ -461,8 +461,8 @@ print.spi_input_check <- function(x, ...) {
 
 # Same graded report as the model check, for the district-year inputs of
 # spi_direct(); every check appends and none stops the report.
-.check_inputs_direct <- function(cases, population, shapefile, id_col,
-                                 year_col, count_col, pop_col) {
+.check_inputs_direct <- function(cases, population, id_col, year_col,
+                                 count_col, pop_col) {
   issues <- list()
   add <- function(severity, code, message, ids = NULL) {
     issues[[length(issues) + 1L]] <<- tibble::tibble(
@@ -652,7 +652,7 @@ print.spi_input_check <- function(x, ...) {
     }
   }
 
-  # --- enough years and districts -----------------------
+  # --- enough years ------------------------------------
   if (!is.na(n_years) && n_years < 2L) {
     add("error", "too_few_years",
       "fewer than two years of data; the direct SPI needs earlier years")
@@ -663,23 +663,6 @@ print.spi_input_check <- function(x, ...) {
     ))
   }
   district_ids <- unique(c(cs$district_id, ps$district_id))
-  if (length(district_ids) > 0 && length(district_ids) < 20L) {
-    add("note", "few_districts", .ic_msg(
-      "{length(district_ids)} district{?s}; the stabilisation is \\
-       approximate with fewer than 20"
-    ))
-  }
-
-  # --- optional boundaries ------------------------------
-  if (inherits(shapefile, "sf") && id_col %in% names(shapefile)) {
-    off_map <- setdiff(district_ids, as.character(shapefile[[id_col]]))
-    if (length(off_map) > 0) {
-      add("warning", "district_not_in_shapefile", .ic_msg(
-        "{length(off_map)} district{?s} not in the shapefile (the region \\
-         or country is used as their reference): {.val {show(off_map)}}"
-      ), ids = off_map)
-    }
-  }
 
   # --- assemble -----------------------------------------
   issues_tbl <- if (length(issues) > 0) {

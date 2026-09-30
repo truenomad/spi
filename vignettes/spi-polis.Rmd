@@ -31,7 +31,7 @@ districts <- readRDS("data/gpei_adm2_shape.rds")
 |---|---|---|
 | `afp` | One per AFP case | `adm2_guid`, the paralysis onset date (`paralysis_onset_date`), the onset year (`year_onset`) and the classification (`classification_all`) |
 | `population` | One per district and year | `adm2_guid`, `year` and the under-15 population (`u15_pop`) |
-| `districts` | One per district | `adm2_guid`, the province name (`adm1`) and the geometry |
+| `districts` | One per district | `adm2_guid` and the geometry |
 
 `districts` is the GPEI district shapefile used when running polished. All three tables use the POLIS district GUID (`adm2_guid`), so they link to each other without matching names.
 
@@ -55,15 +55,11 @@ Leaving pending cases out lowers the most recent counts relative to earlier year
 
 ## 4. NPAFP counts for the direct SPI
 
-Count the cases by district and year of onset, and take the province from the district layer:
+Count the cases by district and year of onset:
 
 ```{r polished-direct}
-provinces <- sf::st_drop_geometry(districts) |>
-  dplyr::distinct(adm2_guid, province = adm1)
-
 npafp_year <- afp_npafp |>
-  dplyr::count(adm2_guid, year = year_onset, name = "npafp_cases") |>
-  dplyr::left_join(provinces, by = "adm2_guid")
+  dplyr::count(adm2_guid, year = year_onset, name = "npafp_cases")
 
 spi_results <- spi_direct(
   npafp_year,
@@ -85,8 +81,7 @@ indicators <- polished::calc_polio_indicators(
 )
 
 npafp_year <- indicators$adm2 |>
-  dplyr::select(adm2_guid = guid, year, npafp_cases) |>
-  dplyr::left_join(provinces, by = "adm2_guid")
+  dplyr::select(adm2_guid = guid, year, npafp_cases)
 ```
 
 By default `calc_polio_indicators()` counts pending cases as NPAFP (`include_pending = TRUE`). Set `include_pending` to match the rule chosen in section 3. Its district table lists only district-years with AFP activity, so pass the population table to `spi_direct()` as above.

@@ -1,13 +1,5 @@
-# five districts in a strip and two provinces, one row per district-year
+# five districts, one row per district-year
 direct_toy <- function() {
-  boundaries <- NULL
-  if (requireNamespace("sf", quietly = TRUE)) {
-    cells <- sf::st_make_grid(
-      sf::st_as_sfc(sf::st_bbox(c(xmin = 0, ymin = 0, xmax = 5, ymax = 1))),
-      n = c(5, 1)
-    )
-    boundaries <- sf::st_sf(district = LETTERS[1:5], geometry = cells)
-  }
   counts <- tibble::tribble(
     ~district, ~year, ~npafp_cases, ~population_u15,
     "A", 2022, 8, 100000, "A", 2023, 10, 105000, "A", 2024, 9, 110000,
@@ -20,46 +12,34 @@ direct_toy <- function() {
     "E", 2022, 12, 150000, "E", 2023, 14, 155000, "E", 2024, 13, 160000,
     "E", 2025, 15, 165000, "E", 2026, 14, 170000
   )
-  counts$province <- ifelse(counts$district %in% c("A", "B"), "P1", "P2")
   list(
     counts = counts,
-    cases = counts[c("district", "year", "npafp_cases", "province")],
-    population = counts[c("district", "year", "population_u15")],
-    boundaries = boundaries
+    cases = counts[c("district", "year", "npafp_cases")],
+    population = counts[c("district", "year", "population_u15")]
   )
 }
 
-# five districts are too few to estimate the stabilisation well, so the
-# warning that says so is expected here
-run_toy <- function(...) suppressWarnings(spi_direct(..., verbose = FALSE))
+run_toy <- function(...) spi_direct(..., verbose = FALSE)
 
 test_that("the SPI follows from its components", {
   toy <- direct_toy()
   res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
   sm <- res$summary
   expect_s3_class(res, "spi_direct")
-  expect_named(
-    res, c("summary", "national", "population_qc", "stabilisation",
-           "metadata")
-  )
+  expect_named(res, c("summary", "national", "population_qc", "metadata"))
   expect_equal(nrow(sm), 5L)
-  expect_equal(sm$expected, sm$pop * sm$stabilised_rate / 1e5)
+  expect_true(all(sm$history_check == "ok"))
+  expect_equal(sm$expected, sm$pop * sm$history_rate / 1e5)
   expect_equal(sm$oe, sm$observed / sm$expected)
   expect_equal(sm$spi, sm$oe / sm$national_oe)
   expect_equal(sum(sm$observed) / sum(sm$expected), sm$national_oe[1])
-  expect_true(all(sm$information_score >= 0 & sm$information_score <= 1))
-  # one case's worth of the reference rate added to the history is the same
-  # as weighting the two rates by the information score
-  expect_equal(
-    sm$stabilised_rate,
-    sm$information_score * sm$history_rate +
-      (1 - sm$information_score) * sm$reference_rate
-  )
-  a <- sm[sm$district == "A", ]
-  expect_equal(
-    a$stabilised_rate,
-    (38 + 1) / (430000 + 1 / (a$reference_rate / 1e5)) * 1e5
-  )
+})
+
+test_that("District A's expected count is exact", {
+  toy <- direct_toy()
+  res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
+  a <- res$summary[res$summary$district == "A", ]
+  expect_equal(a$expected, 120000 * 38 / 430000, tolerance = 0)
 })
 
 test_that("history is taken from preceding years only", {
@@ -72,51 +52,23 @@ test_that("history is taken from preceding years only", {
   expect_equal(a$history_years, 4L)
 })
 
-test_that("the reference is the country, the region or the neighbours", {
-  toy <- direct_toy()
-  hist <- toy$counts[toy$counts$year < 2026, ]
-  others <- hist[hist$district != "A", ]
-
-  country <- run_toy(toy$cases, toy$population, region_col = NULL,
-                     first_assessment = 2026)
-  a <- country$summary[country$summary$district == "A", ]
-  expect_equal(a$reference_source, "country")
-  expect_equal(a$reference_rate,
-               sum(others$npafp_cases) / sum(others$population_u15) * 1e5)
-
-  region <- run_toy(toy$cases, toy$population, first_assessment = 2026)
-  a <- region$summary[region$summary$district == "A", ]
-  b_hist <- hist[hist$district == "B", ]
-  expect_equal(a$reference_source, "region")
-  expect_equal(a$reference_rate,
-               sum(b_hist$npafp_cases) / sum(b_hist$population_u15) * 1e5)
-
-  testthat::skip_if_not_installed("sf")
-  testthat::skip_if_not_installed("spdep")
-  nbr <- run_toy(toy$cases, toy$population, boundaries = toy$boundaries,
-                 first_assessment = 2026)
-  a <- nbr$summary[nbr$summary$district == "A", ]
-  expect_equal(a$reference_source, "neighbours")
-  expect_equal(a$reference_rate, 1 / 40000 * 1e5)
-})
-
 test_that("one table with the standard names needs no other argument", {
   toy <- direct_toy()
-  one <- suppressWarnings(spi_direct(toy$counts, verbose = FALSE))
+  one <- spi_direct(toy$counts, verbose = FALSE)
   two <- run_toy(toy$cases, toy$population)
   expect_equal(one$summary$spi, two$summary$spi)
   expect_equal(one$metadata$population_source, "data")
-  expect_equal(one$metadata$region_col, "province")
-  expect_true("region" %in% one$summary$reference_source)
   expect_error(
     spi_direct(toy$cases, verbose = FALSE),
     "population_u15"
   )
 })
 
-test_that("the exact vignette call uses provincial reference rates", {
+test_that("the vignette's District A matches the hand calculation", {
   path <- test_path("..", "..", "vignettes", "spi-direct.Rmd")
-  if (!file.exists(path)) path <- system.file("doc", "spi-direct.Rmd", package = "spi")
+  if (!file.exists(path)) {
+    path <- system.file("doc", "spi-direct.Rmd", package = "spi")
+  }
   skip_if_not(file.exists(path), "Vignette source is not installed")
   lines <- readLines(path, warn = FALSE)
   chunk <- function(label) {
@@ -130,39 +82,20 @@ test_that("the exact vignette call uses provincial reference rates", {
   example <- new.env(parent = environment())
   eval(chunk("example-country"), envir = example)
   eval(chunk("run"), envir = example)
-  result <- example$spi_results
-
-  expect_equal(result$metadata$region_col, "province")
-  expect_equal(sort(unique(result$summary$year)), c(2025L, 2026L))
-  expect_true(all(result$summary$reference_source == "region"))
-
-  # Check against the other North districts, using only earlier years.
-  afp <- example$afp
-  history <- afp[afp$province == "North" & afp$district != "A" &
-                   afp$year < 2026, ]
-  a <- result$summary[result$summary$district == "A" &
-                        result$summary$year == 2026, ]
+  a <- example$spi_results$summary
+  a <- a[a$district == "A" & a$year == 2026, ]
   expect_equal(nrow(a), 1L)
-  expect_equal(a$reference_rate,
-               sum(history$npafp_cases) / sum(history$population_u15) * 1e5)
-})
-
-test_that("the region is optional", {
-  toy <- direct_toy()
-  no_region <- toy$counts[names(toy$counts) != "province"]
-  res <- run_toy(no_region, first_assessment = 2026)
-  expect_null(res$metadata$region_col)
-  expect_true(all(res$summary$reference_source == "country"))
+  expect_equal(a$expected, 120000 * 38 / 430000, tolerance = 0)
 })
 
 test_that("column names can be mapped", {
   toy <- direct_toy()
   renamed <- toy$counts |>
     dplyr::rename(dist_name = district, yr = year, npafp = npafp_cases,
-                  u15_pop = population_u15, province_name = province)
+                  u15_pop = population_u15)
   res <- run_toy(renamed, id_col = "dist_name", year_col = "yr",
                  count_col = "npafp", pop_col = "u15_pop",
-                 region_col = "province_name", first_assessment = 2026)
+                 first_assessment = 2026)
   ref <- run_toy(toy$cases, toy$population, first_assessment = 2026)
   expect_equal(res$summary$spi, ref$summary$spi)
   expect_true("dist_name" %in% names(res$summary))
@@ -211,39 +144,53 @@ test_that("missing combined-table rows are omitted rather than filled with zeros
   expect_gt(c_$expected, 0)
 })
 
-test_that("a well-observed history stays close to its own rate", {
-  toy <- direct_toy()
-  res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
-  d <- res$summary[res$summary$district == "D", ]
-  expect_lt(abs(d$stabilised_rate / d$history_rate - 1), 0.1)
-})
-
-test_that("the simple version uses the historical rate unchanged", {
-  toy <- direct_toy()
-  res <- run_toy(toy$cases, toy$population, first_assessment = 2026,
-                 stabilise = FALSE)
-  sm <- res$summary
-  expect_equal(sm$stabilised_rate, sm$history_rate)
-})
-
-test_that("a history with no case keeps a positive expected count", {
+test_that("a history with no previous case gives no SPI", {
   toy <- direct_toy()
   toy$cases$npafp_cases[toy$cases$district == "C" & toy$cases$year < 2026] <- 0
   res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
   cc <- res$summary[res$summary$district == "C", ]
+  expect_equal(cc$history_check, "no previous case")
   expect_equal(cc$history_cases, 0)
-  expect_gt(cc$expected, 0)
-  expect_true(is.finite(cc$spi))
+  expect_equal(cc$history_rate, 0)
+  expect_equal(cc$expected, 0)
+  expect_true(is.na(cc$oe))
+  expect_true(is.na(cc$spi))
 })
 
-test_that("a district with no preceding year takes the reference rate", {
+test_that("a district with no previous year gives no SPI", {
   toy <- direct_toy()
   res <- run_toy(toy$cases, toy$population, first_assessment = 2025,
                  last_assessment = 2025)
   b <- res$summary[res$summary$district == "B", ]
   expect_equal(b$history_years, 0L)
-  expect_equal(b$history_info, "none")
-  expect_equal(b$stabilised_rate, b$reference_rate)
+  expect_equal(b$history_check, "no previous year")
+  expect_true(is.na(b$history_rate))
+  expect_true(is.na(b$expected))
+  expect_true(is.na(b$oe))
+  expect_true(is.na(b$spi))
+})
+
+test_that("one previous year is enough for an SPI", {
+  toy <- direct_toy()
+  res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
+  b <- res$summary[res$summary$district == "B", ]
+  expect_equal(b$history_years, 1L)
+  expect_equal(b$history_check, "ok")
+  expect_true(is.finite(b$spi))
+})
+
+test_that("national centring uses only positive expected counts", {
+  toy <- direct_toy()
+  toy$cases$npafp_cases[toy$cases$district == "C" & toy$cases$year < 2026] <- 0
+  res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
+  sm <- res$summary
+  scored <- sm[is.finite(sm$expected) & sm$expected > 0, ]
+  expect_equal(nrow(scored), 4L)
+  expect_equal(
+    res$national$national_oe,
+    sum(scored$observed) / sum(scored$expected)
+  )
+  expect_equal(sm$spi, sm$oe / res$national$national_oe)
 })
 
 test_that("the population check flags a spike and a new district", {
@@ -279,16 +226,6 @@ test_that("inputs are checked", {
     spi_direct(dup, toy$population, verbose = FALSE),
     "duplicate"
   )
-  expect_error(
-    spi_direct(toy$cases, toy$population, boundaries = "not a map",
-               verbose = FALSE),
-    "boundaries"
-  )
-  expect_error(
-    spi_direct(toy$cases, toy$population, region_col = "zone",
-               verbose = FALSE),
-    "zone"
-  )
 })
 
 test_that("the explanation follows the calculation", {
@@ -306,21 +243,31 @@ test_that("the explanation follows the calculation", {
     out$component,
     c("Observed NPAFP cases", "Current population under 15", "NPAFP rate",
       "Previous years", "Previous NPAFP cases", "Previous child-years",
-      "Previous rate", "Reference source", "Reference rate",
-      "Historical information", "Rate used for expectation",
-      "Expected NPAFP cases",
+      "Previous rate", "Expected NPAFP cases",
       "District observed / expected", "National observed / expected", "SPI",
       "Population check")
   )
   expect_error(spi_direct_explain(res, "Z"), "No row")
 })
 
+test_that("the explanation says when the SPI is not calculated", {
+  toy <- direct_toy()
+  toy$cases$npafp_cases[toy$cases$district == "C" & toy$cases$year < 2026] <- 0
+  res <- run_toy(toy$cases, toy$population, first_assessment = 2026)
+  out <- spi_direct_explain(res, "C", print = FALSE)
+  val <- function(x) out$value[out$component == x]
+  expect_equal(val("Previous NPAFP cases"), "0")
+  expect_equal(val("Previous rate"), "0.00")
+  expect_equal(val("Expected NPAFP cases"), "0.00")
+  expect_equal(val("District observed / expected"), "not calculated")
+  expect_equal(val("SPI"), "not calculated")
+  expect_equal(val("Reason"), "no previous NPAFP case")
+})
+
 test_that("verbose output reports each step", {
   toy <- direct_toy()
   expect_message(
-    suppressWarnings(
-      spi_direct(toy$cases, toy$population, first_assessment = 2026)
-    ),
+    spi_direct(toy$cases, toy$population, first_assessment = 2026),
     "Reading district-year counts"
   )
 })
@@ -344,10 +291,6 @@ test_that("the explanation can be translated", {
   expect_equal(fr$value[numbers], en$value[numbers])
   expect_equal(
     fr$value[en$component == "Population check"], "check_history"
-  )
-  expect_equal(
-    fr$value[en$component == "Reference source"],
-    paste0("fr:", en$value[en$component == "Reference source"])
   )
   expect_error(spi_direct_explain(res, "B", language = 1), "language")
 })

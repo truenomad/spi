@@ -11,12 +11,9 @@ spi_direct(
   year_col = "year",
   count_col = "npafp_cases",
   pop_col = "population_u15",
-  region_col = "province",
-  boundaries = NULL,
   first_assessment = NULL,
   last_assessment = NULL,
   min_history = 3L,
-  stabilise = TRUE,
   per = 1e+05,
   verbose = TRUE
 )
@@ -25,8 +22,8 @@ spi_direct(
 \item{data}{Data frame with one row per district and year: the district
 identifier (\code{id_col}), the year (\code{year_col}), the number of NPAFP cases
 (\code{count_col}) and the population under 15 (\code{pop_col}). A table
-with columns \code{district}, \code{year}, \code{npafp_cases} and \code{population_u15}, and
-optionally \code{province}, needs no other argument.}
+with columns \code{district}, \code{year}, \code{npafp_cases} and \code{population_u15}
+needs no other argument.}
 
 \item{population}{Optional data frame with one row per district and year,
 for when the population is held in a separate table: the district
@@ -36,18 +33,8 @@ with no row in \code{data} is counted as zero cases. Default \code{NULL}: the
 population is taken from \code{data}.}
 
 \item{id_col, year_col, count_col, pop_col}{Character. Column names in
-\code{data}, \code{population} and \code{boundaries}. Defaults \code{"district"}, \code{"year"},
+\code{data} and \code{population}. Defaults \code{"district"}, \code{"year"},
 \code{"npafp_cases"} and \code{"population_u15"}.}
-
-\item{region_col}{Character or \code{NULL}. Column in \code{data} (or in
-\code{population}) naming each district's region, for example a province.
-The region's preceding rate is the reference for a district with little
-history. Default \code{"province"}, used when the data have that column;
-without it, or with \code{NULL}, the rest of the country is the reference.}
-
-\item{boundaries}{Optional \code{sf} polygon layer of the districts, with the
-district identifier. When given, the districts that share a boundary
-are used as the reference before the region. Default \code{NULL}.}
 
 \item{first_assessment}{Integer. First assessment year. Default: the
 first year that has \code{min_history} preceding years.}
@@ -57,11 +44,6 @@ year in the data.}
 
 \item{min_history}{Integer. Preceding years required before the first
 assessment year when \code{first_assessment} is not given. Default 3.}
-
-\item{stabilise}{Logical. Stabilise limited histories. Default \code{TRUE}.
-\code{FALSE} uses each district's historical rate unchanged; a district with
-no preceding case then has no expected count. Intended for research and
-replication.}
 
 \item{per}{Numeric. Rates are reported per this many people. Default
 100000.}
@@ -73,15 +55,11 @@ An \code{spi_direct} object, a list with:
 \itemize{
 \item \code{summary}: one row per district and assessment year with \code{observed},
 \code{pop}, \code{npafp_rate}, \code{history_years}, \code{history_cases}, \code{history_pop}
-(preceding child-years), \code{history_rate}, \code{reference_rate},
-\code{reference_source}, \code{information_score}, \code{history_info},
-\code{stabilised_rate}, \code{expected}, \code{oe}, \code{national_oe}, \code{spi} and
-\code{population_qc}. Rates are per \code{per}.
+(preceding child-years), \code{history_rate}, \code{history_check}, \code{expected},
+\code{oe}, \code{national_oe}, \code{spi} and \code{population_qc}. Rates are per \code{per}.
 \item \code{national}: observed, expected and the national observed-to-expected
 ratio for each assessment year.
 \item \code{population_qc}: the population check for each district.
-\item \code{stabilisation}: for each assessment year, the number of districts
-with history.
 \item \code{metadata}: the arguments and data range used.
 }
 
@@ -91,12 +69,10 @@ with history.
 \description{
 Calculates the surveillance performance index (SPI) for each district and
 assessment year from earlier NPAFP counts and population estimates,
-without fitting the INLA spatial and temporal model. A district's expected count is its NPAFP rate over all preceding
-years multiplied by its current population. When a district has little reporting history, the calculation also uses
-reporting from other districts in its region or the rest of the country.
-Supplying boundaries allows neighbouring districts to be used first. The district observed-to-expected
-ratio is then divided by the national observed-to-expected ratio for the
-same year.
+without fitting the INLA spatial and temporal model. A district's expected
+count is its NPAFP rate over all preceding years multiplied by its current
+population. The district observed-to-expected ratio is then divided by the
+national observed-to-expected ratio for the same year.
 
 Inspect the inputs and calculation for one district with \code{\link[=spi_direct_explain]{spi_direct_explain()}}.
 }
@@ -106,33 +82,26 @@ enter the expectation.
 \enumerate{
 \item Add up each district's preceding NPAFP cases and preceding population
 (child-years), and divide to get its historical rate.
-\item Stabilise the historical rate when the district has little
-reporting history (see below).
-\item Expected cases = current population x stabilised rate.
+\item Expected cases = current population x historical rate.
 \item Divide observed by expected cases.
 \item Divide that ratio by the national ratio (all observed over all
 expected cases in the year). The result is the SPI.
 }
 
-\strong{Stabilisation.} Each district's reference rate is the pooled preceding
-rate of the other districts in its region (\code{region_col}), or of the rest
-of the country when no region is given or the region has no preceding
-case. When \code{boundaries} are supplied, the districts that share a boundary
-with it come first. The stabilised rate adds one case's worth of the
-reference rate to the district's history:
+\strong{When the SPI cannot be calculated.} \code{history_check} records whether the
+district's history supports the calculation. \code{"ok"}: the SPI is
+calculated. \code{"no previous case"}: the district has earlier years but no
+NPAFP case in them, so its historical rate and expected count are 0 and the
+observed-to-expected ratio and SPI are \code{NA}. \code{"no previous year"}: the
+district has no earlier year in the data (for example a new district), so
+its historical rate, expected count, observed-to-expected ratio and SPI are
+all \code{NA}. A district with one earlier year gets an SPI; \code{history_years},
+\code{history_cases} and \code{history_pop} show how much history lies behind it.
 
-\code{stabilised_rate = (history_cases + 1) / (history_pop + 1 / reference_rate)}
-
-This is arithmetic, with nothing estimated. It is the same as a weighted
-average, \code{information_score * history_rate + (1 - information_score) * reference_rate}, where \code{information_score = information / (information + 1)} and \code{information} is the number of cases the district would have
-reported over its preceding child-years at the reference rate. A district
-whose history covers many child-years keeps a stabilised rate close to its
-own rate, including when its record is persistently low. A district with a
-short history moves further towards its reference rate, and a new district
-takes the reference rate. A district with preceding child-years but no
-preceding case is not given an expected rate of zero. \code{history_info}
-describes \code{information_score} in words: substantial (0.9 or more), moderate
-(0.5 to 0.9), limited (below 0.5) or none (no preceding year).
+\strong{National centring.} The national observed-to-expected ratio is
+calculated from district-years with a positive expected count. Districts
+for which the direct SPI cannot be calculated do not contribute to national
+centring.
 
 \strong{Population check.} Expected cases depend on the population, so each
 district's population series is screened before calculation. Each
@@ -150,14 +119,9 @@ not imply that the population is incorrect, and supplied populations are
 never altered.
 }
 \examples{
-\dontshow{if (requireNamespace("sf", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-# annual NPAFP counts with each district's province
-provinces <- sf::st_drop_geometry(synth_surveillance$boundaries)
 annual <- synth_surveillance$cases |>
   dplyr::mutate(year = as.integer(format(month, "\%Y"))) |>
-  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year)) |>
-  dplyr::left_join(provinces[c("adm2_guid", "adm1_name")],
-                   by = "adm2_guid")
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 
 res <- spi_direct(
   data = annual,
@@ -165,11 +129,9 @@ res <- spi_direct(
   id_col = "adm2_guid",
   count_col = "count",
   pop_col = "pop_u15",
-  region_col = "adm1_name",
   verbose = FALSE
 )
 res
-\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=spi_direct_explain]{spi_direct_explain()}}, \code{vignette("spi-direct")}, and
