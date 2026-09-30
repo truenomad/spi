@@ -39,8 +39,10 @@ export(spi_field_guide_help)
 export(spi_field_guide_pager)
 export(spi_field_guide_table)
 export(spi_index)
-importFrom(rlang,"%||%")
-importFrom(rlang,":=")
-importFrom(rlang,.data)
-importFrom(rlang,.env)
+importFrom(rlang,
+  "%||%",
+  ":=",
+  .data,
+  .env
+)
 importFrom(tibble,as_tibble)
