@@ -10,6 +10,9 @@ Compares reported non-polio acute flaccid paralysis (NPAFP) cases with
 expected counts based on earlier reporting and population size. Use
 \code{\link[=spi_index]{spi_index()}} for a spatial and temporal model fitted with INLA, or
 \code{\link[=spi_direct]{spi_direct()}} for an annual calculation that does not require INLA.
+The direct calculation multiplies each district's current population by
+its own rate over all earlier years. It returns no SPI when that district
+has no earlier year or no earlier NPAFP case.
 }
 \section{Interpreting SPI}{
 
@@ -29,7 +32,7 @@ and stool adequacy.
 
 \section{District review}{
 
-\code{\link[=spi_compare_npafp]{spi_compare_npafp()}} groups district-years by whether SPI is below the
+For model-based results, \code{\link[=spi_compare_npafp]{spi_compare_npafp()}} groups district-years by whether SPI is below the
 chosen threshold and whether the NPAFP rate meets the programme target.
 \code{\link[=spi_field_guide]{spi_field_guide()}} then uses the five STEPS components: strength,
 timeliness, extent, persistence, and stool adequacy.

@@ -37,13 +37,14 @@ population is taken from \code{data}.}
 \code{"npafp_cases"} and \code{"population_u15"}.}
 
 \item{first_assessment}{Integer. First assessment year. Default: the
-first year that has \code{min_history} preceding years.}
+first year in the data plus \code{min_history}.}
 
 \item{last_assessment}{Integer. Last assessment year. Default: the last
 year in the data.}
 
-\item{min_history}{Integer. Preceding years required before the first
-assessment year when \code{first_assessment} is not given. Default 3.}
+\item{min_history}{Integer. Calendar years after the first data year
+before assessment starts when \code{first_assessment} is not given. Default 3.
+This does not require every district to have that many earlier records.}
 
 \item{per}{Numeric. Rates are reported per this many people. Default
 100000.}
@@ -84,13 +85,13 @@ enter the expectation.
 (child-years), and divide to get its historical rate.
 \item Expected cases = current population x historical rate.
 \item Divide observed by expected cases.
-\item Divide that ratio by the national ratio (all observed over all
-expected cases in the year). The result is the SPI.
+\item Divide that ratio by the national ratio, using observed and expected
+totals from districts with a positive expected count. The result is SPI.
 }
 
 \strong{When the SPI cannot be calculated.} \code{history_check} records whether the
-district's history supports the calculation. \code{"ok"}: the SPI is
-calculated. \code{"no previous case"}: the district has earlier years but no
+district's history supports the calculation. \code{"ok"}: a positive expected
+count can be calculated. \code{"no previous case"}: the district has earlier years but no
 NPAFP case in them, so its historical rate and expected count are 0 and the
 observed-to-expected ratio and SPI are \code{NA}. \code{"no previous year"}: the
 district has no earlier year in the data (for example a new district), so
@@ -102,18 +103,23 @@ all \code{NA}. A district with one earlier year gets an SPI; \code{history_years
 calculated from district-years with a positive expected count. Districts
 for which the direct SPI cannot be calculated do not contribute to national
 centring.
+If the included districts report no cases in the assessment year, the
+national ratio is zero and all centred SPI values are \code{NA}, even for
+districts whose \code{history_check} is \code{"ok"}.
 
 \strong{Population check.} Expected cases depend on the population, so each
 district's population series is screened before calculation. Each
-year-on-year change is compared with the median change across districts in
-the same year. A change is unusual when that difference lies outside
+consecutive-year change in log population is compared with the median
+change across districts in the same year. A change is unusual when its
+deviation lies outside
 Tukey's far-out fences (three interquartile ranges beyond the quartiles)
-of all such differences and is at least 10\%, the smallest difference
-flagged, so that small differences between smooth population projections
-are not flagged. \code{population_qc} is \code{"check_spike"} when an unusual change
-is reversed by an unusual change in the other direction within two years,
+of all such deviations and exceeds \code{log(1.1)} in absolute magnitude.
+This corresponds to a growth factor above 1.1 or below 1/1.1 times the
+median growth factor. \code{population_qc} is \code{"check_spike"} when an unusual
+deviation is followed by one in the opposite direction among the next
+two recorded transitions (two years when the annual series is complete),
 \code{"check_change"} for any other unusual change, \code{"check_history"} when the
-district is missing from some years (for example a new or split district),
+population records do not cover all dataset years up to the assessment year,
 and \code{"ok"} otherwise. Flags identify unusual patterns for review; they do
 not imply that the population is incorrect, and supplied populations are
 never altered.

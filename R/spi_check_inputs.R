@@ -438,7 +438,7 @@ print.spi_input_check <- function(x, ...) {
   cli::cli_rule()
   if (x$ok) {
     next_step <- if (direct) {
-      "the direct SPI can be calculated"
+      "inputs can be passed to spi_direct()"
     } else {
       "a fit can proceed"
     }

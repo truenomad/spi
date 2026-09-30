@@ -18,12 +18,12 @@
 #'    (child-years), and divide to get its historical rate.
 #' 2. Expected cases = current population x historical rate.
 #' 3. Divide observed by expected cases.
-#' 4. Divide that ratio by the national ratio (all observed over all
-#'    expected cases in the year). The result is the SPI.
+#' 4. Divide that ratio by the national ratio, using observed and expected
+#'    totals from districts with a positive expected count. The result is SPI.
 #'
 #' **When the SPI cannot be calculated.** `history_check` records whether the
-#' district's history supports the calculation. `"ok"`: the SPI is
-#' calculated. `"no previous case"`: the district has earlier years but no
+#' district's history supports the calculation. `"ok"`: a positive expected
+#' count can be calculated. `"no previous case"`: the district has earlier years but no
 #' NPAFP case in them, so its historical rate and expected count are 0 and the
 #' observed-to-expected ratio and SPI are `NA`. `"no previous year"`: the
 #' district has no earlier year in the data (for example a new district), so
@@ -35,18 +35,23 @@
 #' calculated from district-years with a positive expected count. Districts
 #' for which the direct SPI cannot be calculated do not contribute to national
 #' centring.
+#' If the included districts report no cases in the assessment year, the
+#' national ratio is zero and all centred SPI values are `NA`, even for
+#' districts whose `history_check` is `"ok"`.
 #'
 #' **Population check.** Expected cases depend on the population, so each
 #' district's population series is screened before calculation. Each
-#' year-on-year change is compared with the median change across districts in
-#' the same year. A change is unusual when that difference lies outside
+#' consecutive-year change in log population is compared with the median
+#' change across districts in the same year. A change is unusual when its
+#' deviation lies outside
 #' Tukey's far-out fences (three interquartile ranges beyond the quartiles)
-#' of all such differences and is at least 10%, the smallest difference
-#' flagged, so that small differences between smooth population projections
-#' are not flagged. `population_qc` is `"check_spike"` when an unusual change
-#' is reversed by an unusual change in the other direction within two years,
+#' of all such deviations and exceeds `log(1.1)` in absolute magnitude.
+#' This corresponds to a growth factor above 1.1 or below 1/1.1 times the
+#' median growth factor. `population_qc` is `"check_spike"` when an unusual
+#' deviation is followed by one in the opposite direction among the next
+#' two recorded transitions (two years when the annual series is complete),
 #' `"check_change"` for any other unusual change, `"check_history"` when the
-#' district is missing from some years (for example a new or split district),
+#' population records do not cover all dataset years up to the assessment year,
 #' and `"ok"` otherwise. Flags identify unusual patterns for review; they do
 #' not imply that the population is incorrect, and supplied populations are
 #' never altered.
@@ -63,11 +68,12 @@
 #'   with no row in `data` is counted as zero cases. Default `NULL`: the
 #'   population is taken from `data`.
 #' @param first_assessment Integer. First assessment year. Default: the
-#'   first year that has `min_history` preceding years.
+#'   first year in the data plus `min_history`.
 #' @param last_assessment Integer. Last assessment year. Default: the last
 #'   year in the data.
-#' @param min_history Integer. Preceding years required before the first
-#'   assessment year when `first_assessment` is not given. Default 3.
+#' @param min_history Integer. Calendar years after the first data year
+#'   before assessment starts when `first_assessment` is not given. Default 3.
+#'   This does not require every district to have that many earlier records.
 #' @param id_col,year_col,count_col,pop_col Character. Column names in
 #'   `data` and `population`. Defaults `"district"`, `"year"`,
 #'   `"npafp_cases"` and `"population_u15"`.
@@ -539,25 +545,32 @@ spi_direct <- function(
   latest <- max(sm$year)
   sl <- sm[sm$year == latest, ]
   nat <- x$national[x$national$year == latest, ]
-  nat_oe <- format(round(nat$national_oe, 2), nsmall = 2)
-  expected_total <- format(round(sum(sl$expected, na.rm = TRUE), 1),
-                           big.mark = " ")
+  nat_value <- function(column, digits = 1L) {
+    if (nrow(nat) == 0L) return("not available")
+    format(round(nat[[column]], digits), nsmall = digits, big.mark = " ")
+  }
   cli::cli_h3("Data overview ({latest})")
   cli::cli_text("Districts assessed: {nrow(sl)}")
   cli::cli_text(
-    "NPAFP cases: {format(sum(sl$observed), big.mark = ' ')}; \\
-     expected: {expected_total}"
+    "Reported NPAFP cases (all districts): \\
+     {format(sum(sl$observed), big.mark = ' ')}"
   )
-  cli::cli_text("National observed/expected: {nat_oe}")
+  cli::cli_text(
+    "National comparison (positive expected counts only): \\
+     {nat_value('national_observed', 0L)} reported; \\
+     {nat_value('national_expected')} expected"
+  )
+  cli::cli_text("National observed/expected: {nat_value('national_oe', 2L)}")
   cli::cli_text(
     "Districts with SPI below 1: {sum(sl$spi < 1, na.rm = TRUE)} of \\
      {sum(is.finite(sl$spi))}"
   )
   n_no_case <- sum(sl$history_check == "no previous case")
   n_no_year <- sum(sl$history_check == "no previous year")
+  n_no_national <- sum(sl$history_check == "ok" & !is.finite(sl$spi))
   cli::cli_text(
     "No SPI: {n_no_case} with no previous case, {n_no_year} with no \\
-     previous year"
+     previous year, {n_no_national} with no positive national ratio"
   )
   cli::cli_text(
     "Population flags: {sum(sl$population_qc != 'ok', na.rm = TRUE)}"
@@ -568,8 +581,7 @@ spi_direct <- function(
   by_year <- sm |>
     dplyr::summarise(
       districts = dplyr::n(),
-      observed = sum(.data$observed),
-      expected = round(sum(.data$expected, na.rm = TRUE), 1),
+      spi_available = sum(is.finite(.data$spi)),
       median_spi = round(stats::median(.data$spi, na.rm = TRUE), 2),
       below_1 = sum(.data$spi < 1, na.rm = TRUE),
       .by = "year"
@@ -577,6 +589,8 @@ spi_direct <- function(
     dplyr::left_join(
       x$national |>
         dplyr::transmute(.data$year,
+                         observed = .data$national_observed,
+                         expected = round(.data$national_expected, 1),
                          national_oe = round(.data$national_oe, 2)),
       by = "year"
     )
@@ -608,7 +622,7 @@ print.spi_direct <- function(x, ...) {
     sprintf("Population flags:   %d",
             sum(x$population_qc$population_qc != "ok")),
     sprintf("No SPI:             %d",
-            sum(sm$history_check[sm$year == latest] != "ok"))
+            sum(!is.finite(sm$spi[sm$year == latest])))
   )
   cli::cli_h2("Direct SPI")
   cli::cli_verbatim(lines)
@@ -688,24 +702,25 @@ spi_direct_explain <- function(x, district, year = NULL, language = "en",
   qc <- if (identical(r$population_qc, "ok")) "no flag" else r$population_qc
 
   ok <- identical(r$history_check, "ok")
+  available <- is.finite(r$spi)
   not_calc <- "not calculated"
   reason <- switch(
     r$history_check,
     "no previous case" = "no previous NPAFP case",
     "no previous year" = "no previous year of data",
-    NULL
+    if (!available) "national observed / expected is unavailable or zero" else NULL
   )
   out <- tibble::tibble(
     section = c(
       rep("Current reporting", 3L), rep("Previous reporting", 4L),
-      "Expected reporting", rep("SPI", 3L + !ok), "Data checks"
+      "Expected reporting", rep("SPI", 3L + !available), "Data checks"
     ),
     component = c(
       "Observed NPAFP cases", "Current population under 15", "NPAFP rate",
       "Previous years", "Previous NPAFP cases", "Previous child-years",
       "Previous rate", "Expected NPAFP cases",
       "District observed / expected", "National observed / expected", "SPI",
-      if (!ok) "Reason",
+      if (!available) "Reason",
       "Population check"
     ),
     value = c(
@@ -715,7 +730,7 @@ spi_direct_explain <- function(x, district, year = NULL, language = "en",
       if (is.na(r$history_rate)) "not available" else num(r$history_rate),
       if (is.na(r$expected)) "not available" else num(r$expected),
       if (ok) num(r$oe) else not_calc, num(r$national_oe),
-      if (ok) num(r$spi) else not_calc,
+      if (available) num(r$spi) else not_calc,
       reason,
       qc
     )

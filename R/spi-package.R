@@ -12,6 +12,9 @@ utils::globalVariables(c(
 #' expected counts based on earlier reporting and population size. Use
 #' [spi_index()] for a spatial and temporal model fitted with INLA, or
 #' [spi_direct()] for an annual calculation that does not require INLA.
+#' The direct calculation multiplies each district's current population by
+#' its own rate over all earlier years. It returns no SPI when that district
+#' has no earlier year or no earlier NPAFP case.
 #'
 #' @section Interpreting SPI:
 #' The surveillance performance index (SPI) divides reported cases by
@@ -28,7 +31,7 @@ utils::globalVariables(c(
 #' and stool adequacy.
 #'
 #' @section District review:
-#' [spi_compare_npafp()] groups district-years by whether SPI is below the
+#' For model-based results, [spi_compare_npafp()] groups district-years by whether SPI is below the
 #' chosen threshold and whether the NPAFP rate meets the programme target.
 #' [spi_field_guide()] then uses the five STEPS components: strength,
 #' timeliness, extent, persistence, and stool adequacy.

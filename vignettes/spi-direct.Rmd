@@ -165,7 +165,7 @@ reproduced from the reported cases and population data.</p>
 <div class="spi-flow-arrow">→</div>
 <div class="spi-flow-step">
 <strong>4. Expected cases</strong>
-<span>Current population × previous rate</span>
+<span>Current population × previous rate ÷ 100 000</span>
 </div>
 <div class="spi-flow-arrow">→</div>
 <div class="spi-flow-step">
@@ -250,9 +250,7 @@ The direct SPI requires at least one earlier year and one earlier NPAFP case. Th
 
 Rates are NPAFP cases per 100 000 children under 15.
 
-The direct calculation does not shrink or otherwise adjust a district's historical rate.
-
-District A has four earlier years and 38 cases behind its previous rate. District B has only one earlier year and one case. Its SPI can still be calculated, but the historical rate is based on little data. District C has four earlier years and 1 million child-years behind its low historical rate. The direct calculation uses that observed rate without shrinkage.
+District A has four earlier years and 38 cases behind its previous rate. District B has only one earlier year and one case. Its SPI can still be calculated, but the historical rate is based on little data. District C has four earlier years and 1 million child-years behind its low historical rate. Each district's previous rate is used unchanged.
 
 #### Step 4. Calculate expected cases
 
@@ -430,6 +428,8 @@ spi_results
 
 By default, assessment starts three years after the first year in the data, providing three earlier years of history. This call therefore calculates results for 2025 and 2026. District B has no SPI in 2025, its first year, because it has no earlier year. To calculate only the 2026 results used above, set `first_assessment = 2026`.
 
+If the national O/E is zero because none of the districts with a positive expected count reported a case, SPI is `NA` for every district. `history_check` can still be `"ok"`: it checks the district's earlier data, not the national ratio.
+
 `spi_direct()` can also use a separate population table and non-standard column names; see `?spi_direct` and [Preparing data for SPI](spi-data-preparation.html).
 
 ### 6. Inspect a district
@@ -464,16 +464,16 @@ spi_results$population_qc |>
 The flags identify different patterns:
 
 - `check_history`: the district lacks population records for some years represented in the dataset, up to the assessment year. In this example, District B first appears in 2025.
-- `check_spike`: an unusual population change is followed by an unusual change in the opposite direction within two years.
+- `check_spike`: an unusual population change is followed by an unusual change in the opposite direction among the next two recorded transitions (two years for a complete annual series).
 - `check_change`: another unusual population change.
 
 A flag is a reason to check the source data. A large change can reflect real population movement, a revised population estimate, or a boundary change.
 
 ## Direct and model-based SPI
 
-The direct SPI uses each district's observed historical rate without shrinkage or adjustment. It provides a single SPI value that can be reproduced directly from the district's cases and population. It does not quantify uncertainty, and it cannot be calculated when there is no earlier year or no earlier NPAFP case.
+The direct SPI uses each district's own earlier rate unchanged. It provides a single SPI value that can be reproduced from the district's cases and population and the national ratio. It does not quantify uncertainty, and it cannot be calculated when there is no earlier year or no earlier NPAFP case, or when the national ratio is zero.
 
-The model-based SPI regularises estimates using information across districts and time, accounts for overdispersion and spatial and temporal structure, and quantifies uncertainty in expected reporting. This is particularly useful where historical information is sparse. See [Getting started with SPI](spi-getting-started.html) for that workflow.
+The model-based SPI uses reporting patterns across districts and time to estimate expected counts, allowing for differences between neighbouring districts, seasonal patterns and variation in case counts. It also quantifies uncertainty in expected reporting. This is particularly useful where historical information is sparse. See [Getting started with SPI](spi-getting-started.html) for that workflow.
 
 ## Technical details
 

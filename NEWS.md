@@ -6,6 +6,17 @@
   and district reports. Clarified national centring, uncertainty, and review
   labels. Calculations and function arguments are unchanged.
 
+* Aligned the README, articles and function help with the direct calculation:
+  each district's earlier rate is used unchanged, and national centring
+  includes only districts with positive expected counts. Clarified which
+  review tools require model-based results.
+
+### Bug fixes
+
+* Direct SPI reports and explanations now count and explain missing SPI
+  values when the national ratio is zero, even if district history is
+  available. Reported national totals use the same districts as the ratio.
+
 ### New features
 
 * `spi_direct()` calculates SPI directly from preceding reporting, without

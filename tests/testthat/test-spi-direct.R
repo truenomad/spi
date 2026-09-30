@@ -52,6 +52,23 @@ test_that("history is taken from preceding years only", {
   expect_equal(a$history_years, 4L)
 })
 
+test_that("other districts affect centring but not a district's expected count", {
+  toy <- direct_toy()
+  before <- run_toy(toy$counts, first_assessment = 2026)$summary
+  changed <- toy$counts
+  other_history <- changed$district != "A" & changed$year < 2026
+  changed$npafp_cases[other_history] <- changed$npafp_cases[other_history] * 10
+  # Extra geography columns have no role in the direct expectation.
+  changed$province <- "same province"
+  after <- run_toy(changed, first_assessment = 2026)$summary
+  a_before <- before[before$district == "A", ]
+  a_after <- after[after$district == "A", ]
+  expect_equal(a_after$expected, a_before$expected)
+  expect_equal(a_after$history_rate, a_before$history_rate)
+  expect_equal(a_after$oe, a_before$oe)
+  expect_false(isTRUE(all.equal(a_after$spi, a_before$spi)))
+})
+
 test_that("one table with the standard names needs no other argument", {
   toy <- direct_toy()
   one <- spi_direct(toy$counts, verbose = FALSE)
@@ -191,6 +208,37 @@ test_that("national centring uses only positive expected counts", {
     sum(scored$observed) / sum(scored$expected)
   )
   expect_equal(sm$spi, sm$oe / res$national$national_oe)
+})
+
+test_that("a zero national ratio is counted and explained as unavailable SPI", {
+  toy <- direct_toy()
+  toy$counts$npafp_cases[toy$counts$year == 2026] <- 0
+  res <- run_toy(toy$counts, first_assessment = 2026)
+  expect_true(all(res$summary$history_check == "ok"))
+  expect_true(all(res$summary$oe == 0))
+  expect_equal(res$national$national_oe, 0)
+  expect_true(all(is.na(res$summary$spi)))
+  out <- spi_direct_explain(res, "A", print = FALSE)
+  expect_equal(out$value[out$component == "District observed / expected"], "0.00")
+  expect_equal(out$value[out$component == "SPI"], "not calculated")
+  expect_match(out$value[out$component == "Reason"], "national")
+  expect_message(print(res), "No SPI: +5")
+  expect_message(summary(res), "5 with no positive")
+})
+
+test_that("reports distinguish all cases from those in the national comparison", {
+  toy <- direct_toy()
+  toy$counts$npafp_cases[toy$counts$district == "C"] <- 0
+  toy$counts$npafp_cases[toy$counts$district == "C" & toy$counts$year == 2026] <- 1000
+  res <- run_toy(toy$counts, first_assessment = 2026)
+  expect_equal(sum(res$summary$observed), 1050)
+  expect_equal(res$national$national_observed, 50)
+  expect_message(summary(res), "50 reported;")
+
+  toy$counts$npafp_cases[toy$counts$year < 2026] <- 0
+  unavailable <- run_toy(toy$counts, first_assessment = 2026)
+  expect_equal(nrow(unavailable$national), 0L)
+  expect_message(summary(unavailable), "National observed/expected: not available")
 })
 
 test_that("the population check flags a spike and a new district", {

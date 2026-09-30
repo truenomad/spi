@@ -22,7 +22,9 @@ A district that previously reported many cases can report far fewer and still me
 
 **Reporting against a fixed target.** The NPAFP rate is the number of non-polio AFP cases per 100,000 under-15 population per year, compared with a fixed target. The examples use 3 per 100,000 under-15 person-years, matching the study definition; programmes should use the target that applies in their setting. The rate compares reporting with a fixed population-based target, regardless of the district's history. Meeting it does not establish surveillance sensitivity.
 
-**Reporting compared with expectations.** SPI compares reported counts with the district's modelled expectation, which is based on its reporting history and population. By default, the district's observed-to-expected ratio is then divided by the national ratio for the same period. SPI can show a decline in a district that still meets the absolute target.
+**Reporting compared with expectations.** SPI compares reported counts with the district's expected count, based on reporting history and population. The direct method uses the district's own earlier rate; the model-based method also uses patterns across districts and time. With national centring, the district's observed-to-expected ratio is divided by the national ratio for the same period. SPI can show a decline in a district that still meets the absolute target.
+
+For the direct SPI, `NA` means the index could not be calculated. `history_check` identifies districts with no earlier year or no earlier NPAFP case. Even with earlier history, SPI is unavailable if the national ratio is zero. A missing SPI is not evidence of adequate reporting; review the NPAFP rate and the available history.
 
 **Timeliness.** Timeliness indicators measure how quickly cases are notified and investigated, and how quickly specimens reach the laboratory. A district can meet a reporting-volume target while notifications, investigations, or specimen transport are delayed. The STEPS timeliness component uses specimen transport only.
 
@@ -40,7 +42,7 @@ The NPAFP rate and SPI can disagree, as in this illustrative example:
 
 District A meets the NPAFP target, but its observed-to-expected ratio is 55% of the national ratio. District B is below the NPAFP target even though its ratio is slightly above the national ratio. District C meets the NPAFP target and has an SPI above 1. These values alone do not establish surveillance adequacy.
 
-Taken together, the NPAFP target and SPI give four combinations. `spi_compare_npafp()` assigns each district-year to one of them:
+Taken together, the NPAFP target and SPI give four combinations. For model-based results, `spi_compare_npafp()` assigns each district-year to one of them. For direct results, read the `spi` and `npafp_rate` columns together; `spi_compare_npafp()` requires a `spi_index` object:
 
 | NPAFP target | SPI | `spi_compare_npafp()` category | Reading |
 | --- | --- | --- | --- |
@@ -52,6 +54,8 @@ Taken together, the NPAFP target and SPI give four combinations. `spi_compare_np
 ## National centring
 
 SPI = 1 is the natural reference point. Its meaning depends on the `centre` setting in `spi_index()`:
+
+The direct SPI always uses national centring, calculated over districts with positive expected counts. It has no `centre` argument.
 
 | Setting | Comparison | What SPI below 1 means |
 | --- | --- | --- |
@@ -80,13 +84,13 @@ Values below 1 are descriptive, not validated action thresholds. Programmes may 
 
 ## Annual and monthly SPI
 
-Annual SPI is generally more stable for review because many districts report few AFP cases per month. Monthly SPI helps show how reporting varies within a year. `year_end_month` allows non-calendar reporting years, and incomplete periods should normally be excluded.
+Annual SPI is generally more stable for review because many districts report few AFP cases per month. For the model-based SPI, monthly results help show how reporting varies within a year, and `year_end_month` allows non-calendar reporting years. The direct SPI uses calendar years. Incomplete periods should normally be excluded from comparisons.
 
 ## Persistent low reporting
 
-Persistently low reporting can become part of the model's baseline. A district can then have an SPI near 1 without an increase in reported cases.
+Persistently low reporting can become part of either method's historical expectation. A district can then have an SPI near 1 without an increase in reported cases.
 
-In this illustrative example, the district reported 10 cases a year before year 1, the expected count is the mean of the two preceding years, the national observed-to-expected ratio is 1, and the under-15 population is 250,000. This simplified calculation illustrates how a historical reference can change; it does not reproduce the SPI model.
+In this illustrative example, the district reported 10 cases a year before year 1, the expected count is the mean of the two preceding years, the national observed-to-expected ratio is 1, and the under-15 population is 250,000. This illustrates how a historical reference can change; it does not reproduce either package method. The direct SPI uses all earlier years, so its expectation changes more gradually than this two-year example.
 
 | Year | Observed | Expected | SPI | NPAFP rate |
 | --- | --- | --- | --- | --- |
@@ -111,11 +115,11 @@ Centred SPI is unchanged, because the district's position relative to the countr
 
 ## Check the data before interpreting a shortfall
 
-The expected count is a statistical reference, not a reporting target or an estimate of the true number of AFP cases. Interpret SPI within the country where the model was fitted.
+The expected count is a reference based on reporting history, not a reporting target or an estimate of the true number of AFP cases. Interpret SPI within the country whose national ratio was used.
 
 Review population estimates, district boundaries, reporting delays, data completeness, and the observed and expected counts. Small expected counts make ratios unstable. A rising SPI can result from more reports, a lower expectation, or both; it does not by itself show improvement. Differences in underlying NPAFP occurrence can also contribute to a shortfall.
 
-Use a consistent model specification, centring setting, and reporting year when comparing years.
+Use the same calculation method and reporting period when comparing years. For model-based SPI, also keep the model specification and centring setting consistent.
 
 ## What SPI is not
 
@@ -134,4 +138,4 @@ Avoid these uses:
 - mixing SPI calculated with different model settings in one trend;
 - reading a zero SPI interval as complete certainty.
 
-Use it with the conventional NPAFP rate, timeliness, and stool adequacy. [How do I use SPI to review districts?](spi-field-guide.html) shows how to bring them together in a district review.
+Use it with the conventional NPAFP rate, timeliness, and stool adequacy. For model-based results, [How do I use SPI to review districts?](spi-field-guide.html) shows how to bring them together in the STEPS field guide.

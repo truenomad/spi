@@ -79,6 +79,8 @@ For the direct SPI, one table with one row per district and year is enough:
 | A | 2022 | 8 | 100 000 |
 | A | 2023 | 10 | 105 000 |
 
+The expected count uses the district's own rate over all earlier years. At least one earlier year and one earlier NPAFP case are needed for a positive expectation; otherwise SPI is `NA` and `history_check` explains why. Keep those district-years in the data so that zero reporting and missing history remain visible.
+
 To try this with the bundled example data, create `afp_data` by adding the monthly counts for each district and year and joining the annual population:
 
 ```{r annual-example}
@@ -126,6 +128,8 @@ spi_results <- spi_direct(
 <summary>Starting from monthly counts</summary>
 
 Sum the monthly counts for each district and year before running `spi_direct()`. This example uses the package's synthetic data.
+
+The complete population table supplied below restores district-years with no case rows as zero counts.
 
 ```{r monthly}
 afp_harad <- synth_surveillance$cases |>

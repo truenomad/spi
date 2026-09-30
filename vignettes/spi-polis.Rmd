@@ -86,6 +86,8 @@ npafp_year <- indicators$adm2 |>
 
 By default `calc_polio_indicators()` counts pending cases as NPAFP (`include_pending = TRUE`). Set `include_pending` to match the rule chosen in section 3. Its district table lists only district-years with AFP activity, so pass the population table to `spi_direct()` as above.
 
+The direct expectation uses each district's own earlier NPAFP rate. If a district has no earlier year or no earlier NPAFP case, `history_check` records the reason and SPI is `NA`. Review these rows alongside the NPAFP rate rather than dropping them from the surveillance review.
+
 ## 5. Monthly counts for the model-based SPI
 
 The model needs one row per district and month, including months with no case. Count the cases by district and month of onset:
