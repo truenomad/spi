@@ -83,7 +83,13 @@ synth <- synth_surveillance
 
 ### The direct SPI
 
-The direct SPI uses each district's own earlier rate: expected cases = current population × earlier cases ÷ earlier child-years. It needs only annual counts and population by district. The bundled counts are monthly, so add them up to years first:
+The direct SPI uses each district's own earlier rate: expected cases = current population × earlier cases ÷ earlier child-years.
+
+The figure works through the calculation for a hypothetical district.
+
+<img src="man/figures/spi-direct-worked-example.png" width="100%" alt="Worked direct SPI calculation for a hypothetical district: preceding cases and population give the historical rate, expected cases, the district and national observed-to-expected ratios, and the SPI" />
+
+The direct SPI needs only annual counts and population by district. The bundled counts are monthly, so add them up to years first:
 
 ```{r direct-data, cache = FALSE}
 annual <- synth$cases |>
