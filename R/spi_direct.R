@@ -21,6 +21,10 @@
 #' 4. Divide that ratio by the national ratio, using observed and expected
 #'    totals from districts with a positive expected count. The result is SPI.
 #'
+#' The figure works through these steps for a hypothetical district.
+#'
+#' \if{html}{\figure{spi-direct-worked-example.png}{options: width="100\%" alt="Worked direct SPI calculation for a hypothetical district: preceding cases and population give the historical rate, expected cases, the district and national observed-to-expected ratios, and the SPI"}}
+#'
 #' **When the SPI cannot be calculated.** `history_check` records whether the
 #' district's history supports the calculation. `"ok"`: a positive expected
 #' count can be calculated. `"no previous case"`: the district has earlier years but no
