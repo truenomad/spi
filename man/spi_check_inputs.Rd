@@ -12,7 +12,7 @@ spi_check_inputs(
   id_col = NULL,
   pop_col = NULL,
   verbose = TRUE,
-  method = c("model", "direct"),
+  method = c("model", "simple"),
   year_col = "year",
   count_col = "npafp_cases"
 )
@@ -20,19 +20,19 @@ spi_check_inputs(
 \arguments{
 \item{cases}{For \code{method = "model"}, a tibble with the district identifier
 (see \code{id_col}), \code{month} (Date), and \code{count} (integer-valued). For
-\code{method = "direct"}, the district-year table: the district identifier,
+\code{method = "simple"}, the district-year table: the district identifier,
 the year (\code{year_col}), the number of cases (\code{count_col}) and, when
 \code{population} is \code{NULL}, the population (\code{pop_col}).}
 
 \item{population}{Tibble with the district identifier, the denominator
 column (see \code{pop_col}), and either a \code{month} (Date) or \code{year} (integer)
 column. The time unit is inferred from these columns. For
-\code{method = "direct"} it is optional and keyed by year; \code{NULL} takes the
+\code{method = "simple"} it is optional and keyed by year; \code{NULL} takes the
 population from \code{cases}.}
 
 \item{shapefile}{An \code{sf} object of district polygons, or a pre-built \code{nb}
 neighbour object. Geometry validity is only checked for \code{sf} input.
-Required for \code{method = "model"}; not used for \code{method = "direct"}.}
+Required for \code{method = "model"}; not used for \code{method = "simple"}.}
 
 \item{covariates}{Optional tibble of district covariates. Only its ids are
 compared with the district IDs in the case data.}
@@ -40,33 +40,33 @@ compared with the district IDs in the case data.}
 \item{id_col}{Character. Name of the district identifier column, shared by
 \code{cases}, \code{population}, \code{covariates}, and \code{shapefile}. Default
 \code{"district_id"} for \code{method = "model"} and \code{"district"} for
-\code{method = "direct"}.}
+\code{method = "simple"}.}
 
 \item{pop_col}{Character. Name of the denominator column. Default
 \code{"pop_u15"} for \code{method = "model"} and \code{"population_u15"} for
-\code{method = "direct"}.}
+\code{method = "simple"}.}
 
 \item{verbose}{Logical. Print the report once built. Default \code{TRUE}.}
 
 \item{method}{Character. \code{"model"} (default) checks the inputs of
-\code{\link[=spi_index]{spi_index()}}; \code{"direct"} checks the inputs of \code{\link[=spi_direct]{spi_direct()}}.}
+\code{\link[=spi_index]{spi_index()}}; \code{"simple"} checks the inputs of \code{\link[=spi_simple]{spi_simple()}}.}
 
 \item{year_col, count_col}{Character. Year and case-count columns for
-\code{method = "direct"}. Defaults \code{"year"} and \code{"npafp_cases"}.}
+\code{method = "simple"}. Defaults \code{"year"} and \code{"npafp_cases"}.}
 }
 \value{
 A \code{spi_input_check} object: a list with \code{issues} (a tibble of
 findings by severity, one row each with \code{severity}, \code{code}, \code{message},
 and the affected \code{ids}), \code{gaps} (a \code{district_id} x \code{month} tibble of
 missing district-months, or \code{district_id} x \code{year} for
-\code{method = "direct"}), \code{n_error} / \code{n_warning} / \code{n_note} counts, \code{ok}
+\code{method = "simple"}), \code{n_error} / \code{n_warning} / \code{n_note} counts, \code{ok}
 (\code{TRUE} when there are no error-level issues), and the numbers of
 districts and months or years. Has a \code{print} method.
 }
 \description{
 Checks case counts, population denominators, and district boundaries before
-fitting the model-based SPI (\code{method = "model"}) or calculating the direct
-SPI (\code{method = "direct"}). Reports mismatched district IDs, missing periods,
+fitting the model-based SPI (\code{method = "model"}) or calculating the simple
+SPI (\code{method = "simple"}). Reports mismatched district IDs, missing periods,
 invalid population values, and geometry problems together.
 }
 \details{
@@ -83,22 +83,22 @@ absent from the case data).
 \code{\link[=spi_expected]{spi_expected()}} calls this check and stops on errors. Run it separately
 to review warnings before fitting.
 
-\strong{Direct SPI.} With \code{method = "direct"}, \code{cases} is the district-year table
-passed to \code{\link[=spi_direct]{spi_direct()}} and \code{shapefile} is not needed. The check covers
+\strong{Simple SPI.} With \code{method = "simple"}, \code{cases} is the district-year table
+passed to \code{\link[=spi_simple]{spi_simple()}} and \code{shapefile} is not needed. The check covers
 missing columns, years that are not whole numbers, invalid or negative
 counts, duplicate district-years, missing, zero or negative populations,
 district-years that would be left out or counted as zero cases, and the
-population flags that \code{\link[=spi_direct]{spi_direct()}} returns in \code{population_qc}.
+population flags that \code{\link[=spi_simple]{spi_simple()}} returns in \code{population_qc}.
 }
 \examples{
-# inputs of the direct SPI: annual counts and population
+# inputs of the simple SPI: annual counts and population
 annual <- synth_surveillance$cases |>
   dplyr::mutate(year = as.integer(format(month, "\%Y"))) |>
   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 spi_check_inputs(
   cases = annual,
   population = synth_surveillance$population,
-  method = "direct",
+  method = "simple",
   id_col = "adm2_guid",
   count_col = "count",
   pop_col = "pop_u15"
@@ -116,6 +116,6 @@ rpt$gaps
 }
 }
 \seealso{
-\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_direct]{spi_direct()}}, \code{\link[=spi_adjacency]{spi_adjacency()}}, and
+\code{\link[=spi_expected]{spi_expected()}}, \code{\link[=spi_simple]{spi_simple()}}, \code{\link[=spi_adjacency]{spi_adjacency()}}, and
 \code{vignette("spi-data-preparation")} for how to prepare the inputs.
 }

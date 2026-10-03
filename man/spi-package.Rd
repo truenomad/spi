@@ -9,8 +9,8 @@
 Compares reported non-polio acute flaccid paralysis (NPAFP) cases with
 expected counts based on earlier reporting and population size. Use
 \code{\link[=spi_index]{spi_index()}} for a spatial and temporal model fitted with INLA, or
-\code{\link[=spi_direct]{spi_direct()}} for an annual calculation that does not require INLA.
-The direct calculation multiplies each district's current population by
+\code{\link[=spi_simple]{spi_simple()}} for an annual calculation that does not require INLA.
+The simple calculation multiplies each district's current population by
 its own rate over all earlier years. It returns no SPI when that district
 has no earlier year or no earlier NPAFP case.
 }
@@ -51,8 +51,8 @@ separately and do not change the label.
 \item \code{\link[=spi_expected]{spi_expected()}}: Estimate expected counts with INLA.
 \item \code{\link[=spi_compare_overdispersion]{spi_compare_overdispersion()}}: Compare models for count variation.
 \item \code{\link[=spi_index]{spi_index()}}: Calculate model-based SPI and credible intervals.
-\item \code{\link[=spi_direct]{spi_direct()}}: Calculate annual SPI from earlier reporting.
-\item \code{\link[=spi_direct_explain]{spi_direct_explain()}}: Show one district's calculation.
+\item \code{\link[=spi_simple]{spi_simple()}}: Calculate annual SPI from earlier reporting.
+\item \code{\link[=spi_simple_explain]{spi_simple_explain()}}: Show one district's calculation.
 \item \code{\link[=spi_compare_npafp]{spi_compare_npafp()}}: Compare SPI with the NPAFP target.
 \item \code{\link[=spi_field_guide]{spi_field_guide()}}: Review districts using STEPS.
 \item \code{\link[=spi_field_guide_table]{spi_field_guide_table()}}: Create a table of review findings.
@@ -71,7 +71,7 @@ suitable case counts, population estimates, and model settings.
 
 Model fitting requires INLA, available from
 \url{https://inla.r-inla-download.org/R/stable/}.
-\code{\link[=spi_direct]{spi_direct()}} requires neither INLA nor district boundaries.
+\code{\link[=spi_simple]{spi_simple()}} requires neither INLA nor district boundaries.
 }
 
 \section{Citation}{

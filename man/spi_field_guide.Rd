@@ -19,7 +19,7 @@ spi_field_guide(
   serotype_col = NULL,
   detection_serotypes = NULL,
   read_year = NULL,
-  spi_cut = 1,
+  spi_cut = NULL,
   spi_rule = NULL,
   traj_window = 5L,
   traj_tol = 0.01,
@@ -98,7 +98,8 @@ values such as 0.80, 0.60, or 0.40 focus review on larger reporting
 shortfalls. The same cutoff is used for persistence and extent; the
 credible-interval check still compares with 1. A district above a lower
 cutoff may still need review based on other surveillance indicators.
-Default: 1.}
+Default: NULL, which is 1 for the model-based SPI and 0.5 for the simple
+SPI.}
 
 \item{spi_rule}{Character, \code{"median"} or \code{"interval"}. \code{"median"} labels
 every district-year with an SPI below \code{spi_cut}. \code{"interval"} also
@@ -224,6 +225,14 @@ based on other indicators continue.
 With \code{spi_rule = "interval"}, a district-year whose 90\% credible interval
 includes 1 is labelled \verb{No SPI indication} rather than \code{Monitor}, so only
 shortfalls whose interval lies entirely below 1 are labelled.
+
+\strong{Simple SPI.} A comparison built from \code{\link[=spi_simple]{spi_simple()}} has no credible
+interval. The strength component uses the SPI value alone. The default
+cutoff is \code{spi_cut = 0.5}, which focuses review on larger relative
+shortfalls. This cutoff does not measure uncertainty. A district-year
+with an SPI below 0.5 and support from extent
+or persistence is labelled \verb{Priority for review}; one below 0.5 without that
+support is labelled \code{Monitor}. \code{spi_rule = "interval"} is not available.
 
 Extent compares the share of the other districts in the same \code{extent_col}
 area with an SPI below the cut against the national share in the same year,

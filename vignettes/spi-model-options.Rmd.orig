@@ -35,7 +35,7 @@ INLA::inla.setOption(num.threads = "1:1")
 set.seed(1)
 ```
 
-The default SPI model uses a negative binomial distribution for counts and no additional explanatory variables (covariates). The negative binomial distribution allows counts to vary more than a Poisson distribution would. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period. These options apply to the model-based SPI (`spi_index()`), not to the direct SPI.
+The default SPI model uses a negative binomial distribution for counts and no additional explanatory variables (covariates). The negative binomial distribution allows counts to vary more than a Poisson distribution would. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period. These options apply to the model-based SPI (`spi_index()`), not to the simple SPI.
 
 The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes.
 

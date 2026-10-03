@@ -263,3 +263,88 @@ test_that("missing SPI cannot receive a no-indication review label", {
                  "SPI medians must be finite")
   }
 })
+
+# --- the field guide on a simple SPI --------------------------------------
+
+# eight districts in two provinces, 2019-2025. A and B report far fewer cases
+# from 2023, so their simple SPI drops below 0.5 in consecutive years.
+simple_guide_comparison <- function() {
+  ids <- c("A", "B", "C", "D", "E", "F", "G", "H")
+  grid <- expand.grid(district = ids, year = 2019:2025,
+                      stringsAsFactors = FALSE)
+  base <- c(A = 12, B = 10, C = 8, D = 9, E = 11, F = 10, G = 7, H = 9)
+  cases <- base[grid$district]
+  cases[grid$district %in% c("A", "B") & grid$year >= 2023] <- 2
+  data <- tibble::tibble(
+    district = grid$district,
+    year = grid$year,
+    npafp_cases = unname(cases),
+    population_u15 = 2e5
+  )
+  simple <- spi_simple(data, first_assessment = 2022, verbose = FALSE)
+  areas <- data.frame(
+    district = ids,
+    adm2_name = paste(ids, "District"),
+    adm1_name = rep(c("North", "South"), each = 4)
+  )
+  spi_compare_npafp(simple, boundaries = areas, verbose = FALSE)
+}
+
+test_that("a simple comparison uses a 0.5 cut and the SPI alone for strength", {
+  fg <- spi_field_guide(simple_guide_comparison(), verbose = FALSE)
+  expect_identical(fg$method, "simple")
+  expect_equal(fg$thresholds$spi, 0.5)
+  dy <- fg$district_year
+  expect_identical(dy$spi_below, dy$spi_median < 0.5)
+  expect_identical(dy$gate_pass, dy$spi_below)
+  # every district-year below 0.5 is labelled, the rest have no indication
+  expect_true(all(dy$verdict[dy$spi_below] %in%
+                    c("Priority for review", "Monitor")))
+  expect_true(all(dy$verdict[!dy$spi_below] == "No SPI indication"))
+  # A and B are below 0.5 in consecutive years, so persistence supports them
+  foc <- fg$focal
+  expect_true(all(foc$verdict[foc$district %in% c("A", "B")] ==
+                    "Priority for review"))
+  expect_true(any(grepl("below 0.5", fg$reference$asks)))
+})
+
+test_that("a simple comparison accepts an explicit cut but not the interval rule", {
+  cmp <- simple_guide_comparison()
+  fg <- spi_field_guide(cmp, spi_cut = 0.8, verbose = FALSE)
+  expect_equal(fg$thresholds$spi, 0.8)
+  expect_error(
+    spi_field_guide(cmp, spi_rule = "interval", verbose = FALSE),
+    "credible interval"
+  )
+})
+
+test_that("a model-based comparison keeps the cut of 1", {
+  fg <- spi_field_guide(make_comparison(), verbose = FALSE)
+  expect_equal(fg$thresholds$spi, 1)
+  expect_identical(fg$method, "model")
+})
+
+test_that("simple-SPI outputs print no interval", {
+  fg <- spi_field_guide(simple_guide_comparison(), verbose = FALSE)
+  out <- paste(c(
+    capture.output(print(fg), type = "message"),
+    capture.output(print(fg)),
+    capture.output(summary(fg), type = "message"),
+    capture.output(spi_field_guide_help(guide = fg), type = "message")
+  ), collapse = "\n")
+  # the help says once that the simple SPI has no interval; nothing reads one
+  out <- gsub("has no credible\\s+interval", "", out)
+  expect_false(grepl("NA-NA|NA to NA|CrI|credible\\s+interval", out))
+  expect_match(out, "below 0.5", fixed = TRUE)
+
+  page <- spi_field_guide_pager(fg, district = "A", verbose = FALSE)$html
+  expect_false(grepl("NA–NA|NA-NA|credible interval", page))
+  expect_false(grepl(">NA<", page, fixed = TRUE))
+
+  skip_if_not_installed("gt")
+  scan <- spi_field_guide_table(fg, engine = "gt", layout = "scan")
+  expect_false("90% CrI" %in% names(scan[["_data"]]))
+  worked <- spi_field_guide_table(fg, engine = "gt", layout = "worked")
+  cells <- unlist(worked[["_data"]])
+  expect_false(any(grepl("CrI|NA to NA", cells)))
+})

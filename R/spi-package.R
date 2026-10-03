@@ -11,8 +11,8 @@ utils::globalVariables(c(
 #' Compares reported non-polio acute flaccid paralysis (NPAFP) cases with
 #' expected counts based on earlier reporting and population size. Use
 #' [spi_index()] for a spatial and temporal model fitted with INLA, or
-#' [spi_direct()] for an annual calculation that does not require INLA.
-#' The direct calculation multiplies each district's current population by
+#' [spi_simple()] for an annual calculation that does not require INLA.
+#' The simple calculation multiplies each district's current population by
 #' its own rate over all earlier years. It returns no SPI when that district
 #' has no earlier year or no earlier NPAFP case.
 #'
@@ -47,8 +47,8 @@ utils::globalVariables(c(
 #' - [spi_expected()]: Estimate expected counts with INLA.
 #' - [spi_compare_overdispersion()]: Compare models for count variation.
 #' - [spi_index()]: Calculate model-based SPI and credible intervals.
-#' - [spi_direct()]: Calculate annual SPI from earlier reporting.
-#' - [spi_direct_explain()]: Show one district's calculation.
+#' - [spi_simple()]: Calculate annual SPI from earlier reporting.
+#' - [spi_simple_explain()]: Show one district's calculation.
 #' - [spi_compare_npafp()]: Compare SPI with the NPAFP target.
 #' - [spi_field_guide()]: Review districts using STEPS.
 #' - [spi_field_guide_table()]: Create a table of review findings.
@@ -62,7 +62,7 @@ utils::globalVariables(c(
 #' @section Dependencies:
 #' Model fitting requires INLA, available from
 #' \url{https://inla.r-inla-download.org/R/stable/}.
-#' [spi_direct()] requires neither INLA nor district boundaries.
+#' [spi_simple()] requires neither INLA nor district boundaries.
 #'
 #' @section Citation:
 #' Run `citation("spi")` for the package citation.

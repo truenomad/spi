@@ -16,15 +16,15 @@ options(cli.width = 80, width = 80)
 library(spi)
 ```
 
-This article explains what data SPI needs and how to prepare them for the direct SPI (`spi_direct()`) or the model-based SPI (`spi_index()`).
+This article explains what data SPI needs and how to prepare them for the simple SPI (`spi_simple()`) or the model-based SPI (`spi_index()`).
 
 ## 1. What you need
 
-The direct SPI uses annual NPAFP counts and annual population under 15. The model-based SPI uses monthly NPAFP counts, annual population under 15 and district boundaries.
+The simple SPI uses annual NPAFP counts and annual population under 15. The model-based SPI uses monthly NPAFP counts, annual population under 15 and district boundaries.
 
 The input requirements are:
 
-| | Direct SPI, `spi_direct()` | Model-based SPI, `spi_index()` |
+| | Simple SPI, `spi_simple()` | Model-based SPI, `spi_index()` |
 |---|---|---|
 | NPAFP cases | One row per district and year | One row per district and month, including a zero count for months with no cases |
 | Population under 15 | One row per district and year | One row per district and year |
@@ -56,11 +56,11 @@ The result is empty here, so every district identifier in the case data also app
 
 **A missing row and zero cases are not necessarily the same thing.** If a district was under surveillance but reported no NPAFP cases in a year, retain that district-year with a zero count.
 
-Supply a separate population table covering every district-year to be analysed. `spi_direct()` treats a district-year with a population record but no case row as zero reported cases. If you use one combined table, include a row with the population and a zero case count for each such district-year.
+Supply a separate population table covering every district-year to be analysed. `spi_simple()` treats a district-year with a population record but no case row as zero reported cases. If you use one combined table, include a row with the population and a zero case count for each such district-year.
 
 ### Check the population
 
-Population is used to calculate expected cases, so an abrupt change can affect the SPI. `spi_direct()` checks each district's population history. After calculating `spi_results` in section 3, use the following code to list districts flagged for review:
+Population is used to calculate expected cases, so an abrupt change can affect the SPI. `spi_simple()` checks each district's population history. After calculating `spi_results` in section 3, use the following code to list districts flagged for review:
 
 ```{r population-qc, eval = FALSE}
 spi_results$population_qc |>
@@ -73,9 +73,9 @@ A flag is a reason to check the population estimate, not to replace it automatic
 
 A new district may have no earlier records of its own. For a split or merged district, earlier records may cover a different area. Stable identifiers help with name changes, but they do not resolve changes in geography. Where possible, use a table linking old and new districts (a crosswalk) or prepare all years using the same district boundaries.
 
-## 3. Data for the direct SPI
+## 3. Data for the simple SPI
 
-For the direct SPI, one table with one row per district and year is enough:
+For the simple SPI, one table with one row per district and year is enough:
 
 | district | year | npafp_cases | population_u15 |
 |---|---|---|---|
@@ -96,7 +96,7 @@ afp_data <- synth_surveillance$cases |>
 ```
 
 ```{r standard, results = 'hide'}
-spi_results <- spi_direct(afp_data)
+spi_results <- spi_simple(afp_data)
 ```
 
 If the population is in a separate table, pass it as `population`:
@@ -105,7 +105,7 @@ If the population is in a separate table, pass it as `population`:
 afp_counts <- dplyr::select(afp_data, district, year, npafp_cases)
 population <- dplyr::select(afp_data, district, year, population_u15)
 
-spi_results <- spi_direct(
+spi_results <- spi_simple(
   afp_counts,
   population = population
 )
@@ -118,7 +118,7 @@ afp_custom <- afp_data |>
   dplyr::rename(adm2_guid = district, yr = year,
                 npafp = npafp_cases, u15_pop = population_u15)
 
-spi_results <- spi_direct(
+spi_results <- spi_simple(
   afp_custom,
   id_col = "adm2_guid",
   year_col = "yr",
@@ -130,7 +130,7 @@ spi_results <- spi_direct(
 <details>
 <summary>Starting from monthly counts</summary>
 
-Sum the monthly counts for each district and year before running `spi_direct()`. This example uses the package's synthetic data.
+Sum the monthly counts for each district and year before running `spi_simple()`. This example uses the package's synthetic data.
 
 The complete population table supplied below restores district-years with no case rows as zero counts.
 
@@ -139,7 +139,7 @@ afp_harad <- synth_surveillance$cases |>
   dplyr::mutate(year = lubridate::year(month)) |>
   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 
-res_harad <- spi_direct(
+res_harad <- spi_simple(
   afp_harad,
   population = synth_surveillance$population,
   id_col = "adm2_guid",
@@ -153,13 +153,13 @@ res_harad
 
 </details>
 
-Use `spi_check_inputs()` with `method = "direct"` to check the table before calculating. It reports missing columns, duplicate district-years, invalid counts or populations, district-years with no row, and districts whose population series needs review:
+Use `spi_check_inputs()` with `method = "simple"` to check the table before calculating. It reports missing columns, duplicate district-years, invalid counts or populations, district-years with no row, and districts whose population series needs review:
 
-```{r check-direct, eval = FALSE}
-spi_check_inputs(afp_data, method = "direct")
+```{r check-simple, eval = FALSE}
+spi_check_inputs(afp_data, method = "simple")
 ```
 
-[The direct SPI](spi-direct.html) shows how the calculation works and how to inspect the result for one district.
+[Calculating the simple SPI](spi-simple.html) shows how the calculation works and how to inspect the result for one district.
 
 ## 4. Data for the model-based SPI
 
@@ -208,8 +208,8 @@ spi_check_inputs(
 )
 ```
 
-[Getting started with SPI](spi-getting-started.html) shows how to fit the model and calculate the SPI from these inputs.
+[Calculating the model-based SPI](spi-model.html) shows how to fit the model and calculate the SPI from these inputs.
 
 ## Using POLIS data?
 
-[Using SPI with POLIS data](spi-polis.html) gives a complete workflow from the AFP line list and population data to both the direct and model-based SPI.
+[Using SPI with POLIS data](spi-polis.html) gives a complete workflow from the AFP line list and population data to both the simple and model-based SPI.

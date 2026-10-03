@@ -86,54 +86,66 @@ navbar:
     articles:
       text: Articles
       menu:
+      - text: Using SPI
       - text: Getting started
         href: articles/spi-getting-started.html
-      - text: The direct SPI
-        href: articles/spi-direct.html
       - text: Preparing data
         href: articles/spi-data-preparation.html
       - text: Using SPI with POLIS data
         href: articles/spi-polis.html
-      - text: How SPI works
-        href: articles/spi-methods.html
       - text: Interpreting SPI
         href: articles/spi-interpretation.html
-      - text: Using SPI for district review
-        href: articles/spi-field-guide.html
+      - text: How SPI works
+        href: articles/spi-methods.html
+      - text: -------
+      - text: Simple SPI
+      - text: Calculating the simple SPI
+        href: articles/spi-simple.html
+      - text: -------
+      - text: Model-based SPI
+      - text: Calculating the model-based SPI
+        href: articles/spi-model.html
       - text: Model options and sensitivity
         href: articles/spi-model-options.html
+      - text: Using SPI for district review
+        href: articles/spi-field-guide.html
 
 reference:
-- title: Fit the model
+- title: Check the inputs
   desc: >
-    Check the inputs and fit expected monthly counts with INLA. Pass district
-    boundaries directly, or inspect the neighbour graph separately. `spi_compare_overdispersion()` compares the three
-    models for count variation.
+    Check case counts, population estimates and, for the model-based SPI,
+    district boundaries. Use `method = "simple"` for the simple SPI table.
   contents:
   - spi_check_inputs
+- title: Calculate the simple SPI
+  desc: >
+    Calculate annual SPI from earlier case counts and population estimates,
+    and inspect the calculation for one district.
+  contents:
+  - spi_simple
+  - spi_simple_explain
+- title: Calculate the model-based SPI
+  desc: >
+    Fit expected monthly counts with INLA and calculate annual or monthly SPI,
+    with each year's expected counts estimated from preceding years only.
+    Pass district boundaries directly, or inspect the neighbour graph
+    separately. `spi_compare_overdispersion()` compares the three models for
+    count variation.
+  contents:
   - spi_adjacency
   - spi_expected
-  - spi_compare_overdispersion
-- title: Calculate and compare SPI
-  desc: >
-    Calculate annual or monthly SPI, with each year's expected counts
-    estimated from preceding years only. Compare SPI with the conventional
-    NPAFP target and map the result.
-  contents:
   - spi_index
+  - spi_compare_overdispersion
+- title: Compare with the NPAFP target
+  desc: >
+    Compare simple or model-based SPI with the conventional NPAFP target and
+    map the result.
+  contents:
   - spi_compare_npafp
   - spi_compare_npafp_maps
-- title: Calculate SPI directly
-  desc: >
-    Calculate annual SPI from earlier case counts and population estimates
-    without INLA, and inspect the calculation for one district. Check the
-    table first with `spi_check_inputs(method = "direct")`.
-  contents:
-  - spi_direct
-  - spi_direct_explain
 - title: Review districts
   desc: >
-    Use model-based SPI results to organise district review with the five STEPS components, then produce a
+    Organise district review with the five STEPS components, then produce a
     table or a one-page district report.
   contents:
   - spi_field_guide
@@ -154,14 +166,19 @@ reference:
   - as_tibble
 
 articles:
-- title: Articles
+- title: Using SPI
   navbar: ~
   contents:
   - spi-getting-started
-  - spi-direct
   - spi-data-preparation
   - spi-polis
-  - spi-methods
   - spi-interpretation
-  - spi-field-guide
+  - spi-methods
+- title: Simple SPI
+  contents:
+  - spi-simple
+- title: Model-based SPI
+  contents:
+  - spi-model
   - spi-model-options
+  - spi-field-guide

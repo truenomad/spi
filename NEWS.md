@@ -2,24 +2,38 @@
 
 ### Documentation
 
+* Getting started now explains what SPI measures, how it differs from the NPAFP
+  rate and when to use the simple or model-based SPI, with a simple SPI example.
+  The model-based workflow moved to a new article, Calculating the model-based
+  SPI. Interpreting SPI uses simple SPI arithmetic in its examples, and How
+  SPI works describes the shared calculation before explaining each method.
+
 * Simplified language throughout the articles, function help, console output,
   and district reports. Clarified national centring, uncertainty, and review
-  labels. Calculations and function arguments are unchanged.
+  labels.
 
-* Aligned the README, articles and function help with the direct calculation:
+* Aligned the README, articles and function help with the simple calculation:
   each district's earlier rate is used unchanged, and national centring
   includes only districts with positive expected counts. Clarified which
   review tools require model-based results.
 
 ### Bug fixes
 
-* Direct SPI reports and explanations now count and explain missing SPI
+* Simple SPI reports and explanations now count and explain missing SPI
   values when the national ratio is zero, even if district history is
   available. Reported national totals use the same districts as the ratio.
 
 ### New features
 
-* `spi_direct()` calculates SPI directly from preceding reporting, without
+* `spi_compare_npafp()` accepts a `spi_simple()` result as well as a
+  `spi_index()` result. For a simple result, `population` is optional and
+  district-years without an SPI are left out.
+  `spi_field_guide()` runs on either comparison. With the simple SPI, which
+  has no credible interval, the strength component uses the SPI value alone.
+  Its default cutoff is `spi_cut = 0.5`, which focuses review on larger
+  relative shortfalls.
+
+* `spi_simple()` calculates SPI from preceding reporting, without
   fitting the INLA spatial and temporal model. It needs only NPAFP cases and
   the population under 15 by district and year. A district's expected count
   is its current population times its NPAFP rate over all earlier years.
@@ -28,27 +42,27 @@
   the national ratio. Each district's population series is checked for
   unusual changes before calculation.
 
-* `spi_direct()` needs no other argument when the table has the columns
+* `spi_simple()` needs no other argument when the table has the columns
   `district`, `year`, `npafp_cases` and `population_u15`.
 
-* `spi_direct_explain()` shows how one district's direct SPI was calculated,
+* `spi_simple_explain()` shows how one district's simple SPI was calculated,
   from current and previous reporting to the expected count and the national
   comparison.
 
-* `spi_direct_explain()` can show its labels in another language, for example
+* `spi_simple_explain()` can show its labels in another language, for example
   `language = "fr"` for French. English is the default. Translation uses the
   sntutils and gtranslate packages and needs an internet connection.
 
-* `spi_check_inputs()` also checks the inputs of the direct SPI with
-  `method = "direct"`. Boundaries are not needed for that check.
+* `spi_check_inputs()` also checks the inputs of the simple SPI with
+  `method = "simple"`. Boundaries are not needed for that check.
 
-* New article, "The direct SPI", explains the calculation step by step.
+* New article, "Calculating the simple SPI", explains the calculation step by step.
 
 * New article, "Preparing data for SPI", shows what data each calculation
   needs and how to prepare them.
 
 * New article, "Using SPI with POLIS data", shows the workflow from the POLIS
-  AFP line list to the direct and model-based SPI.
+  AFP line list to the simple and model-based SPI.
 
 # spi 0.2.0
 

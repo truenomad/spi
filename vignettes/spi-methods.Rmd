@@ -7,25 +7,57 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-SPI divides reported cases by expected cases and, by default, divides the result by the national ratio for the same period. This article describes the model behind the model-based SPI, the calculation behind the direct SPI, and their limits. [Getting started with SPI](spi-getting-started.html) shows how to produce the model-based estimates, and [The direct SPI](spi-direct.html) works through the direct calculation by hand.
+SPI compares a district's current reporting with earlier reporting and the national pattern. It divides reported cases by expected cases, then divides the result by the national ratio for the same period. The simple SPI calculates expected counts from the district's own earlier rate. The model-based SPI estimates them with a spatial and temporal model. This article explains both calculations and their limitations. For worked examples, see [Calculating the simple SPI](spi-simple.html) and [Calculating the model-based SPI](spi-model.html).
 
-## Building blocks
+## The comparison
 
-The table describes the model-based SPI. The direct SPI, described below, uses each district's own earlier rate and national centring, without spatial pooling or uncertainty intervals.
+For district $i$ and assessment year $t$, let $O_{it}$ be the reported NPAFP count and $E_{it}$ the expected count, estimated from years before $t$ only. The district's observed-to-expected ratio is $O_{it}/E_{it}$. SPI divides it by the national ratio for the same year:
 
-| Building block | What it contributes |
-| --- | --- |
-| Reporting history | Provides a reference for each district's reporting. `spi_index()` uses preceding years only, so the year being assessed does not contribute to its own expectation. |
-| Population adjustment | Scales expected counts to under-15 population exposure. The model includes log exposure as an offset, a term whose coefficient is fixed at 1. |
-| Partial pooling | Uses information across districts to make estimates less variable when a district has little data. |
-| Information from neighbours | Lets neighbouring districts inform the spatial estimate, with more influence where a district's own data provide little information. |
-| Seasonality and year effects | Accounts for recurring within-year patterns and differences between years. |
-| National centring (default) | Divides the district's observed-to-expected ratio by the national ratio for the same period. Annual SPI therefore compares each district with the country in the same year. |
-| Uncertainty | Provides posterior medians and credible intervals for the ratio, reflecting uncertainty in expected counts. |
+$$
+\text{SPI}_{it} = \frac{O_{it}/E_{it}}{r_t}, \qquad
+r_t = \frac{\sum_j O_{jt}}{\sum_j E_{jt}}
+$$
 
-In the accompanying study, each district's earlier reporting provided most of the basis for its expected counts. Information from other districts contributed more when the district's own history provided little information.
+An SPI of 1 means the district's ratio equals the national ratio. The two methods differ in how they calculate $E_{it}$ and which districts they include in the national sums.
 
-## Model specification
+| | Simple SPI | Model-based SPI |
+| --- | --- | --- |
+| Reporting history | The district's cases and child-years over all earlier years | Earlier months of all districts, through the fitted model |
+| Population adjustment | Expected count is current population times the earlier rate | Log exposure as an offset, a term whose coefficient is fixed at 1 |
+| Information from other districts | None | Partial pooling and a spatial effect, with more influence where a district's own data provide little information |
+| Seasonality and year effects | None; annual counts only | Harmonic seasonality and an exchangeable year effect |
+| National centring | Always applied | Default; `centre = "none"` returns the uncentred ratio |
+| Uncertainty | None; one value per district-year | Posterior medians and 90% credible intervals, reflecting uncertainty in expected counts |
+
+## The simple SPI
+
+`spi_simple()` calculates the expected count from the district's own earlier reporting. For district $i$ and assessment year $t$, NPAFP cases and annual under-15 populations are added across all earlier years $s < t$ in the data:
+
+$$
+Y_i = \sum_{s<t} Y_{is}, \qquad P_i = \sum_{s<t} P_{is}, \qquad r_i = Y_i / P_i
+$$
+
+Here $P_i$ is earlier exposure in child-years, and all rates in the equations are per child-year. The output tables multiply rates by 100,000 by default. The previous rate $r_i$ is defined only when $P_i > 0$.
+
+**History check.** A positive expected count can be calculated when the district has at least one earlier year and at least one earlier case. With earlier years but no earlier case ($Y_i = 0$), $r_i = 0$, the expected count is 0, and O/E and SPI are `NA`; `history_check` is `"no previous case"`. With no earlier year ($P_i = 0$), $r_i$, the expected count, O/E and SPI are all `NA`; `history_check` is `"no previous year"`. Otherwise `history_check` is `"ok"`. The district's previous rate is used unchanged.
+
+**Index.** $E_{it} = P_{it} \, r_i$, calculated as $P_{it} Y_i / P_i$, and
+
+$$
+\text{SPI}_{it} = \frac{Y_{it}/E_{it}}{\sum_{j:E_{jt}>0} Y_{jt} \big/ \sum_{j:E_{jt}>0} E_{jt}}
+$$
+
+The national observed-to-expected ratio is calculated from district-years with a positive expected count. Districts with no positive expectation do not contribute to national centring. A zero national ratio gives `NA` for every district's SPI, including those with `history_check = "ok"`.
+
+**Population check.** Each district's consecutive-year change in log population is compared with the median change across districts in the same year. A change is unusual when its deviation lies outside Tukey's far-out fences (three interquartile ranges beyond the quartiles) and has absolute magnitude greater than $\log(1.1)$. This is a multiplicative threshold relative to the median growth factor: above 1.1 or below $1/1.1$, rather than a symmetric 10% change in population. Fences are calculated from all available consecutive-year deviations; fewer than four deviations give no change flags.
+
+For each assessment year, the check considers the district's population records up to that year. `population_qc` is `check_spike` when an unusual deviation is followed by an unusual deviation in the opposite direction among the next two recorded transitions, `check_change` for any other unusual deviation, `check_history` when population records do not cover all dataset years up to that year, and `ok` otherwise. These labels take precedence in that order. With a complete annual series, the two transitions cover two years; gaps can extend that interval. The check does not alter populations.
+
+## The model-based SPI
+
+`spi_index()` estimates expected counts with the model below. It fits the model for each assessment year using preceding years only, so the year being assessed does not contribute to its own expectation. In the accompanying study, each district's earlier reporting provided most of the basis for its expected counts. Information from other districts contributed more when the district's own history provided little information.
+
+### Model specification
 
 With annual population data, the default model without covariates estimates expected counts for each district $i$ and month $t$:
 
@@ -64,7 +96,9 @@ Optional covariates add $x_{it}^{\top}\beta$ to the linear predictor. They are n
 
 Reported counts reflect both underlying NPAFP incidence and surveillance reporting. `spi_index()` estimates each year's expected counts from preceding years only.
 
-**National centring.** For district $i$ and year $y$, let $O_{iy}$ be the annual observed count. Within each posterior draw $s$, sum the monthly expected counts first:
+### National centring and uncertainty
+
+For district $i$ and year $y$, let $O_{iy}$ be the annual observed count. Within each posterior draw $s$, sum the monthly expected counts first:
 
 $$
 E_{iy}^{(s)} = \sum_{t:\,y(t)=y}\mu_{it}^{(s)}, \qquad
@@ -82,30 +116,6 @@ The national denominator is the sum of district posterior medians. The national 
 
 National sums include rows with finite observed counts and finite, positive expected counts. A year with no observed cases nationally has an undefined centred SPI, returned as `NA`. `centre = "none"` returns the uncentred observed-to-expected ratio.
 
-## The direct SPI
-
-`spi_direct()` calculates the SPI without fitting the model above. For district $i$ and assessment year $t$, NPAFP cases and annual under-15 populations are added across all earlier years $s < t$ in the data:
-
-$$
-Y_i = \sum_{s<t} Y_{is}, \qquad P_i = \sum_{s<t} P_{is}, \qquad r_i = Y_i / P_i
-$$
-
-Here $P_i$ is earlier exposure in child-years, and all rates in the equations are per child-year. The output tables multiply rates by 100,000 by default. The previous rate $r_i$ is defined only when $P_i > 0$.
-
-**History check.** A positive expected count can be calculated when the district has at least one earlier year and at least one earlier case. With earlier years but no earlier case ($Y_i = 0$), $r_i = 0$, the expected count is 0, and O/E and SPI are `NA`; `history_check` is `"no previous case"`. With no earlier year ($P_i = 0$), $r_i$, the expected count, O/E and SPI are all `NA`; `history_check` is `"no previous year"`. Otherwise `history_check` is `"ok"`. The district's previous rate is used unchanged.
-
-**Index.** $E_{it} = P_{it} \, r_i$, calculated as $P_{it} Y_i / P_i$, and
-
-$$
-\text{SPI}_{it} = \frac{Y_{it}/E_{it}}{\sum_{j:E_{jt}>0} Y_{jt} \big/ \sum_{j:E_{jt}>0} E_{jt}}
-$$
-
-The national observed-to-expected ratio is calculated from district-years with a positive expected count. Districts with no positive expectation do not contribute to national centring. A zero national ratio gives `NA` for every district's SPI, including those with `history_check = "ok"`.
-
-**Population check.** Each district's consecutive-year change in log population is compared with the median change across districts in the same year. A change is unusual when its deviation lies outside Tukey's far-out fences (three interquartile ranges beyond the quartiles) and has absolute magnitude greater than $\log(1.1)$. This is a multiplicative threshold relative to the median growth factor: above 1.1 or below $1/1.1$, rather than a symmetric 10% change in population. Fences are calculated from all available consecutive-year deviations; fewer than four deviations give no change flags.
-
-For each assessment year, the check considers the district's population records up to that year. `population_qc` is `check_spike` when an unusual deviation is followed by an unusual deviation in the opposite direction among the next two recorded transitions, `check_change` for any other unusual deviation, `check_history` when population records do not cover all dataset years up to that year, and `ok` otherwise. These labels take precedence in that order. With a complete annual series, the two transitions cover two years; gaps can extend that interval. The check does not alter populations.
-
 ## Limitations
 
 These limits follow from how the reference is estimated and how the ratio is centred:
@@ -115,7 +125,7 @@ These limits follow from how the reference is estimated and how the ratio is cen
 | Persistent low reporting can become the baseline | A district with years of low reporting can have an SPI near 1. Keep the conventional NPAFP target as an external benchmark; persistent failure to meet it remains a reason for closer review. |
 | National change is removed when `centre = "national"` | Review the national observed-to-expected ratio in `spi_dy$national` separately. SPI describes relative district differences, so a shared decline can leave district SPI values largely unchanged. Also inspect absolute reporting rates and counts. |
 | Population and boundary errors affect the comparison | Population error affects both expected counts and the conventional rate. Check denominators and use consistent boundaries across years, especially after district splits or mergers. |
-| Direct SPI can be unstable with little history | The earlier rate is used unchanged, even when based on a single case. Review earlier years, cases and child-years. With no earlier case or year, SPI is unavailable. |
+| Simple SPI can be unstable with little history | The earlier rate is used unchanged, even when based on a single case. Review earlier years, cases and child-years. With no earlier case or year, SPI is unavailable. |
 | Model-based estimates use more information from other districts when history is limited | Sparse reporting histories give the model less district-specific information. Review the available history and uncertainty before interpreting changes. |
 | Using neighbours in the model can reduce estimated differences between districts | Sharing information improves stability but can pull an unusual district towards its neighbours. Check local counts and context when the fitted expectation seems implausible. |
 | Results depend on model choices | The training period, spatial structure, seasonality, priors, and centring affect results. Keep these choices consistent when comparing years and assess sensitivity to plausible alternatives. |

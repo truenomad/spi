@@ -61,7 +61,8 @@ Maps the NPAFP rate, SPI, and their agreement for one year:
 person-years, grouped into the reporting bands
 (\verb{<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24}). Values below the
 selected NPAFP target are drawn on the red end of the palette.
-\item \strong{Panel B} -- posterior median SPI, categorised on breaks
+\item \strong{Panel B} -- SPI (the posterior median for the model-based
+SPI), categorised on breaks
 approximately symmetric on the log scale around the reference of 1 (default
 \verb{-Inf, 0.5, 0.75, 1, 1.33, 2, Inf}). Bins at or below the SPI
 threshold are warm; the rest are cool.

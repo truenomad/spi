@@ -139,7 +139,9 @@ label), and \code{paths} (the files written, empty when neither \code{path} nor
 Creates a one-page district report from a \code{\link[=spi_field_guide]{spi_field_guide()}} result. It
 includes the review label, an SPI chart with a 90\% credible interval
 and detection markers, the five STEPS components, and a summary of the
-findings that support the label.
+findings that support the label. For a guide built from \code{\link[=spi_simple]{spi_simple()}}
+results, the chart has no interval band. The strength component compares
+the SPI value with the selected cutoff.
 }
 \details{
 The report is static HTML with an SVG chart. It works offline, using system

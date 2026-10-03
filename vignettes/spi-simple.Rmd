@@ -1,87 +1,20 @@
 ---
-title: "The direct SPI"
+title: "Calculating the simple SPI"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{The direct SPI}
+  %\VignetteIndexEntry{Calculating the simple SPI}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-<!-- Edit spi-direct.Rmd.orig, not the .Rmd. Knit with
-     Rscript --no-init-file vignettes/precompile.R spi-direct -->
+<!-- Edit spi-simple.Rmd.orig, not the .Rmd. Knit with
+     Rscript --no-init-file vignettes/precompile.R spi-simple -->
 
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-options(cli.width = 80, width = 80)
-library(spi)
 
-num <- function(x, d = 2) {
-  formatC(x, format = "f", digits = d, big.mark = " ")
-}
-pct <- function(x) paste0(round(100 * x), "%")
-# the same, with a thin space for thousands inside equations
-mnum <- function(x, d = 2) gsub(" ", "\\\\,", num(x, d))
 
-# the French example runs only when the translation service can be reached
-can_translate <- tryCatch(
-  requireNamespace("sntutils", quietly = TRUE) &&
-    requireNamespace("gtranslate", quietly = TRUE) &&
-    !identical(
-      suppressMessages(
-        sntutils::translate_text("Previous rate", target_language = "fr")
-      ),
-      "Previous rate"
-    ),
-  error = function(e) FALSE
-)
-```
 
-```{r example-country, include = FALSE}
-# An invented country of 30 districts. We follow districts A, B and C;
-# the others are simulated around a common rate.
-set.seed(1)
-ids <- sprintf("D%02d", 1:30)
-ids[c(8, 11, 22)] <- c("A", "B", "C")
 
-others <- tibble::tibble(
-  district = ids,
-  pop0 = round(stats::runif(30, 80000, 300000), -3),
-  rate = 8e-5 * exp(stats::rnorm(30, 0, 0.3))
-) |>
-  dplyr::cross_join(tibble::tibble(year = 2022:2026)) |>
-  dplyr::mutate(
-    population_u15 = round(pop0 * 1.03^(year - 2022), -3),
-    npafp_cases = stats::rpois(
-      dplyr::n(), population_u15 * rate * ifelse(year == 2026, 0.9, 1)
-    )
-  ) |>
-  dplyr::filter(!district %in% c("A", "B", "C")) |>
-  dplyr::select(district, year, npafp_cases, population_u15)
-
-teaching <- tibble::tribble(
-  ~district, ~year, ~npafp_cases, ~population_u15,
-  "A", 2022, 8, 100000, "A", 2023, 10, 105000,
-  "A", 2024, 9, 110000, "A", 2025, 11, 115000,
-  "A", 2026, 6, 120000,
-  "B", 2025, 1, 40000, "B", 2026, 1, 42000,
-  "C", 2022, 0, 250000, "C", 2023, 1, 250000,
-  "C", 2024, 0, 250000, "C", 2025, 1, 250000,
-  "C", 2026, 1, 255000
-)
-
-afp <- dplyr::bind_rows(others, teaching) |>
-  dplyr::arrange(district, year)
-
-# the package's results for 2026, used to fill in the numbers below
-res <- spi_direct(afp, first_assessment = 2026, verbose = FALSE)
-row <- function(d) res$summary[res$summary$district == d, ]
-a <- row("A")
-b <- row("B")
-c_ <- row("C")
-nat <- res$national
-```
-
-The direct surveillance performance index (SPI) compares a district's reported cases with the number expected from earlier reporting, then compares that observed-to-expected ratio with the national ratio for the same year. This article works through the calculation for one district and shows how to use `spi_direct()` for all districts.
+The simple surveillance performance index (SPI) compares a district's reported cases with the number expected from earlier reporting, then compares that observed-to-expected ratio with the national ratio for the same year. This article works through the calculation for one district and shows how to use `spi_simple()` for all districts.
 
 Every step is arithmetic that can be checked by hand.
 
@@ -147,7 +80,7 @@ Every step is arithmetic that can be checked by hand.
 }
 </style>
 
-<p><strong>The direct SPI has seven calculation steps.</strong> Each can be
+<p><strong>The simple SPI has seven calculation steps.</strong> Each can be
 reproduced from the reported cases and population data.</p>
 
 <div class="spi-flow">
@@ -202,15 +135,24 @@ $$
 
 In 2026, District A reported 6 NPAFP cases among 120 000 children under 15, a rate of 5.0 per 100 000. This rate tells us how many cases were reported for the size of the population.
 
-The direct SPI uses the same cases and population, together with earlier years of data. It first asks: **given what this district reported before, how many cases would we expect now?** It compares reported cases with that expected count, then compares the district's ratio with the national ratio.
+The simple SPI uses the same cases and population, together with earlier years of data. It first asks: **given what this district reported before, how many cases would we expect now?** It compares reported cases with that expected count, then compares the district's ratio with the national ratio.
 
 ### 2. Build it step by step
 
 The example is an invented country of 30 districts, with one row per district and year. We follow District A and assess 2026.
 
-```{r district-a}
+
+``` r
 afp |>
   dplyr::filter(district == "A")
+#> # A tibble: 5 x 4
+#>   district  year npafp_cases population_u15
+#>   <chr>    <dbl>       <dbl>          <dbl>
+#> 1 A         2022           8         100000
+#> 2 A         2023          10         105000
+#> 3 A         2024           9         110000
+#> 4 A         2025          11         115000
+#> 5 A         2026           6         120000
 ```
 
 #### Step 1. Add the earlier cases
@@ -227,7 +169,8 @@ Add the under-15 populations for 2022 to 2025: 100 000 + 105 000 + 110 000 + 115
 
 The same three steps in R:
 
-```{r steps-1-3}
+
+``` r
 previous_a <- afp |>
   dplyr::filter(district == "A", year < 2026) |>
   dplyr::summarise(
@@ -239,17 +182,21 @@ previous_a <- afp |>
   )
 
 previous_a
+#> # A tibble: 1 x 3
+#>   previous_cases previous_child_years previous_rate
+#>            <dbl>                <dbl>         <dbl>
+#> 1             38               430000          8.84
 ```
 
-#### Can the direct SPI be calculated?
+#### Can the simple SPI be calculated?
 
-The direct SPI requires at least one earlier year and one earlier NPAFP case. This is a requirement for calculating the index, not a threshold for how much historical information is sufficient. A district with one earlier year can receive an SPI, but that value is based on less history than one calculated from several earlier years. With no earlier year, there is no historical rate. With earlier years but no cases, the historical rate and expected count are zero, so O/E is undefined. `history_check` records which applies, and such district-years are left out of the national O/E in Step 6.
+The simple SPI requires at least one earlier year and one earlier NPAFP case. This is a requirement for calculating the index, not a threshold for how much historical information is sufficient. A district with one earlier year can receive an SPI, but that value is based on less history than one calculated from several earlier years. With no earlier year, there is no historical rate. With earlier years but no cases, the historical rate and expected count are zero, so O/E is undefined. `history_check` records which applies, and such district-years are left out of the national O/E in Step 6.
 
 | District | Earlier years | Earlier cases | Earlier child-years | Previous rate |
 |---|---|---|---|---|
-| A | `r a$history_years` | `r num(a$history_cases, 0)` | `r num(a$history_pop, 0)` | `r num(a$history_rate)` |
-| B | `r b$history_years` | `r num(b$history_cases, 0)` | `r num(b$history_pop, 0)` | `r num(b$history_rate)` |
-| C | `r c_$history_years` | `r num(c_$history_cases, 0)` | `r num(c_$history_pop, 0)` | `r num(c_$history_rate)` |
+| A | 4 | 38 | 430 000 | 8.84 |
+| B | 1 | 1 | 40 000 | 2.50 |
+| C | 4 | 2 | 1 000 000 | 0.20 |
 
 Rates are NPAFP cases per 100 000 children under 15.
 
@@ -276,22 +223,23 @@ where $Y$ is NPAFP cases, $P$ is population under 15, and $s < t$ covers the yea
 
 $$
 E = 120\,000 \times \frac{38}{430\,000}
-= `r num(a$expected)`
+= 10.60
 $$
 
-District A's expected count is therefore **`r num(a$expected)` cases**.
+District A's expected count is therefore **10.60 cases**.
 
 #### Step 5. Calculate the district O/E
 
 District A actually reported 6 cases.
 
 $$
-O/E = \frac{6}{`r num(a$expected)`} = `r num(a$oe)`
+O/E = \frac{6}{10.60} = 0.57
 $$
 
-Its observed-to-expected ratio is therefore **`r num(a$oe)`**. Before considering what happened nationally, District A reported about `r pct(a$oe)` of its expected count.
+Its observed-to-expected ratio is therefore **0.57**. Before considering what happened nationally, District A reported about 57% of its expected count.
 
-```{r steps-4-5}
+
+``` r
 current_a <- afp |>
   dplyr::filter(district == "A", year == 2026) |>
   dplyr::mutate(
@@ -303,6 +251,10 @@ current_a <- afp |>
 current_a |>
   dplyr::select(npafp_cases, population_u15, previous_rate, expected,
                 observed_to_expected)
+#> # A tibble: 1 x 5
+#>   npafp_cases population_u15 previous_rate expected observed_to_expected
+#>         <dbl>          <dbl>         <dbl>    <dbl>                <dbl>
+#> 1           6         120000          8.84     10.6                0.566
 ```
 
 #### Step 6. Calculate the national O/E
@@ -311,11 +263,12 @@ Reporting may also have fallen nationally in 2026. To see how District A compare
 
 $$
 O/E_{\text{national}} = \frac{\sum_{j:E_j>0} O_j}{\sum_{j:E_j>0} E_j}
-= \frac{`r mnum(nat$national_observed, 0)`}{`r mnum(nat$national_expected, 1)`}
-= `r num(nat$national_oe)`
+= \frac{456}{510.7}
+= 0.89
 $$
 
-```{r step-6}
+
+``` r
 national <- res$summary |>
   dplyr::filter(expected > 0) |>
   dplyr::summarise(
@@ -325,6 +278,10 @@ national <- res$summary |>
   dplyr::mutate(national_oe = observed / expected)
 
 national
+#> # A tibble: 1 x 3
+#>   observed expected national_oe
+#>      <dbl>    <dbl>       <dbl>
+#> 1      456     511.       0.893
 ```
 
 #### Step 7. Calculate the SPI
@@ -333,28 +290,33 @@ The SPI divides the district's ratio by the national ratio:
 
 $$
 \text{SPI} = \frac{O/E_{\text{district}}}{O/E_{\text{national}}}
-= \frac{`r num(a$oe)`}{`r num(a$national_oe)`} = `r num(a$spi)`
+= \frac{0.57}{0.89} = 0.63
 $$
 
-District A's SPI is therefore `r num(a$spi)`. Its observed-to-expected ratio was `r if (a$spi < 1) "lower than" else if (a$spi > 1) "higher than" else "in line with"` the national ratio.
+District A's SPI is therefore 0.63. Its observed-to-expected ratio was lower than the national ratio.
 
-```{r spi-a}
+
+``` r
 current_a |>
   dplyr::mutate(spi = observed_to_expected / national$national_oe) |>
   dplyr::select(district, observed_to_expected, spi)
+#> # A tibble: 1 x 3
+#>   district observed_to_expected   spi
+#>   <chr>                   <dbl> <dbl>
+#> 1 A                       0.566 0.634
 ```
 
 #### The whole chain for District A
 
 $$
 \begin{aligned}
-\text{Earlier cases} &= `r mnum(a$history_cases, 0)` \\
-\text{Earlier child-years} &= `r mnum(a$history_pop, 0)` \\
-\text{Previous rate} &= \frac{`r mnum(a$history_cases, 0)`}{`r mnum(a$history_pop, 0)`} \times 100\,000 = `r mnum(a$history_rate)` \\
-\text{Expected} &= `r mnum(a$pop, 0)` \times \frac{`r mnum(a$history_cases, 0)`}{`r mnum(a$history_pop, 0)`} = `r mnum(a$expected)` \\
-O/E_{\text{district}} &= \frac{`r mnum(a$observed, 0)`}{`r mnum(a$expected)`} = `r mnum(a$oe)` \\
-O/E_{\text{national}} &= \frac{\sum O}{\sum E} = `r mnum(a$national_oe)` \\
-\text{SPI} &= \frac{`r mnum(a$oe)`}{`r mnum(a$national_oe)`} = `r mnum(a$spi)`
+\text{Earlier cases} &= 38 \\
+\text{Earlier child-years} &= 430\,000 \\
+\text{Previous rate} &= \frac{38}{430\,000} \times 100\,000 = 8.84 \\
+\text{Expected} &= 120\,000 \times \frac{38}{430\,000} = 10.60 \\
+O/E_{\text{district}} &= \frac{6}{10.60} = 0.57 \\
+O/E_{\text{national}} &= \frac{\sum O}{\sum E} = 0.89 \\
+\text{SPI} &= \frac{0.57}{0.89} = 0.63
 \end{aligned}
 $$
 
@@ -378,7 +340,7 @@ $$
 = \frac{0.90}{0.75} = 1.20
 $$
 
-The direct SPI compares current reporting with earlier reporting and with the national ratio. It does not establish that AFP cases were missed. Interpret it alongside the NPAFP rate and the other surveillance indicators. See [Interpreting SPI alongside AFP indicators](spi-interpretation.html).
+The simple SPI compares current reporting with earlier reporting and with the national ratio. It does not establish that AFP cases were missed. Interpret it alongside the NPAFP rate and the other surveillance indicators. See [Interpreting SPI alongside AFP indicators](spi-interpretation.html).
 
 ### 4. Check the numbers behind the SPI
 
@@ -388,15 +350,15 @@ To check a district's SPI, inspect the reported cases, population, earlier repor
 |---|---|
 | Current NPAFP cases | 6 |
 | Current population under 15 | 120 000 |
-| Current NPAFP rate | `r num(a$npafp_rate)` |
-| Earlier cases | `r num(a$history_cases, 0)` |
-| Earlier child-years | `r num(a$history_pop, 0)` |
-| Previous rate | `r num(a$history_rate)` |
-| History check (`history_check`) | `r a$history_check` |
-| Expected cases | `r num(a$expected)` |
-| District observed/expected | `r num(a$oe)` |
-| National observed/expected | `r num(a$national_oe)` |
-| SPI | `r num(a$spi)` |
+| Current NPAFP rate | 5.00 |
+| Earlier cases | 38 |
+| Earlier child-years | 430 000 |
+| Previous rate | 8.84 |
+| History check (`history_check`) | ok |
+| Expected cases | 10.60 |
+| District observed/expected | 0.57 |
+| National observed/expected | 0.89 |
+| SPI | 0.63 |
 
 If the SPI looks surprising, check:
 
@@ -411,7 +373,7 @@ All rates in the table are per 100 000 children under 15. A district that has co
 
 ### 5. Calculate it
 
-Everything above is calculated automatically by `spi_direct()`. With one row per district and year and these column names, one line is enough:
+Everything above is calculated automatically by `spi_simple()`. With one row per district and year and these column names, one line is enough:
 
 | district | year | npafp_cases | population_u15 |
 |---|---|---|---|
@@ -419,28 +381,73 @@ Everything above is calculated automatically by `spi_direct()`. With one row per
 | A | 2023 | 10 | 105 000 |
 | ... | ... | ... | ... |
 
-```{r run}
-spi_results <- spi_direct(afp, verbose = FALSE)
+
+``` r
+spi_results <- spi_simple(afp, verbose = FALSE)
 ```
 
 Printing the result gives a short summary.
 
-```{r print-results}
+
+``` r
 spi_results
+#>
+#> -- Simple SPI --
+#>
+#> Assessment years:   2025-2026
+#> Districts:          30
+#> Latest assessment:  2026
+#> SPI < 1:            16 (53%)
+#> SPI < 0.8:          9 (30%)
+#> SPI < 0.6:          1 (3%)
+#> Population flags:   1
+#> No SPI:             0
+#> Use summary() for the full report, as_tibble() for the table and
+#> spi_simple_explain() for one district.
 ```
 
 By default, assessment starts three years after the first year in the data, providing three earlier years of history. This call therefore calculates results for 2025 and 2026. District B has no SPI in 2025, its first year, because it has no earlier year. To calculate only the 2026 results used above, set `first_assessment = 2026`.
 
 If the national O/E is zero because none of the districts with a positive expected count reported a case, SPI is `NA` for every district. `history_check` can still be `"ok"`: it checks the district's earlier data, not the national ratio.
 
-`spi_direct()` can also use a separate population table and non-standard column names; see `?spi_direct` and [Preparing data for SPI](spi-data-preparation.html).
+`spi_simple()` can also use a separate population table and non-standard column names; see `?spi_simple` and [Preparing data for SPI](spi-data-preparation.html).
 
 ### 6. Inspect a district
 
-`spi_direct_explain()` shows one district's inputs and results in the same order as the worked calculation:
+`spi_simple_explain()` shows one district's inputs and results in the same order as the worked calculation:
 
-```{r explain}
-spi_direct_explain(spi_results, "A", year = 2026)
+
+``` r
+spi_simple_explain(spi_results, "A", year = 2026)
+#>
+#> -- District A, 2026 ------------------------------------------------------------
+#>
+#> -- Current reporting --
+#>
+#> Observed NPAFP cases                6
+#> Current population under 15   120 000
+#> NPAFP rate                       5.00
+#>
+#> -- Previous reporting --
+#>
+#> Previous years                      4
+#> Previous NPAFP cases               38
+#> Previous child-years          430 000
+#> Previous rate                    8.84
+#>
+#> -- Expected reporting --
+#>
+#> Expected NPAFP cases            10.60
+#>
+#> -- SPI --
+#>
+#> District observed / expected     0.57
+#> National observed / expected     0.89
+#> SPI                              0.63
+#>
+#> -- Data checks --
+#>
+#> Population check              no flag
 ```
 
 Use this output to check the inputs and follow the arithmetic from the previous rate to the final SPI. When the SPI cannot be calculated, the output says so and gives the reason. The questions in section 4 can help explain an unexpected result.
@@ -449,19 +456,25 @@ Use this output to check the inputs and follow the arithmetic from the previous 
 
 The labels are in English by default. Set `language` to show them in another language, for example French:
 
-```{r explain-fr, eval = can_translate}
-spi_direct_explain(spi_results, "A", year = 2026, language = "fr")
+
+``` r
+spi_simple_explain(spi_results, "A", year = 2026, language = "fr")
 ```
 
 The labels are translated with the sntutils package, which uses Google Translate through the gtranslate package. Both packages must be installed and an internet connection is needed. The numbers and the `check_` flags are not translated.
 
 ### 7. Check the input data
 
-The SPI uses the population to calculate expected cases, so an abrupt change in the population can move the result. `spi_direct()` checks each district's population series before calculating and returns unusual patterns in `population_qc`. It does not alter the populations you supply, and a flag does not mean the population is wrong.
+The SPI uses the population to calculate expected cases, so an abrupt change in the population can move the result. `spi_simple()` checks each district's population series before calculating and returns unusual patterns in `population_qc`. It does not alter the populations you supply, and a flag does not mean the population is wrong.
 
-```{r population}
+
+``` r
 spi_results$population_qc |>
   dplyr::filter(population_qc != "ok")
+#> # A tibble: 1 x 5
+#>   district population_qc unusual_changes largest_change years
+#>   <chr>    <chr>                   <int>          <dbl> <int>
+#> 1 B        check_history               0         0.0500     2
 ```
 
 The flags identify different patterns:
@@ -472,12 +485,42 @@ The flags identify different patterns:
 
 A flag is a reason to check the source data. A large change can reflect real population movement, a revised population estimate, or a boundary change.
 
-## Direct and model-based SPI
+### 8. Compare with the NPAFP target
 
-The direct SPI uses each district's own earlier rate unchanged. It provides a single SPI value that can be reproduced from the district's cases and population and the national ratio. It does not quantify uncertainty, and it cannot be calculated when there is no earlier year or no earlier NPAFP case, or when the national ratio is zero.
+`spi_compare_npafp()` places each district-year in one of four categories, according to whether its SPI is below 1 and whether its NPAFP rate is below the target. Pass the simple SPI result directly; it already contains the cases and population:
 
-The model-based SPI uses reporting patterns across districts and time to estimate expected counts, allowing for differences between neighbouring districts, seasonal patterns and variation in case counts. It also quantifies uncertainty in expected reporting. This is particularly useful where historical information is sparse. See [Getting started with SPI](spi-getting-started.html) for that workflow.
+
+``` r
+comparison <- spi_compare_npafp(spi_results, npafp_target = 3, verbose = FALSE)
+comparison
+#>
+#> -- SPI and NPAFP classification ------------------------------------------------
+#> SPI cut: 1 (median rule) | NPAFP target: 3 per 100,000 person-years
+#> 59 district-years | agreement 40.7% | kappa -0.10 | McNemar p 0.0000
+#>
+#>
+#> -- Category counts --
+#> # A tibble: 4 x 3
+#>   category                     n   pct
+#>   <chr>                    <int> <dbl>
+#> 1 Neither below               24  40.7
+#> 2 SPI below threshold only    32  54.2
+#> 3 NPAFP below target only      3   5.1
+#> 4 Both below                   0   0
+```
+
+District-years without an SPI are left out of the comparison. [Interpreting SPI](spi-interpretation.html#absolute-and-relative-reporting) explains each category.
+
+Pass the comparison to `spi_field_guide(comparison)` to review districts using STEPS. For the simple SPI, the default cutoff is `spi_cut = 0.5`. This selects larger relative shortfalls for review; it does not measure uncertainty. [Using SPI for district review](spi-field-guide.html) explains the review labels.
+
+## Simple and model-based SPI
+
+Both versions compare a district's current reporting with earlier reporting and the national ratio. They calculate expected counts differently and provide different outputs.
+
+The simple SPI uses each district's own earlier rate unchanged. Each value can be reproduced by hand from the district's cases and population and the national ratio, and the calculation can be done in a spreadsheet. It does not quantify uncertainty, and it cannot be calculated when there is no earlier year or no earlier NPAFP case, or when the national ratio is zero.
+
+The model-based SPI estimates the expected count with a spatial and temporal model. It adds uncertainty intervals and monthly estimates, and gives more stable expected counts where a district's history is short or sparse. See [Calculating the model-based SPI](spi-model.html) for that workflow.
 
 ## Technical details
 
-The full specification is in [How SPI works](spi-methods.html#the-direct-spi). In R, open it with `vignette("spi-methods", package = "spi")`.
+The full specification is in [How SPI works](spi-methods.html#the-simple-spi). In R, open it with `vignette("spi-methods", package = "spi")`.

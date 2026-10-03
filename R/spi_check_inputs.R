@@ -1,8 +1,8 @@
 #' Check the inputs before calculating SPI
 #'
 #' Checks case counts, population denominators, and district boundaries before
-#' fitting the model-based SPI (`method = "model"`) or calculating the direct
-#' SPI (`method = "direct"`). Reports mismatched district IDs, missing periods,
+#' fitting the model-based SPI (`method = "model"`) or calculating the simple
+#' SPI (`method = "simple"`). Reports mismatched district IDs, missing periods,
 #' invalid population values, and geometry problems together.
 #'
 #' Issues have three severity levels:
@@ -17,61 +17,61 @@
 #' [spi_expected()] calls this check and stops on errors. Run it separately
 #' to review warnings before fitting.
 #'
-#' **Direct SPI.** With `method = "direct"`, `cases` is the district-year table
-#' passed to [spi_direct()] and `shapefile` is not needed. The check covers
+#' **Simple SPI.** With `method = "simple"`, `cases` is the district-year table
+#' passed to [spi_simple()] and `shapefile` is not needed. The check covers
 #' missing columns, years that are not whole numbers, invalid or negative
 #' counts, duplicate district-years, missing, zero or negative populations,
 #' district-years that would be left out or counted as zero cases, and the
-#' population flags that [spi_direct()] returns in `population_qc`.
+#' population flags that [spi_simple()] returns in `population_qc`.
 #'
 #' @param cases For `method = "model"`, a tibble with the district identifier
 #'   (see `id_col`), `month` (Date), and `count` (integer-valued). For
-#'   `method = "direct"`, the district-year table: the district identifier,
+#'   `method = "simple"`, the district-year table: the district identifier,
 #'   the year (`year_col`), the number of cases (`count_col`) and, when
 #'   `population` is `NULL`, the population (`pop_col`).
 #' @param population Tibble with the district identifier, the denominator
 #'   column (see `pop_col`), and either a `month` (Date) or `year` (integer)
 #'   column. The time unit is inferred from these columns. For
-#'   `method = "direct"` it is optional and keyed by year; `NULL` takes the
+#'   `method = "simple"` it is optional and keyed by year; `NULL` takes the
 #'   population from `cases`.
 #' @param shapefile An `sf` object of district polygons, or a pre-built `nb`
 #'   neighbour object. Geometry validity is only checked for `sf` input.
-#'   Required for `method = "model"`; not used for `method = "direct"`.
+#'   Required for `method = "model"`; not used for `method = "simple"`.
 #' @param covariates Optional tibble of district covariates. Only its ids are
 #'   compared with the district IDs in the case data.
 #' @param id_col Character. Name of the district identifier column, shared by
 #'   `cases`, `population`, `covariates`, and `shapefile`. Default
 #'   `"district_id"` for `method = "model"` and `"district"` for
-#'   `method = "direct"`.
+#'   `method = "simple"`.
 #' @param pop_col Character. Name of the denominator column. Default
 #'   `"pop_u15"` for `method = "model"` and `"population_u15"` for
-#'   `method = "direct"`.
+#'   `method = "simple"`.
 #' @param verbose Logical. Print the report once built. Default `TRUE`.
 #' @param method Character. `"model"` (default) checks the inputs of
-#'   [spi_index()]; `"direct"` checks the inputs of [spi_direct()].
+#'   [spi_index()]; `"simple"` checks the inputs of [spi_simple()].
 #' @param year_col,count_col Character. Year and case-count columns for
-#'   `method = "direct"`. Defaults `"year"` and `"npafp_cases"`.
+#'   `method = "simple"`. Defaults `"year"` and `"npafp_cases"`.
 #'
 #' @return A `spi_input_check` object: a list with `issues` (a tibble of
 #'   findings by severity, one row each with `severity`, `code`, `message`,
 #'   and the affected `ids`), `gaps` (a `district_id` x `month` tibble of
 #'   missing district-months, or `district_id` x `year` for
-#'   `method = "direct"`), `n_error` / `n_warning` / `n_note` counts, `ok`
+#'   `method = "simple"`), `n_error` / `n_warning` / `n_note` counts, `ok`
 #'   (`TRUE` when there are no error-level issues), and the numbers of
 #'   districts and months or years. Has a `print` method.
 #'
-#' @seealso [spi_expected()], [spi_direct()], [spi_adjacency()], and
+#' @seealso [spi_expected()], [spi_simple()], [spi_adjacency()], and
 #'   `vignette("spi-data-preparation")` for how to prepare the inputs.
 #'
 #' @examples
-#' # inputs of the direct SPI: annual counts and population
+#' # inputs of the simple SPI: annual counts and population
 #' annual <- synth_surveillance$cases |>
 #'   dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
 #'   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 #' spi_check_inputs(
 #'   cases = annual,
 #'   population = synth_surveillance$population,
-#'   method = "direct",
+#'   method = "simple",
 #'   id_col = "adm2_guid",
 #'   count_col = "count",
 #'   pop_col = "pop_u15"
@@ -95,13 +95,13 @@ spi_check_inputs <- function(cases,
                             id_col = NULL,
                             pop_col = NULL,
                             verbose = TRUE,
-                            method = c("model", "direct"),
+                            method = c("model", "simple"),
                             year_col = "year",
                             count_col = "npafp_cases") {
   method <- match.arg(method)
-  direct <- method == "direct"
-  if (is.null(id_col)) id_col <- if (direct) "district" else "district_id"
-  if (is.null(pop_col)) pop_col <- if (direct) "population_u15" else "pop_u15"
+  simple <- method == "simple"
+  if (is.null(id_col)) id_col <- if (simple) "district" else "district_id"
+  if (is.null(pop_col)) pop_col <- if (simple) "population_u15" else "pop_u15"
   stopifnot(
     is.character(id_col), length(id_col) == 1,
     is.character(pop_col), length(pop_col) == 1,
@@ -109,8 +109,8 @@ spi_check_inputs <- function(cases,
     is.null(population) || is.data.frame(population),
     is.null(covariates) || is.data.frame(covariates)
   )
-  if (direct) {
-    out <- .check_inputs_direct(
+  if (simple) {
+    out <- .check_inputs_simple(
       cases, population, id_col, year_col, count_col, pop_col
     )
     out$call <- match.call()
@@ -401,8 +401,8 @@ print.spi_input_check <- function(x, ...) {
   cli::cli_h1("spi input check")
 
   d <- x$dims
-  direct <- identical(x$method, "direct")
-  dim_str <- if (direct && !is.na(d$n_years)) {
+  simple <- identical(x$method, "simple")
+  dim_str <- if (simple && !is.na(d$n_years)) {
     .ic_msg(
       "{format(d$n_districts, big.mark = ',')} districts x \\
        {d$n_years} years"
@@ -437,8 +437,8 @@ print.spi_input_check <- function(x, ...) {
 
   cli::cli_rule()
   if (x$ok) {
-    next_step <- if (direct) {
-      "inputs can be passed to spi_direct()"
+    next_step <- if (simple) {
+      "inputs can be passed to spi_simple()"
     } else {
       "a fit can proceed"
     }
@@ -447,7 +447,7 @@ print.spi_input_check <- function(x, ...) {
        ({x$n_warning} warning{?s}, {x$n_note} note{?s})."
     )
   } else {
-    next_step <- if (direct) "calculating" else "fitting"
+    next_step <- if (simple) "calculating" else "fitting"
     cli::cli_alert_danger(
       "{x$n_error} error{?s} -- resolve before {next_step}."
     )
@@ -456,12 +456,12 @@ print.spi_input_check <- function(x, ...) {
 }
 
 # ---------------------------------------------------------------------------
-# direct SPI inputs
+# simple SPI inputs
 # ---------------------------------------------------------------------------
 
 # Same graded report as the model check, for the district-year inputs of
-# spi_direct(); every check appends and none stops the report.
-.check_inputs_direct <- function(cases, population, id_col, year_col,
+# spi_simple(); every check appends and none stops the report.
+.check_inputs_simple <- function(cases, population, id_col, year_col,
                                  count_col, pop_col) {
   issues <- list()
   add <- function(severity, code, message, ids = NULL) {
@@ -627,7 +627,7 @@ print.spi_input_check <- function(x, ...) {
     }
   }
 
-  # --- population flags, as returned by spi_direct() ----
+  # --- population flags, as returned by spi_simple() ----
   usable <- NULL
   if (!is.null(ps)) {
     usable <- ps[!is.na(ps$value) & ps$value > 0, ]
@@ -640,7 +640,7 @@ print.spi_input_check <- function(x, ...) {
   }
   if (!is.null(usable) && n_years >= 2L) {
     usable$year <- as.integer(usable$year)
-    qc <- .direct_population_qc(usable, max(usable$year))$by_district
+    qc <- .simple_population_qc(usable, max(usable$year))$by_district
     for (flag in c("check_spike", "check_change", "check_history")) {
       ids <- qc$district_id[qc$population_qc == flag]
       if (length(ids) > 0) {
@@ -655,7 +655,7 @@ print.spi_input_check <- function(x, ...) {
   # --- enough years ------------------------------------
   if (!is.na(n_years) && n_years < 2L) {
     add("error", "too_few_years",
-      "fewer than two years of data; the direct SPI needs earlier years")
+      "fewer than two years of data; the simple SPI needs earlier years")
   } else if (!is.na(n_years) && n_years < 4L) {
     add("warning", "few_years", .ic_msg(
       "{n_years} years of data; set {.arg first_assessment} or \\
@@ -698,7 +698,7 @@ print.spi_input_check <- function(x, ...) {
       ),
       id_col = id_col,
       pop_col = pop_col,
-      method = "direct",
+      method = "simple",
       call = NULL
     ),
     class = "spi_input_check"

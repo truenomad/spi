@@ -307,3 +307,101 @@ test_that("comparison rejects ambiguous or incomplete denominators and counts", 
   expect_error(spi_compare_npafp(index, cases = index$data[-1, ],
     population = pop, verbose = FALSE), "cases.*missing district-years")
 })
+
+# --- the simple SPI goes through the same comparison ---------------------
+
+# six districts, 2021-2025. F has no earlier case, so it has no simple SPI in
+# the assessment years and must be left out of the comparison.
+simple_for_comparison <- function() {
+  grid <- expand.grid(
+    district = c("A", "B", "C", "D", "E", "F"), year = 2021:2025,
+    stringsAsFactors = FALSE
+  )
+  cases <- c(A = 10, B = 6, C = 3, D = 20, E = 8, F = 0)[grid$district]
+  # A reports far fewer cases in the last two years
+  cases[grid$district == "A" & grid$year >= 2024] <- 2
+  cases[grid$district == "F" & grid$year == 2025] <- 1
+  data <- tibble::tibble(
+    district = grid$district,
+    year = grid$year,
+    npafp_cases = cases,
+    population_u15 = c(A = 2e5, B = 1e5, C = 1.5e5, D = 4e5, E = 2e5,
+                       F = 1e5)[grid$district]
+  )
+  spi_simple(data, first_assessment = 2023, verbose = FALSE)
+}
+
+test_that("spi_compare_npafp accepts a simple SPI without a population table", {
+  simple <- simple_for_comparison()
+  conc <- spi_compare_npafp(simple, verbose = FALSE)
+
+  expect_s3_class(conc, "spi_compare_npafp")
+  expect_identical(conc$method, "simple")
+  dy <- conc$district_year
+  # F has no SPI in any assessment year and is left out
+  expect_false("F" %in% dy$district)
+  expect_equal(nrow(dy), sum(is.finite(simple$summary$spi)))
+  # the single SPI value sits in spi_median; there is no interval
+  s <- simple$summary[is.finite(simple$summary$spi), ]
+  s <- s[order(s$year, s$district), ]
+  dy <- dy[order(dy$year, dy$district), ]
+  expect_equal(dy$spi_median, s$spi)
+  expect_equal(dy$expected_total, s$expected)
+  expect_true(all(is.na(dy$spi_q05) & is.na(dy$spi_q95)))
+  # NPAFP rate from the counts and population already in the summary
+  expect_equal(dy$npafp_rate, s$observed / s$pop * 1e5)
+  expect_false(anyNA(dy$category))
+  expect_equal(conc$metrics$n, nrow(dy))
+})
+
+test_that("a supplied population table overrides the simple summary", {
+  simple <- simple_for_comparison()
+  pop <- simple$summary[c("district", "year", "pop")]
+  pop$pop <- pop$pop * 2
+  conc <- spi_compare_npafp(simple, population = pop, pop_col = "pop",
+                            verbose = FALSE)
+  base <- spi_compare_npafp(simple, verbose = FALSE)
+  expect_equal(conc$district_year$npafp_rate,
+               base$district_year$npafp_rate / 2)
+})
+
+test_that("the simple SPI reports the district-years it leaves out", {
+  expect_message(
+    spi_compare_npafp(simple_for_comparison()),
+    "without a simple SPI left out"
+  )
+})
+
+test_that("the simple SPI refuses the interval rule and rolling years", {
+  simple <- simple_for_comparison()
+  expect_error(
+    spi_compare_npafp(simple, spi_rule = "interval", verbose = FALSE),
+    "credible interval"
+  )
+  expect_error(
+    spi_compare_npafp(simple, year_end_month = 6, verbose = FALSE),
+    "calendar years"
+  )
+  expect_error(
+    spi_compare_npafp(list(summary = simple$summary), verbose = FALSE),
+    "spi_simple"
+  )
+})
+
+test_that("a spi_index result still needs a population table", {
+  expect_error(spi_compare_npafp(make_spi_dy(), verbose = FALSE),
+               "population.*required")
+  conc <- spi_compare_npafp(make_spi_dy(), population = make_population(),
+                            verbose = FALSE)
+  expect_identical(conc$method, "model")
+})
+
+test_that("the comparison plot labels a simple SPI without a posterior", {
+  skip_if_not_installed("ggplot2")
+  p <- plot(spi_compare_npafp(simple_for_comparison(), verbose = FALSE))
+  expect_s3_class(p, "ggplot")
+  expect_identical(p$labels$y, "SPI")
+  pm <- plot(spi_compare_npafp(make_spi_dy(), population = make_population(),
+                               verbose = FALSE))
+  expect_identical(pm$labels$y, "SPI (posterior median)")
+})

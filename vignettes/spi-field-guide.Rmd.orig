@@ -35,18 +35,19 @@ INLA::inla.setOption(num.threads = "1:1")
 set.seed(1)
 ```
 
-The STEPS field guide combines SPI with timeliness, stool adequacy, and findings from nearby districts and earlier years. It uses the model-based SPI from `spi_index()`. This article uses synthetic data to show how to calculate SPI and review the results for individual districts:
+The STEPS field guide combines SPI with timeliness, stool adequacy, and findings from nearby districts and earlier years. It works with the simple SPI and the model-based SPI. The examples below use synthetic data and the model-based SPI from `spi_index()`. [With the simple SPI](#with-the-simple-spi) explains how the review rules differ for `spi_simple()` results.
 
 1. [Calculate SPI and compare it with the NPAFP target](#from-spi-to-review). SPI uses only case counts and population.
 2. [Prepare counts for specimen transport and stool adequacy](#prepare-process-data) that supply timeliness and stool adequacy.
 3. [Run the STEPS field guide](#run-the-field-guide), which combines SPI with those counts through [the five STEPS components](#the-five-steps-components).
 4. [Read the review labels](#review-labels).
 5. If needed, change [the SPI cutoff](#changing-spi_cut) or [the classification rule](#changing-the-classification-rule).
-6. Produce [a field guide table](#field-guide-table) or [a one-page district report](#district-report).
+6. To use the simple SPI instead, see [With the simple SPI](#with-the-simple-spi).
+7. Produce [a field guide table](#field-guide-table) or [a one-page district report](#district-report).
 
 ## From SPI to review
 
-The field guide starts from a `spi_compare_npafp()` result, which classifies each district-year by its SPI and the conventional NPAFP target. This code calculates annual and monthly SPI and builds that comparison. [Getting started with SPI](spi-getting-started.html) explains the first two steps.
+The field guide starts from a `spi_compare_npafp()` result, which classifies each district-year by its SPI and the conventional NPAFP target. This code calculates annual and monthly SPI and builds that comparison. [Calculating the model-based SPI](spi-model.html) explains the first two steps.
 
 ```{r spi}
 library(spi)
@@ -253,6 +254,41 @@ dplyr::bind_rows(
   .id = "spi_rule"
 )
 ```
+
+## With the simple SPI
+
+Pass a `spi_simple()` result to `spi_compare_npafp()`, then pass the comparison to `spi_field_guide()`. The simple SPI has no credible interval, so the strength component uses the SPI value alone. The default cutoff is `spi_cut = 0.5`. A district-year below this cutoff is labelled `Priority for review` when extent or persistence also raises concern, or `Monitor` when neither does. The cutoff selects larger relative shortfalls; it does not measure uncertainty.
+
+```{r simple}
+annual <- synth$cases |>
+  dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
+
+spi_simple_year <- spi_simple(
+  data = annual,
+  population = synth$population,
+  id_col = "adm2_guid",
+  count_col = "count",
+  pop_col = "pop_u15",
+  first_assessment = 2018,
+  verbose = FALSE
+)
+
+comparison_simple <- spi_compare_npafp(
+  spi = spi_simple_year,
+  boundaries = synth$boundaries,
+  npafp_target = 3,
+  verbose = FALSE
+)
+
+dplyr::bind_rows(
+  model = label_counts(comparison),
+  simple = label_counts(comparison_simple, cut = 0.5),
+  .id = "spi"
+)
+```
+
+Set `spi_cut` to choose a different cutoff for the simple SPI. Seasonal context needs monthly model-based SPI results (`spi_month`), so it is not available from the simple SPI alone.
 
 ## Field guide table
 

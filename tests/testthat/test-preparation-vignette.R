@@ -1,4 +1,4 @@
-test_that("the preparation vignette creates the inputs used by its direct examples", {
+test_that("the preparation vignette creates the inputs used by its simple examples", {
   # the source keeps the chunk labels; it is not part of the built package
   path <- test_path("..", "..", "vignettes", "spi-data-preparation.Rmd.orig")
   skip_if_not(file.exists(path), "Vignette source is not available")
@@ -16,7 +16,7 @@ test_that("the preparation vignette creates the inputs used by its direct exampl
   run_chunk("annual-example")
   run_chunk("standard")
   combined <- example$spi_results
-  expect_s3_class(combined, "spi_direct")
+  expect_s3_class(combined, "spi_simple")
   ok <- combined$summary$history_check == "ok"
   expect_true(all(is.finite(combined$summary$spi[ok])))
   expect_true(all(is.na(combined$summary$spi[!ok])))

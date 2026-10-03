@@ -7,7 +7,7 @@
 spi_compare_npafp(
   spi,
   cases = NULL,
-  population,
+  population = NULL,
   year_end_month = 12L,
   spi_threshold = 1,
   spi_rule = c("median", "interval"),
@@ -21,24 +21,29 @@ spi_compare_npafp(
 )
 }
 \arguments{
-\item{spi}{Object of class \code{spi_index} at \code{district_year} level.}
+\item{spi}{A district-year SPI: a \code{\link[=spi_simple]{spi_simple()}} result, or a
+\code{\link[=spi_index]{spi_index()}} result at \code{district_year} level.}
 
 \item{cases}{Optional tibble with the district id column and \code{count}
 (integer), and either \code{month} or \code{year}. Pass to override the observed
 counts in \code{spi$summary}. Default: NULL (use the index's observed counts).}
 
 \item{population}{Tibble with the district id column, \code{year} (integer),
-and the population denominator column (see \code{pop_col}). Required, with one
+and the population denominator column (see \code{pop_col}), with one
 positive denominator per district and reporting year. For non-calendar
-years, supply the mean population over that reporting year.}
+years, supply the mean population over that reporting year. Required for
+a \code{\link[=spi_index]{spi_index()}} result. For a \code{\link[=spi_simple]{spi_simple()}} result the default NULL uses
+the population already in \code{spi$summary}.}
 
 \item{year_end_month}{Integer 1 to 12. Month in which the reporting year
 closes, matching the \code{year_end_month} the SPI was computed with. The
 conventional rate is grouped on the same rolling year, so the two sides of
-the comparison cover the same months. Default: 12 (calendar years).}
+the comparison cover the same months. The simple SPI uses calendar years
+only. Default: 12 (calendar years).}
 
-\item{spi_threshold}{Numeric. A posterior median below this value counts
-as below the threshold, subject to \code{spi_rule}. The reference is 1: with
+\item{spi_threshold}{Numeric. An SPI below this value counts as below the
+threshold, subject to \code{spi_rule}. For the model-based SPI the comparison
+uses the posterior median. The reference is 1: with
 national centring, district and national observed-to-expected ratios are
 equal. Default: 1.}
 
@@ -46,7 +51,8 @@ equal. Default: 1.}
 \code{"interval"} additionally requires the 90\% upper bound (\code{spi_q95}) to
 be below 1. This requires stronger evidence of a relative reporting
 shortfall, not evidence of missed cases. The paper uses this rule for a
-sensitivity analysis. Default: \code{"median"}.}
+sensitivity analysis. The simple SPI has no interval, so it accepts only
+\code{"median"}. Default: \code{"median"}.}
 
 \item{npafp_target}{Numeric. NPAFP reporting-rate target per
 \code{npafp_multiplier} person-years. Set this to the target used by the
@@ -61,7 +67,7 @@ comparison by. Any column present in the district-year summary is valid:
 Set NULL to summarise all district-years together. Default: NULL.}
 
 \item{id_col}{Character. Name of the district id column. Inferred from
-\code{spi$id_col} if NULL. Default: NULL.}
+the SPI result if NULL. Default: NULL.}
 
 \item{pop_col}{Character. Population denominator column name. Default:
 \code{"pop_u15"}.}
@@ -79,8 +85,8 @@ An object of class \code{spi_compare_npafp}. A list with:
 \item{district_year}{Tibble with per-district-year classification:
 \code{{id_col}}, \code{year}, \code{count_annual}, \code{pop_u15}, \code{npafp_rate},
 \code{npafp_adequate} (logical: rate target met), \code{observed} (reported count
-from \code{spi$summary}, when present), \code{expected_total} (modelled
-expected count, when present), \code{spi_median}, \code{spi_q05}, \code{spi_q95},
+from \code{spi$summary}, when present), \code{expected_total} (expected count,
+when present), \code{spi_median}, \code{spi_q05}, \code{spi_q95},
 \code{spi_below_threshold} (logical), \code{spi_pass} (logical,
 \code{!spi_below_threshold}), \code{category} (factor: Neither below / SPI below
 threshold only / NPAFP below target only / Both below).}
@@ -92,6 +98,7 @@ non-NULL; else NULL.}
 \item{thresholds}{Named list echoing the SPI threshold, the \code{spi_rule}, and
 the NPAFP target used.}
 \item{id_col}{The id column name.}
+\item{method}{\code{"simple"} or \code{"model"}: which SPI was compared.}
 \item{call}{Matched call.}
 }
 }
@@ -112,8 +119,28 @@ differ; they do not establish whether surveillance is adequate.
 Agreement is summarised as percentage agreement and Cohen's kappa, plus a
 McNemar test of whether one measure places more district-years below its
 threshold than the other.
+
+The simple SPI and the model-based SPI go through the same comparison. For
+a simple result, \code{spi_median} holds the single SPI value and \code{spi_q05} and
+\code{spi_q95} are \code{NA}. District-years without a simple SPI (see
+\code{history_check} in \code{\link[=spi_simple]{spi_simple()}}) are left out of the comparison.
 }
 \examples{
+annual <- synth_surveillance$cases |>
+  dplyr::mutate(year = as.integer(format(month, "\%Y"))) |>
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
+
+simple <- spi_simple(
+  data = annual,
+  population = synth_surveillance$population,
+  id_col = "adm2_guid",
+  count_col = "count",
+  pop_col = "pop_u15",
+  verbose = FALSE
+)
+
+spi_compare_npafp(simple, npafp_target = 3)
+
 \dontrun{
 spi_dy <- spi_index(
   cases = synth_surveillance$cases,
@@ -138,5 +165,5 @@ plot(comparison)
 }
 }
 \seealso{
-\code{\link[=spi_index]{spi_index()}}, \code{\link[=spi_expected]{spi_expected()}}
+\code{\link[=spi_simple]{spi_simple()}}, \code{\link[=spi_index]{spi_index()}}, \code{\link[=spi_compare_npafp_maps]{spi_compare_npafp_maps()}}
 }

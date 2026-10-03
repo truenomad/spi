@@ -19,9 +19,11 @@ spi is an R package for identifying changes in non-polio acute flaccid
 paralysis (NPAFP) reporting relative to a district's preceding reporting
 history. The surveillance performance index (SPI) compares reported
 NPAFP cases with the number expected, then compares the district's
-observed-to-expected ratio with the corresponding national ratio.
-Expected counts can be estimated using the full spatial and temporal
-model or directly from each district's own earlier reporting.
+observed-to-expected ratio with the corresponding national ratio. The
+package offers two ways to obtain the expected count. The simple SPI
+uses each district's own earlier rate. The model-based SPI estimates it
+with a spatial and temporal model, which adds uncertainty intervals and
+monthly results.
 
 SPI complements the conventional NPAFP rate. The NPAFP rate measures the
 absolute level of reporting, whereas SPI measures reporting relative to
@@ -44,7 +46,7 @@ pak::pak("truenomad/spi")
 ```
 
 The model-based functions, such as `spi_expected()` and `spi_index()`,
-need INLA, which is not on CRAN. `spi_direct()` needs neither INLA nor
+need INLA, which is not on CRAN. `spi_simple()` needs neither INLA nor
 district boundaries. Install INLA with:
 
 ``` r
@@ -56,8 +58,8 @@ install.packages(
 
 ## Overview
 
-For the direct SPI, start with annual NPAFP counts and under-15
-population estimates by district. `spi_direct()` calculates annual SPI
+For the simple SPI, start with annual NPAFP counts and under-15
+population estimates by district. `spi_simple()` calculates annual SPI
 without INLA or district boundaries. For the model-based SPI, start with
 monthly NPAFP counts, annual under-15 population estimates, and district
 boundaries. `spi_index()` estimates expected counts with the spatial and
@@ -80,17 +82,17 @@ library(spi)
 synth <- synth_surveillance
 ```
 
-### The direct SPI
+### The simple SPI
 
-The direct SPI uses each district's own earlier rate: expected cases =
+The simple SPI uses each district's own earlier rate: expected cases =
 current population × earlier cases ÷ earlier child-years.
 
 The figure works through the calculation for a hypothetical district.
 
-<img src="man/figures/spi-direct-worked-example.png" width="100%" alt="Worked direct SPI calculation for a hypothetical district: preceding cases and population give the historical rate, expected cases, the district and national observed-to-expected ratios, and the SPI" />
+<img src="man/figures/spi-simple-worked-example.png" width="100%" alt="Worked simple SPI calculation for a hypothetical district: preceding cases and population give the historical rate, expected cases, the district and national observed-to-expected ratios, and the SPI" />
 
-The direct SPI needs only annual counts and population by district.
-The bundled counts are monthly, so add them up to years first:
+The simple SPI needs only annual counts and population by district. The
+bundled counts are monthly, so add them up to years first:
 
 ``` r
 annual <- synth$cases |>
@@ -101,7 +103,7 @@ annual <- synth$cases |>
 Calculate annual SPI:
 
 ``` r
-spi_direct_dy <- spi_direct(
+spi_simple_dy <- spi_simple(
   annual,
   population = synth$population,
   id_col = "adm2_guid",
@@ -115,63 +117,63 @@ spi_direct_dy <- spi_direct(
 View the results:
 
 ``` r
-spi_direct_dy$summary |>
+spi_simple_dy$summary |>
   dplyr::select(adm2_guid, year, observed, expected, oe, spi, history_check) |>
   dplyr::slice_head(n = 6)
 #> # A tibble: 6 x 7
 #>   adm2_guid                     year observed expected    oe   spi history_check
-#>   <chr>                        <int>    <dbl>    <dbl> <dbl> <dbl> <chr>        
-#> 1 {01325AA0-BEA1-66FE-9B5C-88~  2018        2     1.08 1.86  1.69  ok           
-#> 2 {040649D0-A0BA-C005-ADEF-90~  2018        7     6.74 1.04  0.946 ok           
-#> 3 {04CBADAF-5577-E1AB-12F7-49~  2018       11    25.7  0.428 0.391 ok           
-#> 4 {0673C3E5-5534-6578-70F4-B6~  2018       52    40.6  1.28  1.17  ok           
-#> 5 {069B1B50-BB32-0C5A-DC20-C9~  2018        2     2.49 0.803 0.732 ok           
+#>   <chr>                        <int>    <dbl>    <dbl> <dbl> <dbl> <chr>
+#> 1 {01325AA0-BEA1-66FE-9B5C-88~  2018        2     1.08 1.86  1.69  ok
+#> 2 {040649D0-A0BA-C005-ADEF-90~  2018        7     6.74 1.04  0.946 ok
+#> 3 {04CBADAF-5577-E1AB-12F7-49~  2018       11    25.7  0.428 0.391 ok
+#> 4 {0673C3E5-5534-6578-70F4-B6~  2018       52    40.6  1.28  1.17  ok
+#> 5 {069B1B50-BB32-0C5A-DC20-C9~  2018        2     2.49 0.803 0.732 ok
 #> 6 {07BC4455-2DED-3E72-89F5-F1~  2018        4     9.65 0.415 0.378 ok
 ```
 
 `observed` and `expected` are the reported and expected cases, `oe` is
 their ratio, and `spi` is that ratio divided by the national ratio for
-the year. `spi_direct_explain()` shows how one district's value was
+the year. `spi_simple_explain()` shows how one district's value was
 calculated:
 
 ``` r
-spi_direct_explain(
-  spi_direct_dy,
-  district = spi_direct_dy$summary$adm2_guid[1],
+spi_simple_explain(
+  spi_simple_dy,
+  district = spi_simple_dy$summary$adm2_guid[1],
   year = 2023
 )
-#> 
+#>
 #> -- District {01325AA0-BEA1-66FE-9B5C-88AA603382F3}, 2023 -----------------------
-#> 
+#>
 #> -- Current reporting --
-#> 
+#>
 #> Observed NPAFP cases                  1
 #> Current population under 15     205 717
 #> NPAFP rate                         0.49
-#> 
+#>
 #> -- Previous reporting --
-#> 
+#>
 #> Previous years                        8
 #> Previous NPAFP cases                 16
 #> Previous child-years          1 526 968
 #> Previous rate                      1.05
-#> 
+#>
 #> -- Expected reporting --
-#> 
+#>
 #> Expected NPAFP cases               2.16
-#> 
+#>
 #> -- SPI --
-#> 
+#>
 #> District observed / expected       0.46
 #> National observed / expected       1.14
 #> SPI                                0.41
-#> 
+#>
 #> -- Data checks --
-#> 
+#>
 #> Population check                no flag
 ```
 
-The direct SPI gives one value per district and year, without credible
+The simple SPI gives one value per district and year, without credible
 intervals. A district with no earlier year or no earlier NPAFP case has
 `spi = NA`; `history_check` records the reason. National centring uses
 only districts with positive expected counts. If those districts report
@@ -179,17 +181,19 @@ no cases in the assessment year, the national ratio is zero and SPI is
 `NA` for every district.
 
 With a table that has the columns `district`, `year`, `npafp_cases` and
-`population_u15`, `spi_direct(afp_data)` needs no other argument.
+`population_u15`, `spi_simple(afp_data)` needs no other argument.
 
-For the full direct SPI workflow, see [The direct
-SPI](https://truenomad.github.io/spi/articles/spi-direct.html).
+For the full simple SPI workflow, see [Calculating the simple
+SPI](https://truenomad.github.io/spi/articles/spi-simple.html).
 
 ### The model-based SPI
 
-Use the model-based SPI when you need credible intervals or monthly
-results. `spi_index()` estimates each assessment year's expected counts
-from the preceding years only, so it refits the model once per year.
-This example assesses 2018 to 2024 without covariates.
+Use the model-based SPI when you need credible intervals, monthly
+results, or more stable expected counts for districts with short or
+sparse reporting histories. `spi_index()` estimates each assessment
+year's expected counts from the preceding years only, so it refits the
+model once per year. This example assesses 2018 to 2024 without
+covariates.
 
 Calculate annual SPI, passing the district boundaries directly:
 
@@ -216,11 +220,11 @@ spi_dy |>
 #> # A tibble: 6 x 5
 #>   adm2_guid                               year spi_median spi_q05 spi_q95
 #>   <chr>                                  <dbl>      <dbl>   <dbl>   <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018      0.874   0.504   1.65 
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2019      1.98    1.13    3.71 
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2020      1.17    0.703   2.00 
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2021      1.08    0.621   1.91 
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2022      0.811   0.443   1.45 
+#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018      0.882   0.492   1.65
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2019      1.98    1.13    3.71
+#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2020      1.17    0.703   2.00
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2021      1.08    0.621   1.91
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2022      0.818   0.453   1.44
 #> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2023      0.361   0.205   0.593
 ```
 
@@ -230,19 +234,20 @@ no reported cases has an SPI of 0 and a 0 to 0 interval, because the
 interval reflects uncertainty in the expected count only; this is not
 certainty about surveillance performance.
 
-For the full model-based SPI workflow, see [Getting started with
-SPI](https://truenomad.github.io/spi/articles/spi-getting-started.html).
+For the full model-based SPI workflow, see [Calculating the model-based
+SPI](https://truenomad.github.io/spi/articles/spi-model.html).
 
 ## Recommended workflow
 
-For the direct SPI:
+For the simple SPI:
 
-1.  Check the table with `spi_check_inputs(method = "direct")`.
-2.  Calculate annual SPI with `spi_direct()`.
+1.  Check the table with `spi_check_inputs(method = "simple")`.
+2.  Calculate annual SPI with `spi_simple()`.
 3.  Review `history_check` for missing SPI values and `population_qc`
     for population records to check.
 4.  Check the national observed-to-expected ratio.
-5.  Inspect individual districts with `spi_direct_explain()`.
+5.  Inspect individual districts with `spi_simple_explain()`.
+6.  Compare SPI with the NPAFP target using `spi_compare_npafp()`.
 
 For the model-based SPI:
 
@@ -253,42 +258,57 @@ For the model-based SPI:
 3.  Compare SPI with the NPAFP target using `spi_compare_npafp()`.
 4.  Check the credible intervals and the national observed-to-expected
     ratio.
-5.  Organise district review with `spi_field_guide()` and the STEPS
-    components.
+
+Pass either comparison to `spi_field_guide()` to review districts using
+the STEPS components. For the simple SPI, the default cutoff is
+`spi_cut = 0.5`. This selects larger relative shortfalls for review; it
+does not measure uncertainty.
 
 ## Learn more
 
-The [package website](https://truenomad.github.io/spi/) includes these
-articles:
+The [package website](https://truenomad.github.io/spi/) groups the
+articles as follows.
 
-- [The direct
-  SPI](https://truenomad.github.io/spi/articles/spi-direct.html): work
-  through the annual calculation without INLA.
+Using SPI:
+
+- [Getting started with
+  SPI](https://truenomad.github.io/spi/articles/spi-getting-started.html):
+  what SPI measures, how it differs from the NPAFP rate, and when to use
+  the simple or model-based SPI.
 - [Preparing data for
   SPI](https://truenomad.github.io/spi/articles/spi-data-preparation.html):
   prepare counts, population estimates, and district identifiers.
 - [Using SPI with POLIS
   data](https://truenomad.github.io/spi/articles/spi-polis.html): go
-  from the POLIS AFP line list cleaned with polished to the direct and
+  from the POLIS AFP line list cleaned with polished to the simple and
   model-based SPI.
-- [Getting started with
-  SPI](https://truenomad.github.io/spi/articles/spi-getting-started.html):
-  calculate the model-based SPI and inspect outputs.
-- [How SPI
-  works](https://truenomad.github.io/spi/articles/spi-methods.html): the
-  model, its diagram, the national comparison, and limitations.
 - [Interpreting
   SPI](https://truenomad.github.io/spi/articles/spi-interpretation.html):
   understand SPI alongside the NPAFP rate, timeliness, and stool
   adequacy.
-- [Using SPI for district
-  review](https://truenomad.github.io/spi/articles/spi-field-guide.html):
-  compare SPI with the NPAFP target, run the STEPS field guide, and
-  produce district reports.
+- [How SPI
+  works](https://truenomad.github.io/spi/articles/spi-methods.html): the
+  simple and model-based calculations and their limitations.
+
+Simple SPI:
+
+- [Calculating the simple
+  SPI](https://truenomad.github.io/spi/articles/spi-simple.html): work
+  through the annual calculation by hand, then with the package.
+
+Model-based SPI:
+
+- [Calculating the model-based
+  SPI](https://truenomad.github.io/spi/articles/spi-model.html): fit the
+  model and inspect outputs.
 - [Model options and
   sensitivity](https://truenomad.github.io/spi/articles/spi-model-options.html):
   explore covariates, overdispersion, spatial structure, and sensitivity
   analyses.
+- [Using SPI for district
+  review](https://truenomad.github.io/spi/articles/spi-field-guide.html):
+  compare SPI with the NPAFP target, run the STEPS field guide, and
+  produce district reports.
 
 The [function reference](https://truenomad.github.io/spi/reference/)
 documents all exported functions.

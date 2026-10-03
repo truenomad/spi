@@ -12,6 +12,18 @@
   isTRUE(r$gate_pass %||% r$cri_excludes_1)
 }
 
+# whether a row or guide carries a credible interval. The simple SPI has
+# none, so its interval columns are NA and every display drops them.
+# @noRd
+.fg_has_cri <- function(r) {
+  isTRUE(is.finite(r$spi_q05) && is.finite(r$spi_q95))
+}
+
+# @noRd
+.fg_is_simple <- function(x) {
+  identical(x$method, "simple")
+}
+
 #' Review relative reporting shortfalls with STEPS
 #'
 #' @description
@@ -74,6 +86,14 @@
 #' With `spi_rule = "interval"`, a district-year whose 90% credible interval
 #' includes 1 is labelled `No SPI indication` rather than `Monitor`, so only
 #' shortfalls whose interval lies entirely below 1 are labelled.
+#'
+#' **Simple SPI.** A comparison built from [spi_simple()] has no credible
+#' interval. The strength component uses the SPI value alone. The default
+#' cutoff is `spi_cut = 0.5`, which focuses review on larger relative
+#' shortfalls. This cutoff does not measure uncertainty. A district-year
+#' with an SPI below 0.5 and support from extent
+#' or persistence is labelled `Priority for review`; one below 0.5 without that
+#' support is labelled `Monitor`. `spi_rule = "interval"` is not available.
 #'
 #' Extent compares the share of the other districts in the same `extent_col`
 #' area with an SPI below the cut against the national share in the same year,
@@ -139,7 +159,8 @@
 #'   shortfalls. The same cutoff is used for persistence and extent; the
 #'   credible-interval check still compares with 1. A district above a lower
 #'   cutoff may still need review based on other surveillance indicators.
-#'   Default: 1.
+#'   Default: NULL, which is 1 for the model-based SPI and 0.5 for the simple
+#'   SPI.
 #' @param spi_rule Character, `"median"` or `"interval"`. `"median"` labels
 #'   every district-year with an SPI below `spi_cut`. `"interval"` also
 #'   requires the 90% upper bound (`spi_q95`) to be below 1, so a district-year
@@ -252,7 +273,7 @@ spi_field_guide <- function(
   serotype_col = NULL,
   detection_serotypes = NULL,
   read_year = NULL,
-  spi_cut = 1,
+  spi_cut = NULL,
   spi_rule = NULL,
   traj_window = 5L,
   traj_tol = 0.01,
@@ -267,11 +288,21 @@ spi_field_guide <- function(
   )
 
   stopifnot(inherits(comparison, "spi_compare_npafp"))
+  # the simple SPI has no credible interval, so its strength test is the SPI
+  # being below a lower cut (0.5 by default) instead
+  simple <- identical(comparison$method, "simple")
+  spi_cut <- spi_cut %||% if (simple) 0.5 else 1
 
   id_col <- id_col %||% comparison$id_col %||% "district_id"
   npafp_target <- comparison$thresholds$npafp
   spi_rule <- spi_rule %||% comparison$thresholds$rule %||% "median"
   spi_rule <- match.arg(spi_rule, c("median", "interval"))
+  if (simple && spi_rule == "interval") {
+    cli::cli_abort(c(
+      "{.code spi_rule = \"interval\"} needs a credible interval.",
+      "i" = "The simple SPI has none; use {.code spi_rule = \"median\"}."
+    ))
+  }
 
   dy <- comparison$district_year
   required <- c(id_col, "year", "observed", "expected_total", "spi_median",
@@ -327,10 +358,13 @@ spi_field_guide <- function(
       # strength test the judgement turns on: the interval, plus the noise
       # tail when `noise_alpha` asks for it.
       cri_excludes_1 = .data$spi_q95 < 1,
+      # the simple SPI has no interval: being below the (lower) cut is the
+      # strength test
+      gate_pass = if (simple) .data$spi_below else .data$spi_q95 < 1,
       gate_pass = if (is.null(noise_alpha)) {
-        .data$spi_q95 < 1
+        .data$gate_pass
       } else {
-        .data$spi_q95 < 1 & !.data$noise_plausible
+        .data$gate_pass & !.data$noise_plausible
       },
       # context: meets the conventional target yet reads short on the SPI
       s1_discordance = .data$conventional_pass & .data$spi_below &
@@ -470,7 +504,7 @@ spi_field_guide <- function(
     list(
       district_year = tibble::as_tibble(dy),
       focal = tibble::as_tibble(dy[dy$year == read_year, ]),
-      reference = .fg_reference(spi_cut),
+      reference = .fg_reference(spi_cut, simple),
       read_year = read_year,
       thresholds = list(spi = spi_cut, npafp = npafp_target, rule = spi_rule),
       params = list(
@@ -484,6 +518,7 @@ spi_field_guide <- function(
       ),
       signals_active = signals_active,
       id_col = id_col,
+      method = comparison$method %||% "model",
       call = match.call()
     ),
     class = "spi_field_guide"
@@ -922,12 +957,22 @@ spi_field_guide <- function(
 # ---------------------------------------------------------------------------
 
 # @noRd
-.fg_reference <- function(spi_cut = 1) {
+.fg_reference <- function(spi_cut = 1, simple = FALSE) {
+  strength_asks <- if (simple) {
+    sprintf("How large is the shortfall? Is the SPI below %s?", format(spi_cut))
+  } else {
+    "How large is the shortfall, and does the 90% credible interval lie entirely below the reference value of 1?"
+  }
+  strength_interpret <- if (simple) {
+    "The simple SPI has no credible interval. The cutoff selects the size of the relative shortfall to review; it does not measure uncertainty. The difference between observed and expected counts is not a count of missed cases."
+  } else {
+    "A larger shortfall with an interval below 1 is stronger evidence. The difference between observed and expected counts is not a count of missed cases."
+  }
   tibble::tribble(
     ~signal, ~asks, ~interpret, ~corroborates,
     "S: Strength",
-    "How large is the shortfall, and does the 90% credible interval lie entirely below the reference value of 1?",
-    "A larger shortfall with an interval below 1 is stronger evidence. The difference between observed and expected counts is not a count of missed cases.",
+    strength_asks,
+    strength_interpret,
     "No",
     "T: Timeliness",
     "Are specimens reaching the laboratory within 3 days?",
@@ -977,11 +1022,16 @@ spi_field_guide <- function(
 #' @export
 print.spi_field_guide <- function(x, ...) {
   cli::cli_h1("SPI field guide")
+  strength <- if (.fg_is_simple(x)) {
+    "simple SPI below the cutoff"
+  } else {
+    "90% CrI below 1"
+  }
   cli::cli_inform(c(
     "Review year: {.val {x$read_year}} \\
      | STEPS applied below SPI {.val {x$thresholds$spi}} \\
      ({x$thresholds$rule %||% 'median'} rule) \\
-     | priority for review: 90% CrI below 1, with extent or \\
+     | priority for review: {strength}, with extent or \\
      persistence"
   ))
 
@@ -1037,7 +1087,13 @@ summary.spi_field_guide <- function(object, ...) {
   )
   detection <- (below$genomic_orphan %in% TRUE) | (below$es_detected %in% TRUE)
   fires <- tibble::tibble(
-    component = c("S Strength (90% CrI below 1)", "T Timeliness",
+    component = c(
+      if (.fg_is_simple(object)) {
+        sprintf("S Strength (SPI below %s)", format(object$thresholds$spi))
+      } else {
+        "S Strength (90% CrI below 1)"
+      },
+      "T Timeliness",
                   "E Extent", "P Persistence", "S Stool adequacy",
                   "+ Falling trend (context)", "+ Detection (context)"),
     n = c(
@@ -1081,6 +1137,7 @@ as_tibble.spi_field_guide <- function(x, ...) {
     adequacy = round(foc$pct_adequate),
     verdict = as.character(foc$verdict)
   )
+  if (.fg_is_simple(x)) out$cri <- NULL
   out[order(factor(out$verdict, levels = .FG_VERDICT_LEVELS), out$spi), ]
 }
 
@@ -1131,6 +1188,7 @@ spi_field_guide_help <- function(
   }
 
   spi_cut <- if (!is.null(guide)) guide$thresholds$spi else 1
+  simple <- .fg_is_simple(guide)
 
   cli::cli_h1("Reviewing districts with a low SPI")
 
@@ -1143,7 +1201,7 @@ spi_field_guide_help <- function(
        together, not combined into a score, and they do not carry the same \\
        weight. No single component establishes a surveillance failure."
     )
-    ref <- .fg_reference(spi_cut)
+    ref <- .fg_reference(spi_cut, simple)
     for (i in seq_len(nrow(ref))) {
       cli::cli_h3(ref$signal[i])
       cli::cli_ul()
@@ -1156,18 +1214,36 @@ spi_field_guide_help <- function(
 
   if ("verdict" %in% topic) {
     cli::cli_h2("Review labels")
-    cli::cli_text(
-      "The review label uses the SPI value, its interval, and findings for \\
-       extent and persistence. The labels help decide which districts to \\
-       review first."
-    )
+    if (simple) {
+      cli::cli_text(
+        "The review label uses the SPI value and findings for extent and \\
+         persistence. The simple SPI has no credible interval. The cutoff \\
+         is {format(spi_cut)}. The labels help decide which districts to review \\
+         first."
+      )
+    } else {
+      cli::cli_text(
+        "The review label uses the SPI value, its interval, and findings for \\
+         extent and persistence. The labels help decide which districts to \\
+         review first."
+      )
+    }
     cli::cli_ul()
-    cli::cli_li(
-      "{.strong Priority for review} -- SPI below {format(spi_cut)}, the 90% \\
-       credible interval entirely below 1, and extent or persistence also \\
-       raises concern. If enabled, the sampling-noise check must also pass. \\
-       These findings identify districts for closer review."
-    )
+    if (simple) {
+      cli::cli_li(
+        "{.strong Priority for review} -- SPI below {format(spi_cut)}, and \\
+         extent or persistence also raises concern. If enabled, the \\
+         sampling-noise check must also pass. These findings identify \\
+         districts for closer review."
+      )
+    } else {
+      cli::cli_li(
+        "{.strong Priority for review} -- SPI below {format(spi_cut)}, the 90% \\
+         credible interval entirely below 1, and extent or persistence also \\
+         raises concern. If enabled, the sampling-noise check must also pass. \\
+         These findings identify districts for closer review."
+      )
+    }
     cli::cli_li(
       "{.strong Monitor} -- SPI below {format(spi_cut)}, but uncertainty or \\
        limited supporting information favours reassessment as new data \\
@@ -1284,7 +1360,10 @@ spi_field_guide_help <- function(
 .fg_narrate <- function(r, spi_cut) {
   label <- r$case_label %||% as.character(r$verdict)
   spi <- sprintf("%.2f", r$spi_median)
+  has_cri <- .fg_has_cri(r)
   cri <- sprintf("90%% credible interval %.2f to %.2f", r$spi_q05, r$spi_q95)
+  # "SPI x (interval)" for the model-based SPI, "SPI x" for the simple SPI
+  spi_cri <- if (has_cri) sprintf("%s (%s)", spi, cri) else spi
   persist <- .fg_persist_phrase(r, spi_cut)
   extent <- .fg_extent_phrase(r, spi_cut)
   persist_cap <- paste0(toupper(substr(persist, 1, 1)), substring(persist, 2))
@@ -1292,7 +1371,7 @@ spi_field_guide_help <- function(
   switch(
     label,
     "SPI at or above cutoff" = paste0(
-      sprintf("SPI %s (%s), so STEPS is not applied. ", spi, cri),
+      sprintf("SPI %s, so STEPS is not applied. ", spi_cri),
       if (is.na(r$spi_previous)) "" else sprintf(
         paste0("Its SPI was %.2f in %d, which shows why a single year at or ",
                "above %s should still be read alongside earlier values. "),
@@ -1316,19 +1395,21 @@ spi_field_guide_help <- function(
     ),
     "Large shortfall with supporting evidence" = sprintf(
       paste0("NPAFP rate %.1f, yet %d cases reported against %.1f expected, ",
-             "giving an SPI of %s (%s). %s, and %s. The interval is below 1, ",
+             "giving an SPI of %s. %s, and %s. %s, ",
              "and the area or previous year also raises concern. These ",
              "findings support closer review."),
-      r$npafp_rate, as.integer(round(r$observed)), r$expected_total, spi,
-      cri, persist_cap, extent
+      r$npafp_rate, as.integer(round(r$observed)), r$expected_total, spi_cri,
+      persist_cap, extent,
+      if (has_cri) "The interval is below 1" else
+        sprintf("The SPI is below %s", format(spi_cut))
     ),
     "Shortfall without wider area concern" = sprintf(
-      paste0("SPI %s (%s); %s. However, %s. The shortfall warrants review, ",
+      paste0("SPI %s; %s. However, %s. The shortfall warrants review, ",
              "and local explanations, including population estimates and ",
              "boundary changes, should be checked."),
-      spi, cri, persist, extent
+      spi_cri, persist, extent
     ),
-    sprintf("SPI %s (%s); %s; %s. Review label: %s.", spi, cri, persist, extent,
+    sprintf("SPI %s; %s; %s. Review label: %s.", spi_cri, persist, extent,
             as.character(r$verdict))
   )
 }
@@ -1506,6 +1587,7 @@ FG_CLASS_FILL <- c(
   ]
   if (nrow(foc) > max_rows) foc <- foc[seq_len(max_rows), , drop = FALSE]
 
+  has_cri <- any(is.finite(foc$spi_q95))
   df <- tibble::tibble(
     District = foc[[name_col]],
     SPI = round(foc$spi_median, 2),
@@ -1518,13 +1600,22 @@ FG_CLASS_FILL <- c(
     `Stool adequacy` = .fg_pct_word(foc$pct_adequate, foc$adequacy_assessed),
     `Review label` = as.character(foc$verdict)
   )
+  if (!has_cri) df$`90% CrI` <- NULL
   vclass <- .fg_verdict_class(foc$verdict)
   title <- sprintf("SPI field guide: district scan, %d", year)
-  subtitle <- sprintf(
-    paste0("STEPS applied below SPI %s; priority for review when the 90%% ",
-           "CrI lies below 1 and extent or persistence raises concern"),
-    format(spi_cut)
-  )
+  subtitle <- if (has_cri) {
+    sprintf(
+      paste0("STEPS applied below SPI %s; priority for review when the 90%% ",
+             "CrI lies below 1 and extent or persistence raises concern"),
+      format(spi_cut)
+    )
+  } else {
+    sprintf(
+      paste0("STEPS applied below SPI %s; priority for review when extent ",
+             "or persistence also raises concern"),
+      format(spi_cut)
+    )
+  }
 
   if (engine == "gt") {
     g <- gt::gt(df)
@@ -1571,7 +1662,11 @@ FG_CLASS_FILL <- c(
   row_key <- c("strength", "timeliness", "extent", "persistence",
                "adequacy", "conventional", "verdict")
   row_lab <- c(
-    strength = "S: Strength (size and uncertainty of the shortfall)",
+    strength = if (.fg_is_simple(x)) {
+      "S: Strength (size of the shortfall)"
+    } else {
+      "S: Strength (size and uncertainty of the shortfall)"
+    },
     timeliness = "T: Timeliness (specimen transport to the laboratory)",
     extent = "E: Extent (other districts in the same admin-1 area)",
     persistence = "P: Persistence (SPI in the previous year)",
@@ -1773,18 +1868,30 @@ FG_CLASS_FILL <- c(
 
 # @noRd
 .fg_cell_signals <- function(r, spi_cut, min_cases = 5L) {
-  position <- if (r$spi_q95 < 1) {
-    "entirely below 1"
-  } else if (r$spi_q05 > 1) {
-    "entirely above 1"
+  strength <- if (.fg_has_cri(r)) {
+    position <- if (r$spi_q95 < 1) {
+      "entirely below 1"
+    } else if (r$spi_q05 > 1) {
+      "entirely above 1"
+    } else {
+      "includes 1"
+    }
+    sprintf(
+      "SPI %.2f (90%% CrI %.2f to %.2f; %s); %d observed vs %.1f expected",
+      r$spi_median, r$spi_q05, r$spi_q95, position,
+      as.integer(round(r$observed)), r$expected_total
+    )
   } else {
-    "includes 1"
+    sprintf(
+      "SPI %.2f (%s %s); %d observed vs %.1f expected",
+      r$spi_median,
+      if (isTRUE(r$spi_below)) "below" else "at or above", format(spi_cut),
+      as.integer(round(r$observed)), r$expected_total
+    )
   }
-  strength <- sprintf(
-    "SPI %.2f (90%% CrI %.2f to %.2f; %s); %d observed vs %.1f expected",
-    r$spi_median, r$spi_q05, r$spi_q95, position,
-    as.integer(round(r$observed)), r$expected_total
-  )
+  if (isTRUE(r$spi_below) && !.fg_has_cri(r) && !.fg_gate_pass(r)) {
+    strength <- paste0(strength, "; sampling noise not ruled out")
+  }
   if (isTRUE(r$cri_excludes_1) && !.fg_gate_pass(r)) {
     strength <- paste0(strength, "; sampling noise not ruled out")
   }

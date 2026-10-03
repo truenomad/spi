@@ -1,4 +1,4 @@
-#' Calculate the SPI directly from preceding reporting
+#' Calculate the simple SPI from preceding reporting
 #'
 #' @description
 #' Calculates the surveillance performance index (SPI) for each district and
@@ -8,7 +8,7 @@
 #' population. The district observed-to-expected ratio is then divided by the
 #' national observed-to-expected ratio for the same year.
 #'
-#' Inspect the inputs and calculation for one district with [spi_direct_explain()].
+#' Inspect the inputs and calculation for one district with [spi_simple_explain()].
 #'
 #' @details
 #' **Steps for each assessment year.** Only years before the assessment year
@@ -23,7 +23,7 @@
 #'
 #' The figure works through these steps for a hypothetical district.
 #'
-#' \if{html}{\figure{spi-direct-worked-example.png}{options: width="100\%" alt="Worked direct SPI calculation for a hypothetical district: preceding cases and population give the historical rate, expected cases, the district and national observed-to-expected ratios, and the SPI"}}
+#' \if{html}{\figure{spi-simple-worked-example.png}{options: width="100\%" alt="Worked simple SPI calculation for a hypothetical district: preceding cases and population give the historical rate, expected cases, the district and national observed-to-expected ratios, and the SPI"}}
 #'
 #' **When the SPI cannot be calculated.** `history_check` records whether the
 #' district's history supports the calculation. `"ok"`: a positive expected
@@ -37,7 +37,7 @@
 #'
 #' **National centring.** The national observed-to-expected ratio is
 #' calculated from district-years with a positive expected count. Districts
-#' for which the direct SPI cannot be calculated do not contribute to national
+#' for which the simple SPI cannot be calculated do not contribute to national
 #' centring.
 #' If the included districts report no cases in the assessment year, the
 #' national ratio is zero and all centred SPI values are `NA`, even for
@@ -85,7 +85,7 @@
 #'   100000.
 #' @param verbose Logical. Print progress and a summary. Default `TRUE`.
 #'
-#' @return An `spi_direct` object, a list with:
+#' @return An `spi_simple` object, a list with:
 #'   * `summary`: one row per district and assessment year with `observed`,
 #'     `pop`, `npafp_rate`, `history_years`, `history_cases`, `history_pop`
 #'     (preceding child-years), `history_rate`, `history_check`, `expected`,
@@ -98,7 +98,7 @@
 #'   `print()` gives a short country summary, `summary()` a fuller report and
 #'   `as_tibble()` the `summary` table.
 #'
-#' @seealso [spi_direct_explain()], `vignette("spi-direct")`, and
+#' @seealso [spi_simple_explain()], `vignette("spi-simple")`, and
 #'   [spi_index()] for the model-based SPI.
 #'
 #' @examples
@@ -106,7 +106,7 @@
 #'   dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
 #'   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 #'
-#' res <- spi_direct(
+#' res <- spi_simple(
 #'   data = annual,
 #'   population = synth_surveillance$population,
 #'   id_col = "adm2_guid",
@@ -116,7 +116,7 @@
 #' )
 #' res
 #' @export
-spi_direct <- function(
+spi_simple <- function(
   data,
   population = NULL,
   id_col = "district",
@@ -129,13 +129,13 @@ spi_direct <- function(
   per = 100000,
   verbose = TRUE
 ) {
-  .direct_check_args(
+  .simple_check_args(
     data, population, id_col, year_col, count_col, pop_col, per, verbose
   )
 
   # --- annual panel -----------------------------------------------------
   if (verbose) cli::cli_alert_info("Reading district-year counts...")
-  annual <- .direct_annual(
+  annual <- .simple_annual(
     data, population, id_col, year_col, count_col, pop_col, verbose
   )
   years_all <- sort(unique(annual$year))
@@ -169,7 +169,7 @@ spi_direct <- function(
 
   # --- population check -------------------------------------------------
   if (verbose) cli::cli_alert_info("Checking population series...")
-  pop_qc <- .direct_population_qc(annual, targets)
+  pop_qc <- .simple_population_qc(annual, targets)
   if (verbose) {
     n_flag <- sum(pop_qc$by_district$population_qc != "ok")
     if (n_flag > 0) {
@@ -190,7 +190,7 @@ spi_direct <- function(
     )
   }
   summary_tbl <- dplyr::bind_rows(lapply(targets, function(t) {
-    .direct_one_year(annual, t)
+    .simple_one_year(annual, t)
   }))
 
   # --- national centring ------------------------------------------------
@@ -245,17 +245,17 @@ spi_direct <- function(
         n_districts = length(unique(annual$district_id))
       )
     ),
-    class = "spi_direct"
+    class = "spi_simple"
   )
 
-  if (verbose) .direct_report(out)
+  if (verbose) .simple_report(out)
   out
 }
 
 # --- argument checks ----------------------------------------------------
 
 #' @noRd
-.direct_check_args <- function(data, population, id_col, year_col,
+.simple_check_args <- function(data, population, id_col, year_col,
                                count_col, pop_col, per, verbose) {
   if (!is.data.frame(data)) {
     cli::cli_abort("{.arg data} must be a data frame.")
@@ -284,7 +284,7 @@ spi_direct <- function(
 # Population defines the district-years; a district-year with no case row
 # counts as zero cases, and one with no population is dropped.
 #' @noRd
-.direct_annual <- function(data, population, id_col, year_col, count_col,
+.simple_annual <- function(data, population, id_col, year_col, count_col,
                            pop_col, verbose) {
   from_data <- is.null(population)
   if (from_data) {
@@ -396,7 +396,7 @@ spi_direct <- function(
 # Expected cases from the district's own preceding rate. No preceding case:
 # rate and expected 0, no SPI. No preceding year: rate and expected NA.
 #' @noRd
-.direct_one_year <- function(annual, target) {
+.simple_one_year <- function(annual, target) {
   current <- annual[annual$year == target, ]
   hist <- annual[annual$year < target, ] |>
     dplyr::summarise(
@@ -439,7 +439,7 @@ spi_direct <- function(
 # Unusual changes are log year-on-year changes beyond Tukey's far-out fences
 # of all districts' changes; the flags are for review, not correction.
 #' @noRd
-.direct_population_qc <- function(annual, targets, min_change = 0.10) {
+.simple_population_qc <- function(annual, targets, min_change = 0.10) {
   sorted <- annual[order(annual$district_id, annual$year), ]
   all_years <- sort(unique(sorted$year))
   # each change is compared with the median change across districts in the
@@ -529,13 +529,13 @@ spi_direct <- function(
 # --- reports ------------------------------------------------------------
 
 #' @noRd
-.direct_report <- function(x) {
+.simple_report <- function(x) {
   p <- x$metadata
   sm <- x$summary
   per_lab <- format(p$per, big.mark = " ", scientific = FALSE)
 
   cli::cli_rule()
-  cli::cli_h2("Direct SPI summary")
+  cli::cli_h2("Simple SPI summary")
 
   cli::cli_h3("Formulas used")
   cli::cli_text(
@@ -606,7 +606,7 @@ spi_direct <- function(
 # --- methods ------------------------------------------------------------
 
 #' @export
-print.spi_direct <- function(x, ...) {
+print.spi_simple <- function(x, ...) {
   p <- x$metadata
   sm <- x$summary
   latest <- p$last_assessment
@@ -628,35 +628,35 @@ print.spi_direct <- function(x, ...) {
     sprintf("No SPI:             %d",
             sum(!is.finite(sm$spi[sm$year == latest])))
   )
-  cli::cli_h2("Direct SPI")
+  cli::cli_h2("Simple SPI")
   cli::cli_verbatim(lines)
   cli::cli_text(cli::col_grey(
     "Use summary() for the full report, as_tibble() for the table and \\
-     spi_direct_explain() for one district."
+     spi_simple_explain() for one district."
   ))
   invisible(x)
 }
 
 #' @export
-summary.spi_direct <- function(object, ...) {
-  .direct_report(object)
+summary.spi_simple <- function(object, ...) {
+  .simple_report(object)
 }
 
 #' @export
-as_tibble.spi_direct <- function(x, ...) {
+as_tibble.spi_simple <- function(x, ...) {
   x$summary
 }
 
-#' Show how one district's direct SPI was calculated
+#' Show how one district's simple SPI was calculated
 #'
 #' @description
-#' Lists every component of one district's direct SPI for one year, in the
+#' Lists every component of one district's simple SPI for one year, in the
 #' order of the calculation: current reporting, previous reporting, the
 #' expected count, the SPI and the data checks. Each value can be checked by
 #' hand from the ones above it. When the SPI cannot be calculated, the
 #' breakdown says so and gives the reason.
 #'
-#' @param x An `spi_direct` object from [spi_direct()].
+#' @param x An `spi_simple` object from [spi_simple()].
 #' @param district The district identifier.
 #' @param year Assessment year. Default: the last assessment year.
 #' @param language Character. Language of the labels, as a two-letter code
@@ -669,12 +669,12 @@ as_tibble.spi_direct <- function(x, ...) {
 #'
 #' @return Invisibly, a tibble with `section`, `component` and `value`, in
 #'   the language requested.
-#' @seealso [spi_direct()]
+#' @seealso [spi_simple()]
 #' @examples
 #' annual <- synth_surveillance$cases |>
 #'   dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
 #'   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
-#' res <- spi_direct(
+#' res <- spi_simple(
 #'   data = annual,
 #'   population = synth_surveillance$population,
 #'   id_col = "adm2_guid",
@@ -682,12 +682,12 @@ as_tibble.spi_direct <- function(x, ...) {
 #'   pop_col = "pop_u15",
 #'   verbose = FALSE
 #' )
-#' spi_direct_explain(res, res$summary$adm2_guid[1])
+#' spi_simple_explain(res, res$summary$adm2_guid[1])
 #' @export
-spi_direct_explain <- function(x, district, year = NULL, language = "en",
+spi_simple_explain <- function(x, district, year = NULL, language = "en",
                                print = TRUE) {
-  if (!inherits(x, "spi_direct")) {
-    cli::cli_abort("{.arg x} must be an {.cls spi_direct} object.")
+  if (!inherits(x, "spi_simple")) {
+    cli::cli_abort("{.arg x} must be an {.cls spi_simple} object.")
   }
   if (!rlang::is_string(language)) {
     cli::cli_abort("{.arg language} must be a single string such as \"fr\".")
@@ -742,10 +742,10 @@ spi_direct_explain <- function(x, district, year = NULL, language = "en",
 
   # labels and worded values are translated; numbers and flags are not
   worded <- !grepl("^check_|^[0-9 .]+$|^NA$", out$value)
-  out$section <- .direct_translate(out$section, language)
-  out$component <- .direct_translate(out$component, language)
-  out$value[worded] <- .direct_translate(out$value[worded], language)
-  district_label <- .direct_translate("District", language)
+  out$section <- .simple_translate(out$section, language)
+  out$component <- .simple_translate(out$component, language)
+  out$value[worded] <- .simple_translate(out$value[worded], language)
+  district_label <- .simple_translate("District", language)
 
   if (print) {
     width <- max(nchar(out$component)) + 2L
@@ -765,7 +765,7 @@ spi_direct_explain <- function(x, district, year = NULL, language = "en",
 
 # English labels translated with sntutils; returned unchanged for "en"
 #' @noRd
-.direct_translate <- function(text, language) {
+.simple_translate <- function(text, language) {
   if (identical(tolower(language), "en") || length(text) == 0L) {
     return(text)
   }

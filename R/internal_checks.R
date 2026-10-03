@@ -28,7 +28,7 @@
 #'
 #' INLA is not on CRAN, so the generic install prompt of
 #' [rlang::check_installed()] would fail. This check prints the command that
-#' installs it from the INLA repository and points to [spi_direct()], which
+#' installs it from the INLA repository and points to [spi_simple()], which
 #' does not need INLA.
 #' @noRd
 .check_inla <- function(call = rlang::caller_env()) {
@@ -41,7 +41,7 @@
       " " = "{.code install.packages(\"INLA\", repos = c(getOption(\"repos\"), \\
              INLA = \"https://inla.r-inla-download.org/R/stable\"), \\
              dep = TRUE)}",
-      "i" = "{.fn spi_direct} calculates the SPI without INLA."
+      "i" = "{.fn spi_simple} calculates the SPI without INLA."
     ),
     call = call
   )

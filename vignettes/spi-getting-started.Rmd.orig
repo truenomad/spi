@@ -10,218 +10,108 @@ vignette: >
 <!-- Edit spi-getting-started.Rmd.orig, not the .Rmd. Knit with
      Rscript --no-init-file vignettes/precompile.R spi-getting-started -->
 
-```{r setup, include = FALSE, cache = FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.path = "figures/getting-started-",
-  fig.width = 8,
-  fig.height = 4.5,
-  dpi = 150,
-  out.width = "100%",
   message = FALSE,
-  warning = FALSE,
-  cache = TRUE,
-  # refit when the package code or data change, not only the chunk code
-  cache.extra = unname(
-    tools::md5sum(dir(c("../R", "../data"), full.names = TRUE))
-  ),
-  error = FALSE,
-  cache.path = "cache/getting-started/"
+  warning = FALSE
 )
 options(cli.unicode = FALSE, width = 80)
-INLA::inla.setOption(num.threads = "1:1")
-set.seed(1)
 ```
 
-This article covers the model-based SPI, calculated with `spi_index()`. It uses the bundled synthetic data to check inputs, calculate and plot SPI, and choose a reporting year that ends in a month other than December. For the direct SPI, which needs no model fit, see [The direct SPI](spi-direct.html). [Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains what the results mean.
+## What does SPI measure?
 
-The outputs shown here were computed with INLA when the article was built.
+The surveillance performance index (SPI) compares a district's current reporting with its earlier reporting, then compares that change with the national pattern. It uses non-polio acute flaccid paralysis (NPAFP) case counts and the population under 15.
 
-## Input data
+It is calculated in three steps:
 
-The model-based SPI needs three inputs, all using the same district ID column. [Preparing data for SPI](spi-data-preparation.html) shows how to prepare them:
+1. Estimate the expected number of NPAFP cases from the district's own earlier reporting and its current under-15 population.
+2. Divide the reported cases by the expected cases. This is the district's observed-to-expected (O/E) ratio.
+3. Divide the district's ratio by the national ratio for the same year.
 
-- monthly NPAFP case counts, one row per district and month;
-- annual under-15 population, one row per district and year;
-- district boundaries as an `sf` object.
+An SPI of 1 means the district's ratio equals the national ratio. An SPI of 0.6 means the district's ratio is 60% of the national ratio. Check both ratios to see whether reporting fell below earlier levels: an SPI below 1 can also occur when reporting increased nationally but increased less in the district.
 
-If you have POLIS access under a GPEI data-sharing agreement, [polished](https://truenomad.github.io/polished/) can retrieve and clean these inputs from POLIS.
+## How is it different from the NPAFP rate?
 
-The bundled `synth_surveillance` data cover 236 districts in the fictional country Harad, from 2015 to 2024. The district ID column is `adm2_guid`:
+The conventional NPAFP rate is the number of reported cases per 100,000 children under 15 per year. It is compared with a fixed target, such as 3, regardless of the district's earlier reporting.
 
-```{r data, cache = FALSE}
+SPI compares each district with its own history and the national ratio. A district can report fewer cases than expected from earlier years and still meet the NPAFP target. SPI can identify this decline if it is larger than the national decline. A district that has reported few cases for years can have an SPI near 1 while staying below the NPAFP target.
+
+The two measures answer different questions, so read them together. [Interpreting SPI](spi-interpretation.html) works through examples, and `spi_compare_npafp()` places each district-year in one of the four combinations.
+
+## Which SPI should I use?
+
+The package calculates expected counts in two ways. Both use earlier reporting, and the resulting SPI values have the same interpretation.
+
+| | Simple SPI | Model-based SPI |
+| --- | --- | --- |
+| Function | `spi_simple()` | `spi_index()` |
+| Expected count from | The district's own earlier rate | A spatial and temporal model |
+| District reporting history | Yes | Yes |
+| Statistical model | No | Yes |
+| INLA | No | Yes |
+| Boundary files | No | Yes, or a neighbour graph |
+| Input counts | Annual | Monthly |
+| Uncertainty intervals | No | Yes |
+| Short or sparse history | SPI unavailable without an earlier case | More stable estimates |
+| Monthly estimates | No | Yes |
+| Comparison with the NPAFP target | Yes | Yes |
+| STEPS field guide | Yes; default SPI cutoff of 0.5 | Yes; uses the credible interval |
+
+Start with the simple SPI for annual results. You can check each value by hand using case counts, population and the national ratio.
+
+Use the model-based SPI when you need uncertainty intervals, monthly estimates, or more stable expected counts for districts with little reporting history.
+
+## A first example
+
+The bundled `synth_surveillance` data cover 236 districts in the fictional country Harad, from 2015 to 2024. The case counts are monthly, so first add them up by year:
+
+```{r data}
 library(spi)
-synth <- synth_surveillance
 
-names(synth$cases)
-names(synth$population)
-names(synth$boundaries)
+annual <- synth_surveillance$cases |>
+  dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
+  dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
 ```
 
-`month` is the first day of each month, `count` is the number of NPAFP cases reported in that month, and `pop_u15` is the under-15 population for the year. Months with no cases should be present with a count of zero.
+Then calculate the simple SPI, naming the columns that hold the district ID, the case count and the under-15 population:
 
-### Check the inputs first
-
-Use `spi_check_inputs()` to check case counts, population denominators, and district boundaries before fitting the model. It reports mismatched district IDs, missing months, and other issues as errors, warnings, or notes. `spi_index()` also runs this check before each fit and stops on errors.
-
-```{r check-inputs, message = TRUE}
-spi_check_inputs(
-  cases = synth$cases,
-  population = synth$population,
-  shapefile = synth$boundaries,
-  id_col = "adm2_guid"
-)
-```
-
-Here is the report for data with one negative count and three missing months:
-
-```{r check-inputs-broken, message = TRUE}
-bad_cases <- synth$cases |>
-  # set the first count to -1 to simulate a data-entry error
-  dplyr::mutate(
-    count = dplyr::if_else(dplyr::row_number() == 1, -1, count)
-  ) |>
-  # remove three district-months to simulate missing records
-  dplyr::slice(-(2:4))
-
-spi_check_inputs(
-  cases = bad_cases,
-  population = synth$population,
-  shapefile = synth$boundaries,
-  id_col = "adm2_guid"
-)
-```
-
-## Calculate SPI
-
-`spi_index()` estimates each assessment year's expected counts from the preceding years only. For each year, it fits the model using earlier months and predicts the expected counts for the year being assessed. It then compares that year's reported counts with the prediction. This is how SPI would be updated each year in routine use, and it is the approach used in the accompanying study.
-
-`first_assessment` sets the first year to assess. The default `min_history = 3` requires three years of data before it, so with data from 2015 the first assessment year is 2018. Passing the district boundaries as `adjacency` builds the neighbour graph internally. `n_draws` sets how many samples from the fitted model are used to calculate the SPI intervals. These samples are called posterior draws. `seed` controls the random sampling so results can be reproduced. Each fit requires INLA and can take several minutes.
-
-```{r spi}
-spi_year <- spi_index(
-  cases = synth$cases,
-  population = synth$population,
-  adjacency = synth$boundaries,
-  first_assessment = 2018,
+```{r simple}
+spi_results <- spi_simple(
+  data = annual,
+  population = synth_surveillance$population,
   id_col = "adm2_guid",
-  n_draws = 500,
-  seed = 42,
-  verbose = FALSE
-)
-```
-
-`spi_year$windows` lists the months in each assessment year and the earlier months used to fit its model:
-
-```{r windows}
-spi_year$windows
-```
-
-`spi_index()` sums observed and expected counts to the chosen level and calculates SPI for each posterior draw. Annual SPI is generally more stable for review because many districts report few AFP cases per month. Monthly SPI helps show how reporting varies within a year. Each call refits the model for every assessment year, so these take as long as the first:
-
-```{r spi-options, eval = FALSE}
-spi_raw <- spi_index(
-  cases = synth$cases,
-  population = synth$population,
-  adjacency = synth$boundaries,
-  first_assessment = 2018,
-  centre = "none",
-  id_col = "adm2_guid"
-)
-spi_month <- spi_index(
-  cases = synth$cases,
-  population = synth$population,
-  adjacency = synth$boundaries,
-  first_assessment = 2018,
-  level = "district_month",
-  id_col = "adm2_guid"
-)
-```
-
-With `centre = "national"`, the default, each district's observed-to-expected ratio is divided by the national ratio for the same period. With `centre = "none"`, SPI is the uncentred district observed-to-expected ratio. [Interpreting SPI](spi-interpretation.html#national-centring) explains the difference with a worked example.
-
-## Understand the output
-
-`as_tibble()` returns one row per district and period. `observed` is the reported count for the period. `spi_median` is the central SPI estimate (the posterior median). `spi_q05` and `spi_q95` are the lower and upper limits of its 90% credible interval. The interval reflects uncertainty in expected counts, holding observed counts fixed.
-
-```{r spi-show}
-spi_year |>
-  tibble::as_tibble() |>
-  dplyr::select(adm2_guid, year, observed, spi_median, spi_q05, spi_q95) |>
-  dplyr::slice_head(n = 6)
-```
-
-
-::: {.alert .alert-info}
-A zero SPI does not imply zero uncertainty about surveillance. When no cases are observed, the ratio is zero for every posterior draw of the expected count, so the reported SPI interval is also zero.
-:::
-
-`spi_year$national` reports the national observed-to-expected ratio for each year (`national_oe`). Centred SPI divides each district's ratio by this value, so review it separately: district SPI can stay unchanged when district and national ratios change together.
-
-```{r national}
-spi_year$national
-```
-
-`summary()` gives diagnostics across all district-years, including the median SPI, the overall observed-to-expected ratio, and the share of credible intervals that exclude 1. A `flag` shows that a summary falls outside a range set by the package. These ranges help identify results to inspect; they have not been validated as tests of surveillance quality or model fit:
-
-```{r summary}
-summary(spi_year)
-```
-
-## Plots
-
-`plot()` offers four views. The default `distribution` view shows how SPI values are distributed relative to the reference value of 1:
-
-```{r plot-distribution, fig.alt = "Histogram of district-year SPI values on a log scale, with reference lines at 0.5, 1 and 1.5."}
-plot(spi_year)
-```
-
-The `funnel` view plots SPI against the expected count. Ratios based on small expected counts can vary widely, so inspect them with their credible intervals. Points are coloured by whether the district-year met the conventional NPAFP target:
-
-```{r plot-funnel, fig.alt = "Funnel plot of SPI against expected count, both on log scales, with points coloured by whether the NPAFP target was met."}
-plot(spi_year, type = "funnel")
-```
-
-The `caterpillar` view shows the lowest and highest SPI values with their credible intervals:
-
-```{r plot-caterpillar, fig.alt = "Caterpillar plot of the lowest and highest SPI district-years, each with its 90% credible interval."}
-plot(spi_year, type = "caterpillar")
-```
-
-The `calibration` view compares observed with expected counts. Points on the diagonal have observed counts equal to their expected counts:
-
-```{r plot-calibration, fig.alt = "Scatter of observed against expected counts on log scales, with a diagonal line of equality."}
-plot(spi_year, type = "calibration")
-```
-
-## Non-calendar and rolling years
-
-Set `year_end_month` to use a reporting year other than January to December. With `year_end_month = 4`, each reporting year runs from May to April and is labelled by its ending year: May 2023 to April 2024 is labelled 2024. Its expected counts are predicted using data up to April 2023. The first May to April year with three years of data before it is 2019:
-
-```{r year-end}
-spi_may_apr <- spi_index(
-  cases = synth$cases,
-  population = synth$population,
-  adjacency = synth$boundaries,
-  first_assessment = 2019,
-  last_assessment = 2024,
-  year_end_month = 4,
-  id_col = "adm2_guid",
-  n_draws = 500,
-  seed = 42,
+  count_col = "count",
+  pop_col = "pop_u15",
   verbose = FALSE
 )
 
-spi_may_apr$windows
+spi_results
 ```
 
-When the data end before the last year closes, the final assessment covers fewer than 12 months. `spi_index()` keeps it with a warning, and `n_months` shows how many months each district-year covers.
+`tibble::as_tibble(spi_results)` gives one row per district and year with the observed and expected counts, both ratios and the SPI.
 
-For a rolling 12-month SPI that is updated every month, rerun `spi_index()` each month with `year_end_month` set to the month that has just closed. Each run covers the 12 months ending in that month and uses earlier months to predict the expected counts.
+Compare the SPI with the NPAFP target:
 
-Use a consistent model specification, centring setting, and reporting year when comparing years.
+```{r compare}
+comparison <- spi_compare_npafp(spi_results, npafp_target = 3, verbose = FALSE)
 
-## Next steps
+comparison$metrics |>
+  dplyr::select(n, n_neither, n_spi_only, n_npafp_only, n_both)
+```
 
-[Interpreting SPI alongside AFP indicators](spi-interpretation.html) explains how to interpret these results with the conventional NPAFP rate, timeliness, and stool adequacy. [How do I use SPI to review districts?](spi-field-guide.html) shows how to organise a district review once SPI identifies a shortfall.
+`n_spi_only` counts district-years that met the NPAFP target but had an SPI below 1. Their observed-to-expected ratio was below the national ratio, even though they met the reporting target.
+
+## Where to go next
+
+For either SPI:
+
+- [Preparing data for SPI](spi-data-preparation.html) shows how to build the input tables.
+- [Using SPI with POLIS data](spi-polis.html) starts from the POLIS AFP line list.
+- [Interpreting SPI](spi-interpretation.html) explains what the results mean and what they do not.
+- [How SPI works](spi-methods.html) explains both calculations and their limitations.
+
+For the simple SPI, [Calculating the simple SPI](spi-simple.html) works through three districts by hand and repeats the calculation in R.
+
+For the model-based SPI, [Calculating the model-based SPI](spi-model.html) fits the model, [Model options and sensitivity](spi-model-options.html) covers the model choices, and [Using SPI for district review](spi-field-guide.html) runs the STEPS field guide.

@@ -28,27 +28,38 @@
 #' McNemar test of whether one measure places more district-years below its
 #' threshold than the other.
 #'
-#' @param spi Object of class `spi_index` at `district_year` level.
+#' The simple SPI and the model-based SPI go through the same comparison. For
+#' a simple result, `spi_median` holds the single SPI value and `spi_q05` and
+#' `spi_q95` are `NA`. District-years without a simple SPI (see
+#' `history_check` in [spi_simple()]) are left out of the comparison.
+#'
+#' @param spi A district-year SPI: a [spi_simple()] result, or a
+#'   [spi_index()] result at `district_year` level.
 #' @param cases Optional tibble with the district id column and `count`
 #'   (integer), and either `month` or `year`. Pass to override the observed
 #'   counts in `spi$summary`. Default: NULL (use the index's observed counts).
 #' @param population Tibble with the district id column, `year` (integer),
-#'   and the population denominator column (see `pop_col`). Required, with one
+#'   and the population denominator column (see `pop_col`), with one
 #'   positive denominator per district and reporting year. For non-calendar
-#'   years, supply the mean population over that reporting year.
+#'   years, supply the mean population over that reporting year. Required for
+#'   a [spi_index()] result. For a [spi_simple()] result the default NULL uses
+#'   the population already in `spi$summary`.
 #' @param year_end_month Integer 1 to 12. Month in which the reporting year
 #'   closes, matching the `year_end_month` the SPI was computed with. The
 #'   conventional rate is grouped on the same rolling year, so the two sides of
-#'   the comparison cover the same months. Default: 12 (calendar years).
-#' @param spi_threshold Numeric. A posterior median below this value counts
-#'   as below the threshold, subject to `spi_rule`. The reference is 1: with
+#'   the comparison cover the same months. The simple SPI uses calendar years
+#'   only. Default: 12 (calendar years).
+#' @param spi_threshold Numeric. An SPI below this value counts as below the
+#'   threshold, subject to `spi_rule`. For the model-based SPI the comparison
+#'   uses the posterior median. The reference is 1: with
 #'   national centring, district and national observed-to-expected ratios are
 #'   equal. Default: 1.
 #' @param spi_rule Character. `"median"` uses `spi_median` alone.
 #'   `"interval"` additionally requires the 90% upper bound (`spi_q95`) to
 #'   be below 1. This requires stronger evidence of a relative reporting
 #'   shortfall, not evidence of missed cases. The paper uses this rule for a
-#'   sensitivity analysis. Default: `"median"`.
+#'   sensitivity analysis. The simple SPI has no interval, so it accepts only
+#'   `"median"`. Default: `"median"`.
 #' @param npafp_target Numeric. NPAFP reporting-rate target per
 #'   `npafp_multiplier` person-years. Set this to the target used by the
 #'   programme. Default: 3, as in the accompanying study.
@@ -59,7 +70,7 @@
 #'   `"year"`, `"adm1_name"`, `"adm0_name"`, or any joined covariate.
 #'   Set NULL to summarise all district-years together. Default: NULL.
 #' @param id_col Character. Name of the district id column. Inferred from
-#'   `spi$id_col` if NULL. Default: NULL.
+#'   the SPI result if NULL. Default: NULL.
 #' @param pop_col Character. Population denominator column name. Default:
 #'   `"pop_u15"`.
 #' @param boundaries Optional `sf` object with the district id column and
@@ -73,8 +84,8 @@
 #'   \item{district_year}{Tibble with per-district-year classification:
 #'     `{id_col}`, `year`, `count_annual`, `pop_u15`, `npafp_rate`,
 #'     `npafp_adequate` (logical: rate target met), `observed` (reported count
-#'     from `spi$summary`, when present), `expected_total` (modelled
-#'     expected count, when present), `spi_median`, `spi_q05`, `spi_q95`,
+#'     from `spi$summary`, when present), `expected_total` (expected count,
+#'     when present), `spi_median`, `spi_q05`, `spi_q95`,
 #'     `spi_below_threshold` (logical), `spi_pass` (logical,
 #'     `!spi_below_threshold`), `category` (factor: Neither below / SPI below
 #'     threshold only / NPAFP below target only / Both below).}
@@ -86,14 +97,30 @@
 #'   \item{thresholds}{Named list echoing the SPI threshold, the `spi_rule`, and
 #'     the NPAFP target used.}
 #'   \item{id_col}{The id column name.}
+#'   \item{method}{`"simple"` or `"model"`: which SPI was compared.}
 #'   \item{call}{Matched call.}
 #' }
 #'
-#' @seealso [spi_index()], [spi_expected()]
+#' @seealso [spi_simple()], [spi_index()], [spi_compare_npafp_maps()]
 #'
 #' @importFrom rlang %||%
 #' @export
 #' @examples
+#' annual <- synth_surveillance$cases |>
+#'   dplyr::mutate(year = as.integer(format(month, "%Y"))) |>
+#'   dplyr::summarise(count = sum(count), .by = c(adm2_guid, year))
+#'
+#' simple <- spi_simple(
+#'   data = annual,
+#'   population = synth_surveillance$population,
+#'   id_col = "adm2_guid",
+#'   count_col = "count",
+#'   pop_col = "pop_u15",
+#'   verbose = FALSE
+#' )
+#'
+#' spi_compare_npafp(simple, npafp_target = 3)
+#'
 #' \dontrun{
 #' spi_dy <- spi_index(
 #'   cases = synth_surveillance$cases,
@@ -119,7 +146,7 @@
 spi_compare_npafp <- function(
   spi,
   cases = NULL,
-  population,
+  population = NULL,
   year_end_month = 12L,
   spi_threshold = 1,
   spi_rule = c("median", "interval"),
@@ -135,7 +162,27 @@ spi_compare_npafp <- function(
              reason = "to compare SPI with the NPAFP target")
   spi_rule <- match.arg(spi_rule)
 
-  stopifnot(inherits(spi, "spi_index"))
+  if (!inherits(spi, c("spi_index", "spi_simple"))) {
+    cli::cli_abort(
+      "{.arg spi} must be a {.fn spi_simple} or {.fn spi_index} result."
+    )
+  }
+  method <- if (inherits(spi, "spi_simple")) "simple" else "model"
+  if (method == "simple") {
+    if (spi_rule == "interval") {
+      cli::cli_abort(c(
+        "{.code spi_rule = \"interval\"} needs a credible interval.",
+        "i" = "The simple SPI has none; use {.code spi_rule = \"median\"}."
+      ))
+    }
+    if (!identical(as.integer(year_end_month), 12L)) {
+      cli::cli_abort(
+        "The simple SPI uses calendar years; leave {.arg year_end_month} at 12."
+      )
+    }
+    id_col <- id_col %||% spi$metadata$id_col
+    spi <- .simple_as_comparison(spi, id_col, verbose)
+  }
 
   id_col <- id_col %||% spi$id_col %||% "district_id"
   if (!id_col %in% names(spi$summary)) {
@@ -149,6 +196,16 @@ spi_compare_npafp <- function(
        {.val {spi$level}}. Re-run {.fn spi_index} with \\
        {.code level = \"district_year\"}."
     )
+  }
+  if (is.null(population)) {
+    if (method == "model") {
+      cli::cli_abort(
+        "{.arg population} is required for a {.fn spi_index} result."
+      )
+    }
+    population <- spi$summary |>
+      dplyr::select(dplyr::all_of(c(id_col, "year")), "pop")
+    pop_col <- "pop"
   }
   stopifnot(is.data.frame(population),
             id_col %in% names(population),
@@ -306,6 +363,7 @@ spi_compare_npafp <- function(
       thresholds = list(spi = spi_threshold, rule = spi_rule,
                         npafp = npafp_target, multiplier = npafp_multiplier),
       id_col = id_col,
+      method = method,
       call = match.call()
     ),
     class = "spi_compare_npafp"
@@ -315,6 +373,36 @@ spi_compare_npafp <- function(
 # ---------------------------------------------------------------------------
 # internal helpers
 # ---------------------------------------------------------------------------
+
+# Give a spi_simple result the summary columns of a district-year spi_index,
+# so both go through one comparison. The single SPI value sits in
+# `spi_median`; the interval columns are NA. District-years without an SPI
+# are dropped, because they cannot be placed in any of the four categories.
+.simple_as_comparison <- function(x, id_col, verbose) {
+  s <- x$summary
+  keep <- is.finite(s$spi)
+  if (verbose && any(!keep)) {
+    cli::cli_alert_info(
+      "{sum(!keep)} district-year{?s} without a simple SPI left out \\
+       (see {.field history_check})."
+    )
+  }
+  if (!any(keep)) {
+    cli::cli_abort("The simple SPI result has no district-year with an SPI.")
+  }
+  summary <- s[keep, , drop = FALSE] |>
+    dplyr::transmute(
+      dplyr::across(dplyr::all_of(c(id_col, "year"))),
+      observed = .data$observed,
+      expected_total = .data$expected,
+      spi_median = .data$spi,
+      spi_q05 = NA_real_,
+      spi_q95 = NA_real_,
+      pop = .data$pop
+    )
+  list(summary = summary, id_col = id_col, level = "district_year",
+       data = NULL)
+}
 
 # 2x2 crosstab with row/column percentages
 .npafp_crosstab <- function(dy) {
@@ -529,7 +617,8 @@ plot.spi_compare_npafp <- function(x, ...) {
       title = "SPI and NPAFP classification",
       x = sprintf("NPAFP rate (per %s person-years, log1p)",
                   format(x$thresholds$multiplier, big.mark = ",")),
-      y = "SPI (posterior median)"
+      y = if (identical(x$method, "simple")) "SPI" else
+        "SPI (posterior median)"
     ) +
     ggplot2::guides(
       colour = ggplot2::guide_legend(
@@ -578,7 +667,8 @@ plot.spi_compare_npafp <- function(x, ...) {
 #'     person-years, grouped into the reporting bands
 #'     (`<1, 1-2, 2-3, 3-6, 6-12, 12-24, >=24`). Values below the
 #'     selected NPAFP target are drawn on the red end of the palette.
-#'   \item **Panel B** -- posterior median SPI, categorised on breaks
+#'   \item **Panel B** -- SPI (the posterior median for the model-based
+#'     SPI), categorised on breaks
 #'     approximately symmetric on the log scale around the reference of 1 (default
 #'     `-Inf, 0.5, 0.75, 1, 1.33, 2, Inf`). Bins at or below the SPI
 #'     threshold are warm; the rest are cool.
@@ -743,8 +833,10 @@ spi_compare_npafp_maps <- function(
   yr_lbl <- year_label %||% sprintf("%d", yr)
   ttl_a <- (titles %||% NULL)[1] %||%
     sprintf("A. Conventional NPAFP rate (%s)", yr_lbl)
+  spi_lbl <- if (identical(comparison$method, "simple")) "SPI" else
+    "Posterior median SPI"
   ttl_b <- (titles %||% NULL)[2] %||%
-    sprintf("B. Posterior median SPI (%s)", yr_lbl)
+    sprintf("B. %s (%s)", spi_lbl, yr_lbl)
   ttl_c <- (titles %||% NULL)[3] %||%
     sprintf("C. SPI and NPAFP classification (%s)", yr_lbl)
 
@@ -828,8 +920,8 @@ spi_compare_npafp_maps <- function(
       values = pal_b, drop = FALSE, limits = names(pal_b),
       na.value = "grey85",
       name = .wrap_lines(sprintf(
-        "Posterior median SPI (%d); red = below %g",
-        yr, spi_threshold
+        "%s (%d); red = below %g",
+        spi_lbl, yr, spi_threshold
       ))
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(

@@ -4,7 +4,9 @@
 #' Creates a one-page district report from a [spi_field_guide()] result. It
 #' includes the review label, an SPI chart with a 90% credible interval
 #' and detection markers, the five STEPS components, and a summary of the
-#' findings that support the label.
+#' findings that support the label. For a guide built from [spi_simple()]
+#' results, the chart has no interval band. The strength component compares
+#' the SPI value with the selected cutoff.
 #'
 #' @details
 #' The report is static HTML with an SVG chart. It works offline, using system
@@ -556,7 +558,11 @@ as.character.spi_pager <- function(x, ...) {
       verdict = verdict,
       accent = "#c8102e",
       tag = "Priority for review",
-      state = "low SPI \u00b7 interval below 1 \u00b7 supported"
+      state = if (.fg_has_cri(focal)) {
+        "low SPI \u00b7 interval below 1 \u00b7 supported"
+      } else {
+        "low SPI \u00b7 supported"
+      }
     ),
     "Monitor" = list(
       verdict = verdict,
@@ -564,7 +570,7 @@ as.character.spi_pager <- function(x, ...) {
       tag = "Monitor",
       # a district is held at monitor for one of three reasons, and the page
       # prints the interval bounds a few lines down, so name the right one
-      state = if (!isTRUE(focal$cri_excludes_1)) {
+      state = if (.pager_cri_includes_1(focal)) {
         "below cutoff \u00b7 interval includes 1"
       } else if (!.fg_gate_pass(focal)) {
         "below cutoff \u00b7 noise not ruled out"
@@ -676,22 +682,25 @@ as.character.spi_pager <- function(x, ...) {
     )
   }
 
-  # focal 90% credible-interval ribbon (real per-year q05-q95)
-  up <- vapply(
-    seq_len(n),
-    function(i) paste0(fnum(px(i - 1)), ",", fnum(py(min(hi[i], y_max)))),
-    character(1)
-  )
-  dn <- rev(vapply(
-    seq_len(n),
-    function(i) paste0(fnum(px(i - 1)), ",", fnum(py(lo[i]))),
-    character(1)
-  ))
-  s <- paste0(
-    s, "<path d=\"M ", paste(up, collapse = " L "), " L ",
-    paste(dn, collapse = " L "), " Z\" fill=\"", accent,
-    "\" fill-opacity=\"0.12\" stroke=\"none\"/>"
-  )
+  # focal 90% credible-interval ribbon (real per-year q05-q95); the simple
+  # SPI has no interval, so it draws no ribbon
+  if (any(is.finite(hi))) {
+    up <- vapply(
+      seq_len(n),
+      function(i) paste0(fnum(px(i - 1)), ",", fnum(py(min(hi[i], y_max)))),
+      character(1)
+    )
+    dn <- rev(vapply(
+      seq_len(n),
+      function(i) paste0(fnum(px(i - 1)), ",", fnum(py(lo[i]))),
+      character(1)
+    ))
+    s <- paste0(
+      s, "<path d=\"M ", paste(up, collapse = " L "), " L ",
+      paste(dn, collapse = " L "), " Z\" fill=\"", accent,
+      "\" fill-opacity=\"0.12\" stroke=\"none\"/>"
+    )
+  }
 
   # plot frame
   s <- paste0(
@@ -944,6 +953,13 @@ as.character.spi_pager <- function(x, ...) {
   !isTRUE(r$spi_below) && isTRUE(r$cri_excludes_1)
 }
 
+# below the cut with an interval that reaches 1. Only a model-based reading
+# has an interval; a simple SPI never takes this branch.
+# @noRd
+.pager_cri_includes_1 <- function(r) {
+  .fg_has_cri(r) && !isTRUE(r$cri_excludes_1)
+}
+
 # can this figure be held to its target? only where there is a target, a value,
 # and enough cases behind it to mean anything. Shared by the wording and the
 # colouring so the two cannot drift apart.
@@ -1124,7 +1140,7 @@ as.character.spi_pager <- function(x, ...) {
     ))
   }
   if (!isTRUE(focal$spi_below)) return("")
-  if (!isTRUE(focal$cri_excludes_1)) {
+  if (.pager_cri_includes_1(focal)) {
     return("Low SPI \u00b7 interval includes 1")
   }
   if (!.fg_gate_pass(focal)) {
@@ -1282,17 +1298,28 @@ as.character.spi_pager <- function(x, ...) {
       "SPI is %s, at or above the %s %s; no additional review under this rule.",
       spi, cut, cut_word
     )
-  } else if (!isTRUE(r$cri_excludes_1)) {
+  } else if (.pager_cri_includes_1(r)) {
     sprintf(
       paste0("SPI is %s: %s reported against %s expected. The 90%% interval ",
              "(%s\u2013%s) includes 1, so the shortfall is uncertain."),
       spi, detected, exp, q05, q95
+    )
+  } else if (!.fg_has_cri(r) && !.fg_gate_pass(r)) {
+    sprintf(
+      paste0("SPI is %s, below the %s %s, but a count this small could fall ",
+             "this short by chance alone."),
+      spi, cut, cut_word
     )
   } else if (!.fg_gate_pass(r)) {
     sprintf(
       paste0("SPI is %s, with its 90%% interval (%s\u2013%s) wholly below 1, ",
              "but a count this small could fall this short by chance alone."),
       spi, q05, q95
+    )
+  } else if (!.fg_has_cri(r)) {
+    sprintf(
+      "SPI is %s, below the %s %s: %s reported against %s expected.%s",
+      spi, cut, cut_word, detected, exp, .pager_noise_note(r, params)
     )
   } else if (zero_count) {
     sprintf(
@@ -1495,7 +1522,7 @@ as.character.spi_pager <- function(x, ...) {
     # produce the shortfall, unless a noise gate already ruled it out
     detail <- if (zero) {
       " SPI is 0 because no cases were reported."
-    } else if (!isTRUE(focal$cri_excludes_1)) {
+    } else if (.pager_cri_includes_1(focal)) {
       sprintf(" SPI is %s, but the shortfall is uncertain%s.", below,
               if (obs < few_cases) " with so few cases" else "")
     } else if (is.null(params$noise_alpha) &&
@@ -1562,7 +1589,7 @@ as.character.spi_pager <- function(x, ...) {
     ))
   }
   if (verdict == "Monitor") {
-    reason <- if (!isTRUE(focal$cri_excludes_1)) {
+    reason <- if (.pager_cri_includes_1(focal)) {
       "uncertainty remains"
     } else if (!.fg_gate_pass(focal)) {
       "a count this small could fall this short by chance alone"
@@ -1773,7 +1800,11 @@ as.character.spi_pager <- function(x, ...) {
     "</div>",
     "<div class=\"legend\">",
     "<span><span class=\"lk\"></span> ", name, "</span>",
-    "<span><span class=\"lband\"></span> 90% credible interval</span>",
+    if (.fg_has_cri(focal)) {
+      "<span><span class=\"lband\"></span> 90% credible interval</span>"
+    } else {
+      ""
+    },
     "<span><span class=\"lk exp\"></span> 1.0, SPI reference</span>",
     legend_detect,
     "</div>",

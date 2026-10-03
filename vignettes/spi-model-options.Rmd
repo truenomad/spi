@@ -12,7 +12,7 @@ vignette: >
 
 
 
-The default SPI model uses a negative binomial distribution for counts and no additional explanatory variables (covariates). The negative binomial distribution allows counts to vary more than a Poisson distribution would. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period. These options apply to the model-based SPI (`spi_index()`), not to the direct SPI.
+The default SPI model uses a negative binomial distribution for counts and no additional explanatory variables (covariates). The negative binomial distribution allows counts to vary more than a Poisson distribution would. This article shows how to assess the effects of covariates, observation models, spatial structure, and the training period. These options apply to the model-based SPI (`spi_index()`), not to the simple SPI.
 
 The examples use the bundled synthetic data. Model fitting requires INLA and can take several minutes.
 
@@ -65,9 +65,9 @@ summary(fit_adj)$effects |>
   dplyr::select(covariate, rr_median, rr_q025, rr_q975, signif)
 #> # A tibble: 3 x 5
 #>   covariate       rr_median rr_q025 rr_q975 signif
-#>   <chr>               <dbl>   <dbl>   <dbl> <lgl> 
-#> 1 dtp3                1.00    0.953    1.05 FALSE 
-#> 2 urban_prop          1.03    0.938    1.13 FALSE 
+#>   <chr>               <dbl>   <dbl>   <dbl> <lgl>
+#> 1 dtp3                1.00    0.953    1.05 FALSE
+#> 2 urban_prop          1.03    0.938    1.13 FALSE
 #> 3 travel_time_min     0.991   0.968    1.01 FALSE
 ```
 
@@ -96,9 +96,9 @@ od$summary
 #> # A tibble: 3 x 11
 #>   spec  n_obs    dic   waic p_eff sd_spatial phi_spatial phi_pegged sd_extra
 #>   <chr> <int>  <dbl>  <dbl> <dbl>      <dbl>       <dbl> <lgl>         <dbl>
-#> 1 none  28320 81917. 81996.  241.      0.865       0.928 FALSE        NA    
+#> 1 none  28320 81917. 81996.  241.      0.865       0.928 FALSE        NA
 #> 2 iid   28320 79563. 79528. 5667.      0.864       0.926 FALSE         0.423
-#> 3 nb    28320 80299. 80296.  240.      0.867       0.934 FALSE        NA    
+#> 3 nb    28320 80299. 80296.  240.      0.867       0.934 FALSE        NA
 #> # i 2 more variables: cpo_valid <dbl>, pit_ks <dbl>
 ```
 
@@ -132,9 +132,9 @@ To skip the manual step, `spi_expected(overdispersion = "auto")` runs this same 
 adj <- spi_adjacency(synth$boundaries, id_col = "adm2_guid")
 adj
 #> Neighbour list object:
-#> Number of regions: 236 
-#> Number of nonzero links: 1,320 
-#> Percentage nonzero weights: 2.3700 
+#> Number of regions: 236
+#> Number of nonzero links: 1,320
+#> Percentage nonzero weights: 2.3700
 #> Average number of links: 5.5932
 ```
 
