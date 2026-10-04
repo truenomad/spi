@@ -3,7 +3,7 @@ message: "If you use spi in your work, please cite it using the citation below."
 type: software
 
 title: "spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting"
-version: 0.2.0
+version: 0.3.0
 doi: "10.5281/zenodo.23008378"
 
 abstract: >-
@@ -28,7 +28,7 @@ authors:
 license: MIT
 repository-code: "https://github.com/truenomad/spi"
 url: "https://truenomad.github.io/spi/"
-date-released: "2026-09-28"
+date-released: "2026-10-04"
 
 keywords:
   - polio
