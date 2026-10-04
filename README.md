@@ -319,13 +319,13 @@ To cite `spi` in publications, run `citation("spi")` in R, or use:
 
 > Yusuf, Mohamed A. and Nnanatu, Chibuzor Christopher (2026). *spi:
 > Bayesian Spatiotemporal Modelling of Relative AFP Reporting*. R
-> package version 0.2.0. <https://doi.org/10.5281/zenodo.23008378>
+> package version 0.3.0. <https://doi.org/10.5281/zenodo.23008378>
 
     @Manual{spi,
       title  = {spi: Bayesian Spatiotemporal Modelling of Relative AFP Reporting},
       author = {Mohamed A. Yusuf and Chibuzor Christopher Nnanatu},
       year   = {2026},
-      note   = {R package version 0.2.0},
+      note   = {R package version 0.3.0},
       url    = {https://github.com/truenomad/spi},
       doi    = {10.5281/zenodo.23008378},
     }
