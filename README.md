@@ -122,12 +122,12 @@ spi_simple_dy$summary |>
   dplyr::slice_head(n = 6)
 #> # A tibble: 6 x 7
 #>   adm2_guid                     year observed expected    oe   spi history_check
-#>   <chr>                        <int>    <dbl>    <dbl> <dbl> <dbl> <chr>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88~  2018        2     1.08 1.86  1.69  ok
-#> 2 {040649D0-A0BA-C005-ADEF-90~  2018        7     6.74 1.04  0.946 ok
-#> 3 {04CBADAF-5577-E1AB-12F7-49~  2018       11    25.7  0.428 0.391 ok
-#> 4 {0673C3E5-5534-6578-70F4-B6~  2018       52    40.6  1.28  1.17  ok
-#> 5 {069B1B50-BB32-0C5A-DC20-C9~  2018        2     2.49 0.803 0.732 ok
+#>   <chr>                        <int>    <dbl>    <dbl> <dbl> <dbl> <chr>        
+#> 1 {01325AA0-BEA1-66FE-9B5C-88~  2018        2     1.08 1.86  1.69  ok           
+#> 2 {040649D0-A0BA-C005-ADEF-90~  2018        7     6.74 1.04  0.946 ok           
+#> 3 {04CBADAF-5577-E1AB-12F7-49~  2018       11    25.7  0.428 0.391 ok           
+#> 4 {0673C3E5-5534-6578-70F4-B6~  2018       52    40.6  1.28  1.17  ok           
+#> 5 {069B1B50-BB32-0C5A-DC20-C9~  2018        2     2.49 0.803 0.732 ok           
 #> 6 {07BC4455-2DED-3E72-89F5-F1~  2018        4     9.65 0.415 0.378 ok
 ```
 
@@ -142,34 +142,34 @@ spi_simple_explain(
   district = spi_simple_dy$summary$adm2_guid[1],
   year = 2023
 )
-#>
+#> 
 #> -- District {01325AA0-BEA1-66FE-9B5C-88AA603382F3}, 2023 -----------------------
-#>
+#> 
 #> -- Current reporting --
-#>
+#> 
 #> Observed NPAFP cases                  1
 #> Current population under 15     205 717
 #> NPAFP rate                         0.49
-#>
+#> 
 #> -- Previous reporting --
-#>
+#> 
 #> Previous years                        8
 #> Previous NPAFP cases                 16
 #> Previous child-years          1 526 968
 #> Previous rate                      1.05
-#>
+#> 
 #> -- Expected reporting --
-#>
+#> 
 #> Expected NPAFP cases               2.16
-#>
+#> 
 #> -- SPI --
-#>
+#> 
 #> District observed / expected       0.46
 #> National observed / expected       1.14
 #> SPI                                0.41
-#>
+#> 
 #> -- Data checks --
-#>
+#> 
 #> Population check                no flag
 ```
 
@@ -220,12 +220,12 @@ spi_dy |>
 #> # A tibble: 6 x 5
 #>   adm2_guid                               year spi_median spi_q05 spi_q95
 #>   <chr>                                  <dbl>      <dbl>   <dbl>   <dbl>
-#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018      0.882   0.492   1.65
-#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2019      1.98    1.13    3.71
-#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2020      1.17    0.703   2.00
-#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2021      1.08    0.621   1.91
-#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2022      0.818   0.453   1.44
-#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2023      0.361   0.205   0.593
+#> 1 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2018      0.890   0.507   1.63 
+#> 2 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2019      2.00    1.16    3.38 
+#> 3 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2020      1.18    0.753   1.86 
+#> 4 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2021      1.09    0.758   1.65 
+#> 5 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2022      0.812   0.529   1.20 
+#> 6 {01325AA0-BEA1-66FE-9B5C-88AA603382F3}  2023      0.369   0.259   0.531
 ```
 
 `spi_dy$national` contains the national observed-to-expected ratio. Set

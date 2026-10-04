@@ -279,19 +279,19 @@ test_that("centring is per assessment year", {
   expect_false("national_oe" %in% names(raw$summary))
 
   # one national ratio per assessment year, from that year's rows only
-  nat <- raw$summary |>
-    dplyr::summarise(oe = sum(observed) / sum(expected_total), .by = "year")
-  expect_identical(cen$national$year, nat$year)
-  expect_equal(cen$national$national_oe, nat$oe)
-  ratio <- nat$oe[match(cen$summary$year, nat$year)]
-  expect_equal(cen$summary$national_oe, ratio)
-  expect_equal(cen$summary$spi_median, raw$summary$spi_median / ratio)
-  expect_equal(cen$draws, sweep(raw$draws, 2, ratio, "/"))
-  chk <- cen$summary |>
-    dplyr::summarise(
-      oe = sum(observed) / sum(expected_total * national_oe), .by = "year"
-    )
-  expect_equal(chk$oe, rep(1, 3))
+  nat_obs <- raw$summary |>
+    dplyr::summarise(observed = sum(observed), .by = "year")
+  expect_identical(cen$national$year, nat_obs$year)
+  expect_equal(cen$national$national_observed, nat_obs$observed)
+  key <- match(cen$summary$year, cen$national$year)
+  expect_equal(cen$summary$national_oe, cen$national$national_oe[key])
+  # each year's draws are divided by that year's per-draw national ratio
+  exp_draws <- sweep(1 / raw$draws, 2, raw$summary$observed, "*")
+  nat_draws <- vapply(seq_len(nrow(nat_obs)), \(k) {
+    nat_obs$observed[k] / rowSums(exp_draws[, key == k, drop = FALSE])
+  }, numeric(nrow(raw$draws)))
+  expect_equal(cen$draws, raw$draws / nat_draws[, key])
+  expect_equal(cen$summary$spi_median, matrixStats::colMedians(cen$draws))
 })
 
 test_that("boundaries attach admin names to the summary", {

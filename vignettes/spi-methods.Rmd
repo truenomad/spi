@@ -108,11 +108,11 @@ $$
 The annual median is therefore taken after summing months. The default index is calculated for each draw as
 
 $$
-\text{SPI}_{iy}^{(s)} = \frac{O_{iy}/E_{iy}^{(s)}}{r_y}, \qquad
-r_y = \frac{\sum_i O_{iy}}{\sum_i \widetilde{E}_{iy}}
+\text{SPI}_{iy}^{(s)} = \frac{O_{iy}/E_{iy}^{(s)}}{r_y^{(s)}}, \qquad
+r_y^{(s)} = \frac{\sum_i O_{iy}}{\sum_i E_{iy}^{(s)}}
 $$
 
-The national denominator is the sum of district posterior medians. The national ratio $r_y$ is held fixed when scaling posterior draws; uncertainty in that ratio is not propagated. SPI medians and credible intervals summarise the resulting draws. They reflect uncertainty in the expected counts, conditional on observed counts and this fixed national ratio, and do not include extra variation from simulated future counts. In particular, zero observed cases give zero SPI in every draw when the expected counts and national ratio are positive.
+The national ratio is calculated within the same draw as the district ratio. Uncertainty shared by every district in a year, such as a common year effect, therefore cancels before the medians and credible intervals are taken. Within each draw, the expected-count-weighted mean of the centred index is exactly 1. SPI medians and credible intervals summarise the centred draws. They reflect uncertainty in the expected counts, conditional on observed counts, and do not include extra variation from simulated future counts. `spi_dy$national` reports $\sum_i O_{iy}$ divided by the median of $\sum_i E_{iy}^{(s)}$. In particular, zero observed cases give zero SPI in every draw when the expected counts and national ratio are positive.
 
 National sums include rows with finite observed counts and finite, positive expected counts. A year with no observed cases nationally has an undefined centred SPI, returned as `NA`. `centre = "none"` returns the uncentred observed-to-expected ratio.
 

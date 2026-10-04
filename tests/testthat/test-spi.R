@@ -208,27 +208,58 @@ test_that("SPI footnote + flag helpers cover every branch", {
   expect_match(spi:::.note_cri(0.8, "flag"), "not surveillance adequacy")
 })
 
-test_that("national centring divides by the period's summed O/E", {
+test_that("national centring divides each draw by that draw's national O/E", {
   fit <- make_expected(id_col = "adm2_guid")
   raw <- .spi_aggregate(
     fit, level = "district_year", centre = "none", verbose = FALSE
   )
   cen <- .spi_aggregate(fit, level = "district_year", verbose = FALSE)
   expect_identical(cen$centre, "national")
-  nat <- raw$summary |>
-    dplyr::summarise(oe = sum(observed) / sum(expected_total), .by = "year")
-  expect_equal(cen$national$national_oe, nat$oe)
-  ratio <- nat$oe[match(cen$summary$year, nat$year)]
-  for (col in c("spi_median", "spi_q05", "spi_q95")) {
-    expect_equal(cen$summary[[col]], raw$summary[[col]] / ratio)
+
+  year <- .window_year(fit$data$month, 12L)
+  yrs <- unique(raw$summary$year)
+  nat_draws <- vapply(yrs, \(y) {
+    sum(fit$data$count[year == y]) /
+      rowSums(fit$draws[, year == y, drop = FALSE])
+  }, numeric(nrow(fit$draws)))
+  key <- match(raw$summary$year, yrs)
+  expect_equal(cen$draws, raw$draws / nat_draws[, key])
+  expect_equal(
+    cen$summary$spi_median, matrixStats::colMedians(cen$draws)
+  )
+  nat_obs <- vapply(yrs, \(y) sum(fit$data$count[year == y]), numeric(1))
+  expect_equal(
+    cen$national$national_oe,
+    nat_obs / matrixStats::colMedians(sweep(1 / nat_draws, 2, nat_obs, "*"))
+  )
+  # within each draw, the expected-weighted centred index is exactly one
+  exp_draws <- sweep(1 / raw$draws, 2, raw$summary$observed, "*")
+  for (k in seq_along(yrs)) {
+    j <- key == k
+    w <- rowSums(cen$draws[, j] * exp_draws[, j]) / rowSums(exp_draws[, j])
+    expect_equal(w, rep(1, nrow(fit$draws)))
   }
-  expect_equal(cen$draws, sweep(raw$draws, 2, ratio, "/"))
-  # each year's centred index sums back to national parity
-  chk <- cen$summary |>
-    dplyr::summarise(
-      oe = sum(observed) / sum(expected_total * national_oe), .by = "year"
-    )
-  expect_equal(chk$oe, rep(1, nrow(chk)))
+})
+
+test_that("centring cancels uncertainty shared by every district", {
+  # two districts whose expected counts move together across draws
+  expected <- outer(exp(seq(-1, 1, length.out = 1001)), c(10, 20))
+  observed <- c(5, 20)
+  spi_obj <- list(
+    draws = sweep(1 / expected, 2, observed, "*"),
+    summary = tibble::tibble(
+      year = 2020L, observed = observed,
+      expected_total = matrixStats::colMedians(expected),
+      spi_median = 0, spi_mean = 0, spi_q05 = 0, spi_q10 = 0,
+      spi_q90 = 0, spi_q95 = 0
+    ),
+    expected = expected
+  )
+  cen <- .centre_spi(spi_obj, "year")
+  expect_equal(cen$summary$spi_median, c(0.6, 1.2))
+  expect_equal(cen$summary$spi_q05, c(0.6, 1.2))
+  expect_equal(cen$summary$spi_q95, c(0.6, 1.2))
+  expect_gt(stats::quantile(spi_obj$draws[, 1], 0.95), 1)
 })
 
 test_that("centre = 'none' leaves the index untouched", {

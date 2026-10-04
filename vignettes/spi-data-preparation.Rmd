@@ -105,16 +105,16 @@ spi_results <- spi_simple(afp_data)
 #> ℹ Calculating expected cases for 7 assessment years (2018-2024)...
 #> ✔ SPI calculated for 1644 district-years.
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Simple SPI summary ──
-#>
+#> 
 #> ── Formulas used
 #> history_rate = preceding cases / preceding population x 100 000
 #> expected = pop x history_rate / 100 000
 #> oe = observed / expected
 #> spi = oe / national_oe
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Data overview (2024)
 #> Districts assessed: 236
 #> Reported NPAFP cases (all districts): 6 085
@@ -126,7 +126,7 @@ spi_results <- spi_simple(afp_data)
 #> national ratio
 #> Population flags: 0
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Results by year
 #> ────────────────────────────────────────────────────────────────────────────────
 ```
@@ -149,16 +149,16 @@ spi_results <- spi_simple(
 #> ℹ Calculating expected cases for 7 assessment years (2018-2024)...
 #> ✔ SPI calculated for 1644 district-years.
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Simple SPI summary ──
-#>
+#> 
 #> ── Formulas used
 #> history_rate = preceding cases / preceding population x 100 000
 #> expected = pop x history_rate / 100 000
 #> oe = observed / expected
 #> spi = oe / national_oe
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Data overview (2024)
 #> Districts assessed: 236
 #> Reported NPAFP cases (all districts): 6 085
@@ -170,7 +170,7 @@ spi_results <- spi_simple(
 #> national ratio
 #> Population flags: 0
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Results by year
 #> ────────────────────────────────────────────────────────────────────────────────
 ```
@@ -197,16 +197,16 @@ spi_results <- spi_simple(
 #> ℹ Calculating expected cases for 7 assessment years (2018-2024)...
 #> ✔ SPI calculated for 1644 district-years.
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Simple SPI summary ──
-#>
+#> 
 #> ── Formulas used
 #> history_rate = preceding cases / preceding population x 100 000
 #> expected = pop x history_rate / 100 000
 #> oe = observed / expected
 #> spi = oe / national_oe
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Data overview (2024)
 #> Districts assessed: 236
 #> Reported NPAFP cases (all districts): 6 085
@@ -218,7 +218,7 @@ spi_results <- spi_simple(
 #> national ratio
 #> Population flags: 0
 #> ────────────────────────────────────────────────────────────────────────────────
-#>
+#> 
 #> ── Results by year
 #> ────────────────────────────────────────────────────────────────────────────────
 ```
@@ -246,9 +246,9 @@ res_harad <- spi_simple(
 )
 
 res_harad
-#>
+#> 
 #> ── Simple SPI ──
-#>
+#> 
 #> Assessment years:   2018-2024
 #> Districts:          236
 #> Latest assessment:  2024
@@ -319,7 +319,7 @@ spi_check_inputs(
   shapefile = synth_surveillance$boundaries,
   id_col = "adm2_guid"
 )
-#>
+#> 
 #> ── spi input check ─────────────────────────────────────────────────────────────
 #> ✔ All input checks passed -- 236 districts x 120 months (2015-01 to 2024-12).
 ```

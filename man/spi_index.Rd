@@ -112,7 +112,8 @@ as low-information.}
 \item{centre}{The \code{centre} argument used.}
 \item{national}{Tibble of the national observed-to-expected ratio per
 period (\code{national_observed}, \code{national_expected}, \code{national_oe},
-\code{districts}), or \code{NULL} when \code{centre = "none"}.}
+\code{districts}), or \code{NULL} when \code{centre = "none"}. \code{national_expected} is
+the median of the summed expected draws.}
 \item{windows}{Tibble with one row per assessment year: \code{year},
 \code{window_start}, \code{window_end}, \code{training_start}, \code{training_end} (first
 days of months), \code{months} and \code{districts}.}
@@ -149,15 +150,17 @@ summed across years draw by draw, so these summaries do not describe a
 joint posterior distribution across years.
 
 With \code{centre = "national"}, every district's SPI draws for a period are
-further divided by that period's national observed-to-expected ratio
-(summed observed over summed median-expected, across districts). This
-compares the district ratio with the national ratio. District SPI can
-stay unchanged when district and national ratios change together, so
-review the national ratio separately. Because a draw-level quantile scales
-with a positive constant, dividing \code{spi_median}, \code{spi_q05} and \code{spi_q95} by
-the same ratio gives the same result as dividing the draws first and
-re-summarising. A period with no reported cases nationally has no ratio to
-divide by; its rows become \code{NA} and a warning names the affected periods.
+further divided by that period's national observed-to-expected ratio,
+computed within the same posterior draw (summed observed over the summed
+expected draw, across districts). This compares the district ratio with
+the national ratio. Uncertainty shared by every district in a period, such
+as a common year effect, cancels before \code{spi_median}, \code{spi_q05} and
+\code{spi_q95} are taken from the centred draws. District SPI can stay unchanged
+when district and national ratios change together, so review the national
+ratio separately. \verb{$national} reports summed observed over the median
+summed expected count. A period with no reported cases nationally has no
+ratio to divide by; its rows become \code{NA} and a warning names the affected
+periods.
 
 An assessment year with fewer than 12 months of data is kept, and a warning
 names it. At \code{level = "district_year"}, the \code{n_months} column shows how many

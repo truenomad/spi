@@ -88,7 +88,8 @@
 #'   \item{centre}{The `centre` argument used.}
 #'   \item{national}{Tibble of the national observed-to-expected ratio per
 #'     period (`national_observed`, `national_expected`, `national_oe`,
-#'     `districts`), or `NULL` when `centre = "none"`.}
+#'     `districts`), or `NULL` when `centre = "none"`. `national_expected` is
+#'     the median of the summed expected draws.}
 #'   \item{windows}{Tibble with one row per assessment year: `year`,
 #'     `window_start`, `window_end`, `training_start`, `training_end` (first
 #'     days of months), `months` and `districts`.}
@@ -107,15 +108,17 @@
 #' joint posterior distribution across years.
 #'
 #' With `centre = "national"`, every district's SPI draws for a period are
-#' further divided by that period's national observed-to-expected ratio
-#' (summed observed over summed median-expected, across districts). This
-#' compares the district ratio with the national ratio. District SPI can
-#' stay unchanged when district and national ratios change together, so
-#' review the national ratio separately. Because a draw-level quantile scales
-#' with a positive constant, dividing `spi_median`, `spi_q05` and `spi_q95` by
-#' the same ratio gives the same result as dividing the draws first and
-#' re-summarising. A period with no reported cases nationally has no ratio to
-#' divide by; its rows become `NA` and a warning names the affected periods.
+#' further divided by that period's national observed-to-expected ratio,
+#' computed within the same posterior draw (summed observed over the summed
+#' expected draw, across districts). This compares the district ratio with
+#' the national ratio. Uncertainty shared by every district in a period, such
+#' as a common year effect, cancels before `spi_median`, `spi_q05` and
+#' `spi_q95` are taken from the centred draws. District SPI can stay unchanged
+#' when district and national ratios change together, so review the national
+#' ratio separately. `$national` reports summed observed over the median
+#' summed expected count. A period with no reported cases nationally has no
+#' ratio to divide by; its rows become `NA` and a warning names the affected
+#' periods.
 #'
 #' An assessment year with fewer than 12 months of data is kept, and a warning
 #' names it. At `level = "district_year"`, the `n_months` column shows how many
@@ -537,7 +540,7 @@ spi_index <- function(
     .spi_summarise(draws, spi_draws)
   )
 
-  list(draws = spi_draws, summary = summary_tbl)
+  list(draws = spi_draws, summary = summary_tbl, expected = draws)
 }
 
 # SPI at district-quarter level
@@ -568,7 +571,7 @@ spi_index <- function(
     .spi_summarise(exp_sum_draws, spi_draws)
   )
 
-  list(draws = spi_draws, summary = summary_tbl)
+  list(draws = spi_draws, summary = summary_tbl, expected = exp_sum_draws)
 }
 
 # SPI at district-year level
@@ -604,7 +607,7 @@ spi_index <- function(
     .spi_summarise(exp_sum_draws, spi_draws)
   )
 
-  list(draws = spi_draws, summary = summary_tbl)
+  list(draws = spi_draws, summary = summary_tbl, expected = exp_sum_draws)
 }
 
 # SPI at district-total level
@@ -631,7 +634,7 @@ spi_index <- function(
     .spi_summarise(exp_sum_draws, spi_draws)
   )
 
-  list(draws = spi_draws, summary = summary_tbl)
+  list(draws = spi_draws, summary = summary_tbl, expected = exp_sum_draws)
 }
 
 # sum draws columns within each group; returns [n_draws x n_groups]

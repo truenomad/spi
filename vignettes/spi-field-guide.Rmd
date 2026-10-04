@@ -80,8 +80,8 @@ comparison$district_year |>
 #> # A tibble: 4 x 2
 #>   category                 district_years
 #>   <fct>                             <int>
-#> 1 Neither below                       680
-#> 2 SPI below threshold only            741
+#> 1 Neither below                       691
+#> 2 SPI below threshold only            730
 #> 3 NPAFP below target only              29
 #> 4 Both below                          202
 ```
@@ -158,23 +158,23 @@ fg
 #> # A tibble: 3 x 3
 #>   verdict                 n   pct
 #>   <chr>               <int> <dbl>
-#> 1 Priority for review    60  25.4
-#> 2 Monitor                83  35.2
+#> 1 Priority for review    86  36.4
+#> 2 Monitor                57  24.2
 #> 3 No SPI indication      93  39.4
-#> # A tibble: 60 x 11
+#> # A tibble: 86 x 11
 #>    district   obs   exp   spi cri       npafp extent persist transport adequacy
 #>    <chr>    <int> <dbl> <dbl> <chr>     <dbl> <lgl>  <lgl>       <dbl>    <dbl>
 #>  1 Khandor      0   2.2   0   0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  2 Vasheth      0   0.7   0   0.00-0.00   0   TRUE   FALSE          NA       NA
 #>  3 Arddor       0   1.6   0   0.00-0.00   0   TRUE   TRUE           NA       NA
-#>  4 Ardor        0   1.2   0   0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  4 Ardor        0   1.1   0   0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  5 Doloth       0   1.1   0   0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  6 Raenan       0   1     0   0.00-0.00   0   TRUE   TRUE           NA       NA
 #>  7 Chakis       0   1.7   0   0.00-0.00   0   TRUE   TRUE           NA       NA
-#>  8 Vashoth      0   2.1   0   0.00-0.00   0   TRUE   TRUE           NA       NA
-#>  9 Nentha       2  15     0.1 0.07-0.15   2   TRUE   FALSE         100      100
-#> 10 Suzil        1   7.7   0.1 0.06-0.15   1.6 TRUE   TRUE          100      100
-#> # i 50 more rows
+#>  8 Vashoth      0   2.2   0   0.00-0.00   0   TRUE   TRUE           NA       NA
+#>  9 Nentha       2  14.9   0.1 0.09-0.12   2   TRUE   FALSE         100      100
+#> 10 Suzil        1   7.7   0.1 0.08-0.12   1.6 TRUE   TRUE          100      100
+#> # i 76 more rows
 #> # i 1 more variable: verdict <chr>
 ```
 
@@ -192,12 +192,12 @@ fg$focal |>
 #> # A tibble: 6 x 7
 #>   adm2_name verdict n_cases pct_transport_timely timeliness_concern pct_adequate
 #>   <chr>     <fct>     <int>                <dbl> <lgl>                     <dbl>
-#> 1 Khandor   Priori~       0                 NA   NA                         NA
+#> 1 Khandor   Priori~       0                 NA   NA                         NA  
 #> 2 Yolar     No SPI~      12                 66.7 TRUE                       91.7
 #> 3 Ostan     No SPI~      43                 66.7 TRUE                       79.1
 #> 4 Hartha    Monitor      68                 97.0 FALSE                      88.2
-#> 5 Munis     Priori~       1                100   NA                        100
-#> 6 Zimmar    No SPI~      15                 80   FALSE                      60
+#> 5 Munis     Priori~       1                100   NA                        100  
+#> 6 Zimmar    No SPI~      15                 80   FALSE                      60  
 #> # i 1 more variable: adequacy_concern <lgl>
 ```
 
@@ -254,15 +254,15 @@ purrr::map(c(1, 0.8, 0.6), function(cut) {
 #> # A tibble: 9 x 3
 #>   verdict             district_years spi_cut
 #>   <fct>                        <int>   <dbl>
-#> 1 Priority for review             60     1
-#> 2 Monitor                         83     1
-#> 3 No SPI indication               93     1
-#> 4 Priority for review             49     0.8
-#> 5 Monitor                         42     0.8
+#> 1 Priority for review             86     1  
+#> 2 Monitor                         57     1  
+#> 3 No SPI indication               93     1  
+#> 4 Priority for review             60     0.8
+#> 5 Monitor                         31     0.8
 #> 6 No SPI indication              145     0.8
-#> 7 Priority for review             40     0.6
-#> 8 Monitor                         17     0.6
-#> 9 No SPI indication              179     0.6
+#> 7 Priority for review             37     0.6
+#> 8 Monitor                         18     0.6
+#> 9 No SPI indication              181     0.6
 ```
 
 ## Changing the classification rule
@@ -297,14 +297,14 @@ dplyr::bind_rows(
 #> # A tibble: 8 x 3
 #>   spi_rule category                     n
 #>   <chr>    <fct>                    <int>
-#> 1 median   Neither below              680
-#> 2 median   SPI below threshold only   741
+#> 1 median   Neither below              691
+#> 2 median   SPI below threshold only   730
 #> 3 median   NPAFP below target only     29
 #> 4 median   Both below                 202
-#> 5 interval Neither below             1040
-#> 6 interval SPI below threshold only   381
-#> 7 interval NPAFP below target only     56
-#> 8 interval Both below                 175
+#> 5 interval Neither below              896
+#> 6 interval SPI below threshold only   525
+#> 7 interval NPAFP below target only     52
+#> 8 interval Both below                 179
 
 dplyr::bind_rows(
   median = label_counts(comparison),
@@ -314,12 +314,12 @@ dplyr::bind_rows(
 #> # A tibble: 6 x 3
 #>   spi_rule verdict             district_years
 #>   <chr>    <fct>                        <int>
-#> 1 median   Priority for review             60
-#> 2 median   Monitor                         83
+#> 1 median   Priority for review             86
+#> 2 median   Monitor                         57
 #> 3 median   No SPI indication               93
-#> 4 interval Priority for review             60
-#> 5 interval Monitor                         15
-#> 6 interval No SPI indication              161
+#> 4 interval Priority for review             86
+#> 5 interval Monitor                         21
+#> 6 interval No SPI indication              129
 ```
 
 ## With the simple SPI
@@ -357,8 +357,8 @@ dplyr::bind_rows(
 #> # A tibble: 6 x 3
 #>   spi    verdict             district_years
 #>   <chr>  <fct>                        <int>
-#> 1 model  Priority for review             60
-#> 2 model  Monitor                         83
+#> 1 model  Priority for review             86
+#> 2 model  Monitor                         57
 #> 3 model  No SPI indication               93
 #> 4 simple Priority for review             25
 #> 5 simple Monitor                         16
@@ -375,3 +375,28 @@ Use `spi_field_guide_table()` to create a `gt` or `flextable` report. `layout = 
 ``` r
 spi_field_guide_table(fg, engine = "gt", layout = "worked")
 ```
+
+<img src="figures/field-guide-table.png" alt="Field guide table: five STEPS components for four districts, cells shaded green for reassuring, amber for intermediate, and rose where the finding adds to concern." width="100%" />
+
+## District report
+
+Create an A4 report for one district, with its SPI trend, map, STEPS findings, and detection context. Pass `indicators_df` to add the NPAFP rate over time and summary boxes for stool adequacy, timeliness, and the enterovirus (EV) isolation rate from environmental samples. The example simulates the notification-to-investigation and EV figures. Set `path` to save HTML and PNG files:
+
+
+``` r
+source(system.file("examples", "pager_indicators.R", package = "spi"))
+indicators <- example_indicators(fg)
+
+spi_field_guide_pager(
+  fg, district = "Tirwen", boundaries = synth$boundaries,
+  id_col = "adm2_guid", indicators_df = indicators, path = "reports/"
+)
+```
+
+The report below uses the bundled `synth_field_guide` example. It shows the district with the lowest non-zero SPI among those labelled `Priority for review` in the latest year:
+
+<img src="figures/field-guide-pager.png" alt="One-page SPI field pager: review label, an SPI chart with a credible interval and a location map, conventional AFP and ES indicators, the five STEPS components, and a review summary." width="100%" />
+
+## Optional context
+
+The optional inputs show poliovirus detections in AFP cases (`detections`) and environmental surveillance (`es`), comparisons with neighbouring districts (`adjacency`), and monthly SPI patterns (`spi_month`). They help a reviewer judge a shortfall, but they do not determine the label.

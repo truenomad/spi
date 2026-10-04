@@ -1,6 +1,6 @@
 Package: spi
 Title: Bayesian Spatiotemporal Modelling of Relative AFP Reporting
-Version: 0.2.0
+Version: 0.3.0
 Authors@R:
     c(person(
         given = "Mohamed",
