@@ -28,7 +28,10 @@ test_that("spi_expected rejects malformed priors", {
   # spi_expected() checks for INLA before it validates; mock that check away so
   # the pure-R validation branches run on CI where INLA is not installed. The
   # abort fires long before any INLA call is reached.
-  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE)
+  )
   v <- mk_valid()
   expect_error(
     spi_expected(v$cases, v$pop, v$adj, prior_phi = "nope"),
@@ -63,7 +66,10 @@ test_that("defaults are the paper specification", {
 })
 
 test_that("spi_expected rejects bad n_draws and unknown spec strings", {
-  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE)
+  )
   v <- mk_valid()
   expect_error(spi_expected(v$cases, v$pop, v$adj, n_draws = 0))
   expect_error(spi_expected(v$cases, v$pop, v$adj, n_draws = 2.5))
@@ -72,7 +78,10 @@ test_that("spi_expected rejects bad n_draws and unknown spec strings", {
 })
 
 test_that("spi_expected validates id / pop columns", {
-  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE)
+  )
   v <- mk_valid()
   expect_error(
     spi_expected(v$cases, v$pop, v$adj, id_col = "not_here"),
@@ -92,7 +101,10 @@ test_that("spi_expected validates id / pop columns", {
 })
 
 test_that("spi_expected validates counts, coverage, and adjacency ids", {
-  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE)
+  )
   v <- mk_valid()
 
   # non-integer counts
@@ -116,7 +128,10 @@ test_that("spi_expected validates counts, coverage, and adjacency ids", {
 })
 
 test_that("spi_expected validates covariate log-transform names", {
-  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE)
+  )
   v <- mk_valid()
   cov <- tibble::tibble(district_id = v$ids, year = 2015L, xcov = 1:4)
   expect_error(
@@ -131,7 +146,10 @@ test_that("spi_expected validates covariate log-transform names", {
 # ---------------------------------------------------------------------------
 
 test_that("spi_expected aborts on error-level inputs before fitting", {
-  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE)
+  )
   v <- mk_valid()
   bad <- v$cases
   bad$count[1] <- -1L
@@ -139,7 +157,10 @@ test_that("spi_expected aborts on error-level inputs before fitting", {
 })
 
 test_that("check = FALSE skips the pre-flight reconciliation", {
-  local_mocked_bindings(.check_pkg = function(...) invisible(TRUE))
+  local_mocked_bindings(
+    .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE)
+  )
   # an id in cases missing from the adjacency: with check = FALSE the pre-flight
   # is skipped and the fit's own adjacency guard fires instead
   v8 <- mk_valid(8L)
@@ -154,6 +175,7 @@ test_that("spi_compare_overdispersion checks inputs exactly once", {
   n <- 0L
   local_mocked_bindings(
     .check_pkg = function(...) invisible(TRUE),
+    .check_inla = function(...) invisible(TRUE),
     spi_check_inputs = function(...) {
       n <<- n + 1L
       structure(
@@ -176,6 +198,7 @@ test_that("spi_compare_overdispersion checks inputs exactly once", {
 })
 
 test_that("spi_compare_overdispersion rejects conflicting arguments", {
+  local_mocked_bindings(.check_inla = function(...) invisible(TRUE))
   v <- mk_valid()
   expect_error(
     spi_compare_overdispersion(v$cases, v$pop, v$adj, specs = c("none")),
