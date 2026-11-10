@@ -136,6 +136,25 @@ reference:
   - spi_expected
   - spi_index
   - spi_compare_overdispersion
+- title: Prepare POLIS data
+  desc: >
+    Place AFP cases in months, build the district by month panel of
+    non-polio AFP cases and the under-15 population panel, and choose the
+    months the model is fitted on and the SPI is read over.
+  contents:
+  - spi_case_date
+  - spi_case_panel
+  - spi_pop_panel
+  - spi_window
+- title: Read SPI over a rolling window
+  desc: >
+    Read SPI over a rolling window from one fit on the full history, for
+    districts or provinces, and classify it against the SPI threshold and
+    the NPAFP target.
+  contents:
+  - spi_rolling_index
+  - spi_window_summary
+  - spi_window_classify
 - title: Compare with the NPAFP target
   desc: >
     Compare simple or model-based SPI with the conventional NPAFP target and

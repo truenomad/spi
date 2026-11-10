@@ -1,3 +1,22 @@
+# spi (development version)
+
+### New features
+
+* `spi_case_date()`, `spi_case_panel()`, `spi_pop_panel()`,
+  `spi_pop_index()`, `spi_window()` and `spi_panel_months()` turn POLIS AFP
+  and population tables into the inputs of `spi_expected()`.
+
+* `spi_window_summary()` reads SPI over a rolling window from one fit on the
+  full history, for districts or for provinces summed within each draw.
+  `spi_index()` is unchanged and still refits per assessment year.
+
+* `spi_window_classify()` sets a rolling-window SPI against its threshold,
+  with the 90% interval rule, and the NPAFP rate against its target. Units
+  with an expected count below `min_expected` are left unclassified.
+
+* `spi_rolling_index()` chains these steps, fitting the model when no fit is
+  given.
+
 # spi 0.3.0
 
 ### Bug fixes
